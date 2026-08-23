@@ -1,0 +1,38 @@
+{
+  "name": "sales-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "atLIB 営業支援ツール（原価見積ツール + ISMS支援プラン診断フォーム）。msp-customer-portalから分離。",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "migrate": "node --env-file=.env -r ts-node/register migrations/runner.ts",
+    "import:market-rates": "node --env-file=.env -r ts-node/register scripts/cost_estimation/import_market_rates.ts",
+    "export:catalog-for-research": "node --env-file=.env -r ts-node/register scripts/cost_estimation/export_catalog_for_research.ts",
+    "import:market-baseline": "node --env-file=.env -r ts-node/register scripts/cost_estimation/import_market_baseline.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
+    "@google-cloud/secret-manager": "^5.6.0",
+    "express": "^4.19.2",
+    "nodemailer": "^9.0.3",
+    "pg": "^8.11.5",
+    "pino": "^9.0.0",
+    "pino-http": "^10.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.12",
+    "@types/nodemailer": "^6.4.17",
+    "@types/pg": "^8.11.6",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.5"
+  }
+}
