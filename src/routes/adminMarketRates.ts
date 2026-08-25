@@ -63,7 +63,7 @@ function validateCrossFields(data: z.infer<typeof marketRateInputSchema>): strin
   return null;
 }
 
-/** requireAdminAuthの配下でマウントされる前提（server.ts側で適用）。adminCustomerApplications.tsと同じ構造。 */
+/** requireStaffAuthの配下でマウントされる前提（server.ts側で適用）。 */
 export function createAdminMarketRatesRouter(repo: MarketRateRepo): Router {
   const router = Router();
 

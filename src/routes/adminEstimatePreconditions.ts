@@ -21,7 +21,7 @@ const updateSchema = z.object({
   isActive: z.boolean(),
 });
 
-/** requireAdminAuthの配下でマウントされる前提（server.ts側で適用）。adminMarketRates.tsと同じ構造。 */
+/** requireStaffAuthの配下でマウントされる前提（server.ts側で適用）。 */
 export function createAdminEstimatePreconditionsRouter(repo: EstimatePreconditionRepo): Router {
   const router = Router();
 

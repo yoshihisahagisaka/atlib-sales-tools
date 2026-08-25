@@ -47,7 +47,7 @@ const statusUpdateSchema = z.object({
   status: statusSchema,
 });
 
-/** requireAdminAuthの配下でマウントされる前提（server.ts側で適用）。adminCustomerApplications.tsと同じ構造。 */
+/** requireStaffAuthの配下でマウントされる前提（server.ts側で適用）。 */
 export function createAdminEstimatesRouter(repo: EstimateRepo): Router {
   const router = Router();
 

@@ -12,7 +12,7 @@ const requestSchema = z.object({
 });
 
 /**
- * requireAdminAuthの配下でマウントされる前提（server.ts側で適用）。adminEstimates.tsと同じ構造。
+ * requireStaffAuthの配下でマウントされる前提（server.ts側で適用）。
  * server.ts側で、このルートだけ既存のグローバルexpress.json()より前に大きめのlimitで
  * express.json()を個別マウントしている（base64 PDFがデフォルトの100KB上限を超えるため）。
  */

@@ -19,9 +19,10 @@ export interface Config {
     password: string;
     from: string;
   };
-  adminAuth: {
-    user: string;
-    password: string;
+  staffAuth: {
+    googleClientId: string;
+    googleClientSecret: string;
+    jwtSecret: string;
   };
   diagnosticNotifyEmail: string; // ISMS診断フォーム: 新規回答の通知先（カンマ区切りで複数可）
   portalBaseUrl: string; // 例: https://sales-tools.atlib.jp（通知メール内の管理画面リンク生成用）
@@ -55,16 +56,12 @@ export async function loadConfig(): Promise<Config> {
 
   const dbPassword = await resolveSecret(gcpProjectId, process.env.DB_PASSWORD, 'sales-tools-db-password');
   const smtpPassword = await resolveSecret(gcpProjectId, process.env.SMTP_PASSWORD, 'sales-tools-smtp-password');
-  const adminAuthUser = await resolveSecret(
+  const googleOauthClientSecret = await resolveSecret(
     gcpProjectId,
-    process.env.ADMIN_BASIC_AUTH_USER,
-    'sales-tools-admin-user',
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+    'sales-tools-google-oauth-client-secret',
   );
-  const adminAuthPassword = await resolveSecret(
-    gcpProjectId,
-    process.env.ADMIN_BASIC_AUTH_PASSWORD,
-    'sales-tools-admin-password',
-  );
+  const staffJwtSecret = await resolveSecret(gcpProjectId, process.env.STAFF_JWT_SECRET, 'sales-tools-staff-jwt-secret');
 
   const required = (name: string, value: string | undefined): string => {
     if (!value) throw new Error(`Missing required config value: ${name}`);
@@ -92,9 +89,10 @@ export async function loadConfig(): Promise<Config> {
       password: smtpPassword,
       from: required('SMTP_FROM', process.env.SMTP_FROM),
     },
-    adminAuth: {
-      user: adminAuthUser,
-      password: adminAuthPassword,
+    staffAuth: {
+      googleClientId: required('GOOGLE_OAUTH_CLIENT_ID', process.env.GOOGLE_OAUTH_CLIENT_ID),
+      googleClientSecret: googleOauthClientSecret,
+      jwtSecret: staffJwtSecret,
     },
     diagnosticNotifyEmail: required('DIAGNOSTIC_NOTIFY_EMAIL', process.env.DIAGNOSTIC_NOTIFY_EMAIL),
     portalBaseUrl,

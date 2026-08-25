@@ -15,7 +15,7 @@ const statusUpdateSchema = z.object({
   status: reviewStatusSchema,
 });
 
-/** requireAdminAuthの配下でマウントされる前提（server.ts側で適用）。 */
+/** requireStaffAuthの配下でマウントされる前提（server.ts側で適用）。 */
 export function createAdminIsmsDiagnosticRouter(repo: IsmsDiagnosticRepo): Router {
   const router = Router();
 
