@@ -225,7 +225,7 @@
       <h2>1. 見積明細</h2>
       <table class="report-table">
         <thead>
-          <tr><th>品目</th><th>費目</th><th>数量</th><th>単位</th><th class="num">単価</th><th class="num">金額</th></tr>
+          <tr><th>品目</th><th>数量</th><th>単位</th><th class="num">単価</th><th class="num">金額</th></tr>
         </thead>
         <tbody id="r-line-items"></tbody>
       </table>
@@ -254,7 +254,6 @@
 
 <script>
 const CATEGORY_LABELS = { network: 'ネットワーク構築', server: 'サーバー構築', kitting: 'PCキッティング', dev: 'システム開発', other: 'その他' };
-const COST_TYPE_LABELS = { fixed: '固定費', variable: '変動費' };
 
 let estimateId = new URLSearchParams(location.search).get('id');
 let marketRatesForCategory = [];
@@ -737,7 +736,6 @@ function renderPrintView(item) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${li.itemName}</td>
-      <td>${COST_TYPE_LABELS[li.costType]}</td>
       <td>${li.quantity}</td>
       <td>${li.unit || '-'}</td>
       <td class="num">${formatYen(li.unitCost)}</td>
