@@ -264,6 +264,7 @@ let selectedMasterIds = new Set(); // preconditionId のうち選択中のもの
 let adHocPreconditions = []; // { key, label }
 let orphanPreconditions = []; // 保存済みだがマスタから外れた/該当しない選択済み前提条件 { key, preconditionId, label }
 let nextKey = 1;
+let editingChipKey = null; // { type: 'adhoc' | 'orphan', key } | null
 
 function formatYen(n) {
   return '¥' + Math.round(n).toLocaleString('ja-JP');
@@ -453,18 +454,34 @@ function renderPreconditions() {
   const chipList = document.getElementById('adhoc-chip-list');
   chipList.innerHTML = '';
   adHocPreconditions.forEach((entry) => {
-    const chip = document.createElement('span');
-    chip.className = 'chip';
-    chip.innerHTML = `${escapeAttr(entry.label)} <button type="button" data-remove-adhoc-key="${entry.key}">&times;</button>`;
-    chipList.appendChild(chip);
+    chipList.appendChild(buildChipEl('adhoc', entry));
   });
   orphanPreconditions.forEach((entry) => {
-    const chip = document.createElement('span');
-    chip.className = 'chip';
-    chip.title = 'マスタ側では現在無効化/削除されている前提条件です';
-    chip.innerHTML = `${escapeAttr(entry.label)}（マスタ外） <button type="button" data-remove-orphan-key="${entry.key}">&times;</button>`;
-    chipList.appendChild(chip);
+    chipList.appendChild(buildChipEl('orphan', entry, 'マスタ側では現在無効化/削除されている前提条件です'));
   });
+}
+
+function buildChipEl(type, entry, title) {
+  const chip = document.createElement('span');
+  chip.className = 'chip';
+  if (title) chip.title = title;
+
+  const isEditing = editingChipKey && editingChipKey.type === type && editingChipKey.key === entry.key;
+  if (isEditing) {
+    chip.innerHTML = `
+      <input type="text" class="chip-edit-input" style="width:22rem; max-width:60vw;" data-edit-input-key="${entry.key}" data-edit-input-type="${type}" value="${escapeAttr(entry.label)}" maxlength="300">
+      <button type="button" data-save-edit-key="${entry.key}" data-save-edit-type="${type}" title="保存">✓</button>
+      <button type="button" data-cancel-edit-key="${entry.key}" data-cancel-edit-type="${type}" title="キャンセル">&times;</button>
+    `;
+  } else {
+    const suffix = type === 'orphan' ? '（マスタ外） ' : ' ';
+    chip.innerHTML = `
+      ${escapeAttr(entry.label)}${suffix}
+      <button type="button" data-edit-key="${entry.key}" data-edit-type="${type}" title="文面を修正">✎</button>
+      <button type="button" data-remove-key="${entry.key}" data-remove-type="${type}" title="削除">&times;</button>
+    `;
+  }
+  return chip;
 }
 
 document.getElementById('precondition-checkboxes').addEventListener('change', (e) => {
@@ -474,19 +491,60 @@ document.getElementById('precondition-checkboxes').addEventListener('change', (e
   else selectedMasterIds.delete(cb.dataset.masterId);
 });
 
+function getChipList(type) {
+  return type === 'adhoc' ? adHocPreconditions : orphanPreconditions;
+}
+
 document.getElementById('adhoc-chip-list').addEventListener('click', (e) => {
-  const removeAdhocBtn = e.target.closest('button[data-remove-adhoc-key]');
-  if (removeAdhocBtn) {
-    const key = Number(removeAdhocBtn.dataset.removeAdhocKey);
-    adHocPreconditions = adHocPreconditions.filter((p) => p.key !== key);
+  const editBtn = e.target.closest('button[data-edit-key]');
+  if (editBtn) {
+    editingChipKey = { type: editBtn.dataset.editType, key: Number(editBtn.dataset.editKey) };
     renderPreconditions();
     return;
   }
-  const removeOrphanBtn = e.target.closest('button[data-remove-orphan-key]');
-  if (removeOrphanBtn) {
-    const key = Number(removeOrphanBtn.dataset.removeOrphanKey);
-    orphanPreconditions = orphanPreconditions.filter((p) => p.key !== key);
+
+  const saveBtn = e.target.closest('button[data-save-edit-key]');
+  if (saveBtn) {
+    const key = Number(saveBtn.dataset.saveEditKey);
+    const type = saveBtn.dataset.saveEditType;
+    const input = document.querySelector(`input[data-edit-input-key="${key}"][data-edit-input-type="${type}"]`);
+    const value = input ? input.value.trim() : '';
+    if (value) {
+      const entry = getChipList(type).find((p) => p.key === key);
+      if (entry) entry.label = value;
+    }
+    editingChipKey = null;
     renderPreconditions();
+    return;
+  }
+
+  const cancelBtn = e.target.closest('button[data-cancel-edit-key]');
+  if (cancelBtn) {
+    editingChipKey = null;
+    renderPreconditions();
+    return;
+  }
+
+  const removeBtn = e.target.closest('button[data-remove-key]');
+  if (removeBtn) {
+    const key = Number(removeBtn.dataset.removeKey);
+    const type = removeBtn.dataset.removeType;
+    if (type === 'adhoc') adHocPreconditions = adHocPreconditions.filter((p) => p.key !== key);
+    else orphanPreconditions = orphanPreconditions.filter((p) => p.key !== key);
+    if (editingChipKey && editingChipKey.type === type && editingChipKey.key === key) editingChipKey = null;
+    renderPreconditions();
+  }
+});
+
+document.getElementById('adhoc-chip-list').addEventListener('keydown', (e) => {
+  const input = e.target.closest('input[data-edit-input-key]');
+  if (!input) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    input.closest('.chip').querySelector('button[data-save-edit-key]').click();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    input.closest('.chip').querySelector('button[data-cancel-edit-key]').click();
   }
 });
 
