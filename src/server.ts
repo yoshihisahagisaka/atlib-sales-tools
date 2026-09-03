@@ -7,6 +7,7 @@ import { loadConfig } from './config';
 import { createPool } from './db/pool';
 import { Mailer } from './services/mailer';
 import { IsmsDiagnosticRepo } from './services/ismsDiagnosticRepo';
+import { FreeHearingAssessmentRepo } from './services/freeHearingAssessmentRepo';
 import { MarketRateRepo } from './services/marketRateRepo';
 import { EstimatePreconditionRepo } from './services/estimatePreconditionRepo';
 import { EstimateRepo } from './services/estimateRepo';
@@ -14,6 +15,8 @@ import { AiAssistService } from './services/aiAssistService';
 import { StaffAuthService } from './services/staffAuthService';
 import { createIsmsDiagnosticRouter } from './routes/ismsDiagnostic';
 import { createAdminIsmsDiagnosticRouter } from './routes/adminIsmsDiagnostic';
+import { createFreeHearingAssessmentRouter } from './routes/freeHearingAssessment';
+import { createAdminFreeHearingAssessmentRouter } from './routes/adminFreeHearingAssessment';
 import { createAdminMarketRatesRouter } from './routes/adminMarketRates';
 import { createAdminEstimatePreconditionsRouter } from './routes/adminEstimatePreconditions';
 import { createAdminEstimatesRouter } from './routes/adminEstimates';
@@ -29,6 +32,7 @@ async function main(): Promise<void> {
   const pool = createPool(config);
   const mailer = new Mailer(config.smtp);
   const ismsDiagnosticRepo = new IsmsDiagnosticRepo(pool);
+  const freeHearingAssessmentRepo = new FreeHearingAssessmentRepo(pool);
   const marketRateRepo = new MarketRateRepo(pool);
   const estimatePreconditionRepo = new EstimatePreconditionRepo(pool);
   const estimateRepo = new EstimateRepo(pool);
@@ -64,6 +68,10 @@ async function main(): Promise<void> {
     ),
   );
 
+  // 無料Gap診断: 見込み客が自分で回答する公開フォームの受け口（無認証・IPレート制限のみ）。
+  // 結果表（スコア・提案候補サービス）は返さず、スタッフが /admin/ 配下の結果シートで確認する。
+  app.use('/api/free-hearing-assessment', createFreeHearingAssessmentRouter(freeHearingAssessmentRepo));
+
   // 管理画面（Google Workspace認証保護、2026-08-25にBasic Authから移行）。
   // ブルートフォース対策として同じIPレート制限を認証チェックの前段にも適用する。
   const adminAuthGate = [
@@ -71,6 +79,11 @@ async function main(): Promise<void> {
     requireStaffAuth(staffAuthService),
   ];
   app.use('/api/admin/isms-diagnostic', ...adminAuthGate, createAdminIsmsDiagnosticRouter(ismsDiagnosticRepo));
+  app.use(
+    '/api/admin/free-hearing-assessment',
+    ...adminAuthGate,
+    createAdminFreeHearingAssessmentRouter(freeHearingAssessmentRepo),
+  );
   app.use('/api/admin/market-rates', ...adminAuthGate, createAdminMarketRatesRouter(marketRateRepo));
   app.use(
     '/api/admin/estimate-preconditions',

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>無料Gap診断 新規入力 | atLIB Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .question-prompt {
+    display: block;
+    font-size: 1.02rem;
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+  }
+  .axis-chip {
+    display: inline-block;
+    font-size: 0.7rem;
+    background: var(--color-bg-muted, #eef2f5);
+    color: var(--color-muted);
+    border-radius: 4px;
+    padding: 0.05rem 0.4rem;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<div class="page" style="max-width:760px;">
+  <p><a href="/admin/free-hearing-assessment.html">&larr; 一覧に戻る</a></p>
+  <h1>無料Gap診断 新規入力（スタッフ代理入力）</h1>
+  <p class="info-message">
+    商談中／直後に、ヒアリング内容をこのフォームへ入力してください。送信すると結果シート（レーダーチャート・提案候補サービス）が表示されます。
+  </p>
+
+  <form id="hearing-form">
+    <div class="card">
+      <h2>商談情報</h2>
+      <div class="form-row">
+        <label for="company-name">見込み客企業名</label>
+        <input type="text" id="company-name" required autocomplete="organization">
+      </div>
+      <div class="form-row" style="max-width:240px;">
+        <label for="hearing-date">実施日</label>
+        <input type="date" id="hearing-date" required>
+      </div>
+      <div class="form-row">
+        <label for="contact-name">先方ご担当者名（任意）</label>
+        <input type="text" id="contact-name" autocomplete="name">
+      </div>
+      <div class="form-row">
+        <label for="email">メールアドレス（任意）</label>
+        <input type="email" id="email" autocomplete="email">
+      </div>
+      <div class="form-row">
+        <label for="phone">電話番号（任意）</label>
+        <input type="text" id="phone" autocomplete="tel">
+      </div>
+    </div>
+
+    <div id="hearing-questions">
+      <p class="info-message">質問を読み込んでいます...</p>
+    </div>
+
+    <div id="form-error" class="error-message" style="display:none;"></div>
+    <button type="submit" class="btn" style="width:100%;" id="submit-btn">結果シートを作成する</button>
+  </form>
+</div>
+
+<script>
+const AXIS_LABELS = { cost: 'コスト', risk: 'リスク', attrition: '属人化' };
+
+function todayIso() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function renderQuestion(question) {
+  const wrap = document.createElement('div');
+  wrap.className = 'form-row';
+
+  const legend = document.createElement('label');
+  legend.className = 'question-prompt';
+  legend.textContent = question.prompt;
+  const chip = document.createElement('span');
+  chip.className = 'axis-chip';
+  chip.textContent = AXIS_LABELS[question.axisId] || question.axisId;
+  legend.appendChild(chip);
+  wrap.appendChild(legend);
+
+  const group = document.createElement('div');
+  group.className = 'radio-group';
+  group.style.flexDirection = 'column';
+  group.style.gap = '0.45rem';
+  question.options.forEach((option) => {
+    const optionLabel = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = question.id;
+    input.value = option.value;
+    input.required = true;
+    optionLabel.appendChild(input);
+    optionLabel.appendChild(document.createTextNode(' ' + option.label));
+    group.appendChild(optionLabel);
+  });
+  wrap.appendChild(group);
+  return wrap;
+}
+
+async function loadQuestions() {
+  const container = document.getElementById('hearing-questions');
+  try {
+    const res = await fetch('/api/admin/free-hearing-assessment/questions');
+    if (!res.ok) throw new Error('failed to load questions');
+    const data = await res.json();
+
+    container.innerHTML = '';
+    data.domains.forEach((domain) => {
+      const questions = data.questions.filter((q) => q.domainId === domain.id);
+      if (questions.length === 0) return;
+
+      const section = document.createElement('div');
+      section.className = 'card';
+      const heading = document.createElement('h2');
+      heading.textContent = domain.label;
+      section.appendChild(heading);
+      questions.forEach((q) => section.appendChild(renderQuestion(q)));
+      container.appendChild(section);
+    });
+  } catch {
+    container.innerHTML = '<p class="error-message">質問の読み込みに失敗しました。ページを再読み込みしてください。</p>';
+  }
+}
+
+function collectAnswers(form) {
+  const answers = {};
+  const formData = new FormData(form);
+  const contactKeys = ['company-name', 'hearing-date', 'contact-name', 'email', 'phone'];
+  for (const [key, value] of formData.entries()) {
+    if (contactKeys.includes(key)) continue;
+    answers[key] = value;
+  }
+  return answers;
+}
+
+document.getElementById('hearing-date').value = todayIso();
+
+document.getElementById('hearing-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('form-error');
+  const submitBtn = document.getElementById('submit-btn');
+  const form = document.getElementById('hearing-form');
+  errorEl.style.display = 'none';
+  submitBtn.disabled = true;
+
+  const payload = {
+    prospectCompanyName: document.getElementById('company-name').value,
+    hearingDate: document.getElementById('hearing-date').value,
+    contactName: document.getElementById('contact-name').value || undefined,
+    email: document.getElementById('email').value || undefined,
+    phone: document.getElementById('phone').value || undefined,
+    answers: collectAnswers(form),
+  };
+
+  try {
+    const res = await fetch('/api/admin/free-hearing-assessment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.status === 201) {
+      const data = await res.json();
+      location.href = `/admin/free-hearing-assessment-detail.html?id=${encodeURIComponent(data.id)}`;
+    } else {
+      const data = await res.json().catch(() => ({}));
+      errorEl.textContent = data.error || '保存に失敗しました。入力内容をご確認ください。';
+      errorEl.style.display = 'block';
+      submitBtn.disabled = false;
+    }
+  } catch {
+    errorEl.textContent = '通信エラーが発生しました。しばらくしてから再度お試しください。';
+    errorEl.style.display = 'block';
+    submitBtn.disabled = false;
+  }
+});
+
+loadQuestions();
+</script>
+</body>
+</html>
