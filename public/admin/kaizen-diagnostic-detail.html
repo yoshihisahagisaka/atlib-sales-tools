@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>情シスKAIZEN診断 結果シート | atLIB Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .report {
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+  }
+  .report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid var(--color-primary);
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .report-header .brand { font-weight: 700; color: var(--color-primary); font-size: 1.1rem; }
+  .report-header .brand span { color: var(--color-orange, #e8890c); }
+  .report-header .meta { text-align: right; font-size: 0.85rem; color: var(--color-muted); }
+  .report h1 { font-size: 1.3rem; margin: 0 0 0.3rem; }
+  .report-addressee { margin-bottom: 1.5rem; font-size: 0.95rem; }
+  .report-section { margin-bottom: 2rem; }
+  .report-section h2 {
+    font-size: 1.05rem;
+    color: var(--color-primary);
+    border-left: 4px solid var(--color-accent, #16a085);
+    padding-left: 0.6rem;
+    margin-bottom: 1rem;
+  }
+  .radar-wrap { max-width: 460px; margin: 0 auto; }
+  .unknown-list, .comment-list { margin: 0; padding-left: 1.2rem; }
+  .unknown-list li, .comment-list li { margin-bottom: 0.5rem; font-size: 0.9rem; }
+  .svc-card {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.8rem;
+  }
+  .svc-card .svc-name { font-weight: 700; color: var(--color-accent-dark, #0e6655); }
+  .svc-card .svc-reasons { font-size: 0.85rem; color: var(--color-muted); margin: 0.3rem 0 0; padding-left: 1.1rem; }
+  .warn-box { border-radius: 6px; padding: 0.8rem 1rem; margin-bottom: 1rem; font-size: 0.9rem; }
+  .warn-urgent { background: #fdecea; border: 1px solid #e6b0aa; color: #922b21; }
+  .warn-visibility { background: #fef5e7; border: 1px solid #f5cba7; color: #9c640c; }
+  .report-footer { border-top: 1px solid var(--color-border); padding-top: 1rem; margin-top: 2rem; font-size: 0.8rem; color: var(--color-muted); }
+  .print-hint { font-size: 0.8rem; color: var(--color-muted); margin-top: 0.4rem; }
+  .source-chip { display: inline-block; font-size: 0.75rem; background: var(--color-bg-muted, #eef2f5); color: var(--color-muted); border-radius: 4px; padding: 0.1rem 0.5rem; margin-left: 0.4rem; }
+
+  @media print {
+    .no-print { display: none !important; }
+    body { background: #fff; }
+    .page { max-width: none; margin: 0; padding: 0; }
+    .report { border: none; padding: 0; margin: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page" style="max-width:900px;">
+  <div class="no-print">
+    <p><a href="/admin/kaizen-diagnostic.html">&larr; 一覧に戻る</a></p>
+    <h1>情シスKAIZEN診断 結果シート（社内管理）</h1>
+  </div>
+
+  <div id="detail-error" class="error-message no-print" style="display:none;"></div>
+  <div id="detail-loading" class="info-message no-print">読み込み中...</div>
+
+  <div id="detail-content" style="display:none;">
+    <div class="card no-print">
+      <h2>社内管理情報</h2>
+      <table>
+        <tbody>
+          <tr><th>入力元</th><td id="f-source"></td></tr>
+          <tr><th>流入経路</th><td id="f-lp-source"></td></tr>
+          <tr><th>入力スタッフ</th><td id="f-staff"></td></tr>
+          <tr><th>先方担当者</th><td id="f-contact"></td></tr>
+          <tr><th>メール / 電話</th><td id="f-contactinfo"></td></tr>
+          <tr><th>軸別スコア（素点 / 正規化）</th><td id="f-scores"></td></tr>
+          <tr><th>「わからない」件数</th><td id="f-unknown"></td></tr>
+        </tbody>
+      </table>
+
+      <div class="form-row" style="max-width:240px; margin-top:1rem;">
+        <label for="status-select">対応状況</label>
+        <select id="status-select">
+          <option value="new">未対応</option>
+          <option value="contacted">対応中</option>
+          <option value="closed">完了</option>
+        </select>
+      </div>
+      <button class="btn" id="save-status">対応状況を保存</button>
+      <div id="save-message" class="success-message" style="display:none;"></div>
+
+      <div style="margin-top:1.5rem; border-top:1px solid var(--color-border); padding-top:1rem;">
+        <label style="display:block; margin-bottom:0.5rem;">
+          <input type="checkbox" id="converted-checkbox"> 有償ITアセスメント診断へ成約した
+        </label>
+        <div class="form-row" style="max-width:320px;">
+          <label for="case-code-input">案件コード（asmt＋6桁連番）</label>
+          <input type="text" id="case-code-input" placeholder="例: asmt000123">
+        </div>
+        <button class="btn btn-secondary" id="save-conversion">転換情報を保存</button>
+        <div id="conversion-message" class="success-message" style="display:none;"></div>
+        <p class="print-hint">※ 案件コードの体系は IT_アセスメント_SensorEdge流用_設計指示書.md 入手後に突合予定（現状は手動入力）。</p>
+      </div>
+
+      <div style="margin-top:1.5rem;">
+        <button class="btn btn-secondary" id="print-btn">🖨 印刷 / PDFとして保存</button>
+        <button class="btn btn-secondary" id="pptx-btn">📄 PPTXダウンロード</button>
+        <p class="print-hint">印刷ダイアログの詳細設定で「ヘッダーとフッター」のチェックを外すと綺麗に出力されます。</p>
+        <div id="pptx-message" class="info-message" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- ここから顧客向け結果シート（印刷 / PPTX 対象） -->
+    <div class="report" id="report">
+      <div class="report-header">
+        <div class="brand">atLIB <span>情シスKAIZEN診断</span></div>
+        <div class="meta">
+          診断日: <span id="r-date"></span><br>
+          IT体制ヒアリング結果シート
+        </div>
+      </div>
+      <h1>情シスKAIZEN診断 結果シート</h1>
+      <p class="report-addressee"><span id="r-company"></span> 様</p>
+
+      <div id="r-warnings"></div>
+
+      <div class="report-section">
+        <h2>1. 3軸評価（コスト・リスク・属人化）</h2>
+        <div class="radar-wrap"><canvas id="radar-canvas" width="440" height="440"></canvas></div>
+        <p class="print-hint" style="text-align:center;">各軸を0〜100で正規化。数値が低いほど改善の余地が大きいことを示します。</p>
+      </div>
+
+      <div class="report-section">
+        <h2>2. 「わからない」と回答された項目</h2>
+        <ul class="unknown-list" id="r-unknown"></ul>
+      </div>
+
+      <div class="report-section">
+        <h2>3. ご提案候補サービス</h2>
+        <div id="r-services"></div>
+      </div>
+
+      <div class="report-section">
+        <h2>4. 所見</h2>
+        <ul class="comment-list" id="r-comments"></ul>
+      </div>
+
+      <div class="report-footer">
+        <p id="r-footer-text"></p>
+        atLIB株式会社　〒104-0032 東京都中央区八丁堀4-12-7　TEL: 03-6661-1616　Mail: sales@atlib.jp<br>
+        本診断は目安であり、最終的なご提案内容は個別のご相談により確定します。
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script>
+const STATUS_LABELS = { new: '未対応', contacted: '対応中', closed: '完了' };
+const SOURCE_LABELS = { staff: 'スタッフ入力', prospect: '見込み客入力' };
+const REPORT_FOOTER_TEXT =
+  'この診断は自己申告に基づく簡易評価です。実態の正確な把握には、機器の実地棚卸しを伴うITアセスメント診断（有償）をおすすめします。';
+
+let currentItem = null;
+
+function getId() {
+  return new URLSearchParams(location.search).get('id');
+}
+
+function formatDateOnly(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+}
+
+function renderRadar(axisDefinitions, normalized) {
+  const labels = axisDefinitions.map((a) => a.label);
+  const data = axisDefinitions.map((a) => normalized[a.id] ?? 0);
+  new Chart(document.getElementById('radar-canvas'), {
+    type: 'radar',
+    data: {
+      labels,
+      datasets: [{
+        label: '正規化スコア',
+        data,
+        fill: true,
+        backgroundColor: 'rgba(22, 160, 133, 0.2)',
+        borderColor: 'rgba(22, 160, 133, 1)',
+        pointBackgroundColor: 'rgba(22, 160, 133, 1)',
+      }],
+    },
+    options: {
+      responsive: false,
+      animation: false,
+      scales: { r: { min: 0, max: 100, ticks: { stepSize: 20 } } },
+      plugins: { legend: { display: false } },
+    },
+  });
+}
+
+function renderUnknownList(answers) {
+  const ul = document.getElementById('r-unknown');
+  ul.innerHTML = '';
+  const unknowns = answers.filter((a) => a.unknown);
+  if (unknowns.length === 0) {
+    const li = document.createElement('li');
+    li.textContent = '「わからない」と回答された項目はありませんでした。';
+    ul.appendChild(li);
+    return;
+  }
+  unknowns.forEach((a) => {
+    const li = document.createElement('li');
+    li.textContent = a.questionPrompt;
+    ul.appendChild(li);
+  });
+}
+
+function renderServices(suggestedServices, answers) {
+  const container = document.getElementById('r-services');
+  container.innerHTML = '';
+  const top = (suggestedServices || []).slice(0, 3);
+  if (top.length === 0) {
+    container.innerHTML = '<p style="font-size:0.9rem;">今回のヒアリングからは、特定サービスへの強い接続は検出されませんでした。</p>';
+    return;
+  }
+  top.forEach((svc) => {
+    const reasons = answers
+      .filter((a) => Array.isArray(a.suggestedServices) && a.suggestedServices.includes(svc.id))
+      .map((a) => a.questionPrompt);
+    const card = document.createElement('div');
+    card.className = 'svc-card';
+    const reasonsHtml = reasons.slice(0, 3).map((r) => `<li>${r}</li>`).join('');
+    card.innerHTML = `
+      <div class="svc-name">${svc.label}<span style="font-weight:400; color:var(--color-muted);">（該当 ${svc.hitCount} 項目）</span></div>
+      <ul class="svc-reasons">${reasonsHtml}</ul>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function renderComments(comments) {
+  const ul = document.getElementById('r-comments');
+  ul.innerHTML = '';
+  (comments || []).forEach((c) => {
+    const li = document.createElement('li');
+    li.textContent = c;
+    ul.appendChild(li);
+  });
+  if (!comments || comments.length === 0) {
+    const li = document.createElement('li');
+    li.textContent = '特筆すべき弱点は見られませんでした。';
+    ul.appendChild(li);
+  }
+}
+
+function renderWarnings(scores) {
+  const container = document.getElementById('r-warnings');
+  container.innerHTML = '';
+  if (scores.securityUrgentFlag) {
+    const box = document.createElement('div');
+    box.className = 'warn-box warn-urgent';
+    box.textContent = '直近1年でセキュリティ／システムのトラブルが発生しています。セキュリティ構築の緊急提案対象です。';
+    container.appendChild(box);
+  }
+  if (scores.visibilityGapFlag) {
+    const box = document.createElement('div');
+    box.className = 'warn-box warn-visibility';
+    box.textContent = `「わからない」が${scores.unknownCount}項目にのぼります。自己申告では実態を把握しきれていないため、機器の実地棚卸しを伴う有償ITアセスメント診断をおすすめします。`;
+    container.appendChild(box);
+  }
+}
+
+async function loadDetail() {
+  const id = getId();
+  const loadingEl = document.getElementById('detail-loading');
+  const errorEl = document.getElementById('detail-error');
+  const content = document.getElementById('detail-content');
+
+  if (!id) {
+    loadingEl.style.display = 'none';
+    errorEl.textContent = 'idが指定されていません。';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/admin/kaizen-diagnostic/' + encodeURIComponent(id));
+    if (!res.ok) throw new Error('failed to load');
+    const item = await res.json();
+    currentItem = item;
+    const scores = item.scores || {};
+
+    document.getElementById('f-source').textContent = SOURCE_LABELS[item.inputSource] || item.inputSource;
+    document.getElementById('f-lp-source').textContent = item.source || '-';
+    document.getElementById('f-staff').textContent = item.staffEmail || '-';
+    document.getElementById('f-contact').textContent = item.contactName || '-';
+    document.getElementById('f-contactinfo').textContent = [item.email, item.phone].filter(Boolean).join(' / ') || '-';
+    document.getElementById('f-scores').textContent = ['cost', 'risk', 'attrition']
+      .map((a) => {
+        const label = { cost: 'コスト', risk: 'リスク', attrition: '属人化' }[a];
+        const raw = (scores.axisRaw || {})[a];
+        const nrm = (scores.axisNormalized || {})[a];
+        return `${label}: ${raw ?? '-'} / ${nrm ?? '-'}`;
+      })
+      .join('　');
+    document.getElementById('f-unknown').textContent = `${scores.unknownCount ?? 0} 件`;
+    document.getElementById('status-select').value = item.reviewStatus;
+
+    document.getElementById('converted-checkbox').checked = !!item.convertedToAssessment;
+    document.getElementById('case-code-input').value = item.assessmentCaseCode || '';
+
+    document.getElementById('r-date').textContent = formatDateOnly(item.hearingDate || item.createdAt);
+    document.getElementById('r-company').textContent = item.companyName;
+    document.getElementById('r-footer-text').textContent = REPORT_FOOTER_TEXT;
+
+    renderWarnings(scores);
+    renderRadar(item.axisDefinitions, scores.axisNormalized || {});
+    renderUnknownList(item.answers || []);
+    renderServices(item.suggestedServices, item.answers || []);
+    renderComments(scores.sheetComments);
+
+    loadingEl.style.display = 'none';
+    content.style.display = 'block';
+  } catch {
+    loadingEl.style.display = 'none';
+    errorEl.textContent = '詳細の取得に失敗しました。ページを再読み込みしてください。';
+    errorEl.style.display = 'block';
+  }
+}
+
+document.getElementById('save-status').addEventListener('click', async () => {
+  const id = getId();
+  const status = document.getElementById('status-select').value;
+  const msg = document.getElementById('save-message');
+  msg.style.display = 'none';
+  try {
+    const res = await fetch(`/api/admin/kaizen-diagnostic/${encodeURIComponent(id)}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) throw new Error('failed');
+    msg.className = 'success-message';
+    msg.textContent = '保存しました。';
+    msg.style.display = 'block';
+  } catch {
+    msg.className = 'error-message';
+    msg.textContent = '保存に失敗しました。';
+    msg.style.display = 'block';
+  }
+});
+
+document.getElementById('save-conversion').addEventListener('click', async () => {
+  const id = getId();
+  const converted = document.getElementById('converted-checkbox').checked;
+  const code = document.getElementById('case-code-input').value.trim();
+  const msg = document.getElementById('conversion-message');
+  msg.style.display = 'none';
+  try {
+    const res = await fetch(`/api/admin/kaizen-diagnostic/${encodeURIComponent(id)}/conversion`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ convertedToAssessment: converted, assessmentCaseCode: code || null }),
+    });
+    if (!res.ok) throw new Error('failed');
+    msg.className = 'success-message';
+    msg.textContent = '保存しました。';
+    msg.style.display = 'block';
+  } catch {
+    msg.className = 'error-message';
+    msg.textContent = '保存に失敗しました。';
+    msg.style.display = 'block';
+  }
+});
+
+document.getElementById('print-btn').addEventListener('click', () => window.print());
+
+document.getElementById('pptx-btn').addEventListener('click', async () => {
+  const msg = document.getElementById('pptx-message');
+  const btn = document.getElementById('pptx-btn');
+  if (typeof window.html2canvas !== 'function' || typeof window.PptxGenJS !== 'function') {
+    msg.className = 'error-message';
+    msg.textContent = 'PPTX生成ライブラリの読み込みに失敗しました（社内ネットワークのCDNアクセスをご確認ください）。印刷 / PDF保存をご利用ください。';
+    msg.style.display = 'block';
+    return;
+  }
+  btn.disabled = true;
+  msg.className = 'info-message';
+  msg.textContent = 'PPTXを生成しています...';
+  msg.style.display = 'block';
+  try {
+    const report = document.getElementById('report');
+    const canvas = await window.html2canvas(report, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+    const img = canvas.toDataURL('image/png');
+    const pptx = new window.PptxGenJS();
+    pptx.layout = 'LAYOUT_16x9';
+    const slide = pptx.addSlide();
+    const ratio = canvas.width / canvas.height;
+    let w = 10;
+    let h = w / ratio;
+    if (h > 5.625) { h = 5.625; w = h * ratio; }
+    slide.addImage({ data: img, x: (10 - w) / 2, y: (5.625 - h) / 2, w, h });
+    const company = (currentItem && currentItem.companyName) || 'company';
+    const date = formatDateOnly((currentItem && (currentItem.hearingDate || currentItem.createdAt)) || null).replace(/\//g, '');
+    await pptx.writeFile({ fileName: `情シスKAIZEN診断_${company}_${date}.pptx` });
+    msg.className = 'success-message';
+    msg.textContent = 'PPTXをダウンロードしました。';
+  } catch (e) {
+    msg.className = 'error-message';
+    msg.textContent = 'PPTX生成に失敗しました。印刷 / PDF保存をご利用ください。';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+loadDetail();
+</script>
+</body>
+</html>

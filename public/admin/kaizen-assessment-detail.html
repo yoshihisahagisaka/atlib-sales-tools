@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>情シスKAIZEN 60分診断 詳細 | atLIB Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  details.section { border:1px solid var(--color-border); border-radius:8px; margin-bottom:1rem; background:#fff; }
+  details.section > summary { padding:0.9rem 1.1rem; font-weight:700; cursor:pointer; font-size:1.02rem; color:var(--color-primary); }
+  details.section[open] > summary { border-bottom:1px solid var(--color-border); }
+  .section-body { padding:1.1rem; }
+  .muted { color:var(--color-muted); }
+  .pill { display:inline-block; font-size:0.72rem; padding:0.1rem 0.5rem; border-radius:999px; background:var(--color-bg-muted,#eef2f5); color:var(--color-muted); }
+  .pill.ok { background:#e8f5e9; color:#1b5e20; }
+  .pill.warn { background:#fff3e0; color:#9c640c; }
+  .pill.bad { background:#fdecea; color:#922b21; }
+  .pill.src-transcript { background:#e3f2fd; color:#0d47a1; }
+  .pill.src-handler_memo { background:#f3e5f5; color:#6a1b9a; }
+  .next-q { background:#fff8e1; border:1px solid #ffe082; border-radius:8px; padding:1rem 1.2rem; margin:0.8rem 0; }
+  .next-q .q { font-size:1.1rem; font-weight:700; }
+  .fact-row { border-bottom:1px solid var(--color-border); padding:0.7rem 0; }
+  .fact-row .fact-head { display:flex; gap:0.5rem; align-items:baseline; flex-wrap:wrap; }
+  .fact-row .fact-code { font-weight:700; font-family:monospace; }
+  .fact-row .quote { font-size:0.85rem; color:var(--color-muted); border-left:3px solid var(--color-border); padding-left:0.6rem; margin:0.3rem 0; }
+  .fact-actions { display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.4rem; align-items:center; }
+  .fact-actions input[type=text] { max-width:280px; }
+  .biz-card { border:1px solid var(--color-border); border-radius:6px; padding:0.8rem; margin-bottom:0.8rem; }
+  .biz-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.5rem 0.9rem; }
+  .biz-grid label { font-size:0.78rem; font-weight:600; display:block; }
+  .flag-row { display:flex; gap:0.9rem; flex-wrap:wrap; margin:0.4rem 0; font-size:0.85rem; }
+  .rg-grid { display:grid; grid-template-columns:120px 1fr 1fr; gap:0.4rem 0.8rem; align-items:center; max-width:460px; }
+  .rg-grid input { width:70px; }
+  table.small th, table.small td { font-size:0.85rem; padding:0.3rem 0.5rem; }
+  textarea.block { width:100%; min-height:90px; }
+  .report { background:#fff; border:1px solid var(--color-border); border-radius:8px; padding:2rem; margin-top:1rem; }
+  .report h2 { font-size:1.05rem; color:var(--color-primary); border-left:4px solid var(--color-accent,#2dbe9d); padding-left:0.6rem; }
+  .report-footer { border-top:1px solid var(--color-border); padding-top:0.8rem; margin-top:1.5rem; font-size:0.8rem; color:var(--color-muted); }
+  @media print {
+    .no-print { display:none !important; }
+    body { background:#fff; }
+    .page { max-width:none; margin:0; padding:0; }
+    .report { border:none; padding:0; margin:0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page" style="max-width:1000px;">
+  <div class="no-print">
+    <p><a href="/admin/kaizen-assessment.html">&larr; 一覧に戻る</a></p>
+    <h1 id="page-title">情シスKAIZEN 60分診断</h1>
+    <div id="load-error" class="error-message" style="display:none;"></div>
+    <div id="load-loading" class="info-message">読み込み中...</div>
+  </div>
+
+  <div id="content" style="display:none;">
+
+    <!-- 1. 概要・社内管理 -->
+    <details class="section no-print" open>
+      <summary>1. 概要・社内管理</summary>
+      <div class="section-body">
+        <table class="small">
+          <tbody>
+            <tr><th>企業名</th><td id="f-company"></td></tr>
+            <tr><th>入力元 / 流入</th><td id="f-source"></td></tr>
+            <tr><th>担当スタッフ</th><td id="f-staff"></td></tr>
+            <tr><th>先方担当者</th><td id="f-contact"></td></tr>
+            <tr><th>メール / 電話</th><td id="f-contactinfo"></td></tr>
+            <tr><th>実施日</th><td id="f-date"></td></tr>
+            <tr><th>進捗</th><td id="f-stage"></td></tr>
+          </tbody>
+        </table>
+        <div class="form-row" style="max-width:220px; margin-top:0.8rem;">
+          <label for="status-select">対応状況</label>
+          <select id="status-select">
+            <option value="new">未対応</option>
+            <option value="contacted">対応中</option>
+            <option value="closed">完了</option>
+          </select>
+        </div>
+        <button class="btn btn-small" id="save-status">対応状況を保存</button>
+        <div style="margin-top:1rem; border-top:1px solid var(--color-border); padding-top:0.8rem;">
+          <label><input type="checkbox" id="converted-checkbox"> 有償「情シスKAIZEN 設計アセスメント」へ成約した</label>
+          <div class="form-row" style="max-width:300px;">
+            <label for="case-code-input">案件コード</label>
+            <input type="text" id="case-code-input" placeholder="例: asmt000123">
+          </div>
+          <button class="btn btn-small btn-secondary" id="save-conversion">転換情報を保存</button>
+        </div>
+        <div id="admin-msg" class="success-message" style="display:none;"></div>
+      </div>
+    </details>
+
+    <!-- 2. 事前サーベイ回答 -->
+    <details class="section no-print">
+      <summary>2. 事前サーベイ回答</summary>
+      <div class="section-body" id="pre-survey-body"></div>
+    </details>
+
+    <!-- 3. AI事前ブリーフ -->
+    <details class="section no-print" open>
+      <summary>3. AI事前ブリーフ</summary>
+      <div class="section-body">
+        <p class="muted" style="font-size:0.85rem;">
+          ※すべて「面談で検証すべき仮説」です。確定した診断結果ではありません。
+        </p>
+        <button class="btn btn-small" id="gen-brief">AI事前ブリーフを生成 / 再生成</button>
+        <span id="brief-msg" class="muted" style="margin-left:0.6rem;"></span>
+        <div id="brief-body" style="margin-top:0.8rem;"></div>
+      </div>
+    </details>
+
+    <!-- 4. 60分診断アシスタント -->
+    <details class="section no-print" open>
+      <summary>4. 60分診断アシスタント</summary>
+      <div class="section-body">
+        <div class="form-row">
+          <label for="transcript">文字起こし（顧客発言・一次情報）</label>
+          <textarea id="transcript" style="min-height:160px;" placeholder="Google Meet / Teams 等の文字起こしを貼り付け。会話が進むたびに継ぎ足して「会話を解析」を押します。"></textarea>
+        </div>
+        <div class="form-row">
+          <label for="handler-memo">担当者メモ（二次情報・任意）</label>
+          <textarea id="handler-memo" style="min-height:80px;" placeholder="要点の箇条書き。AIは顧客発言と区別して扱います。"></textarea>
+        </div>
+        <button class="btn btn-small" id="analyze-btn">会話を解析</button>
+        <span id="analyze-msg" class="muted" style="margin-left:0.6rem;"></span>
+
+        <div id="progress-line" style="margin-top:0.9rem; font-weight:700;"></div>
+
+        <div id="next-q-wrap"></div>
+        <div id="followups-wrap" style="margin-top:0.6rem;"></div>
+        <div id="donotask-wrap" style="margin-top:0.6rem;"></div>
+
+        <h3 style="margin-top:1.2rem;">重点項目（AIが今回の診断で重要と判断したもの）</h3>
+        <p class="muted" style="font-size:0.82rem;">網羅的な質問票の消化率ではなく、この診断で取得すべき項目の状態を表示します。</p>
+        <div id="focus-facts"></div>
+        <details style="margin-top:0.6rem;">
+          <summary class="muted" style="cursor:pointer;">全抽出項目を表示</summary>
+          <div id="all-facts" style="margin-top:0.5rem;"></div>
+        </details>
+      </div>
+    </details>
+
+    <!-- 5. 構造化 -->
+    <details class="section no-print">
+      <summary>5. 構造化（業務・Role Gap・成熟度）</summary>
+      <div class="section-body">
+        <button class="btn btn-small" id="structure-btn">構造化を実行 / 再実行</button>
+        <span id="structure-msg" class="muted" style="margin-left:0.6rem;"></span>
+
+        <h3 style="margin-top:1rem;">代表業務</h3>
+        <div id="biz-list"></div>
+        <button class="btn btn-small btn-secondary" id="save-biz">業務の編集を保存</button>
+
+        <h3 style="margin-top:1.4rem;">情シスRole Gap（時間配分 現在 → 理想）</h3>
+        <div id="rg-status" class="muted" style="font-size:0.85rem;"></div>
+        <div style="max-width:520px; margin:0.6rem 0;"><canvas id="rg-canvas" width="500" height="260"></canvas></div>
+        <div class="rg-grid" id="rg-inputs">
+          <div></div><div><strong>現在 %</strong></div><div><strong>理想 %</strong></div>
+        </div>
+        <p class="muted" id="rg-sums" style="font-size:0.82rem;"></p>
+        <button class="btn btn-small btn-secondary" id="save-rg">Role Gap を確定保存</button>
+        <button class="btn btn-small btn-secondary" id="normalize-rg">合計100%に正規化（担当者操作）</button>
+
+        <h3 style="margin-top:1.4rem;">成熟度スコア（1〜5）</h3>
+        <div style="max-width:460px; margin:0.6rem 0;"><canvas id="mat-canvas" width="440" height="360"></canvas></div>
+        <div id="mat-inputs"></div>
+        <button class="btn btn-small btn-secondary" id="save-mat">成熟度を保存</button>
+        <div id="structure-save-msg" class="success-message" style="display:none;"></div>
+      </div>
+    </details>
+
+    <!-- 6. 診断レポート -->
+    <details class="section" open>
+      <summary>6. 診断レポート</summary>
+      <div class="section-body">
+        <div class="no-print">
+          <button class="btn btn-small" id="gen-report">レポート下書きを生成 / 再生成</button>
+          <span id="report-msg" class="muted" style="margin-left:0.6rem;"></span>
+          <div id="omh-editor" style="margin-top:0.8rem;"></div>
+          <h3 style="margin-top:1rem;">優先KAIZEN仮説</h3>
+          <div id="hyp-editor"></div>
+          <button class="btn btn-small btn-secondary" id="save-hyp">KAIZEN仮説を保存</button>
+          <h3 style="margin-top:1rem;">6ブロック本文</h3>
+          <div id="block-editor"></div>
+          <button class="btn btn-small btn-secondary" id="save-report">レポート本文を保存（確定）</button>
+          <div style="margin-top:0.8rem;">
+            <button class="btn btn-small btn-secondary" id="print-btn">🖨 印刷 / PDF保存</button>
+            <button class="btn btn-small btn-secondary" id="pptx-btn">📄 PPTXダウンロード</button>
+          </div>
+          <div id="report-save-msg" class="success-message" style="display:none;"></div>
+        </div>
+
+        <!-- 顧客向け印刷ビュー -->
+        <div class="report" id="report">
+          <div style="display:flex; justify-content:space-between; border-bottom:2px solid var(--color-primary); padding-bottom:0.8rem; margin-bottom:1.2rem;">
+            <div style="font-weight:700; color:var(--color-primary);">atLIB <span style="color:var(--color-orange,#f28c38);">情シスKAIZEN</span> 60分無料診断</div>
+            <div class="muted" style="text-align:right; font-size:0.85rem;">診断日: <span id="r-date"></span></div>
+          </div>
+          <h1 style="font-size:1.3rem;"><span id="r-company"></span> 様｜60分クイック診断レポート</h1>
+          <p class="muted" style="font-size:0.88rem;" id="r-goal"></p>
+          <div id="r-omh"></div>
+          <div id="r-blocks"></div>
+          <div class="report-footer" id="r-footer"></div>
+        </div>
+      </div>
+    </details>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script>
+const ASSESSMENT_GOAL_TEXT = 'この診断のゴールは「BPO対象業務を特定すること」ではなく、「顧客にとって最適な情シス運営体制の仮説を作ること」です。';
+const REPORT_FOOTER_TEXT = '本レポートは60分ヒアリングと確認できた事実に基づく「改善仮説」です。確定した削減工数・ROI・最終To-Be・BPO範囲は、有償「情シスKAIZEN 設計アセスメント」で確定します。';
+const STAGE_LABELS = { pre_survey:'事前アンケート', briefed:'ブリーフ生成済', interviewing:'面談・解析中', items_review:'事実確認中', structured:'構造化済', report_draft:'レポート下書き', report_final:'レポート確定' };
+const SOURCE_LABELS = { staff:'スタッフ入力', prospect:'見込み客入力' };
+const FLAG_LABELS = { ok:'取得済み', unknown:'不明', conflict:'矛盾', needs_confirmation:'要確認', null:'未取得' };
+const HANDLER_LABELS = { pending:'未確認', approved:'承認', revised:'修正', hold:'保留' };
+
+let DATA = null;
+let DEF = null;
+let rgChart = null;
+let matChart = null;
+
+function id() { return new URLSearchParams(location.search).get('id'); }
+function fmtDate(iso) { if (!iso) return '-'; const d = new Date(iso); const p = (n) => String(n).padStart(2,'0'); return `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())}`; }
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+function el(id) { return document.getElementById(id); }
+function adminMsg(box, ok, text) { box.className = ok ? 'success-message' : 'error-message'; box.textContent = text; box.style.display = 'block'; setTimeout(() => { box.style.display = 'none'; }, 4000); }
+
+async function api(path, opts) {
+  const res = await fetch('/api/admin/kaizen-assessment' + path, opts);
+  if (res.status === 204) return null;
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || ('HTTP ' + res.status));
+  return body;
+}
+
+async function load() {
+  try {
+    const data = await api('/' + encodeURIComponent(id()));
+    DATA = data;
+    DEF = data.definitions;
+    render();
+    el('load-loading').style.display = 'none';
+    el('content').style.display = 'block';
+  } catch (e) {
+    el('load-loading').style.display = 'none';
+    el('load-error').textContent = '読み込みに失敗しました: ' + e.message;
+    el('load-error').style.display = 'block';
+  }
+}
+
+function render() {
+  el('page-title').textContent = '情シスKAIZEN 60分診断 — ' + DATA.companyName;
+  el('f-company').textContent = DATA.companyName;
+  el('f-source').textContent = (SOURCE_LABELS[DATA.inputSource] || DATA.inputSource) + ' / ' + (DATA.source || '-');
+  el('f-staff').textContent = DATA.staffEmail || '-';
+  el('f-contact').textContent = DATA.contactName || '-';
+  el('f-contactinfo').textContent = [DATA.email, DATA.phone].filter(Boolean).join(' / ') || '-';
+  el('f-date').textContent = fmtDate(DATA.hearingDate || DATA.createdAt);
+  el('f-stage').innerHTML = `<span class="pill">${STAGE_LABELS[DATA.workflowStage] || DATA.workflowStage}</span>`;
+  el('status-select').value = DATA.reviewStatus;
+  el('converted-checkbox').checked = !!DATA.convertedToAssessment;
+  el('case-code-input').value = DATA.assessmentCaseCode || '';
+
+  renderPreSurvey();
+  renderBrief();
+  if (DATA.interview) { el('transcript').value = DATA.interview.transcript || ''; el('handler-memo').value = DATA.interview.handlerMemo || ''; }
+  renderFacts();
+  renderNav(null);
+  renderStructure();
+  renderReport();
+
+  el('r-date').textContent = fmtDate(DATA.hearingDate || DATA.createdAt);
+  el('r-company').textContent = DATA.companyName;
+  el('r-goal').textContent = ASSESSMENT_GOAL_TEXT;
+  el('r-footer').textContent = REPORT_FOOTER_TEXT + '　atLIB株式会社';
+}
+
+// ---------- 2. 事前サーベイ ----------
+function renderPreSurvey() {
+  const box = el('pre-survey-body');
+  const entries = (DATA.preSurvey && DATA.preSurvey.entries) || [];
+  box.innerHTML = entries.map((e) => {
+    const picked = e.selected.map((s) => esc(s.label)).join(' / ') || '<span class="muted">(未回答)</span>';
+    const other = e.otherText ? ` <span class="muted">（その他: ${esc(e.otherText)}）</span>` : '';
+    return `<div style="margin-bottom:0.6rem;"><div style="font-weight:600;">${esc(e.prompt)}</div><div>${picked}${other}</div></div>`;
+  }).join('') + (DATA.preSurvey && DATA.preSurvey.q2Count !== undefined ? `<div class="muted">情シス人数(自己申告): ${DATA.preSurvey.q2Count} 名</div>` : '');
+}
+
+// ---------- 3. ブリーフ ----------
+function renderBrief() {
+  const b = DATA.aiPreBrief;
+  const box = el('brief-body');
+  if (!b) { box.innerHTML = '<p class="muted">まだ生成されていません。上のボタンで生成してください。</p>'; return; }
+  const list = (arr) => '<ul>' + (arr || []).map((x) => `<li>${esc(x)}</li>`).join('') + '</ul>';
+  box.innerHTML = `
+    <h4>顧客サマリー</h4><p>${esc(b.customerSummary)}</p>
+    <h4>想定Role Gap（仮説）</h4><p>${esc(b.assumedRoleGap && b.assumedRoleGap.narrative)}</p>
+    <h4>優先ヒアリングテーマ（最大3）</h4>
+    <ul>${(b.priorityThemes || []).map((t) => `<li><strong>${esc(t.title)}</strong> — ${esc(t.why)}</li>`).join('')}</ul>
+    <h4>推奨する最初の質問</h4>
+    <ul>${(b.firstQuestions || []).map((q) => `<li><span class="muted">[${esc(q.theme)}]</span> ${esc(q.question)}</li>`).join('')}</ul>
+    <h4>確認したい事実</h4>${list(b.factsToConfirm)}
+    <h4>仮説・検証ポイント（最大5）</h4>${list(b.hypothesesToTest)}
+    <h4>組織・実行制約</h4>${list(b.orgConstraints)}
+    <h4>聞かない方がよい質問</h4>${list(b.questionsToAvoid)}
+    <h4>面談中AI更新ルール</h4>${list(b.liveUpdateRules)}
+    <h4>初期の重点項目</h4>
+    <ul>${(b.focusItemCodes || []).map((f) => `<li><code>${esc(f.itemCode)}</code> — ${esc(f.reason)}</li>`).join('')}</ul>`;
+}
+
+// ---------- 4. 事実 ----------
+function itemLabel(code) { const it = (DEF.extractionItems || []).find((i) => i.code === code); return it ? it.label : code; }
+
+function factRowHtml(f) {
+  const flagKey = f.aiFlag == null ? 'null' : f.aiFlag;
+  const flagCls = (f.handlerStatus === 'approved' || f.handlerStatus === 'revised' || f.aiFlag === 'ok') ? 'ok'
+    : (f.aiFlag === 'unknown' ? 'warn' : (f.aiFlag === 'conflict' ? 'bad' : 'warn'));
+  const src = f.aiEvidenceSourceType ? `<span class="pill src-${f.aiEvidenceSourceType}">${f.aiEvidenceSourceType === 'transcript' ? '顧客発言' : (f.aiEvidenceSourceType === 'handler_memo' ? '担当者メモ' : '根拠なし')}</span>` : '';
+  const drift = f.aiDrift ? '<span class="pill bad">レビュー後にAI更新</span>' : '';
+  const val = f.finalValue != null ? f.finalValue : (f.aiValue != null ? f.aiValue : '');
+  return `
+   <div class="fact-row" data-code="${f.itemCode}">
+     <div class="fact-head">
+       <span class="fact-code">${f.itemCode}</span>
+       <span>${esc(itemLabel(f.itemCode))}</span>
+       <span class="pill ${flagCls}">${FLAG_LABELS[flagKey]}</span>
+       <span class="pill">${HANDLER_LABELS[f.handlerStatus]}</span>
+       ${f.aiConfidence ? `<span class="pill">確信度:${f.aiConfidence}</span>` : ''}
+       ${src} ${drift}
+     </div>
+     <div>${esc(val) || '<span class="muted">（未取得）</span>'}</div>
+     ${f.aiEvidenceQuote ? `<div class="quote">「${esc(f.aiEvidenceQuote)}」</div>` : ''}
+     ${f.aiFollowupQuestion ? `<div class="muted" style="font-size:0.83rem;">追加確認案: ${esc(f.aiFollowupQuestion)}</div>` : ''}
+     <div class="fact-actions">
+       <input type="text" placeholder="修正値（任意）" value="${esc(f.handlerValue || '')}" data-role="hval">
+       <button class="btn btn-small" data-act="approved">承認</button>
+       <button class="btn btn-small btn-secondary" data-act="revised">修正で確定</button>
+       <button class="btn btn-small btn-secondary" data-act="hold">保留</button>
+     </div>
+   </div>`;
+}
+
+function renderFacts() {
+  const facts = DATA.facts || [];
+  const focus = facts.filter((f) => f.aiInFocus);
+  const rest = facts.filter((f) => !f.aiInFocus);
+  el('focus-facts').innerHTML = focus.length ? focus.map(factRowHtml).join('') : '<p class="muted">まだ重点項目がありません。文字起こしを貼り付けて「会話を解析」を押してください。</p>';
+  el('all-facts').innerHTML = facts.length ? facts.map(factRowHtml).join('') : '<p class="muted">-</p>';
+  const s = DATA.focusSummary || { focusTotal: 0, acquired: 0, unknown: 0, needsConfirmation: 0, mustPending: 0 };
+  el('progress-line').textContent = `重点項目 ${s.focusTotal} 件：取得済み ${s.acquired} / 要確認 ${s.needsConfirmation} / 不明 ${s.unknown}` + (s.mustPending ? `（必須の未確認 ${s.mustPending}）` : '');
+  bindFactActions();
+}
+
+function bindFactActions() {
+  document.querySelectorAll('.fact-row').forEach((row) => {
+    row.querySelectorAll('button[data-act]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const code = row.dataset.code;
+        const act = btn.dataset.act;
+        const hval = row.querySelector('input[data-role=hval]').value.trim();
+        try {
+          await api(`/${encodeURIComponent(id())}/facts/${encodeURIComponent(code)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ handlerStatus: act, handlerValue: hval || null }),
+          });
+          await reloadKeepScroll();
+        } catch (e) { alert('保存に失敗: ' + e.message); }
+      });
+    });
+  });
+}
+
+function renderNav(result) {
+  const nq = result ? result.nextQuestion : null;
+  el('next-q-wrap').innerHTML = nq
+    ? `<div class="next-q"><div class="muted" style="font-size:0.8rem;">AI推奨の次の質問</div><div class="q">${esc(nq.question)}</div><div class="muted" style="font-size:0.83rem;">狙う項目: ${(nq.targetItemCodes || []).join(', ')}／理由: ${esc(nq.rationale)}</div></div>`
+    : '';
+  el('followups-wrap').innerHTML = result && result.followUps && result.followUps.length
+    ? '<div class="muted" style="font-size:0.8rem;">フォローアップ候補</div><ul>' + result.followUps.map((f) => `<li>${esc(f.question)} <span class="muted">(${(f.targetItemCodes || []).join(', ')})</span></li>`).join('') + '</ul>'
+    : '';
+  el('donotask-wrap').innerHTML = result && result.doNotAsk && result.doNotAsk.length
+    ? '<div class="muted" style="font-size:0.8rem;">これ以上聞かない（取得済み）</div><ul class="muted" style="font-size:0.85rem;">' + result.doNotAsk.map((d) => `<li>${esc(d.itemCode)}: ${esc(d.reason)}</li>`).join('') + '</ul>'
+    : '';
+}
+
+// ---------- 5. 構造化 ----------
+function bizFieldInput(b, key, label, i) {
+  return `<div><label>${label}</label><input type="text" data-bi="${i}" data-bk="${key}" value="${esc(b[key] ?? '')}"></div>`;
+}
+function opSelect(b, key, i) {
+  const opts = (DEF.businessOperatingFields[key] || []).map((v) => `<option value="${v}" ${b[key] === v ? 'selected' : ''}>${v}</option>`).join('');
+  return `<div><label>${key}</label><select data-bi="${i}" data-bk="${key}">${opts}</select></div>`;
+}
+function renderStructure() {
+  // 業務
+  const biz = DATA.businesses || [];
+  el('biz-list').innerHTML = biz.length ? biz.map((b, i) => `
+    <div class="biz-card">
+      <div class="biz-grid">
+        ${bizFieldInput(b, 'name', '業務名', i)}
+        ${bizFieldInput(b, 'purpose', '目的', i)}
+        ${bizFieldInput(b, 'beneficiary', '受益者', i)}
+        ${bizFieldInput(b, 'frequency', '頻度', i)}
+        ${bizFieldInput(b, 'countPerMonth', '件数/月', i)}
+        ${bizFieldInput(b, 'minutesPerCase', '分/件', i)}
+        ${bizFieldInput(b, 'attribution', '属人性', i)}
+        ${bizFieldInput(b, 'judgmentType', '判断特性', i)}
+      </div>
+      <div class="flag-row">
+        ${['eliminate','automate','standardize','delegate','keep'].map((k) => `<label><input type="checkbox" data-bi="${i}" data-bf="${k}" ${b.flags && b.flags[k] ? 'checked' : ''}> ${k}</label>`).join('')}
+      </div>
+      <div class="biz-grid">
+        ${opSelect(b, 'remoteOperability', i)}
+        ${opSelect(b, 'onsiteRequirement', i)}
+        ${opSelect(b, 'standardizability', i)}
+        ${opSelect(b, 'transferability', i)}
+        ${opSelect(b, 'assumedOperator', i)}
+      </div>
+      ${b.evidenceQuote ? `<div class="quote">「${esc(b.evidenceQuote)}」</div>` : ''}
+    </div>`).join('') : '<p class="muted">まだ構造化されていません。上のボタンで実行してください。</p>';
+
+  // Role Gap
+  const rg = DATA.roleGap;
+  const cats = DEF.roleGapCategories || [];
+  const rgInputs = el('rg-inputs');
+  rgInputs.innerHTML = '<div></div><div><strong>現在 %</strong></div><div><strong>理想 %</strong></div>';
+  const cur = rg && (rg.handler ? rg.handler.current : rg.aiRaw.current) || {};
+  const idl = rg && (rg.handler ? rg.handler.ideal : rg.aiRaw.ideal) || {};
+  cats.forEach((c) => {
+    rgInputs.insertAdjacentHTML('beforeend',
+      `<div>${c.label}</div>
+       <div><input type="number" min="0" max="100" data-rg="current" data-cat="${c.id}" value="${cur[c.id] ?? ''}"></div>
+       <div><input type="number" min="0" max="100" data-rg="ideal" data-cat="${c.id}" value="${idl[c.id] ?? ''}"></div>`);
+  });
+  if (rg) {
+    el('rg-status').innerHTML = `<span class="pill ${rg.status === 'confirmed' ? 'ok' : 'warn'}">${rg.status === 'confirmed' ? '確定' : '暫定・要確認'}</span> 根拠: ${rg.evidenceSufficiency === 'sufficient' ? '十分' : '不足'}　${esc(rg.note || '')}`;
+    el('rg-sums').textContent = `合計 現在 ${rg.currentSum} / 理想 ${rg.idealSum}（100でなくても構いません。担当者確認前は「暫定」です）`;
+  } else {
+    el('rg-status').textContent = '';
+    el('rg-sums').textContent = '';
+  }
+  drawRoleGapChart(cats, cur, idl);
+
+  // 成熟度
+  const mat = DATA.maturity;
+  const areas = (mat && mat.areas) || (DEF.maturityAreas || []).map((a) => ({ areaId: a.id, label: a.label, aiScore: null, handlerScore: null, evidence: '' }));
+  el('mat-inputs').innerHTML = areas.map((a) => `
+    <div style="margin-bottom:0.4rem;">
+      <label style="font-size:0.85rem; font-weight:600;">${esc(a.label)}（AI: ${a.aiScore ?? '-'}）</label>
+      <select data-mat="${a.areaId}">
+        <option value="">-</option>
+        ${[1,2,3,4,5].map((n) => `<option value="${n}" ${a.handlerScore === n ? 'selected' : ''}>${n}</option>`).join('')}
+      </select>
+      <span class="muted" style="font-size:0.8rem;">${esc(a.evidence || '')}</span>
+    </div>`).join('');
+  drawMaturityChart(areas);
+}
+
+function drawRoleGapChart(cats, cur, idl) {
+  if (!window.Chart) return;
+  if (rgChart) rgChart.destroy();
+  rgChart = new Chart(el('rg-canvas'), {
+    type: 'bar',
+    data: {
+      labels: cats.map((c) => c.label),
+      datasets: [
+        { label: '現在 %', data: cats.map((c) => cur[c.id] ?? 0), backgroundColor: 'rgba(31,53,86,0.75)' },
+        { label: '理想 %', data: cats.map((c) => idl[c.id] ?? 0), backgroundColor: 'rgba(45,190,157,0.75)' },
+      ],
+    },
+    options: { responsive: false, animation: false, scales: { y: { beginAtZero: true, max: 100 } } },
+  });
+}
+function drawMaturityChart(areas) {
+  if (!window.Chart) return;
+  if (matChart) matChart.destroy();
+  matChart = new Chart(el('mat-canvas'), {
+    type: 'radar',
+    data: {
+      labels: areas.map((a) => a.label),
+      datasets: [
+        { label: 'AI', data: areas.map((a) => a.aiScore ?? 0), borderColor: 'rgba(242,140,56,1)', backgroundColor: 'rgba(242,140,56,0.15)' },
+        { label: '担当者', data: areas.map((a) => a.handlerScore ?? 0), borderColor: 'rgba(31,53,86,1)', backgroundColor: 'rgba(31,53,86,0.15)' },
+      ],
+    },
+    options: { responsive: false, animation: false, scales: { r: { min: 0, max: 5, ticks: { stepSize: 1 } } } },
+  });
+}
+
+// ---------- 6. レポート ----------
+function renderReport() {
+  const rd = DATA.reportDraft;
+  const hyp = DATA.kaizenHypotheses || [];
+
+  el('omh-editor').innerHTML = rd && rd.operatingModelHypothesis
+    ? `<div class="form-row"><label>運営体制仮説サマリ</label><textarea class="block" id="omh-summary">${esc(rd.operatingModelHypothesis.summary || '')}</textarea></div>`
+    : '<p class="muted">まだ生成されていません。</p>';
+
+  el('hyp-editor').innerHTML = hyp.length ? hyp.map((h, i) => `
+    <div class="biz-card">
+      <div class="biz-grid">
+        <div><label>対象</label><input type="text" data-hi="${i}" data-hk="target" value="${esc(h.target ?? '')}"></div>
+        <div><label>優先度</label><input type="text" data-hi="${i}" data-hk="priority" value="${esc(h.priority ?? '')}"></div>
+        <div><label>Gap種別</label><input type="text" data-hi="${i}" data-hk="gapType" value="${esc(h.gapType ?? '')}"></div>
+        <div><label>創出時間の行き先</label><input type="text" data-hi="${i}" data-hk="freedTimeGoesTo" value="${esc(h.freedTimeGoesTo ?? '')}"></div>
+      </div>
+      <div><label style="font-size:0.78rem;font-weight:600;">未来像への影響</label><textarea class="block" data-hi="${i}" data-hk="futureVisionImpact">${esc(h.futureVisionImpact ?? '')}</textarea></div>
+      <div class="muted" style="font-size:0.82rem;">5分類: ${(h.categories || []).join(', ')} ／ 仮説</div>
+    </div>`).join('') : '<p class="muted">-</p>';
+
+  const blocks = (rd && rd.blocks) || {};
+  el('block-editor').innerHTML = `
+    ${blockTa('b01_future', '01 会社の未来像', blocks.b01_future)}
+    ${blockTa('b02_idealJoshisu', '02 理想の情シス', blocks.b02_idealJoshisu)}
+    ${blockTa('b03_gap_narrative', '03 現在地と理想との差（説明文）', blocks.b03_gap && blocks.b03_gap.narrative)}
+    ${blockTa('b04_timeShift_narrative', '04 時間を価値ある仕事へ移す（説明文）', blocks.b04_timeShift && blocks.b04_timeShift.narrative)}
+    ${blockTa('b06_next90days', '06 90日での次の一手（1行1施策）', (blocks.b06_next90days || []).map((x) => `${x.when || ''}: ${x.action || ''}`).join('\n'))}`;
+
+  // 印刷ビュー
+  el('r-omh').innerHTML = rd && rd.operatingModelHypothesis ? `
+    <h2>最適な情シス運営体制の仮説</h2>
+    <p>${esc(rd.operatingModelHypothesis.summary || '')}</p>
+    ${['eliminate','automate','standardize','delegate','keep'].map((k) => {
+      const arr = (rd.operatingModelHypothesis.byCategory || {})[k] || [];
+      const lbl = (DEF.kaizenCategories.find((c) => c.id === k) || {}).label || k;
+      return arr.length ? `<p><strong>${lbl}:</strong> ${arr.map(esc).join(' / ')}</p>` : '';
+    }).join('')}
+    ${(rd.operatingModelHypothesis.openQuestions || []).length ? '<p class="muted">未解決の問い: ' + rd.operatingModelHypothesis.openQuestions.map(esc).join(' / ') + '</p>' : ''}` : '';
+
+  el('r-blocks').innerHTML = rd && rd.blocks ? `
+    <h2>01 会社の未来像</h2><p>${esc(blocks.b01_future)}</p>
+    <h2>02 理想の情シス</h2><p>${esc(blocks.b02_idealJoshisu)}</p>
+    <h2>03 現在地と理想との差</h2>${gapTable(blocks.b03_gap)}<p>${esc(blocks.b03_gap && blocks.b03_gap.narrative)}</p>
+    <h2>04 時間を価値ある仕事へ移す</h2>${timeShiftTable(blocks.b04_timeShift)}<p>${esc(blocks.b04_timeShift && blocks.b04_timeShift.narrative)}</p>
+    <h2>05 優先KAIZEN仮説</h2><ul>${(blocks.b05_priorityKaizen || []).map((x) => `<li><strong>${esc(x.title)}</strong> — ${esc(x.body)}</li>`).join('')}</ul>
+    <h2>06 90日での次の一手</h2><ul>${(blocks.b06_next90days || []).map((x) => `<li>${esc(x.when)}: ${esc(x.action)}</li>`).join('')}</ul>` : '<p class="muted">レポート下書きを生成してください。</p>';
+}
+function blockTa(key, label, val) {
+  return `<div class="form-row"><label>${label}</label><textarea class="block" data-block="${key}">${esc(val || '')}</textarea></div>`;
+}
+function gapTable(g) {
+  if (!g || !g.table) return '';
+  return '<table class="small"><thead><tr><th>領域</th><th>現在</th><th>理想</th><th>差</th></tr></thead><tbody>' +
+    g.table.map((r) => `<tr><td>${esc(r.area)}</td><td>${r.current}</td><td>${r.ideal}</td><td>${r.gap}</td></tr>`).join('') + '</tbody></table>';
+}
+function timeShiftTable(t) {
+  if (!t || !t.rows) return '';
+  return '<table class="small"><thead><tr><th>区分</th><th>現在%</th><th>理想%</th><th>差</th></tr></thead><tbody>' +
+    t.rows.map((r) => `<tr><td>${esc(r.category)}</td><td>${r.currentPct}</td><td>${r.idealPct}</td><td>${r.diffPct}</td></tr>`).join('') + '</tbody></table>';
+}
+
+// ---------- reload ----------
+async function reloadKeepScroll() {
+  const y = window.scrollY;
+  await load();
+  window.scrollTo(0, y);
+}
+
+// ================= イベント =================
+el('save-status').addEventListener('click', async () => {
+  try { await api(`/${encodeURIComponent(id())}/status`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: el('status-select').value }) }); adminMsg(el('admin-msg'), true, '保存しました。'); }
+  catch (e) { adminMsg(el('admin-msg'), false, '失敗: ' + e.message); }
+});
+el('save-conversion').addEventListener('click', async () => {
+  try {
+    await api(`/${encodeURIComponent(id())}/conversion`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ convertedToAssessment: el('converted-checkbox').checked, assessmentCaseCode: el('case-code-input').value.trim() || null }) });
+    adminMsg(el('admin-msg'), true, '保存しました。');
+  } catch (e) { adminMsg(el('admin-msg'), false, '失敗: ' + e.message); }
+});
+
+el('gen-brief').addEventListener('click', async () => {
+  const m = el('brief-msg'); m.textContent = '生成中...（最大60秒）'; el('gen-brief').disabled = true;
+  try { await api(`/${encodeURIComponent(id())}/pre-brief`, { method: 'POST' }); m.textContent = ''; await reloadKeepScroll(); }
+  catch (e) { m.textContent = '失敗: ' + e.message; }
+  finally { el('gen-brief').disabled = false; }
+});
+
+el('analyze-btn').addEventListener('click', async () => {
+  const m = el('analyze-msg'); m.textContent = '解析中...（最大60秒）'; el('analyze-btn').disabled = true;
+  try {
+    const result = await api(`/${encodeURIComponent(id())}/interview/analyze`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript: el('transcript').value, handlerMemo: el('handler-memo').value || undefined }),
+    });
+    m.textContent = '';
+    const tScroll = window.scrollY;
+    await load();
+    window.scrollTo(0, tScroll);
+    renderNav(result);
+  } catch (e) { m.textContent = '失敗: ' + e.message; }
+  finally { el('analyze-btn').disabled = false; }
+});
+
+el('structure-btn').addEventListener('click', async () => {
+  const m = el('structure-msg'); m.textContent = '構造化中...（最大120秒）'; el('structure-btn').disabled = true;
+  try { await api(`/${encodeURIComponent(id())}/structure`, { method: 'POST' }); m.textContent = ''; await reloadKeepScroll(); }
+  catch (e) { m.textContent = '失敗: ' + e.message; }
+  finally { el('structure-btn').disabled = false; }
+});
+
+el('save-biz').addEventListener('click', async () => {
+  const biz = JSON.parse(JSON.stringify(DATA.businesses || []));
+  document.querySelectorAll('#biz-list input[data-bi], #biz-list select[data-bi]').forEach((inp) => {
+    const i = +inp.dataset.bi;
+    if (!biz[i]) return;
+    if (inp.dataset.bk) {
+      let v = inp.value;
+      if ((inp.dataset.bk === 'countPerMonth' || inp.dataset.bk === 'minutesPerCase')) v = v === '' ? null : Number(v);
+      biz[i][inp.dataset.bk] = v;
+    } else if (inp.dataset.bf) {
+      biz[i].flags = biz[i].flags || {};
+      biz[i].flags[inp.dataset.bf] = inp.checked;
+    }
+  });
+  try { await api(`/${encodeURIComponent(id())}/businesses`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ businesses: biz }) }); adminMsg(el('structure-save-msg'), true, '業務を保存しました。'); await reloadKeepScroll(); }
+  catch (e) { adminMsg(el('structure-save-msg'), false, '失敗: ' + e.message); }
+});
+
+function collectRoleGap() {
+  const current = {}, ideal = {};
+  document.querySelectorAll('#rg-inputs input[data-rg]').forEach((inp) => {
+    const v = inp.value === '' ? 0 : Number(inp.value);
+    (inp.dataset.rg === 'current' ? current : ideal)[inp.dataset.cat] = v;
+  });
+  return { current, ideal };
+}
+el('save-rg').addEventListener('click', async () => {
+  const { current, ideal } = collectRoleGap();
+  try { await api(`/${encodeURIComponent(id())}/role-gap`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ current, ideal }) }); adminMsg(el('structure-save-msg'), true, 'Role Gap を確定保存しました。'); await reloadKeepScroll(); }
+  catch (e) { adminMsg(el('structure-save-msg'), false, '失敗: ' + e.message); }
+});
+el('normalize-rg').addEventListener('click', async () => {
+  try { await api(`/${encodeURIComponent(id())}/role-gap/normalize`, { method: 'POST' }); adminMsg(el('structure-save-msg'), true, '正規化しました。'); await reloadKeepScroll(); }
+  catch (e) { adminMsg(el('structure-save-msg'), false, '失敗: ' + e.message); }
+});
+el('save-mat').addEventListener('click', async () => {
+  const areas = [];
+  document.querySelectorAll('#mat-inputs select[data-mat]').forEach((s) => { if (s.value) areas.push({ areaId: s.dataset.mat, handlerScore: Number(s.value) }); });
+  try { await api(`/${encodeURIComponent(id())}/maturity`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ areas }) }); adminMsg(el('structure-save-msg'), true, '成熟度を保存しました。'); await reloadKeepScroll(); }
+  catch (e) { adminMsg(el('structure-save-msg'), false, '失敗: ' + e.message); }
+});
+
+el('gen-report').addEventListener('click', async () => {
+  const m = el('report-msg'); m.textContent = '生成中...（最大120秒）'; el('gen-report').disabled = true;
+  try { await api(`/${encodeURIComponent(id())}/report-draft`, { method: 'POST' }); m.textContent = ''; await reloadKeepScroll(); }
+  catch (e) { m.textContent = '失敗: ' + e.message; }
+  finally { el('gen-report').disabled = false; }
+});
+
+el('save-hyp').addEventListener('click', async () => {
+  const hyp = JSON.parse(JSON.stringify(DATA.kaizenHypotheses || []));
+  document.querySelectorAll('#hyp-editor [data-hi]').forEach((inp) => {
+    const i = +inp.dataset.hi; if (!hyp[i]) return;
+    hyp[i][inp.dataset.hk] = inp.value;
+  });
+  try { await api(`/${encodeURIComponent(id())}/kaizen-hypotheses`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hypotheses: hyp }) }); adminMsg(el('report-save-msg'), true, 'KAIZEN仮説を保存しました。'); await reloadKeepScroll(); }
+  catch (e) { adminMsg(el('report-save-msg'), false, '失敗: ' + e.message); }
+});
+
+el('save-report').addEventListener('click', async () => {
+  const rd = DATA.reportDraft || { blocks: {} };
+  const blocks = JSON.parse(JSON.stringify(rd.blocks || {}));
+  blocks.b03_gap = blocks.b03_gap || { table: [], narrative: '' };
+  blocks.b04_timeShift = blocks.b04_timeShift || { rows: [], narrative: '' };
+  document.querySelectorAll('#block-editor textarea[data-block]').forEach((ta) => {
+    const k = ta.dataset.block;
+    if (k === 'b03_gap_narrative') blocks.b03_gap.narrative = ta.value;
+    else if (k === 'b04_timeShift_narrative') blocks.b04_timeShift.narrative = ta.value;
+    else if (k === 'b06_next90days') blocks.b06_next90days = ta.value.split('\n').filter(Boolean).map((line) => { const idx = line.indexOf(':'); return idx >= 0 ? { when: line.slice(0, idx).trim(), action: line.slice(idx + 1).trim() } : { when: '', action: line.trim() }; });
+    else blocks[k] = ta.value;
+  });
+  blocks.b05_priorityKaizen = blocks.b05_priorityKaizen || [];
+  const omh = rd.operatingModelHypothesis ? JSON.parse(JSON.stringify(rd.operatingModelHypothesis)) : undefined;
+  if (omh && el('omh-summary')) omh.summary = el('omh-summary').value;
+  try {
+    await api(`/${encodeURIComponent(id())}/report-draft`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blocks, operatingModelHypothesis: omh }) });
+    adminMsg(el('report-save-msg'), true, 'レポートを保存（確定）しました。'); await reloadKeepScroll();
+  } catch (e) { adminMsg(el('report-save-msg'), false, '失敗: ' + e.message); }
+});
+
+el('print-btn').addEventListener('click', () => window.print());
+el('pptx-btn').addEventListener('click', async () => {
+  if (typeof window.html2canvas !== 'function' || typeof window.PptxGenJS !== 'function') { alert('PPTXライブラリの読み込みに失敗しました。印刷/PDFをご利用ください。'); return; }
+  const btn = el('pptx-btn'); btn.disabled = true;
+  try {
+    const canvas = await window.html2canvas(el('report'), { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+    const img = canvas.toDataURL('image/png');
+    const pptx = new window.PptxGenJS();
+    pptx.layout = 'LAYOUT_16x9';
+    const slide = pptx.addSlide();
+    const ratio = canvas.width / canvas.height;
+    let w = 10, h = w / ratio;
+    if (h > 5.625) { h = 5.625; w = h * ratio; }
+    slide.addImage({ data: img, x: (10 - w) / 2, y: (5.625 - h) / 2, w, h });
+    const date = fmtDate(DATA.hearingDate || DATA.createdAt).replace(/\//g, '');
+    await pptx.writeFile({ fileName: `情シスKAIZEN診断_${DATA.companyName}_${date}.pptx` });
+  } catch (e) { alert('PPTX生成に失敗しました。印刷/PDFをご利用ください。'); }
+  finally { btn.disabled = false; }
+});
+
+load();
+</script>
+</body>
+</html>

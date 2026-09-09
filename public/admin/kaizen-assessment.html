@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>情シスKAIZEN 60分診断 一覧 | atLIB Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .filters { display:flex; gap:1.5rem; flex-wrap:wrap; align-items:flex-end; }
+  .stage-badge { display:inline-block; font-size:0.72rem; padding:0.12rem 0.5rem; border-radius:999px; background:var(--color-bg-muted,#eef2f5); color:var(--color-muted); }
+  .stage-report_final { background:#e8f5e9; color:#1b5e20; }
+  .stage-report_draft, .stage-structured { background:#fff3e0; color:#9c640c; }
+  .focus-mini { font-size:0.78rem; color:var(--color-muted); }
+</style>
+</head>
+<body>
+
+<div class="page" style="max-width:1280px;">
+  <h1>情シスKAIZEN 60分診断 一覧</h1>
+  <p>
+    <a href="/admin/kaizen-assessment-new.html">＋ 新規（スタッフ代理入力）</a>
+    &nbsp;|&nbsp;
+    <span style="color:var(--color-muted);">LP申込は事前アンケート受信で自動的にここに表示されます</span>
+  </p>
+
+  <div class="card">
+    <div class="filters">
+      <div class="form-row" style="max-width:200px;">
+        <label for="stage-filter">進捗で絞り込み</label>
+        <select id="stage-filter">
+          <option value="">すべて</option>
+          <option value="pre_survey">事前アンケート受信</option>
+          <option value="briefed">ブリーフ生成済み</option>
+          <option value="interviewing">面談・解析中</option>
+          <option value="structured">構造化済み</option>
+          <option value="report_draft">レポート下書き</option>
+          <option value="report_final">レポート確定</option>
+        </select>
+      </div>
+      <div class="form-row" style="max-width:200px;">
+        <label for="status-filter">対応状況で絞り込み</label>
+        <select id="status-filter">
+          <option value="">すべて</option>
+          <option value="new">未対応</option>
+          <option value="contacted">対応中</option>
+          <option value="closed">完了</option>
+        </select>
+      </div>
+      <div class="form-row" style="max-width:200px;">
+        <label for="source-filter">入力元で絞り込み</label>
+        <select id="source-filter">
+          <option value="">すべて</option>
+          <option value="staff">スタッフ入力</option>
+          <option value="prospect">見込み客入力</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="list-error" class="error-message" style="display:none;"></div>
+    <div id="list-loading" class="info-message">読み込み中...</div>
+
+    <table id="list-table" style="display:none;">
+      <thead>
+        <tr>
+          <th>受付日</th>
+          <th>入力元</th>
+          <th>企業名</th>
+          <th>担当者</th>
+          <th>規模</th>
+          <th>進捗</th>
+          <th>ブリーフ</th>
+          <th>重点項目</th>
+          <th>対応状況</th>
+          <th>有償転換</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="list-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const STATUS_LABELS = { new: '未対応', contacted: '対応中', closed: '完了' };
+const SOURCE_LABELS = { staff: 'スタッフ', prospect: '見込み客' };
+const STAGE_LABELS = {
+  pre_survey: '事前アンケート', briefed: 'ブリーフ生成済', interviewing: '面談・解析中',
+  items_review: '事実確認中', structured: '構造化済', report_draft: 'レポート下書き', report_final: 'レポート確定',
+};
+const BAND_LABELS = {
+  lt50: '～49名', '50_99': '50-99名', '100_299': '100-299名', '300_499': '300-499名',
+  '500_999': '500-999名', gte1000: '1,000名以上',
+};
+
+function formatDateOnly(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+}
+
+function focusMini(f) {
+  if (!f || !f.focusTotal) return '<span class="focus-mini">-</span>';
+  return `<span class="focus-mini">取得${f.acquired} / 要確認${f.needsConfirmation} / 不明${f.unknown}（重点${f.focusTotal}）</span>`;
+}
+
+async function loadList() {
+  const loadingEl = document.getElementById('list-loading');
+  const errorEl = document.getElementById('list-error');
+  const table = document.getElementById('list-table');
+  const tbody = document.getElementById('list-body');
+  const stage = document.getElementById('stage-filter').value;
+  const status = document.getElementById('status-filter').value;
+  const source = document.getElementById('source-filter').value;
+
+  loadingEl.style.display = 'block';
+  errorEl.style.display = 'none';
+  table.style.display = 'none';
+
+  try {
+    const params = new URLSearchParams();
+    if (stage) params.set('workflowStage', stage);
+    if (status) params.set('status', status);
+    if (source) params.set('inputSource', source);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch('/api/admin/kaizen-assessment' + qs);
+    if (!res.ok) throw new Error('failed');
+    const data = await res.json();
+
+    tbody.innerHTML = '';
+    data.items.forEach((item) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${formatDateOnly(item.hearingDate || item.createdAt)}</td>
+        <td>${SOURCE_LABELS[item.inputSource] || item.inputSource}</td>
+        <td>${item.companyName}</td>
+        <td>${item.contactName || '-'}</td>
+        <td>${BAND_LABELS[item.employeeBand] || item.employeeBand || '-'}</td>
+        <td><span class="stage-badge stage-${item.workflowStage}">${STAGE_LABELS[item.workflowStage] || item.workflowStage}</span></td>
+        <td>${item.hasPreBrief ? '✔' : '-'}</td>
+        <td>${focusMini(item.focusSummary)}</td>
+        <td>${STATUS_LABELS[item.reviewStatus] || item.reviewStatus}</td>
+        <td>${item.convertedToAssessment ? `✔ ${item.assessmentCaseCode || ''}` : '-'}</td>
+        <td><a href="/admin/kaizen-assessment-detail.html?id=${encodeURIComponent(item.id)}">開く</a></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    loadingEl.style.display = 'none';
+    if (data.items.length > 0) {
+      table.style.display = 'table';
+    } else {
+      loadingEl.textContent = '該当する診断はありません。';
+      loadingEl.style.display = 'block';
+    }
+  } catch {
+    loadingEl.style.display = 'none';
+    errorEl.textContent = '一覧の取得に失敗しました。ページを再読み込みしてください。';
+    errorEl.style.display = 'block';
+  }
+}
+
+['stage-filter', 'status-filter', 'source-filter'].forEach((id) =>
+  document.getElementById(id).addEventListener('change', loadList),
+);
+loadList();
+</script>
+</body>
+</html>

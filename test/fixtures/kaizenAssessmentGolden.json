@@ -1,0 +1,143 @@
+{
+  "note": "情シスKAIZEN 60分無料診断 Golden Test 用の代表5社ケース。preSurveyRaw は POST /pre-survey の preSurvey ペイロード形（q1..q8）。transcript は顧客発言(一次情報)、handlerMemo は担当者の主観メモ(二次情報)。confirmedFacts は Call C1/C2 へ渡す担当者確認済み事実の代用。",
+  "cases": [
+    {
+      "id": "mfg-250",
+      "company": "サンプル製造株式会社",
+      "employeeBandLabel": "100～299名",
+      "preSurveyRaw": {
+        "q1": "100_299",
+        "q2": ["concurrent", "none"],
+        "q2Count": 1,
+        "q3": ["dx_ai", "productivity"],
+        "q4": ["improvement", "it_strategy"],
+        "q5": ["user_support", "kitting", "account"],
+        "q6": ["dx_ai", "improvement"],
+        "q7": ["overwhelmed", "attrition"],
+        "q8": ["daily_burden"]
+      },
+      "transcript": "担当者: 3年後は、製造ラインのデータを使って生産性をもっと上げたいと思っています。今は正直そこまで手が回っていません。\n顧客: 情シスは私1人で、総務と兼任です。日々、社員からの『PCが遅い』『プリンタが繋がらない』みたいな問い合わせに追われていて。昨日も入社者が2人いて、朝からアカウントを作って、Microsoft 365に登録して、SaaSも3つくらい手で登録して、キッティングして、夕方までかかりました。\n担当者: そのキッティングは、他の人でも同じようにできますか。\n顧客: 手順書は一応あるんですけど、途中で部署ごとにインストールするアプリが違ったりして、結局私が見ないと不安です。\n担当者: 問い合わせは月にどのくらい来ますか。\n顧客: 数えていないですが、1日に5、6件はある感じです。1件15分くらいでしょうか。記録は取っていません。",
+      "handlerMemo": "完全に属人化。この人が倒れたら会社のIT止まる。事務作業も相当多いはず。経営はITに興味なさそう。",
+      "confirmedFacts": [
+        { "itemCode": "F01", "value": "製造ラインのデータを活用して生産性を上げたい" },
+        { "itemCode": "F04", "value": "問い合わせ対応と入社者対応でほぼ埋まっている。改善に手が回らない" },
+        { "itemCode": "F05", "value": "情シス1名、総務兼任" },
+        { "itemCode": "P01", "value": "入社者2名の初期セットアップ（起点=入社）" },
+        { "itemCode": "P02", "value": "アカウント作成→M365登録→SaaS3つ手動登録→キッティング" },
+        { "itemCode": "P05", "value": "問い合わせ1件あたり約15分" },
+        { "itemCode": "P04", "value": "問い合わせは1日5〜6件（月間は未確認）" },
+        { "itemCode": "P09", "value": "手順書はあるが部署差分の判断で担当者依存" },
+        { "itemCode": "I02", "value": "問い合わせ記録は取っていない" }
+      ]
+    },
+    {
+      "id": "startup-80",
+      "company": "サンプルテック株式会社",
+      "employeeBandLabel": "50～99名",
+      "preSurveyRaw": {
+        "q1": "50_99",
+        "q2": ["dedicated"],
+        "q2Count": 1,
+        "q3": ["security_trust", "isms_governance"],
+        "q4": ["security", "it_strategy"],
+        "q5": ["account", "security", "system_intro"],
+        "q6": ["isms_audit", "id_auth"],
+        "q7": ["cannot_improve", "hard_to_pitch"],
+        "q8": ["security"]
+      },
+      "transcript": "顧客: 来年ISMSを取りたくて、そのために情シスの体制を整えたいです。認証はEntra ID中心で、SSOも主要なSaaSには入れています。\n担当者: 退職者が出たとき、アカウントや権限はどう回収していますか。\n顧客: 人事からSlackのDMで連絡が来て、それを見て私がEntraでアカウントを無効化します。SaaS側は…正直、全部は追えていないかもしれません。この前、退職して3ヶ月経った人のGitHubアカウントがまだ生きていたことがありました。\n担当者: その対応は手順化されていますか。\n顧客: 私の頭の中にあるだけです。",
+      "handlerMemo": "退職者アカウント放置は重大インシデント一歩手前。ここは完全属人化で危険。offboarding全体をBPOすべき。",
+      "confirmedFacts": [
+        { "itemCode": "F01", "value": "来年ISMSを取得し、セキュリティと社会的信用を高めたい" },
+        { "itemCode": "F03", "value": "情シスはセキュリティ・IT戦略に時間を使いたい" },
+        { "itemCode": "T01", "value": "Entra ID中心、主要SaaSはSSO" },
+        { "itemCode": "P01", "value": "退職連絡（人事からSlack DM）が起点" },
+        { "itemCode": "P02", "value": "Slack DM受領→Entraでアカウント無効化。SaaS個別は網羅できていない" },
+        { "itemCode": "P08", "value": "退職3ヶ月後もGitHubアカウントが有効だった例外あり" },
+        { "itemCode": "I02", "value": "退職者アカウント回収の手順書は無く担当者の記憶のみ" }
+      ]
+    },
+    {
+      "id": "trading-600",
+      "company": "サンプル商事株式会社",
+      "employeeBandLabel": "500～999名",
+      "preSurveyRaw": {
+        "q1": "500_999",
+        "q2": ["department"],
+        "q2Count": 3,
+        "q3": ["data", "cost"],
+        "q4": ["improvement", "user_enable"],
+        "q5": ["asset_license", "admin_clerical", "infra_ops"],
+        "q6": ["data", "improvement"],
+        "q7": ["manual_dup", "overwhelmed"],
+        "q8": ["daily_burden", "attrition"]
+      },
+      "transcript": "顧客: 情シスは3人います。ただ、契約更新やライセンスの棚卸し、月次のIT費用レポート作成に毎月かなり時間が取られています。先月もライセンスの棚卸しをやったんですが、Excelの台帳とベンダーの請求書を突き合わせて、差分を1つずつ確認して、3日くらいかかりました。\n担当者: その台帳はどこで管理していますか。\n顧客: 共有フォルダのExcelです。担当者ごとに少しずつ書き方が違っていて、毎回整えるところから始まります。\n担当者: 一番時間がかかったのはどの工程ですか。\n顧客: ベンダーごとに請求書のフォーマットが違うので、その転記と突き合わせです。",
+      "handlerMemo": "事務作業の塊。自動化余地大。台帳をSaaS化すれば一発。",
+      "confirmedFacts": [
+        { "itemCode": "F02", "value": "データ活用とITコスト最適化が優先テーマ" },
+        { "itemCode": "F05", "value": "情シス3名" },
+        { "itemCode": "P01", "value": "月次のライセンス棚卸し・IT費用レポート（定期が起点）" },
+        { "itemCode": "P02", "value": "Excel台帳とベンダー請求書を突合し差分を1件ずつ確認" },
+        { "itemCode": "P05", "value": "ライセンス棚卸しに約3日/月" },
+        { "itemCode": "P06", "value": "ベンダー請求書フォーマット差異による転記・突合が最も時間がかかる" },
+        { "itemCode": "P10", "value": "共有フォルダのExcel台帳。担当者ごとに記法が異なる" },
+        { "itemCode": "P09", "value": "台帳の整形から毎回始まり担当者依存の要素あり" }
+      ]
+    },
+    {
+      "id": "medical-120",
+      "company": "サンプル医療法人",
+      "employeeBandLabel": "100～299名",
+      "preSurveyRaw": {
+        "q1": "100_299",
+        "q2": ["concurrent", "none"],
+        "q2Count": 1,
+        "q3": ["security_trust", "productivity"],
+        "q4": ["stable_ops", "undecided"],
+        "q5": ["user_support", "incident", "kitting"],
+        "q6": ["none"],
+        "q7": ["understaffed", "legacy"],
+        "q8": ["where_to_start"]
+      },
+      "transcript": "顧客: 情シスの専任はいなくて、私が総務と一緒にやっています。病院なので、電子カルテの端末が動かないと診療が止まるので、そういうときは業者を呼びます。院内に200台くらいPCがあって、場所がバラバラなので、何かあると現地に行くしかないです。\n担当者: 最近対応した障害は何でしたか。\n顧客: 先週、外来の受付端末がフリーズして、再起動しても直らなくて、結局業者対応で半日待ちました。その間、受付は紙で回しました。\n担当者: 端末の管理は台帳などでされていますか。\n顧客: 古いExcelがありますが、更新できていません。",
+      "handlerMemo": "現地対応必須の典型。リモート運用は難しそう。でも監視だけでも入れられるのでは。",
+      "confirmedFacts": [
+        { "itemCode": "F01", "value": "診療を止めないIT、社会的信用の維持" },
+        { "itemCode": "F03", "value": "まず安定した日常運用（理想Roleは未整理）" },
+        { "itemCode": "F05", "value": "情シス専任なし、総務兼任1名" },
+        { "itemCode": "P01", "value": "端末障害（例: 外来受付端末フリーズ）が起点" },
+        { "itemCode": "P02", "value": "再起動で直らず業者手配、復旧まで半日、その間は紙運用" },
+        { "itemCode": "P12", "value": "院内200台が拠点分散、障害時は現地対応が必要" },
+        { "itemCode": "T02", "value": "端末台帳（古いExcel）が更新されていない" }
+      ]
+    },
+    {
+      "id": "retail-1200",
+      "company": "サンプルリテール株式会社",
+      "employeeBandLabel": "1,000名以上",
+      "preSurveyRaw": {
+        "q1": "gte1000",
+        "q2": ["department", "outsourced"],
+        "q2Count": 4,
+        "q3": ["cost", "cloud"],
+        "q4": ["it_strategy", "infra"],
+        "q5": ["infra_ops", "system_intro"],
+        "q6": ["it_roadmap", "cloud_infra"],
+        "q7": ["hard_to_pitch", "cross_dept"],
+        "q8": ["infra_ops"]
+      },
+      "transcript": "顧客: 全国に80店舗あって、各店舗のネットワークとPOS、本部のサーバー運用を情シス4人と外部ベンダー3社で回しています。ベンダーごとに契約と窓口が違っていて、障害のたびにどこに連絡するか確認するところから始まります。\n担当者: 直近で契約を見直したのはいつですか。\n顧客: 数年見直していないと思います。請求は経理が処理していて、情シスとしては総額を把握していません。\n担当者: IT予算の内訳は経営に共有されていますか。\n顧客: いえ、聞かれたら答える程度で、こちらから説明する機会はないです。",
+      "handlerMemo": "ベンダー乱立でガバナンス崩壊。統合運用に巻き取るべき。予算の可視化も必要。",
+      "confirmedFacts": [
+        { "itemCode": "F02", "value": "ITコスト最適化とクラウド活用が優先テーマ" },
+        { "itemCode": "F03", "value": "情シスはIT戦略・IT基盤の改善に時間を使いたい" },
+        { "itemCode": "F05", "value": "情シス4名＋外部ベンダー3社" },
+        { "itemCode": "F06", "value": "IT予算の総額・内訳を情シス／経営が把握していない。経営へ説明する機会がない" },
+        { "itemCode": "P01", "value": "店舗ネットワーク・POS障害が起点" },
+        { "itemCode": "P11", "value": "ベンダー3社で契約・窓口が分かれ、障害時に連絡先確認から始まる" },
+        { "itemCode": "P13", "value": "ベンダー契約の妥当性が数年見直されていない" }
+      ]
+    }
+  ]
+}

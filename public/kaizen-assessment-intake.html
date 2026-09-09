@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>情シスKAIZEN｜60分無料診断 お申し込み | atLIB</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/lp.css">
+<style>
+  .question-prompt { display:block; font-size:1.02rem; font-weight:600; color:var(--color-text); margin-bottom:0.5rem; line-height:1.6; }
+  .q-hint { font-size:0.8rem; color:var(--color-muted); margin:0 0 0.6rem; }
+  .checkbox-group label, .radio-group label { display:block; margin-bottom:0.4rem; font-weight:400; }
+  .other-text { margin-top:0.4rem; max-width:420px; }
+  .intro-lead { font-size:0.95rem; line-height:1.8; }
+</style>
+</head>
+<body>
+
+<nav class="lp-nav">
+  <div class="brand">atLIB <span>情シスKAIZEN｜60分無料診断</span></div>
+</nav>
+
+<div class="section" style="max-width:720px;">
+  <h1 class="section-title" style="text-align:left;">60分無料診断のお申し込み（事前アンケート）</h1>
+  <p class="info-message intro-lead" id="intro-message">
+    「人を増やす前に、仕事を減らす。」情シスKAIZENの60分無料診断は、担当者との対話で
+    御社の未来像と現在の情シスの働き方のGapを整理し、最適な情シス運営体制の仮説をご提示します。<br>
+    まずは2〜3分の事前アンケートにご回答ください。内容を確認のうえ、担当者より日程調整のご連絡をします。
+    <strong>この場では診断結果は表示されません。</strong>
+  </p>
+
+  <form id="intake-form">
+    <div class="card">
+      <h2>ご連絡先</h2>
+      <div class="form-row">
+        <label for="company-name">会社名</label>
+        <input type="text" id="company-name" required autocomplete="organization">
+      </div>
+      <div class="form-row">
+        <label for="contact-name">ご担当者名</label>
+        <input type="text" id="contact-name" required autocomplete="name">
+      </div>
+      <div class="form-row">
+        <label for="email">メールアドレス</label>
+        <input type="email" id="email" required autocomplete="email">
+      </div>
+      <div class="form-row">
+        <label for="phone">電話番号（任意）</label>
+        <input type="text" id="phone" autocomplete="tel">
+      </div>
+      <!-- ハニーポット（人間には見えない） -->
+      <div style="position:absolute; left:-9999px;" aria-hidden="true">
+        <label for="hp">この欄は入力しないでください</label>
+        <input type="text" id="hp" tabindex="-1" autocomplete="off">
+      </div>
+    </div>
+
+    <div id="questions"><p class="info-message">質問を読み込んでいます...</p></div>
+
+    <div id="form-error" class="error-message" style="display:none;"></div>
+    <button type="submit" class="btn" style="width:100%;" id="submit-btn">この内容で申し込む</button>
+  </form>
+
+  <!-- 送信成功時は <form> ごと非表示にするため、お礼文はform外に置く -->
+  <div id="success-box" class="success-message card" style="display:none; text-align:center;">
+    <strong style="font-size:1.1rem;">お申し込みありがとうございました。</strong><br><br>
+    ご回答内容を担当者が確認のうえ、60分無料診断の日程調整について改めてご連絡いたします。
+    今しばらくお待ちください。
+  </div>
+</div>
+
+<script>
+const form = document.getElementById('intake-form');
+let QUESTIONS = [];
+
+function renderQuestion(q) {
+  const wrap = document.createElement('div');
+  wrap.className = 'form-row';
+
+  const legend = document.createElement('label');
+  legend.className = 'question-prompt';
+  legend.textContent = q.prompt + (q.required ? '' : '（任意）');
+  wrap.appendChild(legend);
+
+  if (q.type === 'multi') {
+    const hint = document.createElement('p');
+    hint.className = 'q-hint';
+    hint.textContent = q.maxSelect ? `あてはまるものを最大${q.maxSelect}つ選択してください` : 'あてはまるものをすべて選択してください';
+    wrap.appendChild(hint);
+  }
+
+  const group = document.createElement('div');
+  group.className = q.type === 'multi' ? 'checkbox-group' : 'radio-group';
+  q.options.forEach((opt) => {
+    const label = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = q.type === 'multi' ? 'checkbox' : 'radio';
+    input.name = q.id;
+    input.value = opt.value;
+    if (q.type === 'single' && q.required) input.required = true;
+    label.appendChild(input);
+    label.appendChild(document.createTextNode(' ' + opt.label));
+    group.appendChild(label);
+  });
+  wrap.appendChild(group);
+
+  if (q.allowOther) {
+    const other = document.createElement('input');
+    other.type = 'text';
+    other.className = 'other-text';
+    other.id = 'other-' + q.id;
+    other.placeholder = 'その他（自由記述・任意）';
+    other.style.display = 'none';
+    wrap.appendChild(other);
+    group.addEventListener('change', () => {
+      const checked = Array.from(group.querySelectorAll('input')).some((i) => i.checked && i.value === 'other');
+      other.style.display = checked ? 'block' : 'none';
+    });
+  }
+
+  if (q.type === 'multi' && q.maxSelect) {
+    group.addEventListener('change', (e) => {
+      const checked = group.querySelectorAll('input:checked');
+      if (checked.length > q.maxSelect && e.target.checked) {
+        e.target.checked = false;
+        if (q.allowOther && e.target.value === 'other') {
+          const o = document.getElementById('other-' + q.id);
+          if (o) o.style.display = 'none';
+        }
+      }
+    });
+  }
+
+  return wrap;
+}
+
+async function loadQuestions() {
+  const container = document.getElementById('questions');
+  try {
+    const res = await fetch('/api/kaizen-assessment/pre-survey/questions');
+    if (!res.ok) throw new Error('failed');
+    const data = await res.json();
+    QUESTIONS = data.questions;
+    const card = document.createElement('div');
+    card.className = 'card';
+    const h = document.createElement('h2');
+    h.textContent = '事前アンケート（全' + QUESTIONS.length + '問）';
+    card.appendChild(h);
+    QUESTIONS.forEach((q) => card.appendChild(renderQuestion(q)));
+    container.innerHTML = '';
+    container.appendChild(card);
+  } catch {
+    container.innerHTML = '<p class="error-message">質問の読み込みに失敗しました。ページを再読み込みしてください。</p>';
+  }
+}
+
+function collectPreSurvey() {
+  const preSurvey = {};
+  const otherTexts = {};
+  QUESTIONS.forEach((q) => {
+    const inputs = Array.from(form.querySelectorAll(`input[name="${q.id}"]`));
+    if (q.type === 'multi') {
+      const vals = inputs.filter((i) => i.checked).map((i) => i.value);
+      if (vals.length > 0) preSurvey[q.id] = vals;
+    } else {
+      const picked = inputs.find((i) => i.checked);
+      if (picked) preSurvey[q.id] = picked.value;
+    }
+    if (q.allowOther) {
+      const o = document.getElementById('other-' + q.id);
+      if (o && o.value.trim()) otherTexts[q.id] = o.value.trim();
+    }
+  });
+  if (Object.keys(otherTexts).length > 0) preSurvey.otherTexts = otherTexts;
+  return preSurvey;
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('form-error');
+  const successEl = document.getElementById('success-box');
+  const btn = document.getElementById('submit-btn');
+  errorEl.style.display = 'none';
+  btn.disabled = true;
+
+  const payload = {
+    companyName: document.getElementById('company-name').value,
+    contactName: document.getElementById('contact-name').value,
+    email: document.getElementById('email').value,
+    phone: document.getElementById('phone').value || undefined,
+    hp: document.getElementById('hp').value || undefined,
+    preSurvey: collectPreSurvey(),
+  };
+
+  try {
+    const res = await fetch('/api/kaizen-assessment/pre-survey', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.status === 204) {
+      document.getElementById('intro-message').style.display = 'none';
+      form.style.display = 'none';
+      successEl.style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      const data = await res.json().catch(() => ({}));
+      errorEl.textContent = data.error || '送信に失敗しました。必須項目のご確認のうえ、再度お試しください。';
+      errorEl.style.display = 'block';
+    }
+  } catch {
+    errorEl.textContent = '通信エラーが発生しました。しばらくしてから再度お試しください。';
+    errorEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+loadQuestions();
+</script>
+</body>
+</html>

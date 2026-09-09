@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>情シスKAIZEN診断 回答一覧 | atLIB Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .filters { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-end; }
+  .flag-badge { display: inline-block; font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px; margin-right: 0.2rem; }
+  .flag-visibility { background: var(--color-orange, #e8890c); color: #fff; }
+  .flag-urgent { background: #c0392b; color: #fff; }
+  .svc-list { font-size: 0.8rem; color: var(--color-muted); }
+</style>
+</head>
+<body>
+
+<div class="page" style="max-width:1280px;">
+  <h1>情シスKAIZEN診断 回答一覧</h1>
+  <p><a href="/admin/kaizen-diagnostic-new.html">＋ 新規ヒアリングを入力する</a></p>
+
+  <div class="card">
+    <div class="filters">
+      <div class="form-row" style="max-width:220px;">
+        <label for="status-filter">対応状況で絞り込み</label>
+        <select id="status-filter">
+          <option value="">すべて</option>
+          <option value="new">未対応</option>
+          <option value="contacted">対応中</option>
+          <option value="closed">完了</option>
+        </select>
+      </div>
+      <div class="form-row" style="max-width:220px;">
+        <label for="source-filter">入力元で絞り込み</label>
+        <select id="source-filter">
+          <option value="">すべて</option>
+          <option value="staff">スタッフ入力</option>
+          <option value="prospect">見込み客入力</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="list-error" class="error-message" style="display:none;"></div>
+    <div id="list-loading" class="info-message">読み込み中...</div>
+
+    <table id="list-table" style="display:none;">
+      <thead>
+        <tr>
+          <th>実施日</th>
+          <th>入力元</th>
+          <th>企業名</th>
+          <th>担当者</th>
+          <th>コスト</th>
+          <th>リスク</th>
+          <th>属人化</th>
+          <th>フラグ</th>
+          <th>提案候補（上位）</th>
+          <th>対応状況</th>
+          <th>有償転換</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="list-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const STATUS_LABELS = { new: '未対応', contacted: '対応中', closed: '完了' };
+const SOURCE_LABELS = { staff: 'スタッフ', prospect: '見込み客' };
+
+function formatDateOnly(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+}
+
+function topServices(list) {
+  if (!Array.isArray(list) || list.length === 0) return '<span class="svc-list">-</span>';
+  return '<span class="svc-list">' + list.slice(0, 3).map((s) => `${s.label}(${s.hitCount})`).join(' / ') + '</span>';
+}
+
+function flagBadges(scores) {
+  const parts = [];
+  if (scores && scores.securityUrgentFlag) parts.push('<span class="flag-badge flag-urgent">緊急</span>');
+  if (scores && scores.visibilityGapFlag) parts.push('<span class="flag-badge flag-visibility">可視化不足</span>');
+  return parts.join('') || '-';
+}
+
+async function loadList() {
+  const loadingEl = document.getElementById('list-loading');
+  const errorEl = document.getElementById('list-error');
+  const table = document.getElementById('list-table');
+  const tbody = document.getElementById('list-body');
+  const status = document.getElementById('status-filter').value;
+  const source = document.getElementById('source-filter').value;
+
+  loadingEl.style.display = 'block';
+  errorEl.style.display = 'none';
+  table.style.display = 'none';
+
+  try {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (source) params.set('inputSource', source);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch('/api/admin/kaizen-diagnostic' + qs);
+    if (!res.ok) throw new Error('failed to load');
+    const data = await res.json();
+
+    tbody.innerHTML = '';
+    data.items.forEach((item) => {
+      const n = (item.scores && item.scores.axisNormalized) || {};
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${formatDateOnly(item.hearingDate || item.createdAt)}</td>
+        <td>${SOURCE_LABELS[item.inputSource] || item.inputSource}</td>
+        <td>${item.companyName}</td>
+        <td>${item.contactName || '-'}</td>
+        <td>${n.cost ?? '-'}</td>
+        <td>${n.risk ?? '-'}</td>
+        <td>${n.attrition ?? '-'}</td>
+        <td>${flagBadges(item.scores)}</td>
+        <td>${topServices(item.suggestedServices)}</td>
+        <td>${STATUS_LABELS[item.reviewStatus] || item.reviewStatus}</td>
+        <td>${item.convertedToAssessment ? `✔ ${item.assessmentCaseCode || ''}` : '-'}</td>
+        <td><a href="/admin/kaizen-diagnostic-detail.html?id=${encodeURIComponent(item.id)}">詳細</a></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    loadingEl.style.display = 'none';
+    table.style.display = data.items.length > 0 ? 'table' : 'none';
+    if (data.items.length === 0) {
+      loadingEl.textContent = '該当する回答はありません。';
+      loadingEl.style.display = 'block';
+    }
+  } catch {
+    loadingEl.style.display = 'none';
+    errorEl.textContent = '一覧の取得に失敗しました。ページを再読み込みしてください。';
+    errorEl.style.display = 'block';
+  }
+}
+
+document.getElementById('status-filter').addEventListener('change', loadList);
+document.getElementById('source-filter').addEventListener('change', loadList);
+loadList();
+</script>
+</body>
+</html>

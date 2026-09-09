@@ -8,6 +8,9 @@ import { createPool } from './db/pool';
 import { Mailer } from './services/mailer';
 import { IsmsDiagnosticRepo } from './services/ismsDiagnosticRepo';
 import { FreeHearingAssessmentRepo } from './services/freeHearingAssessmentRepo';
+import { KaizenDiagnosticRepo } from './services/kaizenDiagnosticRepo';
+import { KaizenAssessmentRepo } from './services/kaizenAssessmentRepo';
+import { KaizenAssessmentAiService } from './services/kaizenAssessmentAiService';
 import { MarketRateRepo } from './services/marketRateRepo';
 import { EstimatePreconditionRepo } from './services/estimatePreconditionRepo';
 import { EstimateRepo } from './services/estimateRepo';
@@ -17,6 +20,10 @@ import { createIsmsDiagnosticRouter } from './routes/ismsDiagnostic';
 import { createAdminIsmsDiagnosticRouter } from './routes/adminIsmsDiagnostic';
 import { createFreeHearingAssessmentRouter } from './routes/freeHearingAssessment';
 import { createAdminFreeHearingAssessmentRouter } from './routes/adminFreeHearingAssessment';
+import { createKaizenDiagnosticRouter } from './routes/kaizenDiagnostic';
+import { createAdminKaizenDiagnosticRouter } from './routes/adminKaizenDiagnostic';
+import { createKaizenAssessmentRouter } from './routes/kaizenAssessment';
+import { createAdminKaizenAssessmentRouter } from './routes/adminKaizenAssessment';
 import { createAdminMarketRatesRouter } from './routes/adminMarketRates';
 import { createAdminEstimatePreconditionsRouter } from './routes/adminEstimatePreconditions';
 import { createAdminEstimatesRouter } from './routes/adminEstimates';
@@ -33,6 +40,9 @@ async function main(): Promise<void> {
   const mailer = new Mailer(config.smtp);
   const ismsDiagnosticRepo = new IsmsDiagnosticRepo(pool);
   const freeHearingAssessmentRepo = new FreeHearingAssessmentRepo(pool);
+  const kaizenDiagnosticRepo = new KaizenDiagnosticRepo(pool);
+  const kaizenAssessmentRepo = new KaizenAssessmentRepo(pool);
+  const kaizenAssessmentAiService = new KaizenAssessmentAiService(config.aiAssist.anthropicApiKey);
   const marketRateRepo = new MarketRateRepo(pool);
   const estimatePreconditionRepo = new EstimatePreconditionRepo(pool);
   const estimateRepo = new EstimateRepo(pool);
@@ -49,6 +59,9 @@ async function main(): Promise<void> {
   // 大きめのexpress.json()を先にマウントする（body-parserは同一リクエストの二重パースを
   // no-opにするため、下のグローバルexpress.json()と共存してよい。msp-customer-portalと同じ対応）。
   app.use('/api/admin/estimates/ai-assist', express.json({ limit: '15mb' }));
+  // 60分診断の文字起こし貼り付けはデフォルトの100KB上限を超えることがある。
+  // グローバルより前に、このパスだけ大きめのexpress.json()を先にマウントする（見積AIと同じ対応）。
+  app.use('/api/admin/kaizen-assessment', express.json({ limit: '2mb' }));
   app.use(express.json());
   app.use(cookieParser());
 
@@ -72,6 +85,14 @@ async function main(): Promise<void> {
   // 結果表（スコア・提案候補サービス）は返さず、スタッフが /admin/ 配下の結果シートで確認する。
   app.use('/api/free-hearing-assessment', createFreeHearingAssessmentRouter(freeHearingAssessmentRepo));
 
+  // 情シスKAIZEN診断: corporate-site LP（www.atlib.jp/joshisu-kaizen/）向けの姉妹版。
+  // /request-link のみ LP からのクロスオリジンPOSTを受けるためルーター内でCORSを個別付与している。
+  app.use('/api/kaizen-diagnostic', createKaizenDiagnosticRouter(kaizenDiagnosticRepo, mailer, config));
+
+  // 情シスKAIZEN｜60分無料診断（V5）: LP→事前アンケート→担当者主導の60分診断→PDF/PPTXレポート。
+  // 事前アンケートは sales.atlib.jp 自ドメインの kaizen-assessment-intake.html から呼ばれる（CORS不要）。
+  app.use('/api/kaizen-assessment', createKaizenAssessmentRouter(kaizenAssessmentRepo, mailer, config));
+
   // 管理画面（Google Workspace認証保護、2026-08-25にBasic Authから移行）。
   // ブルートフォース対策として同じIPレート制限を認証チェックの前段にも適用する。
   const adminAuthGate = [
@@ -83,6 +104,16 @@ async function main(): Promise<void> {
     '/api/admin/free-hearing-assessment',
     ...adminAuthGate,
     createAdminFreeHearingAssessmentRouter(freeHearingAssessmentRepo),
+  );
+  app.use(
+    '/api/admin/kaizen-diagnostic',
+    ...adminAuthGate,
+    createAdminKaizenDiagnosticRouter(kaizenDiagnosticRepo),
+  );
+  app.use(
+    '/api/admin/kaizen-assessment',
+    ...adminAuthGate,
+    createAdminKaizenAssessmentRouter(kaizenAssessmentRepo, kaizenAssessmentAiService),
   );
   app.use('/api/admin/market-rates', ...adminAuthGate, createAdminMarketRatesRouter(marketRateRepo));
   app.use(
