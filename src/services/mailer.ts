@@ -17,6 +17,13 @@ export interface DiagnosticNotificationSummary {
 export class Mailer {
   private readonly transporter: Transporter;
 
+  async sendItManagementSurveyNotification(to: string, detailUrl: string): Promise<void> {
+    await this.transporter.sendMail({
+      from: this.config.from, to, subject: '【無料 IT経営診断】アンケート回答完了 - atLIB株式会社',
+      text: `アンケートの回答が完了しました。担当者が管理画面で確認してください。\n${detailUrl}\n\n提供：atLIB株式会社`,
+    });
+  }
+
   constructor(private readonly config: Config['smtp']) {
     this.transporter = nodemailer.createTransport({
       host: config.host,

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>無料 IT経営診断 | atLIB株式会社</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/lp.css">
+<link rel="stylesheet" href="/css/it-management-diagnosis.css">
+<script src="/js/it-management-diagnosis-survey.js" defer></script>
+</head>
+<body data-mode="customer">
+<nav class="lp-nav"><div class="brand">atLIB株式会社 <span>IT経営KAIZEN</span></div></nav>
+<main class="section diagnosis-page">
+
+<h1 class="section-title">無料 IT経営診断</h1>
+<p>提供：atLIB株式会社</p>
+<p class="info-message">実現したい会社の未来から、ITについてお聞かせください。回答時間の目安は3〜5分です。「分からない」も通常の回答としてお選びいただけます。</p>
+
+<h2 id="company-display" hidden></h2>
+<div id="diagnosis-error" class="error-message" role="alert" hidden></div>
+<button type="button" id="reload-survey" class="btn btn-secondary" hidden>保存済みの回答を再読み込み</button>
+<form id="application-form" class="card">
+<h2>お申込み・ご連絡先</h2>
+<div class="form-row"><label for="company-name">会社名（敬称不要）</label><input id="company-name" required maxlength="200" autocomplete="organization"></div>
+<div class="form-row"><label for="contact-name">ご担当者名</label><input id="contact-name" required maxlength="200" autocomplete="name"></div>
+<div class="form-row"><label for="email">メールアドレス</label><input id="email" type="email" required maxlength="254" autocomplete="email"></div>
+<div class="form-row"><label for="phone">電話番号（任意）</label><input id="phone" type="tel" maxlength="50" autocomplete="tel"></div>
+<button type="submit" class="btn" id="apply-button">申し込んでアンケートへ進む</button>
+</form>
+<section id="survey-section" hidden>
+<div class="card" id="resume-card" >
+<h2>途中保存と再開</h2>
+<p>回答は項目ごとに保存されます。別の端末からも再開できるよう、このリンクを保管してください。リンクを知っている方は回答を閲覧・編集できます。有効期間は申込から30日です。</p>
+<label for="resume-link">再開リンク</label><input id="resume-link" readonly>
+<button type="button" class="btn btn-secondary" id="copy-link">再開リンクをコピー</button><span id="copy-status" role="status"></span>
+</div>
+<p id="progress-text" role="status"></p>
+<progress id="survey-progress" max="9" value="0" aria-label="必須9問の保存済み回答数"></progress>
+<p id="save-status" role="status"></p>
+<form id="survey-form" novalidate>
+<div id="survey-questions"></div>
+<div class="diagnosis-actions">
+<button type="button" id="save-button" class="btn btn-secondary">途中保存する</button>
+<button type="submit" id="complete-button" class="btn">回答を完了する</button>
+</div>
+</form>
+</section>
+<section id="survey-success" class="success-message card" hidden>
+<h2>ご回答ありがとうございました。</h2>
+<p>事前アンケートの回答が完了しました。担当者が回答を確認し、60分診断についてご連絡します。</p>
+<p>60分診断では全質問を繰り返すのではなく、実現したい会社の未来に対して重要なテーマを中心に確認します。</p>
+<p>提供：atLIB株式会社</p>
+</section>
+
+</main>
+</body>
+</html>
+

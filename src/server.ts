@@ -31,6 +31,11 @@ import { createAdminEstimateAiAssistRouter } from './routes/adminEstimateAiAssis
 import { createStaffAuthRouter } from './routes/staffAuth';
 import { requireStaffAuth } from './middleware/staffAuth';
 import { createIpRateLimiter } from './middleware/rateLimit';
+import { ItManagementDiagnosisRepo } from './services/itManagementDiagnosisRepo';
+import { createItManagementDiagnosisRouter } from './routes/itManagementDiagnosis';
+import { createAdminItManagementDiagnosisRouter } from './routes/adminItManagementDiagnosis';
+import { safeAccessRequest } from './middleware/diagnosisLogging';
+import { sendSlackNotification } from './services/slackNotifier';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -48,12 +53,20 @@ async function main(): Promise<void> {
   const estimateRepo = new EstimateRepo(pool);
   const aiAssistService = new AiAssistService(config.aiAssist.anthropicApiKey, marketRateRepo, estimatePreconditionRepo);
   const staffAuthService = new StaffAuthService(config.staffAuth.jwtSecret);
+  const itManagementDiagnosisRepo = new ItManagementDiagnosisRepo(pool);
+  const notifySurveyCompleted = async (id: string): Promise<void> => {
+    const detailUrl = `${config.portalBaseUrl}/admin/it-management-diagnosis-detail.html?id=${id}`;
+    await Promise.all([
+      mailer.sendItManagementSurveyNotification(config.diagnosticNotifyEmail, detailUrl),
+      sendSlackNotification(config.slack.webhookDiagnostic, `【無料 IT経営診断】アンケート回答完了\n提供：atLIB株式会社\n${detailUrl}`),
+    ]);
+  };
 
   const app = express();
   // Cloud Run本番ではGoogle Front Endが1ホップ手前でTLS終端しX-Forwarded-Forを付与するため、
   // req.ipが正しいクライアントIPを指すようにtrust proxyを有効化する（IPレート制限で使用）。
   app.set('trust proxy', true);
-  app.use(pinoHttp({ logger })); // 操作ログ（誰がいつ何をしたか）の基礎になる構造化アクセスログ
+  app.use(pinoHttp({ logger, serializers: { req: safeAccessRequest } }));
   // AI提案機能はbase64 PDFを受け取るためデフォルトの100KB上限では足りない。グローバルlimitを
   // 上げると公開・無認証のisms-diagnostic等のDoS耐性を弱めるため、このパスだけ個別に
   // 大きめのexpress.json()を先にマウントする（body-parserは同一リクエストの二重パースを
@@ -66,6 +79,7 @@ async function main(): Promise<void> {
   app.use(cookieParser());
 
   app.get('/healthz', (_req, res) => res.status(200).send('ok'));
+  app.use('/api/it-management-diagnosis', createItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted));
 
   // Google Workspaceログイン（無認証でアクセスできる必要がある）
   app.use('/auth', createStaffAuthRouter(staffAuthService, config, config.nodeEnv === 'production'));
@@ -99,6 +113,8 @@ async function main(): Promise<void> {
     createIpRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 300 }),
     requireStaffAuth(staffAuthService),
   ];
+  app.use('/api/admin/it-management-diagnosis', ...adminAuthGate,
+    createAdminItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted));
   app.use('/api/admin/isms-diagnostic', ...adminAuthGate, createAdminIsmsDiagnosticRouter(ismsDiagnosticRepo));
   app.use(
     '/api/admin/free-hearing-assessment',

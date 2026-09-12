@@ -1,0 +1,18 @@
+[hidden] { display: none !important; }
+.diagnosis-page { max-width: 760px; }
+.diagnosis-page .section-title { text-align: left; }
+.diagnosis-question { border: 0; min-width: 0; }
+.diagnosis-question legend { font-size: 1.05rem; font-weight: 600; padding: 0; margin-bottom: 1rem; }
+.diagnosis-question .radio-group { flex-direction: column; gap: .75rem; }
+.diagnosis-question textarea { width: 100%; min-height: 8rem; box-sizing: border-box; }
+.diagnosis-question:focus { outline: 2px solid var(--color-primary); }
+.diagnosis-actions { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; }
+#survey-progress { width: 100%; }
+#resume-link { width: 100%; box-sizing: border-box; margin-bottom: 1rem; }
+.diagnosis-table { overflow-x: auto; }
+.diagnosis-table td { min-width: 8rem; vertical-align: top; }
+.diagnosis-table td:first-child { min-width: 12rem; }
+.diagnosis-filters { display: flex; flex-wrap: wrap; gap: 1rem; }
+.diagnosis-raw { white-space: pre-wrap; overflow-wrap: anywhere; }
+.diagnosis-meta { display: grid; grid-template-columns: minmax(8rem, 1fr) 3fr; gap: .6rem 1rem; }
+.diagnosis-meta dd { margin: 0; overflow-wrap: anywhere; }
