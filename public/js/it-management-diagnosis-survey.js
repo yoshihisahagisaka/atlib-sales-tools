@@ -92,7 +92,7 @@
         el('case-overview').href = `/admin/it-management-diagnosis-detail.html?id=${id}`;
         el('overview-link').hidden = false;
       } else el('resume-link').value = `${location.origin}${location.pathname}#${new URLSearchParams({ case: id, token })}`;
-      if (survey.diagnosis_status === 'SURVEY_COMPLETED') {
+      if (survey.survey.status === 'SURVEY_COMPLETED') {
         el('survey-section').hidden = true; el('survey-success').hidden = false; dirty.clear(); return;
       }
       if (survey.diagnosis_status === 'APPLICATION_STARTED') await api(`/cases/${id}/survey/start`, 'POST');

@@ -3,9 +3,10 @@ import { z } from 'zod';
 import { DIAGNOSIS_STATUSES, DiagnosisError } from '../domain/itManagementDiagnosis';
 import type { ItManagementDiagnosisRepo } from '../services/itManagementDiagnosisRepo';
 import { caseId, diagnosisHandler, mountSurveyCommands, staffActor, type CompletionNotifier } from './itManagementDiagnosis';
+import { createDiagnosisPreparationRouter, type PreparationServices } from './diagnosisPreparation';
 
 // Mounted behind the existing Google Workspace auth and rate-limit gate.
-export function createAdminItManagementDiagnosisRouter(repo: ItManagementDiagnosisRepo, notify?: CompletionNotifier): Router {
+export function createAdminItManagementDiagnosisRouter(repo: ItManagementDiagnosisRepo, notify?: CompletionNotifier, preparation?: PreparationServices): Router {
   const router = Router();
   router.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -33,6 +34,7 @@ export function createAdminItManagementDiagnosisRouter(repo: ItManagementDiagnos
     await repo.revokeAccessToken(caseId(req), staffActor(req));
     res.status(204).end();
   }));
+  if (preparation) router.use(createDiagnosisPreparationRouter(preparation));
   mountSurveyCommands(router, repo, staffActor, notify);
   return router;
 }

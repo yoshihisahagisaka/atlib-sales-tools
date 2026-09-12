@@ -89,7 +89,7 @@ test('営業訪問: Google認証Gate→代理回答完了→新一覧と概要�
   await expect(page.locator('#case-list tr')).toHaveCount(1);
   await expect(page.locator('#case-list')).toContainText('ABC株式会社様');
   await expect(page.locator('#case-list')).toContainText('NOT_PROPOSED');
-  await expect(page.locator('#case-list')).toContainText('60分診断の日程を調整');
+  await expect(page.locator('#case-list')).toContainText('AI事前整理を実行し、診断準備を開始');
   await page.screenshot({ path: info.outputPath('staff-list.png'), fullPage: true });
   const records = await h.db.query<{ entry_channel: string; entered_by_user_id: string }>('SELECT entry_channel,entered_by_user_id FROM survey_responses WHERE diagnosis_case_id=$1',[id]);
   expect(records.rows.every(r => r.entry_channel === 'SALES_VISIT' && r.entered_by_user_id === 'operator@atlib.jp')).toBe(true);

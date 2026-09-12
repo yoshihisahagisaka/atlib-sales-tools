@@ -3,7 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import {
   applicationSchema, companyDisplayName, createAccessToken, DiagnosisError, futureStatement,
   hasAnswer, hashAccessToken, nextAction, PROVIDER_NAME, SURVEY_QUESTIONS, SURVEY_VERSION,
-  tokenMatches, validateAnswer,
+  tokenMatches, validateAnswer, surveyStatus,
   type Actor, type DiagnosisStatus, type EntryChannel, type RawValue, type SurveyQuestion,
 } from '../domain/itManagementDiagnosis';
 
@@ -187,7 +187,7 @@ export class ItManagementDiagnosisRepo {
         diagnosis_status: row.diagnosis_status, survey_version: row.survey_version, version: row.version,
         questions, responses: responses.map(r => ({ id: r.id, question_code: r.question_code, question_version: r.question_version,
           raw_value_json: r.raw_value_json, answered_at: r.answered_at })),
-        survey: { status: row.diagnosis_status, answered_required: answered, total_required: questions.filter(q => q.is_required).length } };
+        survey: { status: surveyStatus(row.diagnosis_status), answered_required: answered, total_required: questions.filter(q => q.is_required).length } };
       if (actor.kind === 'CUSTOMER') return base;
       const { rows: participants } = await client.query(`SELECT id,name,email,phone,job_title FROM participants WHERE diagnosis_case_id=$1`, [id]);
       const { rows: transitions } = await client.query(`SELECT from_status,to_status,command,actor_type,actor_user_id,created_at
@@ -215,6 +215,6 @@ export class ItManagementDiagnosisRepo {
       ${where} ORDER BY c.created_at DESC,c.id LIMIT $3 OFFSET $4`, [...params, opts.limit, opts.offset]);
     return { items: rows.map(({ organization_name, ...row }) => ({ ...row,
       organization_display_name: companyDisplayName(organization_name),
-      current_next_action: nextAction(row.diagnosis_status), survey_status: row.diagnosis_status })), total: Number(count[0]!.total), provider_name: PROVIDER_NAME };
+      current_next_action: nextAction(row.diagnosis_status), survey_status: surveyStatus(row.diagnosis_status) })), total: Number(count[0]!.total), provider_name: PROVIDER_NAME };
   }
 }

@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 export const PROVIDER_NAME = 'atLIB株式会社';
 export const SURVEY_VERSION = 2;
-export const DIAGNOSIS_STATUSES = ['APPLICATION_STARTED', 'SURVEY_IN_PROGRESS', 'SURVEY_COMPLETED'] as const;
+export const DIAGNOSIS_STATUSES = ['APPLICATION_STARTED', 'SURVEY_IN_PROGRESS', 'SURVEY_COMPLETED', 'PREPARATION_IN_PROGRESS', 'READY_FOR_DIAGNOSIS'] as const;
 export type DiagnosisStatus = typeof DIAGNOSIS_STATUSES[number];
 export type EntryChannel = 'WEB' | 'SALES_VISIT';
 export type Actor = { kind: 'CUSTOMER'; token: string } | { kind: 'STAFF'; userId: string };
@@ -80,7 +80,12 @@ export function hasAnswer(value: RawValue | undefined): boolean {
 export function futureStatement(value: RawValue): string { return Array.isArray(value) ? value.join(' / ') : value; }
 export function nextAction(status: DiagnosisStatus): string {
   return { APPLICATION_STARTED: '事前アンケートを開始してください', SURVEY_IN_PROGRESS: '事前アンケートの回答を続けてください',
-    SURVEY_COMPLETED: '担当者が回答を確認し、60分診断の日程を調整してください' }[status];
+    SURVEY_COMPLETED: 'AI事前整理を実行し、診断準備を開始してください',
+    PREPARATION_IN_PROGRESS: '重点テーマと確認項目をレビューし、診断Planを確定してください',
+    READY_FOR_DIAGNOSIS: '60分診断を開始してください' }[status];
+}
+export function surveyStatus(status: DiagnosisStatus): 'APPLICATION_STARTED' | 'SURVEY_IN_PROGRESS' | 'SURVEY_COMPLETED' {
+  return status === 'APPLICATION_STARTED' || status === 'SURVEY_IN_PROGRESS' ? status : 'SURVEY_COMPLETED';
 }
 export function createAccessToken(): string { return randomBytes(32).toString('base64url'); }
 export function hashAccessToken(token: string): string { return createHash('sha256').update(token).digest('hex'); }

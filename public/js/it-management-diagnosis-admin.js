@@ -2,7 +2,7 @@
 (() => {
   const el = id => document.getElementById(id);
   const base = '/api/admin/it-management-diagnosis';
-  const statuses = { APPLICATION_STARTED: '申込受付', SURVEY_IN_PROGRESS: '回答中', SURVEY_COMPLETED: '回答完了' };
+  const statuses = { APPLICATION_STARTED: '申込受付', SURVEY_IN_PROGRESS: '回答中', SURVEY_COMPLETED: '回答完了', PREPARATION_IN_PROGRESS: '診断準備中', READY_FOR_DIAGNOSIS: '診断Plan確定' };
   const channels = { WEB: 'Web', SALES_VISIT: '営業訪問' };
   const node = (tag, text) => { const n = document.createElement(tag); n.textContent = text; return n; };
   let offset = 0; let requestNumber = 0;
@@ -52,7 +52,9 @@
         'Survey状態': `${data.survey.answered_required}/${data.survey.total_required}問 保存済み`, 'Assessment Status': data.assessment_status,
         '診断予定': data.scheduled_at ? new Date(data.scheduled_at).toLocaleString('ja-JP') : '未設定' };
       el('case-meta').replaceChildren(...Object.entries(meta).flatMap(([key, value]) => [node('dt', key), node('dd', value)]));
-      el('resume-proxy').hidden = data.diagnosis_status === 'SURVEY_COMPLETED';
+      el('resume-proxy').hidden = data.survey.status === 'SURVEY_COMPLETED';
+      el('preparation-link').hidden = data.survey.status !== 'SURVEY_COMPLETED';
+      el('preparation-link').href = `/admin/it-management-diagnosis-preparation.html?id=${encodeURIComponent(id)}`;
       el('resume-proxy').href = `/admin/it-management-diagnosis-new.html?id=${encodeURIComponent(id)}`;
       el('revoke').hidden = data.entry_channel !== 'WEB' || !!data.access.revoked_at;
       el('access-status').textContent = data.entry_channel === 'WEB'

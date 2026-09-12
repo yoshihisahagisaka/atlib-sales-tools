@@ -1,0 +1,71 @@
+import { test,expect } from '@playwright/test';
+import { createDiagnosisHarness } from './support/diagnosisHarness';
+import { FakePreparationProvider,completedCase,operator,validOutput } from './support/preparationFixtures';
+
+let h: Awaited<ReturnType<typeof createDiagnosisHarness>>;
+const provider=new FakePreparationProvider();
+test.beforeAll(async()=>{h=await createDiagnosisHarness(undefined,provider);});
+test.afterAll(async()=>{await h?.close();});
+test.beforeEach(async({context})=>{
+  provider.run=async context=>validOutput(context);
+  await context.addCookies([{name:'staff_session',value:h.staffCookie.slice('staff_session='.length),url:h.url,httpOnly:true,sameSite:'Lax'}]);
+});
+
+test('AI提案→担当者が準備開始→編集採用・質問採用・却下→順序変更→Plan確定',async({page},info)=>{
+  const c=await completedCase(h); const errors:string[]=[]; page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(`${h.url}/admin/it-management-diagnosis-detail.html?id=${c.id}`);
+  await page.getByRole('link',{name:'診断準備・AI事前整理へ'}).click();
+  await expect(page.locator('#company')).toHaveText('ABC株式会社様'); await expect(page.locator('#future-status')).toContainText('SURVEY_STATED');
+  await page.locator('#run-ai').click();
+  await expect(page.locator('#executions')).toContainText('SUCCEEDED');
+  await expect(page.locator('#case-status')).toContainText('SURVEY_COMPLETED');
+  expect((await h.preparation.read(c.id,operator)).themes).toHaveLength(0);
+  await expect(page.locator('#confirm')).toBeDisabled();
+  await page.locator('#start').click(); await expect(page.locator('#case-status')).toContainText('PREPARATION_IN_PROGRESS');
+  const data=await h.preparation.read(c.id,operator);
+  const theme=data.proposals.find(p=>p.proposal_type==='THEME');
+  const themeCard=page.locator(`[data-proposal-id="${theme.id}"]`);
+  await themeCard.getByRole('button',{name:'編集して採用',exact:true}).first().click();
+  await page.locator('#theme-title').fill('顧客の未来につながる情報を確認');
+  await page.locator('#save-theme').click();
+  await expect(page.locator('#themes')).toContainText('顧客の未来につながる情報を確認');
+  expect((await h.preparation.read(c.id,operator)).proposals.find(p=>p.id===theme.id).title).toBe(theme.title);
+  const question=data.proposals.find(p=>p.proposal_type==='QUESTION');
+  await page.locator(`[data-proposal-id="${question.id}"]`).getByRole('button',{name:'採用',exact:true}).click();
+  await expect(page.locator('#plan-items')).toContainText(question.title);
+  const evidence=data.proposals.find(p=>p.proposal_type==='EVIDENCE_CANDIDATE');
+  await page.locator(`[data-proposal-id="${evidence.id}"]`).getByRole('button',{name:'採用',exact:true}).click();
+  await expect(page.locator('#plan-items')).toContainText('EVIDENCE_CANDIDATE_CHECK');
+  const hypothesis=data.proposals.find(p=>p.proposal_type==='HYPOTHESIS');
+  await page.locator(`[data-proposal-id="${hypothesis.id}"]`).getByRole('button',{name:'却下',exact:true}).click();
+  await expect(page.locator(`[data-proposal-id="${hypothesis.id}"]`)).toContainText('却下済み');
+  await page.locator('#plan-items').getByRole('button',{name:'上へ',exact:true}).last().click();
+  await expect(page.locator('#plan-items section').first()).toContainText('EVIDENCE_CANDIDATE_CHECK');
+  await page.screenshot({path:info.outputPath('preparation-reviewed.png'),fullPage:true});
+  page.once('dialog',d=>d.accept()); await page.locator('#confirm').click();
+  await expect(page.locator('#case-status')).toContainText('READY_FOR_DIAGNOSIS');
+  await expect(page.locator('#confirmation')).toContainText('operator@atlib.jp');
+  await expect(page.locator('#run-ai')).toBeDisabled(); await expect(page.locator('#human-editor')).toBeHidden();
+  await page.screenshot({path:info.outputPath('plan-confirmed.png'),fullPage:true});
+  expect(errors).toEqual([]);
+  await page.goto(`${h.url}/it-management-diagnosis.html#case=${c.id}&token=${c.access_token}`);
+  await expect(page.locator('#survey-success')).toBeVisible();
+});
+
+test('AI失敗→再実行可能なままHuman-onlyでテーマと確認項目を作成し確定',async({page},info)=>{
+  const c=await completedCase(h);
+  provider.run=async()=>{throw new Error('provider unavailable');};
+  await page.goto(`${h.url}/admin/it-management-diagnosis-preparation.html?id=${c.id}`);
+  await page.locator('#run-ai').click(); await expect(page.locator('#ai-status')).toContainText('失敗しました');
+  await expect(page.locator('#run-ai')).toBeEnabled();
+  await page.locator('#start').click(); await expect(page.locator('#human-editor')).toBeVisible();
+  await page.locator('#theme-title').fill('担当者が確認するテーマ'); await page.locator('#theme-relation').fill('顧客が目指す会社の未来に必要な情報');
+  await page.locator('#save-theme').click(); await expect(page.locator('#themes')).toContainText('[Human]');
+  await page.locator('#plan-text').fill('今、判断のためにどのような情報を確認したいですか？');
+  await page.locator('#plan-purpose').fill('分からないことを残したまま、必要な確認を決める');
+  await page.locator('#save-plan').click(); await expect(page.locator('#plan-items')).toContainText('[Human]');
+  await page.screenshot({path:info.outputPath('human-only-plan.png'),fullPage:true});
+  page.once('dialog',d=>d.accept()); await page.locator('#confirm').click();
+  await expect(page.locator('#case-status')).toContainText('READY_FOR_DIAGNOSIS');
+  expect((await h.preparation.read(c.id,operator)).executions[0].status).toBe('FAILED');
+});
