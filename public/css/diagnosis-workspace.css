@@ -1,0 +1,10 @@
+.workspace-page { max-width: 1600px; }
+.workspace-columns { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr); gap: 16px; align-items: start; }
+.workspace-columns > .card { min-width: 0; margin-top: 0; }
+.workspace-columns section, .workspace-columns p, .workspace-columns summary { overflow-wrap: anywhere; }
+.workspace-columns form { margin: 18px 0; }
+.workspace-columns details { margin: 16px 0; }
+.workspace-columns select, .workspace-columns textarea { max-width: 100%; width: 100%; }
+.workspace-columns .source-card, .workspace-columns .suggestion-card { border-top: 1px solid #d6dee8; margin-top: 16px; padding-top: 12px; }
+.workspace-columns .btn { white-space: normal; }
+@media (max-width: 1000px) { .workspace-columns { grid-template-columns: minmax(0,1fr); } }

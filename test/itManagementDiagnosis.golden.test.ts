@@ -78,7 +78,8 @@ test('Golden: 開始は冪等、生回答「完全に把握」「分からない
   const columns = await h.db.query<{ column_name: string }>(`SELECT column_name FROM information_schema.columns WHERE table_name='survey_responses'`);
   assert.doesNotMatch(columns.rows.map(r => r.column_name).join(','), /score|maturity|confidence|fact_status|semantic_type/);
   const tables = await h.db.query<{ table_name: string }>(`SELECT table_name FROM information_schema.tables WHERE table_schema='public'`);
-  assert.ok(!tables.rows.some(r => /fact|insight|source_record/.test(r.table_name)));
+  assert.ok(!tables.rows.some(r => /fact|insight/.test(r.table_name)));
+  assert.equal((await h.db.query('SELECT id FROM source_records')).rows.length,0);
 });
 
 test('Golden: Q01変更はCompleteまでFuture未生成、必須Q06不足は422、完了でSURVEY_STATED', async () => {

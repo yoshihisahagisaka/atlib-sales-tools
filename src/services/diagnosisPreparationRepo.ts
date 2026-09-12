@@ -4,8 +4,8 @@ import { DiagnosisError, type Actor } from '../domain/itManagementDiagnosis';
 import { PROMPT_VERSION, POLICY_VERSION, type OrganizerOutput, type SourceRef, type HumanTheme, type HumanPlan } from '../domain/diagnosisPreparation';
 import { buildPreDiagnosisContext, type PreDiagnosisContext } from './preDiagnosisContext';
 
-export interface Execution {
-  id: string; diagnosis_case_id: string; status: string; input_snapshot_json: PreDiagnosisContext;
+export interface Execution<T = PreDiagnosisContext> {
+  id: string; diagnosis_case_id: string; status: string; input_snapshot_json: T;
 }
 interface Proposal {
   id: string; proposal_type: string; status: string; content_json: Record<string, any>; title: string;
@@ -63,19 +63,19 @@ export class DiagnosisPreparationRepo {
       return { execution_id: executionId, status: 'PENDING' };
     });
   }
-  async claimExecution(): Promise<Execution | null> {
+  async claimExecution<T = PreDiagnosisContext>(processType = 'PRE_DIAGNOSIS_ORGANIZER'): Promise<Execution<T> | null> {
     return this.tx(async c => {
       // Recovery after timeout/process restart. Retries are new explicit executions.
       await c.query(`UPDATE ai_executions SET status='FAILED',error_code='AI_WORKER_INTERRUPTED',completed_at=now(),updated_at=now()
-        WHERE status='RUNNING' AND lease_expires_at < now()`);
-      const { rows } = await c.query<Execution>(`SELECT id,diagnosis_case_id,status,input_snapshot_json FROM ai_executions
-        WHERE status='PENDING' ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED`);
+        WHERE status='RUNNING' AND lease_expires_at < now() AND process_type=$1`,[processType]);
+      const { rows } = await c.query<Execution<T>>(`SELECT id,diagnosis_case_id,status,input_snapshot_json FROM ai_executions
+        WHERE status='PENDING' AND process_type=$1 ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED`,[processType]);
       const row = rows[0]; if (!row) return null;
       await c.query(`UPDATE ai_executions SET status='RUNNING',started_at=now(),lease_expires_at=now()+interval '2 minutes',updated_at=now() WHERE id=$1`,[row.id]);
       return row;
     });
   }
-  async failExecution(execution: Execution, code: string, raw: unknown = null): Promise<void> {
+  async failExecution(execution: { id: string }, code: string, raw: unknown = null): Promise<void> {
     await this.pool.query(`UPDATE ai_executions SET status='FAILED',error_code=$2,raw_output_json=$3,
       validation_status=$4,completed_at=now(),updated_at=now() WHERE id=$1 AND status='RUNNING'`,
     [execution.id,code,JSON.stringify(raw),raw === null ? 'NOT_VALIDATED' : 'INVALID']);
@@ -116,7 +116,7 @@ export class DiagnosisPreparationRepo {
       await this.transition(c,id,actor,'SURVEY_COMPLETED','PREPARATION_IN_PROGRESS','StartDiagnosisPreparation',{}); });
   }
   private async proposal(c: PoolClient, id: string, proposalId: string): Promise<Proposal> {
-    const { rows } = await c.query<Proposal>('SELECT id,proposal_type,status,content_json,title FROM ai_proposals WHERE id=$1 AND diagnosis_case_id=$2',[proposalId,id]);
+    const { rows } = await c.query<Proposal>(`SELECT p.id,p.proposal_type,p.status,p.content_json,p.title FROM ai_proposals p JOIN ai_executions e ON e.id=p.ai_execution_id WHERE p.id=$1 AND p.diagnosis_case_id=$2 AND e.process_type='PRE_DIAGNOSIS_ORGANIZER'`,[proposalId,id]);
     const p = rows[0]; if (!p) throw new DiagnosisError(404, '提案が見つかりません。');
     if (!['GENERATED','UNDER_REVIEW'].includes(p.status)) throw new DiagnosisError(409, 'この提案は既に判断済みです。');
     return p;
@@ -227,9 +227,9 @@ export class DiagnosisPreparationRepo {
     return this.tx(async c => {
       const row = await this.locked(c,id,actor);
       const { rows: executions } = await c.query(`SELECT id,status,provider,model,prompt_version,policy_version,validation_status,error_code,started_at,completed_at,created_at
-        FROM ai_executions WHERE diagnosis_case_id=$1 ORDER BY created_at DESC`,[id]);
+        FROM ai_executions WHERE diagnosis_case_id=$1 AND process_type='PRE_DIAGNOSIS_ORGANIZER' ORDER BY created_at DESC`,[id]);
       const { rows: proposals } = await c.query(`SELECT p.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('source_ref_id',s.source_ref_id,'source_ref_type',s.source_ref_type,'relation',s.relation))
-        FROM ai_proposal_sources s WHERE s.ai_proposal_id=p.id),'[]'::jsonb) AS sources FROM ai_proposals p WHERE p.diagnosis_case_id=$1 ORDER BY p.created_at,p.display_order`,[id]);
+        FROM ai_proposal_sources s WHERE s.ai_proposal_id=p.id),'[]'::jsonb) AS sources FROM ai_proposals p JOIN ai_executions e ON e.id=p.ai_execution_id WHERE p.diagnosis_case_id=$1 AND e.process_type='PRE_DIAGNOSIS_ORGANIZER' ORDER BY p.created_at,p.display_order`,[id]);
       const { rows: themes } = await c.query(`SELECT * FROM diagnosis_themes WHERE diagnosis_case_id=$1 AND status='ACTIVE' ORDER BY priority_order`,[id]);
       const { rows: plan_items } = await c.query(`SELECT * FROM diagnosis_plan_items WHERE diagnosis_case_id=$1 AND status='ACTIVE' ORDER BY priority_order`,[id]);
       return { ...row, executions, proposals, themes, plan_items };

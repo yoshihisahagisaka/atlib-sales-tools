@@ -176,11 +176,12 @@ test('API: staff auth/command header必須、顧客token不可、202を返して
   const logs=h.logs.join(''); for(const text of [c.access_token!,'SECRET_PROVIDER_ERROR','完全に把握','private@example.test']) assert.ok(!logs.includes(text));
 });
 
-test('Survey v2はSSOT文書26の固定snapshotと一致、SourceRecord/FACTテーブルを追加しない',async()=>{
+test('Survey v2はSSOT文書26の固定snapshotと一致、SurveyからSourceRecord/FACTを生成しない',async()=>{
   const canonical=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/diagnosisSurveyV2Canonical.json'),'utf8'));
   assert.equal(canonical.survey_version,SURVEY_VERSION); assert.deepEqual(canonical.questions,SURVEY_QUESTIONS);
   const tables=await h.db.query<{table_name:string}>(`SELECT table_name FROM information_schema.tables WHERE table_schema='public'`);
-  assert.ok(!tables.rows.some(r=>/^(facts|diagnosis_insights|source_records)$/.test(r.table_name)));
+  assert.ok(!tables.rows.some(r=>/^(facts|diagnosis_insights)$/.test(r.table_name)));
+  assert.equal((await h.db.query('SELECT id FROM source_records')).rows.length,0);
 });
 
 test('AI live adapter (opt-in)',{skip:process.env.RUN_DIAGNOSIS_AI_LIVE==='1' && process.env.ANTHROPIC_API_KEY ? false : 'RUN_DIAGNOSIS_AI_LIVE / API key未設定'},async()=>{

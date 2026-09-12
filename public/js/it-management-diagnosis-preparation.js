@@ -3,7 +3,7 @@
   const el = id => document.getElementById(id);
   const id = new URLSearchParams(location.search).get('id');
   const base = `/api/admin/it-management-diagnosis/cases/${encodeURIComponent(id)}`;
-  const labels = { SURVEY_COMPLETED: 'アンケート回答完了', PREPARATION_IN_PROGRESS: '診断準備中', READY_FOR_DIAGNOSIS: '診断Plan確定' };
+  const labels = { SURVEY_COMPLETED: 'アンケート回答完了', PREPARATION_IN_PROGRESS: '診断準備中', READY_FOR_DIAGNOSIS: '診断Plan確定', DIAGNOSIS_IN_PROGRESS: '診断中', HUMAN_REVIEW_REQUIRED: 'Human Review待ち' };
   const types = { THEME: '重点テーマ', QUESTION: '質問', UNKNOWN: '未確認', HYPOTHESIS: '仮説', EVIDENCE_CANDIDATE: 'Evidence確認候補' };
   const statusLabels = { GENERATED: '未レビュー', UNDER_REVIEW: 'レビュー中', ACCEPTED: '採用済み', ACCEPTED_WITH_EDIT: '編集して採用済み', REJECTED: '却下済み' };
   let state, overview, timer, busy = false, themeEdit = null, planEdit = null;
@@ -119,6 +119,8 @@
     clearTimeout(timer);
     try {
       const [next,nextOverview]=await Promise.all([api('/preparation'),api('/overview')]);
+      el('workspace-link').href='/admin/it-management-diagnosis-workspace.html?id='+encodeURIComponent(id);
+      el('workspace-link').hidden=!['READY_FOR_DIAGNOSIS','DIAGNOSIS_IN_PROGRESS','HUMAN_REVIEW_REQUIRED'].includes(next.diagnosis_status);
       state=next; overview=nextOverview;
       el('company').textContent=overview.organization_display_name;
       el('future').textContent=overview.future?.statement || '未設定'; el('future-status').textContent=`意図：${overview.future?.intent_status || '—'}`;

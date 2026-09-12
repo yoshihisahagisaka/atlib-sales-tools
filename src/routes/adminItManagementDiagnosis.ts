@@ -4,9 +4,10 @@ import { DIAGNOSIS_STATUSES, DiagnosisError } from '../domain/itManagementDiagno
 import type { ItManagementDiagnosisRepo } from '../services/itManagementDiagnosisRepo';
 import { caseId, diagnosisHandler, mountSurveyCommands, staffActor, type CompletionNotifier } from './itManagementDiagnosis';
 import { createDiagnosisPreparationRouter, type PreparationServices } from './diagnosisPreparation';
+import { createDiagnosisWorkspaceRouter, type WorkspaceServices } from './diagnosisWorkspace';
 
 // Mounted behind the existing Google Workspace auth and rate-limit gate.
-export function createAdminItManagementDiagnosisRouter(repo: ItManagementDiagnosisRepo, notify?: CompletionNotifier, preparation?: PreparationServices): Router {
+export function createAdminItManagementDiagnosisRouter(repo: ItManagementDiagnosisRepo, notify?: CompletionNotifier, preparation?: PreparationServices, workspace?: WorkspaceServices): Router {
   const router = Router();
   router.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -35,6 +36,7 @@ export function createAdminItManagementDiagnosisRouter(repo: ItManagementDiagnos
     res.status(204).end();
   }));
   if (preparation) router.use(createDiagnosisPreparationRouter(preparation));
+  if (workspace) router.use(createDiagnosisWorkspaceRouter(workspace));
   mountSurveyCommands(router, repo, staffActor, notify);
   return router;
 }

@@ -38,6 +38,9 @@ import { safeAccessRequest } from './middleware/diagnosisLogging';
 import { sendSlackNotification } from './services/slackNotifier';
 import { DiagnosisPreparationRepo } from './services/diagnosisPreparationRepo';
 import { AnthropicPreDiagnosisProvider } from './services/preDiagnosisProvider';
+import { DiagnosisWorkspaceRepo } from './services/diagnosisWorkspaceRepo';
+import { AnthropicInterviewProvider } from './services/interviewAssistantProvider';
+import { InterviewAssistantWorker } from './services/interviewAssistantWorker';
 import { PreDiagnosisWorker } from './services/preDiagnosisWorker';
 
 async function main(): Promise<void> {
@@ -61,6 +64,10 @@ async function main(): Promise<void> {
   const preparationProvider = new AnthropicPreDiagnosisProvider(config.aiAssist.anthropicApiKey);
   const preparationWorker = new PreDiagnosisWorker(preparationRepo, preparationProvider);
   const preparation = { repo: preparationRepo, provider: preparationProvider, worker: preparationWorker };
+  const workspaceRepo = new DiagnosisWorkspaceRepo(pool);
+  const interviewProvider = new AnthropicInterviewProvider(config.aiAssist.anthropicApiKey);
+  const interviewWorker = new InterviewAssistantWorker(preparationRepo,workspaceRepo,interviewProvider);
+  const workspace = { repo:workspaceRepo,provider:interviewProvider,worker:interviewWorker };
   const notifySurveyCompleted = async (id: string): Promise<void> => {
     const detailUrl = `${config.portalBaseUrl}/admin/it-management-diagnosis-detail.html?id=${id}`;
     await Promise.all([
@@ -121,7 +128,7 @@ async function main(): Promise<void> {
     requireStaffAuth(staffAuthService),
   ];
   app.use('/api/admin/it-management-diagnosis', ...adminAuthGate,
-    createAdminItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted, preparation));
+    createAdminItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted, preparation, workspace));
   app.use('/api/admin/isms-diagnostic', ...adminAuthGate, createAdminIsmsDiagnosticRouter(ismsDiagnosticRepo));
   app.use(
     '/api/admin/free-hearing-assessment',
@@ -161,6 +168,8 @@ async function main(): Promise<void> {
   app.listen(config.port, () => {
     logger.info(`sales-tools listening on :${config.port}`);
   });
+  const pollInterview = () => { void interviewWorker.tick().catch(() => logger.warn({ event: 'interview_worker_failed' }, 'Interview worker failed')); };
+  pollInterview(); setInterval(pollInterview,5000).unref();
   const pollPreparation = () => { void preparationWorker.tick().catch(() => logger.warn({ event: 'preparation_worker_failed' }, 'Preparation worker failed')); };
   pollPreparation();
   setInterval(pollPreparation, 5000).unref();
