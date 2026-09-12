@@ -57,13 +57,17 @@ export class ItManagementDiagnosisRepo {
   private async authorizedCase(client: PoolClient, id: string, actor: Actor): Promise<CaseRow> {
     const { rows } = await client.query<CaseRow>('SELECT * FROM diagnosis_cases WHERE id=$1 FOR UPDATE', [id]);
     const row = rows[0];
+    if (!row) {
+      if (actor.kind === 'CUSTOMER') throw new DiagnosisError(401, '再開リンクが無効または期限切れです。担当者へお問い合わせください。');
+      if (!actor.userId) throw new DiagnosisError(401, 'スタッフ認証が必要です。');
+      throw new DiagnosisError(404, '案件が見つかりません。');
+    }
     if (actor.kind === 'CUSTOMER') {
-      if (!row || row.entry_channel !== 'WEB' || row.access_token_revoked_at || !row.access_token_expires_at
+      if (row.entry_channel !== 'WEB' || row.access_token_revoked_at || !row.access_token_expires_at
         || new Date(row.access_token_expires_at).getTime() <= Date.now() || !tokenMatches(actor.token, row.access_token_hash)) {
         throw new DiagnosisError(401, '再開リンクが無効または期限切れです。担当者へお問い合わせください。');
       }
     } else if (!actor.userId) throw new DiagnosisError(401, 'スタッフ認証が必要です。');
-    if (!row) throw new DiagnosisError(404, '案件が見つかりません。');
     return row;
   }
 

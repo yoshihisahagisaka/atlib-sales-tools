@@ -58,7 +58,7 @@ Web申込／営業訪問の代理入力から、DiagnosisCase作成、事前ア�
 
 - Case作成はOrganization、Case、Participant、RESPONDENT Role、初期遷移、Auditを1トランザクションで保存。同名の会社を自動マージしない。
 - 9テーブルを追加。会社名は末尾の敬称を入力境界で除き、DB制約でも末尾`様`を拒否。表示モデルで`様`を付与。
-- 質問は文書17・25に基づくversion 1の中央定義。申込トランザクションが`survey_questions`に初回seedを追加し、競合時は既存定義を変更しない。既存CaseはDB上の固定versionを読む。将来の文言変更はversionを追加する。
+- 質問は文書17・25に基づくversion 2の中央定義。申込トランザクションが`survey_questions`に初回seedを追加し、競合時は既存定義を変更しない。既存CaseはDB上の固定versionを読む。将来の文言変更はversionを追加する。
 - `StartSurvey`は回答中なら冪等。`SubmitSurveyResponse`は質問/version/typeを検証してRaw回答のみupsert。空への変更も保存でき、必須回答の有無はCompleteで検証する。
 - `CompleteSurvey`は必須回答検証、Future、Case状態、遷移、Auditを1トランザクションで処理する。不足時422＋question codes。完了後の書換え・再完了は409。
 - 全Case操作は`SELECT ... FOR UPDATE`で直列化。失効、保存、完了の競合でも認証・状態確認を同一transactionで行う。完了後の回答は変更できない。
@@ -83,7 +83,7 @@ Web申込／営業訪問の代理入力から、DiagnosisCase作成、事前ア�
 
 申込本文：`{ companyName, contactName, email, phone?, jobTitle? }`。
 
-回答本文：`{ questionVersion: 1, rawValue: string | string[] }`。`TEXT`は文字列、`SINGLE_SELECT`は定義済み文字列、`MULTI_SELECT`は定義済み文字列配列。余分な判定fieldは受理しない。
+回答本文：`{ questionVersion: 2, rawValue: string | string[] }`。`TEXT`は文字列、`SINGLE_SELECT`は定義済み文字列、`MULTI_SELECT`は定義済み文字列配列。余分な判定fieldは受理しない。
 
 公開のCase読出し／更新には`Authorization: Bearer <token>`が必要。256-bit乱数、SHA-256 hashのみDB保存、Case単位、30日期限、スタッフ失効可能。再開URLは`/it-management-diagnosis.html#case=<id>&token=<token>`。fragmentはHTTPリクエスト／Refererへ送られない。APIは`Cache-Control: no-store`。新ページは`Referrer-Policy`相当のmetaを設定する。
 
@@ -99,7 +99,7 @@ Web申込／営業訪問の代理入力から、DiagnosisCase作成、事前ア�
 | `npm.cmd install --save-dev @electric-sql/pglite @playwright/test` | 成功。テスト専用依存を追加 |
 | `npm.cmd run build` | 成功 |
 | `npm.cmd run test:kaizen` | 12成功、0失敗、1 skip（既存AIライブテスト：ANTHROPIC_API_KEY未設定） |
-| `npm.cmd run test:diagnosis` | 11成功、0失敗 |
+| `npm.cmd run test:diagnosis` | 13成功、0失敗（Canonical Review修正後） |
 | `npm.cmd run test:diagnosis:browser` | 6成功、0失敗（desktop / mobile各3） |
 | `git diff --check` | 問題なし |
 
@@ -151,3 +151,10 @@ after:  https://sales.atlib.jp/it-management-diagnosis.html
 None.
 
 質問の具体的な選択肢をversion付きseedとして作ること、認証済みemailをstaff principalとして再利用すること、Next Actionの導出、新ページ・新namespace、token期限30日、SourceRecordへの回答複製を避けることは、文書23〜25の許容範囲での実装判断。
+
+## Canonical Review対応
+
+- `authorizedCase()`の先頭でCaseの存在確認を明示。不存在は顧客401（不正tokenと同一本文）、認証済みスタッフ404。読取・開始・保存・完了・管理概要・失効をGolden Testで確認。
+- Survey versionをBusiness Canonicalの質問構成v2に合わせ、中央定義、seed、Case、回答、API例、テスト期待値を2に統一。旧version 1を送った場合の拒否テストは維持。Case／Future自体の履歴versionとは区別する。
+- 質問文・選択肢は変更せず、[Survey v2 Question SetのSSOT追加文書案](free-it-management-diagnosis-survey-v2-question-set-proposal.md)へ全10問を転記。実装定義との完全一致テストを追加。`git_KAIZEN`は直接変更せず、登録前の文書案として整理した。
+- 修正後にbuild、既存test、Golden Tests、desktop/mobileブラウザーテスト、`git diff --check`を実行。legacy API/table/migrationの変更なし。

@@ -3,7 +3,7 @@ import { after, before, test } from 'node:test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { applicationSchema, companyDisplayName, hashAccessToken, PROVIDER_NAME, SURVEY_QUESTIONS, type Actor } from '../src/domain/itManagementDiagnosis';
+import { applicationSchema, companyDisplayName, hashAccessToken, PROVIDER_NAME, SURVEY_QUESTIONS, SURVEY_VERSION, type Actor } from '../src/domain/itManagementDiagnosis';
 import { createDiagnosisHarness } from './support/diagnosisHarness';
 
 let h: Awaited<ReturnType<typeof createDiagnosisHarness>>;
@@ -68,7 +68,7 @@ test('Golden: 開始は冪等、生回答「完全に把握」「分からない
   for (let i = 0; i < 2; i++) assert.equal((await request(`${publicBase}/cases/${c.id}/survey/start`, 'POST', {}, c.access_token)).status, 204);
   assert.equal(await count('case_transitions', c.id), 2);
   for (const [code, value] of [['Q04_IT_VISIBILITY', 'IT環境は完全に把握できている'], ['Q07_AUTHORITY_RESPONSIBILITY', '分からない']]) {
-    assert.equal((await request(`${publicBase}/cases/${c.id}/survey/responses/${code}`, 'PUT', { questionVersion: 1, rawValue: value }, c.access_token)).status, 204);
+    assert.equal((await request(`${publicBase}/cases/${c.id}/survey/responses/${code}`, 'PUT', { questionVersion: 2, rawValue: value }, c.access_token)).status, 204);
   }
   const response = await request(`${publicBase}/cases/${c.id}/survey`, 'GET', undefined, c.access_token);
   assert.equal(response.status, 200); const data = await response.json(); noJudgement(data);
@@ -85,16 +85,16 @@ test('Golden: Q01変更はCompleteまでFuture未生成、必須Q06不足は422�
   const c = await webCase(); await h.repo.startSurvey(c.id, c.actor);
   await fullAnswers(c.id, c.actor, 'Q06_SECURITY_RISK');
   const q01 = SURVEY_QUESTIONS[0]!;
-  await h.repo.submitResponse(c.id, q01.question_code, 1, [q01.options_json![0]!], c.actor);
+  await h.repo.submitResponse(c.id, q01.question_code, 2, [q01.options_json![0]!], c.actor);
   assert.equal(await count('diagnosis_futures', c.id), 0);
   const updated = [q01.options_json![1]!, '分からない'];
-  await h.repo.submitResponse(c.id, q01.question_code, 1, updated, c.actor);
+  await h.repo.submitResponse(c.id, q01.question_code, 2, updated, c.actor);
   assert.equal(await count('diagnosis_futures', c.id), 0);
   const incomplete = await request(`${publicBase}/cases/${c.id}/survey/complete`, 'POST', {}, c.access_token);
   assert.equal(incomplete.status, 422); assert.deepEqual((await incomplete.json()).questionCodes, ['Q06_SECURITY_RISK']);
   assert.equal((await h.repo.getSurvey(c.id, c.actor)).diagnosis_status, 'SURVEY_IN_PROGRESS');
   assert.equal(await count('diagnosis_futures', c.id), 0);
-  await h.repo.submitResponse(c.id, 'Q06_SECURITY_RISK', 1, '分からない', c.actor);
+  await h.repo.submitResponse(c.id, 'Q06_SECURITY_RISK', 2, '分からない', c.actor);
   assert.equal((await request(`${publicBase}/cases/${c.id}/survey/complete`, 'POST', {}, c.access_token)).status, 204);
   const overview = await h.repo.getSurvey(c.id, staff);
   assert.equal(overview.diagnosis_status, 'SURVEY_COMPLETED'); noJudgement(overview);
@@ -104,7 +104,7 @@ test('Golden: Q01変更はCompleteまでFuture未生成、必須Q06不足は422�
   assert.equal(await count('case_transitions', c.id), 3); assert.equal(await count('diagnosis_audit_logs', c.id), 3);
   assert.equal((await request(`${publicBase}/cases/${c.id}/survey/complete`, 'POST', {}, c.access_token)).status, 409);
   assert.equal((await request(`${publicBase}/cases/${c.id}/survey/start`, 'POST', {}, c.access_token)).status, 409);
-  assert.equal((await request(`${publicBase}/cases/${c.id}/survey/responses/Q01_FUTURE`, 'PUT', { questionVersion: 1, rawValue: ['分からない'] }, c.access_token)).status, 409);
+  assert.equal((await request(`${publicBase}/cases/${c.id}/survey/responses/Q01_FUTURE`, 'PUT', { questionVersion: 2, rawValue: ['分からない'] }, c.access_token)).status, 409);
   assert.equal(await count('diagnosis_futures', c.id), 1);
   assert.ok(notifications >= 1, 'notification failure did not roll back completion');
 });
@@ -113,7 +113,7 @@ test('Golden: 無効・別Case・期限切れ・失効tokenによる読み書き
   const c = await webCase(); const other = await webCase();
   for (const token of ['invalid', 'a'.repeat(43), other.access_token]) {
     for (const [suffix, method, body] of [['survey','GET',undefined], ['survey/start','POST',{}],
-      ['survey/responses/Q04_IT_VISIBILITY','PUT',{ questionVersion: 1, rawValue: '分からない' }], ['survey/complete','POST',{}]] as const) {
+      ['survey/responses/Q04_IT_VISIBILITY','PUT',{ questionVersion: 2, rawValue: '分からない' }], ['survey/complete','POST',{}]] as const) {
       assert.equal((await request(`${publicBase}/cases/${c.id}/${suffix}`, method, body, token)).status, 401);
     }
   }
@@ -149,15 +149,15 @@ test('Golden: SALES_VISITは既存staff認証、同一Surveyとactor記録、顧
 
 test('回答のquestion/version/typeを検証し、任意自由記述の原文と空への変更を保存', async () => {
   const c = await webCase(); await h.repo.startSurvey(c.id, c.actor);
-  for (const [code, questionVersion, rawValue] of [['BAD',1,'分からない'], ['Q04_IT_VISIBILITY',2,'分からない'],
-    ['Q04_IT_VISIBILITY',1,['分からない']], ['Q04_IT_VISIBILITY',1,'not-an-option'], ['Q01_FUTURE',1,['分からない','分からない']],
-    ['Q10_FREE_COMMENT',1,'a'.repeat(4001)]] as const) {
+  for (const [code, questionVersion, rawValue] of [['BAD',2,'分からない'], ['Q04_IT_VISIBILITY',1,'分からない'],
+    ['Q04_IT_VISIBILITY',2,['分からない']], ['Q04_IT_VISIBILITY',2,'not-an-option'], ['Q01_FUTURE',2,['分からない','分からない']],
+    ['Q10_FREE_COMMENT',2,'a'.repeat(4001)]] as const) {
     assert.equal((await request(`${publicBase}/cases/${c.id}/survey/responses/${code}`, 'PUT', { questionVersion, rawValue }, c.access_token)).status, 422);
   }
-  await h.repo.submitResponse(c.id, 'Q10_FREE_COMMENT', 1, '  前任者しか分からない\n<script>alert(1)</script>  ', c.actor);
+  await h.repo.submitResponse(c.id, 'Q10_FREE_COMMENT', 2, '  前任者しか分からない\n<script>alert(1)</script>  ', c.actor);
   const data = await h.repo.getSurvey(c.id, c.actor);
   assert.equal(data.responses[0]!.raw_value_json, '  前任者しか分からない\n<script>alert(1)</script>  ');
-  await h.repo.submitResponse(c.id, 'Q10_FREE_COMMENT', 1, '', c.actor);
+  await h.repo.submitResponse(c.id, 'Q10_FREE_COMMENT', 2, '', c.actor);
   assert.equal((await h.repo.getSurvey(c.id, c.actor)).responses[0]!.raw_value_json, '');
   assert.equal(await count('diagnosis_futures', c.id), 0);
 });
@@ -181,14 +181,51 @@ test('会社名でOrganizationを自動マージせず、質問定義はDBに固
   const rows = await h.db.query<{ organization_id: string }>('SELECT organization_id FROM diagnosis_cases WHERE id IN ($1,$2)', [a.id,b.id]);
   assert.notEqual(rows.rows[0]!.organization_id, rows.rows[1]!.organization_id);
   const data = await h.repo.getSurvey(a.id, a.actor);
+  assert.equal(SURVEY_VERSION, 2);
+  assert.equal(data.survey_version, 2);
+  assert.ok(data.questions.every(q => q.version === 2));
+  await h.repo.startSurvey(a.id, a.actor);
+  await fullAnswers(a.id, a.actor);
+  assert.ok((await h.repo.getSurvey(a.id, a.actor)).responses.every(r => r.question_version === 2));
+  const persisted = await h.db.query<{ survey_version: number }>('SELECT survey_version FROM diagnosis_cases WHERE id=$1', [a.id]);
+  assert.equal(persisted.rows[0]!.survey_version, 2);
   assert.equal(data.questions.length, 10); assert.equal(data.questions.filter(q => q.is_required).length, 9);
   assert.deepEqual(data.questions.map(({ id: _id, ...q }) => q), SURVEY_QUESTIONS);
+});
+
+test('不存在Caseは全読取・更新で顧客401／スタッフ404となり500を返さない', async () => {
+  const c = await webCase();
+  const missing = randomUUID();
+  const operations = [
+    ['survey', 'GET', undefined], ['survey/start', 'POST', {}],
+    ['survey/responses/Q04_IT_VISIBILITY', 'PUT', { questionVersion: 2, rawValue: '分からない' }],
+    ['survey/complete', 'POST', {}],
+  ] as const;
+  for (const [suffix, method, body] of operations) {
+    const absent = await request(`${publicBase}/cases/${missing}/${suffix}`, method, body, c.access_token);
+    const invalid = await request(`${publicBase}/cases/${c.id}/${suffix}`, method, body, 'x'.repeat(43));
+    assert.equal(absent.status, 401);
+    assert.equal(invalid.status, 401);
+    assert.deepEqual(await absent.json(), await invalid.json(), 'Case存在の有無をレスポンスで区別しない');
+    const admin = await request(`${adminBase}/cases/${missing}/${suffix}`, method, body, undefined, true);
+    assert.equal(admin.status, 404);
+    assert.deepEqual(await admin.json(), { error: '案件が見つかりません。' });
+  }
+  assert.equal((await request(`${adminBase}/cases/${missing}/overview`, 'GET', undefined, undefined, true)).status, 404);
+  assert.equal((await request(`${adminBase}/cases/${missing}/access/revoke`, 'POST', {}, undefined, true)).status, 404);
+});
+
+test('Survey v2のSSOT文書案は質問文・選択肢・type・必須区分・code・versionを完全に保持', () => {
+  const document = fs.readFileSync(path.resolve(__dirname, '../docs/free-it-management-diagnosis-survey-v2-question-set-proposal.md'), 'utf8');
+  const block = /```json\s*([\s\S]*?)```/.exec(document);
+  assert.ok(block, '質問定義JSONが文書案に存在する');
+  assert.deepEqual(JSON.parse(block[1]!), { survey_version: 2, questions: SURVEY_QUESTIONS });
 });
 
 test('ログにraw token・query・自由記述・メールを記録しない', async () => {
   const c = await webCase(); await h.repo.startSurvey(c.id, c.actor);
   const secretComment = 'PRIVATE_COMMENT_CANARY';
-  await request(`${publicBase}/cases/${c.id}/survey/responses/Q10_FREE_COMMENT`, 'PUT', { questionVersion: 1, rawValue: secretComment }, c.access_token);
+  await request(`${publicBase}/cases/${c.id}/survey/responses/Q10_FREE_COMMENT`, 'PUT', { questionVersion: 2, rawValue: secretComment }, c.access_token);
   await request(`${publicBase}/cases/${c.id}/survey?token=${c.access_token}&email=LOG_EMAIL_CANARY`, 'GET', undefined, c.access_token, false,
     { Referer: `http://example.test/${c.access_token}`, 'X-Private-Header': c.access_token });
   await new Promise(resolve => setImmediate(resolve));

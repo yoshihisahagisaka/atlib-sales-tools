@@ -16,6 +16,9 @@ async function application(page: Page, staff = false) {
   await page.getByRole('button', { name: staff ? '営業訪問の案件を作成する' : '申し込んでアンケートへ進む' }).click();
   await expect(page.locator('#survey-questions')).toBeVisible();
   await expect(page.locator('#company-display')).toHaveText('ABC株式会社様');
+  const id = staff ? new URL(page.url()).searchParams.get('id')! : new URLSearchParams(new URL(page.url()).hash.slice(1)).get('case')!;
+  const result = await h.db.query<{ survey_version: number }>('SELECT survey_version FROM diagnosis_cases WHERE id=$1', [id]);
+  expect(result.rows[0]!.survey_version).toBe(2);
 }
 async function answerUnknown(page: Page) {
   for (const q of SURVEY_QUESTIONS.filter(q => q.is_required)) {
@@ -23,6 +26,10 @@ async function answerUnknown(page: Page) {
   }
   await page.getByRole('button', { name: '途中保存する', exact: true }).click();
   await expect(page.locator('#progress-text')).toHaveText('必須9問のうち 9問を保存済み');
+  const id = new URL(page.url()).searchParams.get('id') || new URLSearchParams(new URL(page.url()).hash.slice(1)).get('case')!;
+  const result = await h.db.query<{ question_version: number }>('SELECT question_version FROM survey_responses WHERE diagnosis_case_id=$1', [id]);
+  expect(result.rows).toHaveLength(9);
+  expect(result.rows.every(r => r.question_version === 2)).toBe(true);
 }
 
 test('Web: 申込→自動保存→別タブ再開→通信失敗から再保存→必須guard→完了', async ({ page, context }, info) => {

@@ -2,7 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 
 export const PROVIDER_NAME = 'atLIB株式会社';
-export const SURVEY_VERSION = 1;
+export const SURVEY_VERSION = 2;
 export const DIAGNOSIS_STATUSES = ['APPLICATION_STARTED', 'SURVEY_IN_PROGRESS', 'SURVEY_COMPLETED'] as const;
 export type DiagnosisStatus = typeof DIAGNOSIS_STATUSES[number];
 export type EntryChannel = 'WEB' | 'SALES_VISIT';
