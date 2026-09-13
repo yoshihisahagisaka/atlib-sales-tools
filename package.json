@@ -23,6 +23,7 @@
     "test:readiness": "node -r ts-node/register --test test/productionReadiness.security.test.ts",
     "test:readiness:postgres": "node -r ts-node/register --test test/productionReadiness.postgres.test.ts",
     "test:policy-closure": "node -r ts-node/register --test test/controlledPilotPolicyClosure.golden.test.ts",
+    "test:restore-ai-closure": "node -r ts-node/register --test test/controlledPilotRestoreAiClosure.golden.test.ts",
     "migrate:artifact": "node dist/db/migrateCli.js"
   },
   "engines": {
