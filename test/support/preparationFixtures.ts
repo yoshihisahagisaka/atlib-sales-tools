@@ -2,6 +2,7 @@ import type { AIProvider } from '../../src/services/preDiagnosisProvider';
 import type { PreDiagnosisContext } from '../../src/services/preDiagnosisContext';
 import type { OrganizerOutput } from '../../src/domain/diagnosisPreparation';
 import { SURVEY_QUESTIONS, type Actor } from '../../src/domain/itManagementDiagnosis';
+import { DIAGNOSIS_POLICY_NOTICE_VERSION } from '../../src/routes/itManagementDiagnosis';
 import type { createDiagnosisHarness } from './diagnosisHarness';
 
 export const operator: Actor = { kind: 'STAFF', userId: 'operator@atlib.jp' };
@@ -23,6 +24,7 @@ export class FakePreparationProvider implements AIProvider {
 export async function completedCase(h: Awaited<ReturnType<typeof createDiagnosisHarness>>) {
   const result = await h.repo.createCase({companyName:'ABC株式会社',contactName:'回答者',email:'private@example.test',phone:'PRIVATE_PHONE'},'WEB',{kind:'CUSTOMER',token:''});
   const actor: Actor={kind:'CUSTOMER',token:result.access_token!};
+  await h.repo.recordPolicyAcknowledgement(result.id,DIAGNOSIS_POLICY_NOTICE_VERSION,'WEB',actor);
   await h.repo.startSurvey(result.id,actor);
   for (const q of SURVEY_QUESTIONS.filter(q=>q.is_required)) {
     await h.repo.submitResponse(result.id,q.question_code,2,q.question_code==='Q04_IT_VISIBILITY' ? 'IT環境は完全に把握できている' : q.answer_type==='MULTI_SELECT' ? ['分からない'] : '分からない',actor);
