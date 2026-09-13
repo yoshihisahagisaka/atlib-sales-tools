@@ -108,6 +108,9 @@ export async function reconcileDeletionManifest(
       (id,manifest_version,manifest_hash,mode,status,tombstone_count,executed_by_user_id)
       VALUES($1,$2,$3,$4,'RUNNING',$5,$6)`,[runId,manifest.manifest_version,hash,mode,manifest.entries.length,executedByUserId]);
     for (const entry of manifest.entries) {
+      // RESTRICT_RETAIN is provenance for a Human decision to preserve data. It is not a
+      // destructive restore action and therefore does not require a physical target replay.
+      if (entry.action === 'RESTRICT_RETAIN') continue;
       const exists = await targetExists(client,entry);
       if (exists) matched++;
       if (mode === 'VERIFY') {
