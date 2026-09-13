@@ -5,4 +5,4 @@
 .report-page .report-block { border-top:1px solid #d6dee8; padding-top:12px; margin-top:16px; }
 .report-page .btn { white-space:normal; }
 .report-page [role=tablist] { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
-@media print { .no-print,#feedback-tab,button,details { display:none!important; } #report-tab { display:block!important; } .report-page {max-width:none;margin:0;} #report-preview {border:0;box-shadow:none;} .report-block {break-inside:avoid;} }
+@media print { .no-print,#feedback-tab,#assessment-tab,button,details { display:none!important; } #report-tab { display:block!important; } .report-page {max-width:none;margin:0;} #report-preview {border:0;box-shadow:none;} .report-block {break-inside:avoid;} }

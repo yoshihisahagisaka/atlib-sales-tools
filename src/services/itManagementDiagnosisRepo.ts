@@ -192,8 +192,9 @@ export class ItManagementDiagnosisRepo {
       const { rows: participants } = await client.query(`SELECT id,name,email,phone,job_title FROM participants WHERE diagnosis_case_id=$1`, [id]);
       const { rows: transitions } = await client.query(`SELECT from_status,to_status,command,actor_type,actor_user_id,created_at
         FROM case_transitions WHERE diagnosis_case_id=$1 ORDER BY created_at`, [id]);
+      const {rows:handoffs}=await client.query('SELECT status FROM assessment_handoffs WHERE diagnosis_case_id=$1 ORDER BY version DESC LIMIT 1',[id]);
       return { ...base, responses, entry_channel: row.entry_channel, assessment_status: row.assessment_status,
-        owner_user_id: row.owner_user_id, current_next_action: nextAction(row.diagnosis_status), scheduled_at: row.scheduled_at,
+        owner_user_id: row.owner_user_id, current_next_action: nextAction(row.diagnosis_status,row.assessment_status,handoffs[0]?.status), scheduled_at: row.scheduled_at,
         future: futures[0] ?? null, participants, transitions,
         access: { expires_at: row.access_token_expires_at, revoked_at: row.access_token_revoked_at } };
     });
@@ -206,6 +207,7 @@ export class ItManagementDiagnosisRepo {
     const { rows } = await this.pool.query(`SELECT c.id,c.diagnosis_status,c.assessment_status,c.entry_channel,c.owner_user_id,c.scheduled_at,c.created_at,
       o.name AS organization_name,p.name AS contact_name,p.email AS contact_email,
       f.statement AS future_summary,
+      (SELECT status FROM assessment_handoffs h WHERE h.diagnosis_case_id=c.id ORDER BY version DESC LIMIT 1) AS handoff_status,
       (SELECT count(*)::int FROM survey_questions q WHERE q.version=c.survey_version AND q.is_required) AS total_required,
       (SELECT count(*)::int FROM survey_responses r JOIN survey_questions q ON q.id=r.question_id
         WHERE r.diagnosis_case_id=c.id AND q.is_required AND r.raw_value_json NOT IN ('[]'::jsonb,'""'::jsonb)) AS answered_required
@@ -215,6 +217,6 @@ export class ItManagementDiagnosisRepo {
       ${where} ORDER BY c.created_at DESC,c.id LIMIT $3 OFFSET $4`, [...params, opts.limit, opts.offset]);
     return { items: rows.map(({ organization_name, ...row }) => ({ ...row,
       organization_display_name: companyDisplayName(organization_name),
-      current_next_action: nextAction(row.diagnosis_status), survey_status: surveyStatus(row.diagnosis_status) })), total: Number(count[0]!.total), provider_name: PROVIDER_NAME };
+      current_next_action: nextAction(row.diagnosis_status,row.assessment_status,row.handoff_status), survey_status: surveyStatus(row.diagnosis_status) })), total: Number(count[0]!.total), provider_name: PROVIDER_NAME };
   }
 }

@@ -18,6 +18,7 @@
     "import:market-baseline": "node --env-file=.env -r ts-node/register scripts/cost_estimation/import_market_baseline.ts",
     "test:workspace": "node -r ts-node/register --test test/diagnosisWorkspace.golden.test.ts",
     "test:review": "node -r ts-node/register --test test/diagnosisReview.golden.test.ts",
+    "test:handoff": "node -r ts-node/register --test test/diagnosisAssessment.golden.test.ts",
     "test:report": "node -r ts-node/register --test test/diagnosisReport.golden.test.ts"
   },
   "engines": {

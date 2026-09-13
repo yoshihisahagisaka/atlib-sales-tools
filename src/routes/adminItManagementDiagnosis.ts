@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import {createDiagnosisAssessmentRouter} from './diagnosisAssessment';
+import type {DiagnosisAssessmentRepo} from '../services/diagnosisAssessmentRepo';
 import { z } from 'zod';
 import { DIAGNOSIS_STATUSES, DiagnosisError } from '../domain/itManagementDiagnosis';
 import type { ItManagementDiagnosisRepo } from '../services/itManagementDiagnosisRepo';
@@ -9,7 +11,7 @@ import { createDiagnosisReviewRouter, type ReviewServices } from './diagnosisRev
 import { createDiagnosisReportRouter, type ReportServices } from './diagnosisReport';
 
 // Mounted behind the existing Google Workspace auth and rate-limit gate.
-export function createAdminItManagementDiagnosisRouter(repo: ItManagementDiagnosisRepo, notify?: CompletionNotifier, preparation?: PreparationServices, workspace?: WorkspaceServices, review?: ReviewServices, report?: ReportServices): Router {
+export function createAdminItManagementDiagnosisRouter(repo: ItManagementDiagnosisRepo, notify?: CompletionNotifier, preparation?: PreparationServices, workspace?: WorkspaceServices, review?: ReviewServices, report?: ReportServices, assessment?: DiagnosisAssessmentRepo): Router {
   const router = Router();
   router.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -41,6 +43,7 @@ export function createAdminItManagementDiagnosisRouter(repo: ItManagementDiagnos
   if (workspace) router.use(createDiagnosisWorkspaceRouter(workspace));
   if (review) router.use(createDiagnosisReviewRouter(review));
   if (report) router.use(createDiagnosisReportRouter(report));
+  if (assessment) router.use(createDiagnosisAssessmentRouter(assessment));
   mountSurveyCommands(router, repo, staffActor, notify);
   return router;
 }

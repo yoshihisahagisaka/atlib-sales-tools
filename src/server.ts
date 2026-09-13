@@ -44,6 +44,7 @@ import { InterviewAssistantWorker } from './services/interviewAssistantWorker';
 import { DiagnosisReviewRepo } from './services/diagnosisReviewRepo';
 import { AnthropicPostDiagnosisProvider } from './services/postDiagnosisProvider';
 import { PostDiagnosisWorker } from './services/postDiagnosisWorker';
+import {DiagnosisAssessmentRepo} from './services/diagnosisAssessmentRepo';
 import { DiagnosisReportRepo } from './services/diagnosisReportRepo';
 import { AnthropicReportDraftProvider } from './services/reportDraftProvider';
 import { ReportDraftWorker } from './services/reportDraftWorker';
@@ -78,6 +79,7 @@ async function main(): Promise<void> {
   const postDiagnosisProvider = new AnthropicPostDiagnosisProvider(config.aiAssist.anthropicApiKey);
   const postDiagnosisWorker = new PostDiagnosisWorker(preparationRepo,reviewRepo,postDiagnosisProvider);
   const review = {repo:reviewRepo,provider:postDiagnosisProvider,worker:postDiagnosisWorker};
+  const assessment = new DiagnosisAssessmentRepo(pool);
   const reportRepo = new DiagnosisReportRepo(pool);
   const reportProvider = new AnthropicReportDraftProvider(config.aiAssist.anthropicApiKey);
   const reportWorker = new ReportDraftWorker(preparationRepo,reportRepo,reportProvider);
@@ -142,7 +144,7 @@ async function main(): Promise<void> {
     requireStaffAuth(staffAuthService),
   ];
   app.use('/api/admin/it-management-diagnosis', ...adminAuthGate,
-    createAdminItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted, preparation, workspace, review, report));
+    createAdminItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted, preparation, workspace, review, report, assessment));
   app.use('/api/admin/isms-diagnostic', ...adminAuthGate, createAdminIsmsDiagnosticRouter(ismsDiagnosticRepo));
   app.use(
     '/api/admin/free-hearing-assessment',

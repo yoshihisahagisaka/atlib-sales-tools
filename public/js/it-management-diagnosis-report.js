@@ -7,7 +7,7 @@
  const selected=()=>data?.reports.find(r=>r.id===selectedId)||data?.reports[0];
  const editable=()=>data?.diagnosis_status==='REPORT_REVIEW_REQUIRED'&&selected()?.id===data?.reports[0]?.id&&['DRAFT','REVIEW_REQUIRED','REVISION_REQUIRED'].includes(selected()?.status);
  function error(text){el('report-error').textContent=text;el('report-error').hidden=!text;}
- function controls(){document.querySelectorAll('button').forEach(b=>{b.disabled=busy||b.dataset.blocked==='true';});el('tab-assessment').disabled=true;
+ function controls(){document.querySelectorAll('#report-tab button,#feedback-tab button,[role=tablist] button,#refresh').forEach(b=>{b.disabled=busy||b.dataset.blocked==='true';});
   el('run-ai').disabled=busy||data?.diagnosis_status!=='REPORT_REVIEW_REQUIRED'||data?.executions.some(e=>['PENDING','RUNNING'].includes(e.status));
   el('manual').disabled=busy||data?.diagnosis_status!=='REPORT_REVIEW_REQUIRED';el('request-revision').disabled=busy||!editable();
   el('approve').disabled=busy||!editable()||selected()?.status==='REVISION_REQUIRED';el('deliver').disabled=busy||data?.diagnosis_status!=='REPORT_APPROVED'||selected()?.id!==data?.reports[0]?.id||selected()?.status!=='APPROVED';
@@ -38,8 +38,8 @@
   el('feedback-status').textContent=`${data.diagnosis_status} / 対象Report：${data.feedback_report_id||'未送付'}${data.feedback_started_at?' / 開始：'+new Date(data.feedback_started_at).toLocaleString('ja-JP'):''}${data.feedback_completed_at?' / 完了：'+new Date(data.feedback_completed_at).toLocaleString('ja-JP'):''}`;
   el('feedback-sources').replaceChildren(...data.feedback.map(s=>{const card=node('section','');card.append(node('h3','Feedback発言（Raw Source）'),node('p',s.content),node('p',`話者：${data.participants.find(p=>p.id===s.speaker_participant_id)?.name||'未指定'} / 入力：${s.entered_by_user_id} / Report：${s.feedback_report_id}`));return card;}));if(!editable())el('wording-editor').hidden=true;controls();
  }
- async function load(){clearTimeout(timer);const followLatest=!selectedId||selectedId===data?.reports[0]?.id;data=await api('/report');if(followLatest)selectedId=data.reports[0]?.id||null;render();if(data.executions.some(e=>['PENDING','RUNNING'].includes(e.status)))timer=setTimeout(()=>{if(!busy)load().catch(e=>error(e.message));},1500);}
- for(const tab of ['report','feedback'])el('tab-'+tab).onclick=()=>{for(const t of ['report','feedback']){el(t+'-tab').hidden=t!==tab;el('tab-'+t).setAttribute('aria-selected',String(t===tab));el('tab-'+t).classList.toggle('btn-secondary',t!==tab);}};
+ async function load(){clearTimeout(timer);const followLatest=!selectedId||selectedId===data?.reports[0]?.id;data=await api('/report');if(followLatest)selectedId=data.reports[0]?.id||null;render();window.dispatchEvent(new Event('diagnosis-report-loaded'));if(data.executions.some(e=>['PENDING','RUNNING'].includes(e.status)))timer=setTimeout(()=>{if(!busy)load().catch(e=>error(e.message));},1500);}
+ for(const tab of ['report','feedback','assessment'])el('tab-'+tab).onclick=()=>{for(const t of ['report','feedback','assessment']){el(t+'-tab').hidden=t!==tab;el('tab-'+t).setAttribute('aria-selected',String(t===tab));el('tab-'+t).classList.toggle('btn-secondary',t!==tab);}};
  el('refresh').onclick=()=>{if(!busy)load().catch(e=>error(e.message));};el('report-version').onchange=()=>{selectedId=el('report-version').value;editing=null;el('wording-editor').hidden=true;render();};
  el('manual').onclick=()=>command('/report/manual',{expectedVersion:data.version});el('run-ai').onclick=()=>command('/report/ai/run',{});el('print').onclick=()=>window.print();
  el('wording-form').onsubmit=e=>{e.preventDefault();command('/report/wording',{...target(),blocks:[{block_id:editing,text:el('wording-text').value}]},()=>{editing=null;el('wording-editor').hidden=true;el('wording-form').reset();});};el('cancel-wording').onclick=()=>{editing=null;el('wording-editor').hidden=true;el('wording-form').reset();};
