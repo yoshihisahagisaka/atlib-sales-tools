@@ -103,10 +103,21 @@
     } catch (e) { error(e.message); el('reload-survey').hidden = false; }
   }
   el('application-form').addEventListener('submit', async event => {
-    event.preventDefault(); error(''); el('apply-button').disabled = true;
+    event.preventDefault(); error('');
+    if (!staff && !el('policy-acknowledged')?.checked) {
+      error('サービス内容とデータ利用について確認してください。');
+      el('policy-acknowledged')?.focus();
+      return;
+    }
+    el('apply-button').disabled = true;
     try {
-      const data = await api('/cases', 'POST', { companyName: el('company-name').value, contactName: el('contact-name').value,
-        email: el('email').value, phone: el('phone').value });
+      const body = { companyName: el('company-name').value, contactName: el('contact-name').value,
+        email: el('email').value, phone: el('phone').value };
+      if (!staff) {
+        body.policyNoticeVersion = el('application-form').dataset.policyNoticeVersion;
+        body.policyAcknowledged = true;
+      }
+      const data = await api('/cases', 'POST', body);
       id = data.id; token = data.access_token;
       history.replaceState(null, '', staff ? `${location.pathname}?id=${id}` : `${location.pathname}#${new URLSearchParams({ case: id, token })}`);
       await load();
@@ -135,8 +146,6 @@
     if (!dirty.size || window.confirm('未保存の変更を破棄して、保存済みの回答を読み込みますか？')) load();
   });
   window.addEventListener('beforeunload', event => { if (dirty.size) { event.preventDefault(); event.returnValue = ''; } });
-  // Opening a different resume link in this tab changes only the fragment. Reload
-  // to discard the previous Case's in-memory credentials and visible responses.
   if (!staff) window.addEventListener('hashchange', () => location.reload());
   if (id) load();
   else if (!staff && (fragment.has('token') || fragment.has('case'))) {
