@@ -22,12 +22,21 @@
 <h2 id="company-display" hidden></h2>
 <div id="diagnosis-error" class="error-message" role="alert" hidden></div>
 <button type="button" id="reload-survey" class="btn btn-secondary" hidden>保存済みの回答を再読み込み</button>
-<form id="application-form" class="card">
+<form id="application-form" class="card" data-policy-notice-version="ITMGMT-DIAGNOSIS-NOTICE-2026-09-13-v1">
 <h2>お申込み・ご連絡先</h2>
 <div class="form-row"><label for="company-name">会社名（敬称不要）</label><input id="company-name" required maxlength="200" autocomplete="organization"></div>
 <div class="form-row"><label for="contact-name">ご担当者名</label><input id="contact-name" required maxlength="200" autocomplete="name"></div>
 <div class="form-row"><label for="email">メールアドレス</label><input id="email" type="email" required maxlength="254" autocomplete="email"></div>
 <div class="form-row"><label for="phone">電話番号（任意）</label><input id="phone" type="tel" maxlength="50" autocomplete="tel"></div>
+<section class="card" aria-labelledby="diagnosis-policy-title">
+<h3 id="diagnosis-policy-title">無料IT経営診断の内容・データ利用について</h3>
+<p>この無料診断は、Evidenceで現在地を完全確定するAssessmentではなく、実現したい未来に対する改善可能性と、次に確認・判断すべきことを整理する入口です。</p>
+<p>ご回答内容の整理・分析支援にAIを利用する場合がありますが、AIの出力だけで診断結果や経営判断を確定せず、必要に応じ担当者がReview・Correction・Approvalを行います。</p>
+<p>診断結果の説明、Correction、Management Feedback、Assessment等の次の判断に必要なFollow-upを行う場合があります。</p>
+<p>録音・Transcriptは標準では取得しません。必要な場合は、通常の診断申込とは分けて事前に説明し、別途明示的な同意を確認します。</p>
+<p class="info-message">Privacy / Data Handlingの正式な顧客向け文面・リンクはLegal / Privacy Review後に確定します。Controlled Pilotでは承認済み案内文を使用します。</p>
+<label><input id="policy-acknowledged" type="checkbox" required> 上記のサービス内容・データ利用について確認しました。</label>
+</section>
 <button type="submit" class="btn" id="apply-button">申し込んでアンケートへ進む</button>
 </form>
 <section id="survey-section" hidden>
