@@ -8,7 +8,7 @@ import pinoHttp from 'pino-http';
 import { PGlite } from '@electric-sql/pglite';
 import type { Pool } from 'pg';
 import { ItManagementDiagnosisRepo } from '../../src/services/itManagementDiagnosisRepo';
-import { createItManagementDiagnosisRouter, type CompletionNotifier } from '../../src/routes/itManagementDiagnosis';
+import { createItManagementDiagnosisRouter, DIAGNOSIS_POLICY_NOTICE_VERSION, type CompletionNotifier } from '../../src/routes/itManagementDiagnosis';
 import { createAdminItManagementDiagnosisRouter } from '../../src/routes/adminItManagementDiagnosis';
 import { StaffAuthService } from '../../src/services/staffAuthService';
 import { requireStaffAuth } from '../../src/middleware/staffAuth';
@@ -79,6 +79,15 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   app.set('trust proxy', 'loopback');
   app.use(pinoHttp({ logger: pino({ level: 'info' }, { write: text => { logs.push(text); } }), serializers: { req: safeAccessRequest } }));
   app.use(express.json()); app.use(cookieParser());
+  // Existing Golden tests predate BD-05. Inject the current acknowledgement only in the
+  // disposable harness so regression tests keep exercising the same business flow.
+  // Policy-specific tests can opt out with X-Test-Skip-Policy-Injection: 1.
+  app.use('/api/it-management-diagnosis/cases', (req, _res, next) => {
+    if (req.method === 'POST' && req.get('x-test-skip-policy-injection') !== '1' && req.body && typeof req.body === 'object') {
+      req.body = { ...req.body, policyNoticeVersion: DIAGNOSIS_POLICY_NOTICE_VERSION, policyAcknowledged: true };
+    }
+    next();
+  });
   app.use('/api/it-management-diagnosis', createItManagementDiagnosisRouter(repo, notify));
   app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createAdminItManagementDiagnosisRouter(repo, notify,{ repo: preparation,provider,worker },{repo:workspace,provider:interviewProvider,worker:interviewWorker},{repo:review,provider:postProvider,worker:postWorker},{repo:report,provider:reportProvider,worker:reportWorker},assessment));
   app.use('/api/kaizen-diagnostic', createKaizenDiagnosticRouter(new KaizenDiagnosticRepo(pool), {} as Mailer,
