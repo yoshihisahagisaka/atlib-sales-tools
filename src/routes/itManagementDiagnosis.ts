@@ -73,10 +73,8 @@ export function createItManagementDiagnosisRouter(repo: ItManagementDiagnosisRep
     const parsed = webApplicationSchema.safeParse(req.body);
     if (!parsed.success) throw new DiagnosisError(422, 'サービス内容とデータ利用について確認してからお申し込みください。');
     const { policyNoticeVersion, policyAcknowledged: _policyAcknowledged, ...application } = parsed.data;
-    const created = await repo.createCase(application, 'WEB', { kind: 'CUSTOMER', token: '' });
-    if (!('access_token' in created) || !created.access_token) throw new DiagnosisError(500, '申込処理を完了できませんでした。');
-    await repo.recordPolicyAcknowledgement(created.id, policyNoticeVersion, 'WEB', { kind: 'CUSTOMER', token: created.access_token });
-    res.status(201).json(created);
+    // Case creation and acknowledgement provenance are one DB transaction.
+    res.status(201).json(await repo.createCase(application, 'WEB', { kind: 'CUSTOMER', token: '' }, { noticeVersion: policyNoticeVersion }));
   }));
   router.use('/cases/:id', createIpRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 300 }));
   mountSurveyCommands(router, repo, customerActor, notify);
