@@ -124,11 +124,19 @@ export async function reconcileDeletionManifest(
     return { run_id:runId, manifest_hash:hash, mode, tombstone_count:manifest.entries.length, matched_count:matched, changed_count:changed, unsupported_count:unsupported, status:'SUCCEEDED' as const };
   } catch (error) {
     await client.query('ROLLBACK');
-    // Record failure in a new transaction because the attempted replay transaction was rolled back.
+    // Record failure using the same checked-out connection before release. This avoids
+    // pool re-entry deadlocks for single-connection migration/rehearsal harnesses.
     const code = error instanceof Error ? error.message.slice(0,200) : 'RECONCILIATION_FAILED';
-    await pool.query(`INSERT INTO diagnosis_restore_reconciliation_runs
-      (id,manifest_version,manifest_hash,mode,status,tombstone_count,matched_count,changed_count,unsupported_count,error_code,executed_by_user_id,completed_at)
-      VALUES($1,$2,$3,$4,'FAILED',$5,$6,$7,$8,$9,$10,now())`,[runId,manifest.manifest_version,hash,mode,manifest.entries.length,matched,changed,unsupported,code,executedByUserId]);
+    await client.query('BEGIN');
+    try {
+      await client.query(`INSERT INTO diagnosis_restore_reconciliation_runs
+        (id,manifest_version,manifest_hash,mode,status,tombstone_count,matched_count,changed_count,unsupported_count,error_code,executed_by_user_id,completed_at)
+        VALUES($1,$2,$3,$4,'FAILED',$5,$6,$7,$8,$9,$10,now())`,[runId,manifest.manifest_version,hash,mode,manifest.entries.length,matched,changed,unsupported,code,executedByUserId]);
+      await client.query('COMMIT');
+    } catch (recordError) {
+      await client.query('ROLLBACK');
+      throw recordError;
+    }
     throw error;
   } finally { client.release(); }
 }
