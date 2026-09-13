@@ -25,13 +25,16 @@ import { InterviewAssistantWorker } from '../../src/services/interviewAssistantW
 import { DiagnosisReviewRepo } from '../../src/services/diagnosisReviewRepo';
 import { AnthropicPostDiagnosisProvider, type PostDiagnosisProvider } from '../../src/services/postDiagnosisProvider';
 import { PostDiagnosisWorker } from '../../src/services/postDiagnosisWorker';
+import { DiagnosisReportRepo } from '../../src/services/diagnosisReportRepo';
+import { AnthropicReportDraftProvider, type ReportDraftProvider } from '../../src/services/reportDraftProvider';
+import { ReportDraftWorker } from '../../src/services/reportDraftWorker';
 import { PreDiagnosisWorker } from '../../src/services/preDiagnosisWorker';
 
 /** Real PostgreSQL SQL/constraints/transactions in a disposable WASM database.
  * A single connection adapter serializes transactions, matching pg Pool checkout.
  * No production config, secret manager, SMTP, Slack or AI is loaded.
  */
-export async function createDiagnosisHarness(notify?: CompletionNotifier, provider: AIProvider = new AnthropicPreDiagnosisProvider(), interviewProvider: InterviewProvider = new AnthropicInterviewProvider(), postProvider: PostDiagnosisProvider = new AnthropicPostDiagnosisProvider()) {
+export async function createDiagnosisHarness(notify?: CompletionNotifier, provider: AIProvider = new AnthropicPreDiagnosisProvider(), interviewProvider: InterviewProvider = new AnthropicInterviewProvider(), postProvider: PostDiagnosisProvider = new AnthropicPostDiagnosisProvider(), reportProvider: ReportDraftProvider = new AnthropicReportDraftProvider()) {
   const db = new PGlite();
   await db.waitReady;
   const root = path.resolve(__dirname, '../..');
@@ -42,6 +45,7 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   await db.exec(fs.readFileSync(path.join(root, 'migrations/008_it_management_diagnosis_preparation.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/009_it_management_diagnosis_workspace.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/010_it_management_diagnosis_human_review.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/011_it_management_diagnosis_report_feedback.sql'), 'utf8'));
   let tail = Promise.resolve();
   async function acquire() {
     const previous = tail;
@@ -62,6 +66,8 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   const interviewWorker = new InterviewAssistantWorker(preparation,workspace,interviewProvider);
   const review = new DiagnosisReviewRepo(pool);
   const postWorker = new PostDiagnosisWorker(preparation,review,postProvider);
+  const report = new DiagnosisReportRepo(pool);
+  const reportWorker = new ReportDraftWorker(preparation,report,reportProvider);
   const staffAuth = new StaffAuthService('disposable-test-key-not-a-production-secret');
   const staffCookie = `staff_session=${staffAuth.issueSessionToken({ email: 'operator@atlib.jp' })}`;
   const logs: string[] = [];
@@ -70,7 +76,7 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   app.use(pinoHttp({ logger: pino({ level: 'info' }, { write: text => { logs.push(text); } }), serializers: { req: safeAccessRequest } }));
   app.use(express.json()); app.use(cookieParser());
   app.use('/api/it-management-diagnosis', createItManagementDiagnosisRouter(repo, notify));
-  app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createAdminItManagementDiagnosisRouter(repo, notify,{ repo: preparation,provider,worker },{repo:workspace,provider:interviewProvider,worker:interviewWorker},{repo:review,provider:postProvider,worker:postWorker}));
+  app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createAdminItManagementDiagnosisRouter(repo, notify,{ repo: preparation,provider,worker },{repo:workspace,provider:interviewProvider,worker:interviewWorker},{repo:review,provider:postProvider,worker:postWorker},{repo:report,provider:reportProvider,worker:reportWorker}));
   app.use('/api/kaizen-diagnostic', createKaizenDiagnosticRouter(new KaizenDiagnosticRepo(pool), {} as Mailer,
     { portalBaseUrl: 'http://localhost', slack: {} } as Config));
   app.use('/admin', requireStaffAuth(staffAuth), express.static(path.join(root, 'public/admin')));
@@ -78,6 +84,6 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  return { db, pool, repo, url, logs, staffCookie, preparation, worker, workspace, interviewWorker, review, postWorker,
+  return { db, pool, repo, url, logs, staffCookie, preparation, worker, workspace, interviewWorker, review, postWorker, report, reportWorker,
     close: async () => { await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve())); await db.close(); } };
 }

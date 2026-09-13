@@ -6,9 +6,10 @@ import { caseId, diagnosisHandler, mountSurveyCommands, staffActor, type Complet
 import { createDiagnosisPreparationRouter, type PreparationServices } from './diagnosisPreparation';
 import { createDiagnosisWorkspaceRouter, type WorkspaceServices } from './diagnosisWorkspace';
 import { createDiagnosisReviewRouter, type ReviewServices } from './diagnosisReview';
+import { createDiagnosisReportRouter, type ReportServices } from './diagnosisReport';
 
 // Mounted behind the existing Google Workspace auth and rate-limit gate.
-export function createAdminItManagementDiagnosisRouter(repo: ItManagementDiagnosisRepo, notify?: CompletionNotifier, preparation?: PreparationServices, workspace?: WorkspaceServices, review?: ReviewServices): Router {
+export function createAdminItManagementDiagnosisRouter(repo: ItManagementDiagnosisRepo, notify?: CompletionNotifier, preparation?: PreparationServices, workspace?: WorkspaceServices, review?: ReviewServices, report?: ReportServices): Router {
   const router = Router();
   router.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -39,6 +40,7 @@ export function createAdminItManagementDiagnosisRouter(repo: ItManagementDiagnos
   if (preparation) router.use(createDiagnosisPreparationRouter(preparation));
   if (workspace) router.use(createDiagnosisWorkspaceRouter(workspace));
   if (review) router.use(createDiagnosisReviewRouter(review));
+  if (report) router.use(createDiagnosisReportRouter(report));
   mountSurveyCommands(router, repo, staffActor, notify);
   return router;
 }

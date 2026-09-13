@@ -44,6 +44,9 @@ import { InterviewAssistantWorker } from './services/interviewAssistantWorker';
 import { DiagnosisReviewRepo } from './services/diagnosisReviewRepo';
 import { AnthropicPostDiagnosisProvider } from './services/postDiagnosisProvider';
 import { PostDiagnosisWorker } from './services/postDiagnosisWorker';
+import { DiagnosisReportRepo } from './services/diagnosisReportRepo';
+import { AnthropicReportDraftProvider } from './services/reportDraftProvider';
+import { ReportDraftWorker } from './services/reportDraftWorker';
 import { PreDiagnosisWorker } from './services/preDiagnosisWorker';
 
 async function main(): Promise<void> {
@@ -75,6 +78,10 @@ async function main(): Promise<void> {
   const postDiagnosisProvider = new AnthropicPostDiagnosisProvider(config.aiAssist.anthropicApiKey);
   const postDiagnosisWorker = new PostDiagnosisWorker(preparationRepo,reviewRepo,postDiagnosisProvider);
   const review = {repo:reviewRepo,provider:postDiagnosisProvider,worker:postDiagnosisWorker};
+  const reportRepo = new DiagnosisReportRepo(pool);
+  const reportProvider = new AnthropicReportDraftProvider(config.aiAssist.anthropicApiKey);
+  const reportWorker = new ReportDraftWorker(preparationRepo,reportRepo,reportProvider);
+  const report = {repo:reportRepo,provider:reportProvider,worker:reportWorker};
   const notifySurveyCompleted = async (id: string): Promise<void> => {
     const detailUrl = `${config.portalBaseUrl}/admin/it-management-diagnosis-detail.html?id=${id}`;
     await Promise.all([
@@ -135,7 +142,7 @@ async function main(): Promise<void> {
     requireStaffAuth(staffAuthService),
   ];
   app.use('/api/admin/it-management-diagnosis', ...adminAuthGate,
-    createAdminItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted, preparation, workspace, review));
+    createAdminItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted, preparation, workspace, review, report));
   app.use('/api/admin/isms-diagnostic', ...adminAuthGate, createAdminIsmsDiagnosticRouter(ismsDiagnosticRepo));
   app.use(
     '/api/admin/free-hearing-assessment',
@@ -175,6 +182,8 @@ async function main(): Promise<void> {
   app.listen(config.port, () => {
     logger.info(`sales-tools listening on :${config.port}`);
   });
+  const pollReport = () => { void reportWorker.tick().catch(() => logger.warn({ event: 'report_worker_failed' }, 'Report worker failed')); };
+  pollReport(); setInterval(pollReport,5000).unref();
   const pollPostDiagnosis = () => { void postDiagnosisWorker.tick().catch(() => logger.warn({ event: 'post_diagnosis_worker_failed' }, 'Post diagnosis worker failed')); };
   pollPostDiagnosis(); setInterval(pollPostDiagnosis,5000).unref();
   const pollInterview = () => { void interviewWorker.tick().catch(() => logger.warn({ event: 'interview_worker_failed' }, 'Interview worker failed')); };

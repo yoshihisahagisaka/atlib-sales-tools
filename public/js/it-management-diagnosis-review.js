@@ -4,7 +4,7 @@
  const id=new URLSearchParams(location.search).get('id'),base='/api/admin/it-management-diagnosis/cases/'+encodeURIComponent(id);
  const types=['OBSERVATION','UNKNOWN','HYPOTHESIS','GAP_CANDIDATE','ROOT_CAUSE_HYPOTHESIS','KAIZEN_DIRECTION','EVIDENCE_CANDIDATE'];
  const unknowns=['NOT_YET_CONFIRMED','UNRESOLVED','CONTRADICTORY','NOT_REQUIRED_NOW'];
- const sourceLabels={INTERVIEW_STATEMENT:'顧客発言',OPERATOR_NOTE:'担当者メモ',TRANSCRIPT:'Transcript',DOCUMENT_EXISTENCE_OBSERVED:'Evidence存在観察',SCREEN_SHARED_INFORMATION:'画面共有の情報'};
+ const sourceLabels={FEEDBACK_STATEMENT:'Feedback発言（Raw Source）',INTERVIEW_STATEMENT:'顧客発言',OPERATOR_NOTE:'担当者メモ',TRANSCRIPT:'Transcript',DOCUMENT_EXISTENCE_OBSERVED:'Evidence存在観察',SCREEN_SHARED_INFORMATION:'画面共有の情報'};
  let data,context,busy=false,timer,editing=null,converting=null,assessmentOrigin=null;
  el('back').href='/admin/it-management-diagnosis-detail.html?id='+encodeURIComponent(id);el('workspace-link').href='/admin/it-management-diagnosis-workspace.html?id='+encodeURIComponent(id);
  function options(key,items,empty){const select=el(key),selected=[...select.selectedOptions].map(n=>n.value);select.replaceChildren();if(empty!==undefined){const n=node('option',empty);n.value='';select.append(n);}for(const item of items){const n=node('option',item.text);n.value=item.id;n.selected=selected.includes(item.id);select.append(n);}}
@@ -20,6 +20,7 @@
  function resetEditor(){editing=null;el('insight-form').reset();el('editor-title').textContent='担当者がInsightを追加';el('save-insight').textContent='Human Approvedとして追加';}
  function edit(input,mode,key){editing={mode,key,refs:input.source_refs};el('editor-title').textContent=mode==='supersede'?'旧Insightを残して新versionに置換':'AI原文を残して編集承認';el('save-insight').textContent=mode==='supersede'?'新versionとして置換する':'編集して承認する';for(const [field,name] of [['semantic-type','semantic_type'],['unknown-type','unknown_type'],['insight-title','title'],['insight-content','content'],['insight-theme','diagnosis_theme_id'],['area-tag','area_tag'],['improvement-lens','improvement_lens']])el(field).value=input[name]||'';for(const opt of el('insight-sources').options)opt.selected=input.source_refs.some(r=>`${r.source_ref_type}:${r.source_ref_id}`===opt.value);el('editor').scrollIntoView({block:'start'});}
  function render(){
+  el('report-link').href='/admin/it-management-diagnosis-report.html?id='+encodeURIComponent(id);el('report-link').hidden=!['REPORT_REVIEW_REQUIRED','REPORT_APPROVED','FEEDBACK_PENDING','FEEDBACK_COMPLETED'].includes(data.diagnosis_status);
   el('company').textContent=context.organization_display_name;el('case-status').textContent=data.diagnosis_status;el('next-action').textContent=data.current_next_action;el('future').textContent=context.future?.statement||'';el('future-status').textContent=context.future?.intent_status||'';
   el('themes').replaceChildren(...context.themes.map(t=>node('p',t.title+' / '+t.future_relation)));el('plan').replaceChildren(...context.plan_items.map(p=>node('p',p.item_type+'：'+p.text)));
   const sourceOptions=[...context.responses.map(r=>({id:'SURVEY_RESPONSE:'+r.id,text:'アンケート：'+r.question_code})),...context.sources.map(s=>({id:'SOURCE_RECORD:'+s.id,text:sourceLabels[s.source_type]+'：'+s.content.slice(0,80)}))];options('insight-sources',sourceOptions);
