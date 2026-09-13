@@ -28,3 +28,4 @@ jobs:
       - run: npm run test:handoff
       - run: npm run test:readiness
       - run: npm run test:policy-closure
+      - run: npm run test:restore-ai-closure
