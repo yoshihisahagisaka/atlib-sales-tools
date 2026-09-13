@@ -4,6 +4,12 @@ import { DiagnosisError, responseSchema, type Actor } from '../domain/itManageme
 import { createIpRateLimiter } from '../middleware/rateLimit';
 import type { ItManagementDiagnosisRepo } from '../services/itManagementDiagnosisRepo';
 
+export const DIAGNOSIS_POLICY_NOTICE_VERSION = 'ITMGMT-DIAGNOSIS-NOTICE-2026-09-13-v1';
+const webApplicationSchema = z.object({
+  policyNoticeVersion: z.literal(DIAGNOSIS_POLICY_NOTICE_VERSION),
+  policyAcknowledged: z.literal(true),
+}).passthrough();
+
 export type CompletionNotifier = (caseId: string) => Promise<void>;
 export function diagnosisHandler(work: (req: Request, res: Response) => Promise<void>) {
   return async (req: Request, res: Response): Promise<void> => {
@@ -64,7 +70,13 @@ export function createItManagementDiagnosisRouter(repo: ItManagementDiagnosisRep
   router.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
   router.post('/cases', createIpRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 5 }), diagnosisHandler(async (req, res) => {
     // Public callers cannot choose SALES_VISIT or provide a staff identity.
-    res.status(201).json(await repo.createCase(req.body, 'WEB', { kind: 'CUSTOMER', token: '' }));
+    const parsed = webApplicationSchema.safeParse(req.body);
+    if (!parsed.success) throw new DiagnosisError(422, 'サービス内容とデータ利用について確認してからお申し込みください。');
+    const { policyNoticeVersion, policyAcknowledged: _policyAcknowledged, ...application } = parsed.data;
+    const created = await repo.createCase(application, 'WEB', { kind: 'CUSTOMER', token: '' });
+    if (!('access_token' in created) || !created.access_token) throw new DiagnosisError(500, '申込処理を完了できませんでした。');
+    await repo.recordPolicyAcknowledgement(created.id, policyNoticeVersion, 'WEB', { kind: 'CUSTOMER', token: created.access_token });
+    res.status(201).json(created);
   }));
   router.use('/cases/:id', createIpRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 300 }));
   mountSurveyCommands(router, repo, customerActor, notify);
