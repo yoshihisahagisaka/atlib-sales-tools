@@ -19,7 +19,10 @@
     "test:workspace": "node -r ts-node/register --test test/diagnosisWorkspace.golden.test.ts",
     "test:review": "node -r ts-node/register --test test/diagnosisReview.golden.test.ts",
     "test:handoff": "node -r ts-node/register --test test/diagnosisAssessment.golden.test.ts",
-    "test:report": "node -r ts-node/register --test test/diagnosisReport.golden.test.ts"
+    "test:report": "node -r ts-node/register --test test/diagnosisReport.golden.test.ts",
+    "test:readiness": "node -r ts-node/register --test test/productionReadiness.security.test.ts",
+    "test:readiness:postgres": "node -r ts-node/register --test test/productionReadiness.postgres.test.ts",
+    "migrate:artifact": "node dist/db/migrateCli.js"
   },
   "engines": {
     "node": ">=20"

@@ -34,7 +34,8 @@ import { createIpRateLimiter } from './middleware/rateLimit';
 import { ItManagementDiagnosisRepo } from './services/itManagementDiagnosisRepo';
 import { createItManagementDiagnosisRouter } from './routes/itManagementDiagnosis';
 import { createAdminItManagementDiagnosisRouter } from './routes/adminItManagementDiagnosis';
-import { safeAccessRequest } from './middleware/diagnosisLogging';
+import { safeAccessRequest, safeAccessResponse } from './middleware/diagnosisLogging';
+import { safeRequestError } from './middleware/safeRequestError';
 import { sendSlackNotification } from './services/slackNotifier';
 import { DiagnosisPreparationRepo } from './services/diagnosisPreparationRepo';
 import { AnthropicPreDiagnosisProvider } from './services/preDiagnosisProvider';
@@ -55,6 +56,7 @@ async function main(): Promise<void> {
   const logger = pino({ level: config.nodeEnv === 'production' ? 'info' : 'debug' });
 
   const pool = createPool(config);
+  pool.on('error',()=>logger.error({event:'database_pool_error'},'Database connection failed'));
   const mailer = new Mailer(config.smtp);
   const ismsDiagnosticRepo = new IsmsDiagnosticRepo(pool);
   const freeHearingAssessmentRepo = new FreeHearingAssessmentRepo(pool);
@@ -96,7 +98,7 @@ async function main(): Promise<void> {
   // Cloud Run本番ではGoogle Front Endが1ホップ手前でTLS終端しX-Forwarded-Forを付与するため、
   // req.ipが正しいクライアントIPを指すようにtrust proxyを有効化する（IPレート制限で使用）。
   app.set('trust proxy', true);
-  app.use(pinoHttp({ logger, serializers: { req: safeAccessRequest } }));
+  app.use(pinoHttp({ logger, serializers: { req: safeAccessRequest, res: safeAccessResponse } }));
   // AI提案機能はbase64 PDFを受け取るためデフォルトの100KB上限では足りない。グローバルlimitを
   // 上げると公開・無認証のisms-diagnostic等のDoS耐性を弱めるため、このパスだけ個別に
   // 大きめのexpress.json()を先にマウントする（body-parserは同一リクエストの二重パースを
@@ -180,6 +182,7 @@ async function main(): Promise<void> {
   app.use('/admin', ...adminAuthGate, express.static(path.join(__dirname, '../public/admin')));
 
   app.use(express.static(path.join(__dirname, '../public')));
+  app.use(safeRequestError);
 
   app.listen(config.port, () => {
     logger.info(`sales-tools listening on :${config.port}`);
@@ -197,6 +200,6 @@ async function main(): Promise<void> {
 
 main().catch((err) => {
   // eslint-disable-next-line no-console
-  console.error('Fatal startup error:', err);
+  console.error(JSON.stringify({event:'fatal_startup_error'}));
   process.exit(1);
 });

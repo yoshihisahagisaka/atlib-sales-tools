@@ -51,10 +51,17 @@ async function resolveSecret(
   return getSecret(projectId, secretId);
 }
 
+export async function loadDatabaseConfig(): Promise<Config['db']> {
+  const required=(name:string,value:string|undefined)=>{if(!value?.trim())throw new Error(`Missing required config value: ${name}`);return value;};
+  const name=required('DB_NAME',process.env.DB_NAME),user=required('DB_USER',process.env.DB_USER);
+  const password=required('DB_PASSWORD',await resolveSecret(process.env.GCP_PROJECT_ID??'msp-zabbix',process.env.DB_PASSWORD,'sales-tools-db-password'));
+  return {name,user,password,host:process.env.DB_HOST??'127.0.0.1',port:Number(process.env.DB_PORT??5432),socketPath:process.env.DB_SOCKET_PATH||undefined};
+}
+
 export async function loadConfig(): Promise<Config> {
   const gcpProjectId = process.env.GCP_PROJECT_ID ?? 'msp-zabbix';
 
-  const dbPassword = await resolveSecret(gcpProjectId, process.env.DB_PASSWORD, 'sales-tools-db-password');
+  const db = await loadDatabaseConfig();
   const smtpPassword = await resolveSecret(gcpProjectId, process.env.SMTP_PASSWORD, 'sales-tools-smtp-password');
   const googleOauthClientSecret = await resolveSecret(
     gcpProjectId,
@@ -69,19 +76,17 @@ export async function loadConfig(): Promise<Config> {
   };
 
   const portalBaseUrl = required('PORTAL_BASE_URL', process.env.PORTAL_BASE_URL);
+  for(const [name,value] of Object.entries({SMTP_PASSWORD:smtpPassword,GOOGLE_OAUTH_CLIENT_SECRET:googleOauthClientSecret,STAFF_JWT_SECRET:staffJwtSecret}))required(name,value.trim());
+  if(process.env.NODE_ENV==='production'){
+    if(new URL(portalBaseUrl).protocol!=='https:')throw new Error('Production PORTAL_BASE_URL requires HTTPS');
+    if(staffJwtSecret.length<32||[db.password,smtpPassword,googleOauthClientSecret,staffJwtSecret].some(v=>v.startsWith('change-me')))throw new Error('Production secrets require non-placeholder values and a strong signing key');
+  }
 
   return {
     nodeEnv: process.env.NODE_ENV ?? 'development',
     port: Number(process.env.PORT ?? 8080),
     gcpProjectId,
-    db: {
-      host: process.env.DB_HOST ?? '127.0.0.1',
-      port: Number(process.env.DB_PORT ?? 5432),
-      name: required('DB_NAME', process.env.DB_NAME),
-      user: required('DB_USER', process.env.DB_USER),
-      password: dbPassword,
-      socketPath: process.env.DB_SOCKET_PATH || undefined,
-    },
+    db,
     smtp: {
       host: required('SMTP_HOST', process.env.SMTP_HOST),
       port: Number(process.env.SMTP_PORT ?? 587),

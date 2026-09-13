@@ -1,0 +1,14 @@
+**
+!Dockerfile
+!package.json
+!package-lock.json
+!tsconfig.json
+!src/
+!src/**
+!public/
+!public/**
+!migrations/
+!migrations/*.sql
+**/.env*
+**/*.pem
+**/*.key

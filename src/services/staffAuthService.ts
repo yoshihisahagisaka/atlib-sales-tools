@@ -23,18 +23,28 @@ export class StaffAuthService {
   constructor(private readonly jwtSecret: string) {}
 
   issueOauthStateToken(payload: StaffOauthStatePayload): string {
-    return jwt.sign(payload, this.jwtSecret, { expiresIn: OAUTH_STATE_EXPIRES_IN });
+    return jwt.sign({ ...payload, purpose: 'staff_oauth_state' }, this.jwtSecret, { expiresIn: OAUTH_STATE_EXPIRES_IN });
   }
 
   verifyOauthStateToken(token: string): StaffOauthStatePayload {
-    return jwt.verify(token, this.jwtSecret) as StaffOauthStatePayload;
+    const payload = jwt.verify(token, this.jwtSecret, { algorithms: ['HS256'] });
+    if (typeof payload === 'string' || payload.purpose !== 'staff_oauth_state'
+      || ![payload.nonce, payload.codeVerifier, payload.returnTo].every(v => typeof v === 'string' && v.length > 0)) {
+      throw new Error('Invalid staff OAuth state');
+    }
+    return payload as StaffOauthStatePayload;
   }
 
   issueSessionToken(payload: StaffSessionPayload): string {
-    return jwt.sign(payload, this.jwtSecret, { expiresIn: SESSION_EXPIRES_IN });
+    return jwt.sign({ ...payload, purpose: 'staff_session' }, this.jwtSecret, { expiresIn: SESSION_EXPIRES_IN });
   }
 
   verifySessionToken(token: string): StaffSessionPayload {
-    return jwt.verify(token, this.jwtSecret) as StaffSessionPayload;
+    const payload = jwt.verify(token, this.jwtSecret, { algorithms: ['HS256'] });
+    if (typeof payload === 'string' || payload.purpose !== 'staff_session'
+      || typeof payload.email !== 'string' || !payload.email.trim()) {
+      throw new Error('Invalid staff session');
+    }
+    return payload as StaffSessionPayload;
   }
 }

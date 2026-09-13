@@ -11,6 +11,7 @@ export async function sendSlackNotification(webhookUrl: string | undefined, text
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {
       // eslint-disable-next-line no-console
@@ -18,6 +19,6 @@ export async function sendSlackNotification(webhookUrl: string | undefined, text
     }
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error('Slack notification failed:', err);
+    console.error(JSON.stringify({event:'slack_notification_failed'}));
   }
 }

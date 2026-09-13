@@ -37,7 +37,7 @@ export function createStaffAuthRouter(
     const returnToParam = req.query.returnTo;
     // オープンリダイレクト対策: サイト内の絶対パス（'/'始まり、'//'は除く=プロトコル相対URL対策）のみ許容
     const returnTo =
-      typeof returnToParam === 'string' && returnToParam.startsWith('/') && !returnToParam.startsWith('//')
+      typeof returnToParam === 'string' && returnToParam.startsWith('/admin/') && !/[\\\r\n]/.test(returnToParam)
         ? returnToParam
         : DEFAULT_RETURN_TO;
 
@@ -94,7 +94,7 @@ export function createStaffAuthRouter(
       idToken = tokens.id_token;
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error('staff oauth token exchange failed:', err);
+      console.error(JSON.stringify({event:'staff_oauth_token_exchange_failed'}));
       res.status(400).send(errorPage('Googleログインに失敗しました。もう一度お試しください。'));
       return;
     }
@@ -114,7 +114,7 @@ export function createStaffAuthRouter(
       }
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error('staff id_token verification failed:', err);
+      console.error(JSON.stringify({event:'staff_id_token_verification_failed'}));
     }
     if (!email) {
       res.status(400).send(errorPage('Googleログインに失敗しました。もう一度お試しください。'));

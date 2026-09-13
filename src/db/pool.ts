@@ -6,7 +6,7 @@ import type { Config } from '../config';
  * （`--add-cloudsql-instances` 指定時、/cloudsql/<INSTANCE_CONNECTION_NAME> にソケットが生成される）。
  * ローカル開発時は host/port のTCP接続にフォールバックする。
  */
-export function createPool(config: Config): Pool {
+export function createPool(config: Pick<Config,'db'>): Pool {
   if (config.db.socketPath) {
     return new Pool({
       host: config.db.socketPath,
@@ -14,6 +14,7 @@ export function createPool(config: Config): Pool {
       user: config.db.user,
       password: config.db.password,
       max: 5,
+      connectionTimeoutMillis: 10000,
     });
   }
   return new Pool({
@@ -23,5 +24,6 @@ export function createPool(config: Config): Pool {
     user: config.db.user,
     password: config.db.password,
     max: 5,
+    connectionTimeoutMillis: 10000,
   });
 }
