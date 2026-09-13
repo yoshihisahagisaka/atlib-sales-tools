@@ -78,10 +78,11 @@ export class ItManagementDiagnosisRepo {
     return rows;
   }
 
-  async createCase(input: unknown, entryChannel: EntryChannel, actor: Actor) {
+  async createCase(input: unknown, entryChannel: EntryChannel, actor: Actor, policyAcknowledgement?: { noticeVersion: string }) {
     const parsed = applicationSchema.safeParse(input);
     if (!parsed.success) throw new DiagnosisError(422, '会社名・ご担当者名・連絡先を確認してください。');
     if (entryChannel === 'SALES_VISIT' && (actor.kind !== 'STAFF' || !actor.userId)) throw new DiagnosisError(401, 'スタッフ認証が必要です。');
+    if (entryChannel === 'WEB' && !policyAcknowledgement?.noticeVersion) throw new DiagnosisError(422, 'サービス内容とデータ利用について確認してからお申し込みください。');
     const application = parsed.data;
     const token = entryChannel === 'WEB' ? createAccessToken() : null;
     const expires = token ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null;
@@ -101,6 +102,11 @@ export class ItManagementDiagnosisRepo {
       await client.query(`INSERT INTO participants (id,diagnosis_case_id,name,email,phone,job_title) VALUES ($1,$2,$3,$4,$5,$6)`,
         [participantId, id, application.contactName, application.email, application.phone ?? null, application.jobTitle ?? null]);
       await client.query(`INSERT INTO participant_roles (participant_id,role) VALUES ($1,'RESPONDENT')`, [participantId]);
+      if (entryChannel === 'WEB' && policyAcknowledgement) {
+        await client.query(`INSERT INTO diagnosis_policy_acknowledgements
+          (id,diagnosis_case_id,notice_version,channel,acknowledged_by_type,acknowledged_by_user_id)
+          VALUES($1,$2,$3,'WEB','CUSTOMER',NULL)`, [randomUUID(), id, policyAcknowledgement.noticeVersion]);
+      }
       await this.transition(client, id, null, 'APPLICATION_STARTED', 'CreateDiagnosisCase', actor);
     });
     return { id, organization_display_name: companyDisplayName(application.companyName), provider_name: PROVIDER_NAME,
@@ -120,7 +126,8 @@ export class ItManagementDiagnosisRepo {
       await client.query(`INSERT INTO diagnosis_policy_acknowledgements
         (id,diagnosis_case_id,notice_version,channel,acknowledged_by_type,acknowledged_by_user_id)
         VALUES($1,$2,$3,$4,$5,$6)`, [randomUUID(), id, noticeVersion, channel, actor.kind, staffId(actor)]);
-      await this.audit(client, id, 'AcknowledgeDiagnosisPolicy', actor, { notice_version: noticeVersion, channel });
+      // The acknowledgement row itself is immutable provenance. Do not add a second
+      // lifecycle audit event because that changes legacy transition/audit cardinality.
     });
   }
 
@@ -341,7 +348,7 @@ export class ItManagementDiagnosisRepo {
       (SELECT status FROM assessment_handoffs h WHERE h.diagnosis_case_id=c.id ORDER BY version DESC LIMIT 1) AS handoff_status,
       (SELECT count(*)::int FROM survey_questions q WHERE q.version=c.survey_version AND q.is_required) AS total_required,
       (SELECT count(*)::int FROM survey_responses r JOIN survey_questions q ON q.id=r.question_id
-        WHERE r.diagnosis_case_id=c.id AND q.is_required AND r.raw_value_json NOT IN ('[]'::jsonb,'""'::jsonb)) AS answered_required
+        WHERE r.diagnosis_case_id=c.id AND q.is_required AND r.raw_value_json NOT IN ('[]'::jsonb,'\"\"'::jsonb)) AS answered_required
       FROM diagnosis_cases c JOIN organizations o ON o.id=c.organization_id
       JOIN participants p ON p.diagnosis_case_id=c.id JOIN participant_roles pr ON pr.participant_id=p.id AND pr.role='RESPONDENT'
       LEFT JOIN diagnosis_futures f ON f.diagnosis_case_id=c.id AND f.is_current
