@@ -5,6 +5,7 @@ import { createDiagnosisHarness } from './support/diagnosisHarness';
 import { operator } from './support/preparationFixtures';
 import { startedCase } from './support/workspaceFixtures';
 import { RetentionDeletionWorker } from '../src/services/retentionDeletionWorker';
+import { buildDeletionReconciliationManifest, reconcileDeletionManifest } from '../src/services/deletionReconciliation';
 
 let h:Awaited<ReturnType<typeof createDiagnosisHarness>>;
 let worker:RetentionDeletionWorker;
@@ -45,6 +46,11 @@ test('approved deletion request anonymizes raw classes, preserves provenance IDs
   const audit=await h.db.query<{command:string;detail_json:any}>('SELECT command,detail_json FROM diagnosis_audit_logs WHERE diagnosis_case_id=$1 AND command=\'ExecuteDeletionRequest\'',[c.id]);
   assert.equal(audit.rows.length,1);
   assert.equal(audit.rows[0]!.detail_json.deletion_request_id,req.id);
+
+  const manifest=await buildDeletionReconciliationManifest(h.pool);
+  const verify=await reconcileDeletionManifest(h.pool,manifest,operatorUserId,'VERIFY');
+  assert.equal(verify.status,'SUCCEEDED');
+  assert.equal(verify.unsupported_count,0);
 
   const replay=await worker.executeApprovedRequest(c.id,req.id,operatorUserId);
   assert.equal(replay.idempotent,true);
