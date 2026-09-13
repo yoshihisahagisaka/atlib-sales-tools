@@ -180,8 +180,9 @@ test('Survey v2はSSOT文書26の固定snapshotと一致、SurveyからSourceRec
   const canonical=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/diagnosisSurveyV2Canonical.json'),'utf8'));
   assert.equal(canonical.survey_version,SURVEY_VERSION); assert.deepEqual(canonical.questions,SURVEY_QUESTIONS);
   const tables=await h.db.query<{table_name:string}>(`SELECT table_name FROM information_schema.tables WHERE table_schema='public'`);
-  assert.ok(!tables.rows.some(r=>/^(facts|diagnosis_insights)$/.test(r.table_name)));
+  assert.ok(!tables.rows.some(r=>/^facts$/.test(r.table_name)));
   assert.equal((await h.db.query('SELECT id FROM source_records')).rows.length,0);
+  assert.equal((await h.db.query('SELECT id FROM diagnosis_insights')).rows.length,0);
 });
 
 test('AI live adapter (opt-in)',{skip:process.env.RUN_DIAGNOSIS_AI_LIVE==='1' && process.env.ANTHROPIC_API_KEY ? false : 'RUN_DIAGNOSIS_AI_LIVE / API key未設定'},async()=>{

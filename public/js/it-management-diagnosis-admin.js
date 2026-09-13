@@ -2,7 +2,7 @@
 (() => {
   const el = id => document.getElementById(id);
   const base = '/api/admin/it-management-diagnosis';
-  const statuses = { APPLICATION_STARTED: '申込受付', SURVEY_IN_PROGRESS: '回答中', SURVEY_COMPLETED: '回答完了', PREPARATION_IN_PROGRESS: '診断準備中', READY_FOR_DIAGNOSIS: '診断Plan確定', DIAGNOSIS_IN_PROGRESS: '診断中', HUMAN_REVIEW_REQUIRED: 'Human Review待ち' };
+  const statuses = { APPLICATION_STARTED: '申込受付', SURVEY_IN_PROGRESS: '回答中', SURVEY_COMPLETED: '回答完了', PREPARATION_IN_PROGRESS: '診断準備中', READY_FOR_DIAGNOSIS: '診断Plan確定', DIAGNOSIS_IN_PROGRESS: '診断中', HUMAN_REVIEW_REQUIRED: 'Human Review待ち', REPORT_REVIEW_REQUIRED: 'Report作成待ち' };
   const channels = { WEB: 'Web', SALES_VISIT: '営業訪問' };
   const node = (tag, text) => { const n = document.createElement(tag); n.textContent = text; return n; };
   let offset = 0; let requestNumber = 0;
@@ -43,8 +43,10 @@
     try {
       const data = await api(`/cases/${encodeURIComponent(id)}/overview`);
       el('organization').textContent = data.organization_display_name;
+      el('review-link').href='/admin/it-management-diagnosis-review.html?id='+encodeURIComponent(id);
+      el('review-link').hidden=!['HUMAN_REVIEW_REQUIRED','REPORT_REVIEW_REQUIRED'].includes(data.diagnosis_status);
       el('workspace-link').href = '/admin/it-management-diagnosis-workspace.html?id='+encodeURIComponent(id);
-      el('workspace-link').hidden = !['READY_FOR_DIAGNOSIS','DIAGNOSIS_IN_PROGRESS','HUMAN_REVIEW_REQUIRED'].includes(data.diagnosis_status);
+      el('workspace-link').hidden = !['READY_FOR_DIAGNOSIS','DIAGNOSIS_IN_PROGRESS','HUMAN_REVIEW_REQUIRED','REPORT_REVIEW_REQUIRED'].includes(data.diagnosis_status);
       el('future').textContent = data.future?.statement || 'アンケート完了時に、Q01の回答から記録されます。';
       el('future-source').textContent = data.future ? `顧客が目指す意図 (${data.future.intent_status}) / ${data.future.time_horizon}` : '';
       el('next-action').textContent = data.current_next_action;

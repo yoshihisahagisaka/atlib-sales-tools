@@ -38,12 +38,12 @@ test('4–6,7: raw statements/notes/Transcript remain distinct, exact, traced, n
  await h.workspace.addSource(c.id,operator,'OPERATOR_NOTE',{content:'作業工程の内訳を次回確認したい'});
  await assert.rejects(h.workspace.addSource(c.id,operator,'OPERATOR_NOTE',{content:'私の解釈',speaker_participant_id:participant}),status(422));
  await h.interviewWorker.tick();const d=await read(c.id);
- assert.equal(provider.calls,calls);assert.equal(d.executions.length,0);assert.equal(d.proposals.length,0);
+ assert.equal(provider.calls,calls);assert.equal(d.executions.length,0);assert.equal(d.proposals.length,0);assert.equal((await h.db.query('SELECT id FROM diagnosis_insights')).rows.length,0);
  assert.equal(d.sources.find(s=>s.id===statement.id).content,'  IT環境は完全に把握できています  ');
  assert.deepEqual(d.sources.map(s=>s.source_type).sort(),['INTERVIEW_STATEMENT','OPERATOR_NOTE','TRANSCRIPT']);
  assert.equal(d.sources.find(s=>s.id===statement.id).parent_source_record_id,transcript.id);
  assert.ok(d.sources.every(s=>!('semantic_type' in s)));assert.equal(d.future.intent_status,'SURVEY_STATED');
- const tables=await h.db.query<{table_name:string}>(`SELECT table_name FROM information_schema.tables WHERE table_schema='public'`);assert.ok(!tables.rows.some(r=>/fact|insight/.test(r.table_name)));
+ const tables=await h.db.query<{table_name:string}>(`SELECT table_name FROM information_schema.tables WHERE table_schema='public'`);assert.ok(!tables.rows.some(r=>/^facts?$/.test(r.table_name)));
 });
 
 test('8–9,15–17,21,23: AI creates proposals only; Ask/Later/Unnecessary do not adopt semantics; unresolved finish',async()=>{

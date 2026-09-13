@@ -30,6 +30,8 @@
   items.forEach(item=>{const n=node('option',item.text);n.value=item.id;select.append(n);});select.value=items.some(i=>i.id===value)?value:'';
  }
  function render() {
+  el('review-link').href='/admin/it-management-diagnosis-review.html?id='+encodeURIComponent(id);
+  el('review-link').hidden=!['HUMAN_REVIEW_REQUIRED','REPORT_REVIEW_REQUIRED'].includes(data.diagnosis_status);
   el('company').textContent=data.organization_display_name;el('case-status').textContent=data.diagnosis_status;el('next-action').textContent=data.current_next_action;
   el('session-time').textContent=data.started_at?'開始：'+new Date(data.started_at).toLocaleString('ja-JP')+(data.completed_at?' / 終了：'+new Date(data.completed_at).toLocaleString('ja-JP'):''):'';
   el('future').textContent=data.future?.statement||'';el('future-status').textContent=data.future?.intent_status||'';

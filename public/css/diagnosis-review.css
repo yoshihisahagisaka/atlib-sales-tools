@@ -1,0 +1,10 @@
+.review-page { max-width: 1400px; }
+.review-columns { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,2fr); gap: 20px; align-items: start; }
+.review-columns > * { min-width: 0; }
+.review-columns .card { margin-top: 0; }
+.review-columns p, .review-columns summary { overflow-wrap: anywhere; }
+.review-columns select, .review-columns textarea { width: 100%; max-width: 100%; }
+.review-columns .review-item { border-top: 1px solid #d6dee8; margin-top: 18px; padding-top: 14px; }
+.review-columns .btn { white-space: normal; }
+.review-columns details { margin: 16px 0; }
+@media (max-width: 900px) { .review-columns { grid-template-columns: minmax(0,1fr); } }
