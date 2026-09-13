@@ -9,6 +9,7 @@ before(async () => { h = await createDiagnosisHarness(); });
 after(async () => { await h?.close(); });
 
 const application = { companyName: 'Policy株式会社', contactName: '山田', email: 'policy@example.test', phone: '03-0000-0000' };
+const operator = { kind: 'STAFF' as const, userId: 'operator@atlib.jp' };
 async function request(path: string, method = 'GET', body?: unknown, admin = false, extra: Record<string,string> = {}) {
   const response = await fetch(h.url + path, {
     method,
@@ -92,4 +93,46 @@ test('BD-02: deletion requestはHuman scope/approvalを経由し、destructive�
   const preview = await dryRun.json();
   assert.equal(preview.dry_run, true);
   assert.equal(preview.destructive_execution_enabled, false);
+});
+
+test('BD-01: Human purpose completion starts the Transcript clock independently of case close; retries cannot extend it', async () => {
+  const c = await h.repo.createCase(application,'WEB',{kind:'CUSTOMER',token:''},{noticeVersion:DIAGNOSIS_POLICY_NOTICE_VERSION});
+  const other = await h.repo.createCase(application,'SALES_VISIT',operator), sourceId = randomUUID(), noteId = randomUUID();
+  await h.repo.recordTranscriptConsent(c.id, operator, { consentVersion: 'test-v1', consentScope: 'test', consentedAt: new Date().toISOString() });
+  await h.db.query(`INSERT INTO source_records(id,diagnosis_case_id,source_type,entered_by_user_id,content,created_at)
+    VALUES($1,$2,'TRANSCRIPT','operator@atlib.jp','private raw text',now()-interval '100 days')`, [sourceId,c.id]);
+  await h.db.query(`INSERT INTO source_records(id,diagnosis_case_id,source_type,entered_by_user_id,content)
+    VALUES($1,$2,'OPERATOR_NOTE','operator@atlib.jp','note')`, [noteId,c.id]);
+  const path = `/api/admin/it-management-diagnosis/cases/${c.id}/sources/${sourceId}/purpose-completion`;
+  const completedAt = new Date(Date.now()-91*86400000).toISOString();
+  assert.equal((await request(path,'POST',{completedAt})).status,401);
+  assert.equal((await request(path,'POST',{completedAt},true,{'sec-fetch-site':'cross-site'})).status,403);
+  await assert.rejects(h.repo.completeTranscriptPurpose(c.id,sourceId,{kind:'CUSTOMER',token:c.access_token!},completedAt), /スタッフ/);
+  assert.equal((await request(path,'POST',{completedAt:'invalid'},true)).status,422);
+  assert.equal((await request(path,'POST',{completedAt:new Date(Date.now()+86400000).toISOString()},true)).status,422);
+  assert.equal((await request(path,'POST',{completedAt:new Date(Date.now()-101*86400000).toISOString()},true)).status,422);
+  assert.equal((await request(path.replace(c.id,other.id),'POST',{completedAt},true)).status,404);
+  assert.equal((await request(path.replace(sourceId,noteId),'POST',{completedAt},true)).status,404);
+  assert.equal((await h.repo.retentionDryRun(c.id,operator)).transcript_purpose_pending_count,1);
+  // Revocation must not prevent recording the retention clock for already captured data.
+  const consent = await h.repo.getPolicyReadModel(c.id,operator);
+  await h.repo.revokeTranscriptConsent(c.id,consent.transcript_consents[0].id,operator);
+  const response = await request(path,'POST',{completedAt},true);
+  assert.equal(response.status,200);
+  assert.equal((await response.json()).expires_at,new Date(new Date(completedAt).getTime()+90*86400000).toISOString());
+  assert.equal((await request(path,'POST',{completedAt},true)).status,200);
+  assert.equal((await request(path,'POST',{completedAt:new Date().toISOString()},true)).status,409);
+  const preview = await h.repo.retentionDryRun(c.id,operator);
+  assert.equal(preview.closed_at,null);
+  assert.equal(preview.eligible.TRANSCRIPT_RECORDING,1);
+  assert.equal(preview.transcript_purpose_pending_count,0);
+  assert.equal(preview.destructive_execution_enabled,false);
+  const audit = await h.db.query<{detail_json: unknown}>(`SELECT detail_json FROM diagnosis_audit_logs WHERE diagnosis_case_id=$1 AND command='CompleteTranscriptPurpose'`,[c.id]);
+  assert.equal(audit.rows.length,1);
+  assert.deepEqual(audit.rows[0]!.detail_json,{source_record_id:sourceId,purpose_completed_at:completedAt});
+  await h.db.query(`INSERT INTO diagnosis_retention_holds(id,diagnosis_case_id,data_class,reason,approved_by_user_id)
+    VALUES($1,$2,'TRANSCRIPT_RECORDING','legal hold','owner@atlib.jp')`,[randomUUID(),c.id]);
+  assert.equal((await h.repo.retentionDryRun(c.id,operator)).eligible.TRANSCRIPT_RECORDING,0);
+  const raw = await h.db.query<{content:string}>('SELECT content FROM source_records WHERE id=$1',[sourceId]);
+  assert.equal(raw.rows[0]!.content,'private raw text');
 });

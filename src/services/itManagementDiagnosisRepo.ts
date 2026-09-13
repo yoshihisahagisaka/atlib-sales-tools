@@ -227,6 +227,28 @@ export class ItManagementDiagnosisRepo {
     });
   }
 
+  async completeTranscriptPurpose(id: string, sourceId: string, actor: Actor, completedAt: string) {
+    if (actor.kind !== 'STAFF' || !actor.userId) throw new DiagnosisError(403, 'スタッフのみ操作できます。');
+    const completed = new Date(completedAt);
+    if (!Number.isFinite(completed.getTime()) || completed.getTime() > Date.now()) throw new DiagnosisError(422, '取得目的の完了日時を確認してください。');
+    return this.transaction(async client => {
+      await this.authorizedCase(client, id, actor);
+      const { rows } = await client.query<{ created_at: Date; purpose_completed_at: Date | null }>(
+        `SELECT created_at,purpose_completed_at FROM source_records WHERE id=$1 AND diagnosis_case_id=$2 AND source_type='TRANSCRIPT' FOR UPDATE`, [sourceId,id]);
+      const source = rows[0];
+      if (!source) throw new DiagnosisError(404, 'この案件のTranscriptが見つかりません。');
+      if (completed.getTime() < new Date(source.created_at).getTime()) throw new DiagnosisError(422, '保存日時以降の取得目的完了日時を指定してください。');
+      if (source.purpose_completed_at && new Date(source.purpose_completed_at).getTime() !== completed.getTime()) {
+        throw new DiagnosisError(409, '取得目的の完了日時は記録済みです。保持期限を変更できません。');
+      }
+      if (!source.purpose_completed_at) {
+        await client.query('UPDATE source_records SET purpose_completed_at=$3 WHERE id=$1 AND diagnosis_case_id=$2', [sourceId,id,completed]);
+        await this.audit(client, id, 'CompleteTranscriptPurpose', actor, { source_record_id: sourceId, purpose_completed_at: completed.toISOString() });
+      }
+      return { source_record_id: sourceId, purpose_completed_at: completed.toISOString(), expires_at: new Date(completed.getTime() + 90 * 86400000).toISOString() };
+    });
+  }
+
   async createDeletionRequest(id: string, actor: Actor, requesterReference: string) {
     if (actor.kind !== 'STAFF' || !actor.userId) throw new DiagnosisError(403, 'スタッフのみ操作できます。');
     return this.transaction(async client => {
@@ -281,18 +303,20 @@ export class ItManagementDiagnosisRepo {
       const transcriptRows = source.filter(s => s.source_type === 'TRANSCRIPT');
       const transcriptExpired = transcriptRows.reduce((sum, s) => sum + (s.purpose_completed_at && now >= new Date(s.purpose_completed_at).getTime() + 90 * 24 * 60 * 60 * 1000 ? Number(s.count) : 0), 0);
       const activeHolds = await client.query(`SELECT data_class,reason,expires_at FROM diagnosis_retention_holds WHERE diagnosis_case_id=$1 AND ended_at IS NULL AND (expires_at IS NULL OR expires_at>now())`, [id]);
+      const held = new Set(activeHolds.rows.map(h => h.data_class));
       return {
         diagnosis_case_id: id,
         diagnosis_status: row.diagnosis_status,
         closed_at: closedAt,
         dry_run: true,
         eligible: {
-          GENERAL_RAW_DIAGNOSIS: generalExpired ? source.filter(s => s.source_type !== 'TRANSCRIPT').reduce((n,s)=>n+Number(s.count),0) : 0,
-          TRANSCRIPT_RECORDING: transcriptExpired,
-          RAW_AI_IO: aiExpired ? Number(ai[0]?.count ?? 0) : 0,
+          GENERAL_RAW_DIAGNOSIS: generalExpired && !held.has('GENERAL_RAW_DIAGNOSIS') ? source.filter(s => s.source_type !== 'TRANSCRIPT').reduce((n,s)=>n+Number(s.count),0) : 0,
+          TRANSCRIPT_RECORDING: held.has('TRANSCRIPT_RECORDING') ? 0 : transcriptExpired,
+          RAW_AI_IO: aiExpired && !held.has('RAW_AI_IO') ? Number(ai[0]?.count ?? 0) : 0,
           APPROVED_DECISION_EVIDENCE: 0,
         },
         active_holds: activeHolds.rows,
+        transcript_purpose_pending_count: transcriptRows.filter(s => !s.purpose_completed_at).reduce((n,s) => n + Number(s.count), 0),
         destructive_execution_enabled: false,
       };
     });

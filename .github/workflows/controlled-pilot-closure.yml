@@ -11,7 +11,20 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: readiness
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 55436:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d readiness"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,3 +42,8 @@ jobs:
       - run: npm run test:readiness
       - run: npm run test:policy-closure
       - run: npm run test:restore-ai-closure
+      - run: npm run test:readiness:postgres
+        env:
+          RUN_READINESS_PG: '1'
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:diagnosis:browser

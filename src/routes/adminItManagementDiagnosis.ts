@@ -73,6 +73,12 @@ export function createAdminItManagementDiagnosisRouter(repo: ItManagementDiagnos
     if (!parsed.success) throw new DiagnosisError(422, '削除要求の受付情報を確認してください。');
     res.status(201).json(await repo.createDeletionRequest(caseId(req), staffActor(req), parsed.data.requesterReference));
   }));
+  router.post('/cases/:id/sources/:sourceId/purpose-completion', diagnosisHandler(async (req, res) => {
+    const sourceId = z.string().uuid().safeParse(req.params.sourceId);
+    const parsed = z.object({ completedAt: z.string().datetime({ offset: true }) }).strict().safeParse(req.body);
+    if (!sourceId.success || !parsed.success) throw new DiagnosisError(422, 'Transcriptと取得目的の完了日時を確認してください。');
+    res.json(await repo.completeTranscriptPurpose(caseId(req), sourceId.data, staffActor(req), parsed.data.completedAt));
+  }));
   router.put('/cases/:id/deletion-requests/:requestId/scope', diagnosisHandler(async (req, res) => {
     const requestId = z.string().uuid().safeParse(req.params.requestId);
     const parsed = deletionScopeSchema.safeParse(req.body);
