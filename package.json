@@ -13,6 +13,7 @@
     "test:preparation": "node -r ts-node/register --test test/diagnosisPreparation.golden.test.ts",
     "test:diagnosis:browser": "playwright test --config=test/diagnosis.playwright.config.ts",
     "migrate": "node --env-file=.env -r ts-node/register migrations/runner.ts",
+    "retention:worker": "node --env-file=.env -r ts-node/register scripts/retention-deletion-worker.ts",
     "import:market-rates": "node --env-file=.env -r ts-node/register scripts/cost_estimation/import_market_rates.ts",
     "export:catalog-for-research": "node --env-file=.env -r ts-node/register scripts/cost_estimation/export_catalog_for_research.ts",
     "import:market-baseline": "node --env-file=.env -r ts-node/register scripts/cost_estimation/import_market_baseline.ts",
