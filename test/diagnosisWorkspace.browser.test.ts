@@ -44,7 +44,12 @@ test('Future再確認・Transcript追跡・自発的Evidence存在とHuman追加
  await page.locator('#plan-text').fill('連絡はどのように行われますか？');await page.getByRole('button',{name:'確認項目を追加',exact:true}).click();await expect(page.locator('#plan-items')).toContainText('連絡はどのように行われますか？');
  page.once('dialog',d=>d.accept());await page.locator('#finish').click();await expect(page.locator('#case-status')).toHaveText('HUMAN_REVIEW_REQUIRED');
  const card=page.locator(`[data-source-id="${transcript.id}"]`);
- await card.locator('input[type="datetime-local"]').fill(await page.evaluate(()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,23);}));
+ // Chromium normalizes trailing fractional zeros (e.g. .110 -> .11). Playwright
+ // requires the normalized value; otherwise a valid timestamp can fail fill.
+ await card.locator('input[type="datetime-local"]').fill(await page.evaluate(()=>{
+  const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+  const input=document.createElement('input');input.type='datetime-local';input.step='0.001';input.value=d.toISOString().slice(0,23);return input.value;
+ }));
  page.once('dialog',d=>d.accept());await card.getByRole('button',{name:'取得目的の完了を記録',exact:true}).click();
  await expect(card).toContainText('取得目的完了：');await expect(card).toContainText('原則保持上限：');
  await page.reload();await expect(card).toContainText('取得目的完了：');await expect(card.getByRole('button',{name:'取得目的の完了を記録',exact:true})).toHaveCount(0);
