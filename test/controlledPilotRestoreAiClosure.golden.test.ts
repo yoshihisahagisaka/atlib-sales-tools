@@ -13,6 +13,7 @@ import {
 } from '../src/services/deletionReconciliation';
 
 let h: Awaited<ReturnType<typeof createDiagnosisHarness>>;
+const operatorUserId = operator.kind === 'STAFF' ? operator.userId : (() => { throw new Error('STAFF test actor required'); })();
 before(async () => { h = await createDiagnosisHarness(); });
 after(async () => { await h?.close(); });
 
@@ -52,7 +53,7 @@ test('Slice C: externally persisted reconciliation manifest can re-apply anonymi
   const tombstoneId=randomUUID();
   await h.db.query(`INSERT INTO diagnosis_deletion_tombstones
     (id,diagnosis_case_id,data_class,target_kind,target_id,action,created_by_user_id)
-    VALUES($1,$2,'GENERAL_RAW_DIAGNOSIS','SOURCE_RECORD',$3,'ANONYMIZE',$4)`,[tombstoneId,c.id,source.id,operator.userId]);
+    VALUES($1,$2,'GENERAL_RAW_DIAGNOSIS','SOURCE_RECORD',$3,'ANONYMIZE',$4)`,[tombstoneId,c.id,source.id,operatorUserId]);
 
   const manifest=await buildDeletionReconciliationManifest(h.pool);
   assert.ok(manifest.entries.some(e=>e.tombstone_id===tombstoneId));
@@ -60,11 +61,11 @@ test('Slice C: externally persisted reconciliation manifest can re-apply anonymi
 
   // Simulate restore from a point before the tombstone was written: data is back, tombstone row is absent.
   await h.db.query('DELETE FROM diagnosis_deletion_tombstones WHERE id=$1',[tombstoneId]);
-  const verify=await reconcileDeletionManifest(h.pool,manifest,operator.userId,'VERIFY');
+  const verify=await reconcileDeletionManifest(h.pool,manifest,operatorUserId,'VERIFY');
   assert.equal(verify.status,'SUCCEEDED');
   assert.equal((await h.db.query<{content:string}>('SELECT content FROM source_records WHERE id=$1',[source.id])).rows[0]!.content,'復元してはいけない顧客由来の補足情報');
 
-  const applied=await reconcileDeletionManifest(h.pool,manifest,operator.userId,'APPLY');
+  const applied=await reconcileDeletionManifest(h.pool,manifest,operatorUserId,'APPLY');
   assert.equal(applied.status,'SUCCEEDED');
   assert.equal(applied.changed_count,1);
   const restored=await h.db.query<{content:string;external_reference:string|null}>('SELECT content,external_reference FROM source_records WHERE id=$1',[source.id]);
@@ -72,7 +73,7 @@ test('Slice C: externally persisted reconciliation manifest can re-apply anonymi
   assert.equal(restored.rows[0]!.external_reference,null);
 
   // Replay is idempotent.
-  const replay=await reconcileDeletionManifest(h.pool,manifest,operator.userId,'APPLY');
+  const replay=await reconcileDeletionManifest(h.pool,manifest,operatorUserId,'APPLY');
   assert.equal(replay.status,'SUCCEEDED');
   assert.equal(replay.changed_count,0);
   const runs=await h.db.query<{status:string;mode:string}>('SELECT status,mode FROM diagnosis_restore_reconciliation_runs WHERE manifest_hash=$1 ORDER BY created_at',[deletionManifestHash(manifest)]);
@@ -85,9 +86,9 @@ test('Slice C: DELETE tombstoneはtable-by-table destructive semantics未確定�
   const source=await h.workspace.addSource(c.id,operator,'OPERATOR_NOTE',{content:'削除対象'});
   await h.db.query(`INSERT INTO diagnosis_deletion_tombstones
     (id,diagnosis_case_id,data_class,target_kind,target_id,action,created_by_user_id)
-    VALUES($1,$2,'GENERAL_RAW_DIAGNOSIS','SOURCE_RECORD',$3,'DELETE',$4)`,[randomUUID(),c.id,source.id,operator.userId]);
+    VALUES($1,$2,'GENERAL_RAW_DIAGNOSIS','SOURCE_RECORD',$3,'DELETE',$4)`,[randomUUID(),c.id,source.id,operatorUserId]);
   const manifest=await buildDeletionReconciliationManifest(h.pool);
-  await assert.rejects(() => reconcileDeletionManifest(h.pool,manifest,operator.userId,'APPLY'),/DELETION_RECONCILIATION_UNSUPPORTED_TARGET/);
+  await assert.rejects(() => reconcileDeletionManifest(h.pool,manifest,operatorUserId,'APPLY'),/DELETION_RECONCILIATION_UNSUPPORTED_TARGET/);
   const stillThere=await h.db.query('SELECT id FROM source_records WHERE id=$1',[source.id]);
   assert.equal(stillThere.rows.length,1);
 });
