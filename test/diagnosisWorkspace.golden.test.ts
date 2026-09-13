@@ -125,9 +125,9 @@ test('queue isolation, duplicate rejection, lease recovery and late AI after Fin
  assert.equal((await run(retry.id)).executions[0].status,'SUCCEEDED');
 });
 
-test('bounded Context: raw excerpts, selected unresolved Preparation context, no secrets; separate Human additions',async()=>{
+test('bounded Context: explicit consent + necessity opt-in keeps Transcript bounded and excludes secrets',async()=>{
  const c=await startedCase(h);for(let i=0;i<22;i++)await h.workspace.addSource(c.id,operator,'TRANSCRIPT',{content:'原文'.repeat(2000)});
- const client=await h.pool.connect();let context:InterviewContext;try{context=await buildInterviewAssistantContext(client,c.id);}finally{client.release();}
+ const client=await h.pool.connect();let context:InterviewContext;try{context=await buildInterviewAssistantContext(client,c.id,{includeConsentedTranscript:true});}finally{client.release();}
  assert.equal(context.sources.length,20);assert.ok(context.sources.every(s=>s.content.length===2000&&s.is_excerpt));
  for(const secret of [c.access_token!,'private@example.test','operator@atlib.jp','staff_session','access_token','suggested_services'])assert.ok(!JSON.stringify(context).includes(secret));
  const before=await read(c.id);const theme=await h.workspace.addHumanItem(c.id,operator,'theme',{title:'追加テーマ',description:'',future_relation:'未来との関係'});
