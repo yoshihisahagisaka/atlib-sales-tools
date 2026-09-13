@@ -22,5 +22,16 @@ export async function readyCase(h:Awaited<ReturnType<typeof createDiagnosisHarne
  await h.preparation.confirm(c.id,operator,(await h.preparation.read(c.id,operator)).version);return c;
 }
 export async function startedCase(h:Awaited<ReturnType<typeof createDiagnosisHarness>>) {
- const c=await readyCase(h);await h.workspace.transition(c.id,operator,'START',(await h.workspace.read(c.id,operator)).version);return c;
+ const c=await readyCase(h);
+ await h.workspace.transition(c.id,operator,'START',(await h.workspace.read(c.id,operator)).version);
+ // Workspace Golden cases exercise Transcript behavior. Record an explicit test consent
+ // before any Transcript capture; policy-specific tests separately prove the no-consent guard.
+ await h.repo.recordTranscriptConsent(c.id,operator,{
+  consentVersion:'TEST-TRANSCRIPT-CONSENT-v1',
+  consentScope:'workspace golden test transcript capture',
+  consentedAt:new Date().toISOString(),
+  customerReference:'test-respondent',
+  evidenceNote:'test fixture explicit consent',
+ });
+ return c;
 }
