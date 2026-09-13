@@ -18,13 +18,10 @@ before(async () => { h = await createDiagnosisHarness(); });
 after(async () => { await h?.close(); });
 
 test('Slice D: AI-02/03はTranscriptをdefault除外し、explicit consent + necessity opt-in時のみbounded excerptへ含める', async () => {
+  // startedCase records explicit TEST Transcript consent as part of the controlled fixture.
   const c = await startedCase(h);
-  const consent = await h.repo.recordTranscriptConsent(c.id, operator, {
-    consentVersion:'TRANSCRIPT-CONSENT-PILOT-v1',
-    consentScope:'60分診断の文字起こしを診断整理に利用',
-    consentedAt:new Date().toISOString(),
-  });
-  assert.equal(consent.status,'ACTIVE');
+  const activeConsent=await h.db.query('SELECT id FROM diagnosis_transcript_consents WHERE diagnosis_case_id=$1 AND status=\'ACTIVE\'',[c.id]);
+  assert.equal(activeConsent.rows.length,1);
   await h.workspace.addSource(c.id,operator,'INTERVIEW_STATEMENT',{content:'通常の顧客発言'});
   await h.workspace.addSource(c.id,operator,'TRANSCRIPT',{content:'機密Transcript'.repeat(1000)});
 
