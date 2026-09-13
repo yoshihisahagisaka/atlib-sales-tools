@@ -26,7 +26,7 @@
     "migrate:artifact": "node dist/db/migrateCli.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
