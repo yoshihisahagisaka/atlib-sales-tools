@@ -8,20 +8,30 @@ export const REPORT_POLICY_VERSION='free-diagnosis-report-v1';
 export const SECTIONS=['FUTURE','CURRENT_AND_UNKNOWN','GAP','ROOT_CAUSE_AND_KAIZEN','NEXT_CONFIRMATION'] as const;
 export const SECTION_TITLES:Record<typeof SECTIONS[number],string>={
  FUTURE:'実現したい会社の未来',
- CURRENT_AND_UNKNOWN:'現在分かっていること / 現時点で分からないこと',
+ CURRENT_AND_UNKNOWN:'現時点で把握していること / まだ確認が必要なこと',
  GAP:'Futureとの差（Gapの可能性）',
  ROOT_CAUSE_AND_KAIZEN:'WHY：なぜこのGapが起きている可能性があるか',
  NEXT_CONFIRMATION:'NEXT DECISION：次に確認・判断すべきこと',
 };
+export type FutureKnowledgeStatus='CUSTOMER_STATED'|'UNKNOWN';
 export interface ReportInsight {id:string;version:number;semantic_type:InsightInput['semantic_type'];title:string;content:string;unknown_type:InsightInput['unknown_type'];area_tag:InsightInput['area_tag'];improvement_lens:InsightInput['improvement_lens'];report_text:string}
 export interface ReportContext {
  organization_display_name:string;provider_display_name:string;
- future:{id:string;version:number;statement:string;time_horizon:string|null;intent_status:string;report_text:string};
+ future:{id:string;version:number;statement:string;time_horizon:string|null;intent_status:string;knowledge_status:FutureKnowledgeStatus;report_text:string};
  insights:ReportInsight[];
  assessment_confirmation_items:{id:string;title:string;purpose:string;priority:number;status:'OPEN';report_text:string}[];
 }
 export const SEMANTIC_LABELS:Record<InsightInput['semantic_type'],string>={OBSERVATION:'観察（Human Review済み）',UNKNOWN:'未確認',HYPOTHESIS:'仮説',GAP_CANDIDATE:'Gapの可能性',ROOT_CAUSE_HYPOTHESIS:'Root Cause仮説',KAIZEN_DIRECTION:'KAIZENの方向性（候補）',EVIDENCE_CANDIDATE:'Evidence確認候補'};
 export function insightReportText(i:Pick<ReportInsight,'semantic_type'|'content'|'unknown_type'>){return `${SEMANTIC_LABELS[i.semantic_type]}${i.unknown_type?'（'+i.unknown_type+'）':''}：${i.content}`;}
+/** Q01 may validly be "分からない". Treat that as epistemic UNKNOWN, never as a fabricated Future statement. */
+export function futureKnowledgeStatus(statement:string):FutureKnowledgeStatus{
+ return statement.split('/').map(v=>v.trim()).includes('分からない')?'UNKNOWN':'CUSTOMER_STATED';
+}
+export function futureReportText(input:{statement:string;time_horizon:string|null;intent_status:string;knowledge_status?:FutureKnowledgeStatus}){
+ const status=input.knowledge_status??futureKnowledgeStatus(input.statement);
+ if(status==='UNKNOWN') return 'FUTUREは現時点で未確認です。Management Feedbackで経営者の言葉を確認します。';
+ return `${input.intent_status==='SURVEY_STATED'?'アンケート回答時点の意図':'対話で再確認した意図'}：${input.statement}${input.time_horizon?'（'+input.time_horizon+'）':''}`;
+}
 const text=z.string().min(1).max(20000),ids=z.array(z.string().uuid()).max(30);
 const blockSchema=z.object({block_type:z.enum(['FUTURE','INSIGHT','ASSESSMENT']),text,insight_refs:ids,assessment_refs:ids}).strict();
 export const reportOutputSchema=z.object({sections:z.array(z.object({section_key:z.enum(SECTIONS),title:text.max(200),blocks:z.array(blockSchema).max(100)}).strict()).length(5)}).strict();
@@ -37,7 +47,8 @@ export function sameWording(a:string,b:string){
 }
 function expectedSection(i:ReportInsight):typeof SECTIONS[number]{
  if(i.semantic_type==='GAP_CANDIDATE') return 'GAP';
- if(i.semantic_type==='ROOT_CAUSE_HYPOTHESIS') return 'ROOT_CAUSE_AND_KAIZEN';
+ // A generic hypothesis is not "known current state". Keep hypotheses on the explicitly hypothetical WHY page.
+ if(['HYPOTHESIS','ROOT_CAUSE_HYPOTHESIS'].includes(i.semantic_type)) return 'ROOT_CAUSE_AND_KAIZEN';
  // KAIZEN_DIRECTION is still only a candidate; present it under NEXT DECISION rather than mixing a proposed solution into WHY.
  if(['KAIZEN_DIRECTION','EVIDENCE_CANDIDATE'].includes(i.semantic_type)) return 'NEXT_CONFIRMATION';
  return 'CURRENT_AND_UNKNOWN';
