@@ -18,7 +18,7 @@ function context(statement:string):ReportContext{
    insight('HYPOTHESIS','役割分担を確認する必要がある可能性があります'),
    insight('GAP_CANDIDATE','Futureに対して責任と権限の確認が必要な可能性があります'),
   ],
-  assessment_confirmation_items:[],
+  assessment_confirmation_items:[],why_connections:[],
  };
 }
 
