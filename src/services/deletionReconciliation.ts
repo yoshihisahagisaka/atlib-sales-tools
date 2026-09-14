@@ -29,10 +29,8 @@ export function deletionManifestHash(manifest: DeletionReconciliationManifest): 
   return createHash('sha256').update(canonicalPayload(manifest)).digest('hex');
 }
 
-/**
- * Export the reconciliation set from the live database. The caller/runbook MUST persist
- * this manifest outside the database/backup lineage that may later be restored.
- */
+/** Export the reconciliation set from the live database. The caller/runbook MUST persist
+ * this manifest outside the database/backup lineage that may later be restored. */
 export async function buildDeletionReconciliationManifest(pool: Pool): Promise<DeletionReconciliationManifest> {
   const { rows } = await pool.query<{
     id:string; diagnosis_case_id:string; deletion_request_id:string|null; data_class:string;
@@ -54,6 +52,7 @@ async function targetExists(c: PoolClient, entry: DeletionReconciliationEntry): 
   switch (entry.target_kind) {
     case 'SOURCE_RECORD': return !!(await c.query('SELECT 1 FROM source_records WHERE id=$1 AND diagnosis_case_id=$2',[entry.target_id,entry.diagnosis_case_id])).rows.length;
     case 'AI_EXECUTION_RAW_IO': return !!(await c.query('SELECT 1 FROM ai_executions WHERE id=$1 AND diagnosis_case_id=$2',[entry.target_id,entry.diagnosis_case_id])).rows.length;
+    case 'AI_PROPOSAL_RAW_IO': return !!(await c.query('SELECT 1 FROM ai_proposals WHERE id=$1 AND diagnosis_case_id=$2',[entry.target_id,entry.diagnosis_case_id])).rows.length;
     case 'PARTICIPANT_IDENTITY': return !!(await c.query('SELECT 1 FROM participants WHERE id=$1 AND diagnosis_case_id=$2',[entry.target_id,entry.diagnosis_case_id])).rows.length;
     case 'SURVEY_RESPONSE_RAW': return !!(await c.query('SELECT 1 FROM survey_responses WHERE id=$1 AND diagnosis_case_id=$2',[entry.target_id,entry.diagnosis_case_id])).rows.length;
     case 'ORGANIZATION_IDENTITY': return !!(await c.query(`SELECT 1 FROM organizations o JOIN diagnosis_cases dc ON dc.organization_id=o.id WHERE o.id=$1 AND dc.id=$2`,[entry.target_id,entry.diagnosis_case_id])).rows.length;
@@ -63,7 +62,6 @@ async function targetExists(c: PoolClient, entry: DeletionReconciliationEntry): 
 
 async function applyEntry(c: PoolClient, entry: DeletionReconciliationEntry): Promise<'CHANGED'|'NOOP'|'UNSUPPORTED'> {
   if (entry.action === 'RESTRICT_RETAIN') return 'NOOP';
-  // DELETE is intentionally fail-closed until table-by-table dependency semantics are approved/tested.
   if (entry.action === 'DELETE') return 'UNSUPPORTED';
   switch (entry.target_kind) {
     case 'SOURCE_RECORD': {
@@ -74,6 +72,11 @@ async function applyEntry(c: PoolClient, entry: DeletionReconciliationEntry): Pr
     case 'AI_EXECUTION_RAW_IO': {
       const result = await c.query(`UPDATE ai_executions SET input_snapshot_json='{}'::jsonb,raw_output_json=NULL,updated_at=now()
         WHERE id=$1 AND diagnosis_case_id=$2 AND (input_snapshot_json<>'{}'::jsonb OR raw_output_json IS NOT NULL)`,[entry.target_id,entry.diagnosis_case_id]);
+      return result.rowCount ? 'CHANGED' : 'NOOP';
+    }
+    case 'AI_PROPOSAL_RAW_IO': {
+      const result=await c.query(`UPDATE ai_proposals SET title='[REDACTED]',content_json='{}'::jsonb,updated_at=now()
+        WHERE id=$1 AND diagnosis_case_id=$2 AND (title<>'[REDACTED]' OR content_json<>'{}'::jsonb)`,[entry.target_id,entry.diagnosis_case_id]);
       return result.rowCount ? 'CHANGED' : 'NOOP';
     }
     case 'PARTICIPANT_IDENTITY': {
@@ -97,6 +100,8 @@ async function applyEntry(c: PoolClient, entry: DeletionReconciliationEntry): Pr
   }
 }
 
+const supportedAnonymizeTargets=['SOURCE_RECORD','AI_EXECUTION_RAW_IO','AI_PROPOSAL_RAW_IO','PARTICIPANT_IDENTITY','SURVEY_RESPONSE_RAW','ORGANIZATION_IDENTITY'];
+
 export async function reconcileDeletionManifest(
   pool: Pool,
   manifest: DeletionReconciliationManifest,
@@ -115,13 +120,11 @@ export async function reconcileDeletionManifest(
       (id,manifest_version,manifest_hash,mode,status,tombstone_count,executed_by_user_id)
       VALUES($1,$2,$3,$4,'RUNNING',$5,$6)`,[runId,manifest.manifest_version,hash,mode,manifest.entries.length,executedByUserId]);
     for (const entry of manifest.entries) {
-      // RESTRICT_RETAIN is provenance for a Human decision to preserve data. It is not a
-      // destructive restore action and therefore does not require a physical target replay.
       if (entry.action === 'RESTRICT_RETAIN') continue;
       const exists = await targetExists(client,entry);
       if (exists) matched++;
       if (mode === 'VERIFY') {
-        if (entry.action === 'DELETE' || !['SOURCE_RECORD','AI_EXECUTION_RAW_IO','PARTICIPANT_IDENTITY','SURVEY_RESPONSE_RAW','ORGANIZATION_IDENTITY'].includes(entry.target_kind)) unsupported++;
+        if (entry.action === 'DELETE' || !supportedAnonymizeTargets.includes(entry.target_kind)) unsupported++;
         continue;
       }
       const result = await applyEntry(client,entry);
@@ -134,8 +137,6 @@ export async function reconcileDeletionManifest(
     return { run_id:runId, manifest_hash:hash, mode, tombstone_count:manifest.entries.length, matched_count:matched, changed_count:changed, unsupported_count:unsupported, status:'SUCCEEDED' as const };
   } catch (error) {
     await client.query('ROLLBACK');
-    // Record failure using the same checked-out connection before release. This avoids
-    // pool re-entry deadlocks for single-connection migration/rehearsal harnesses.
     const code = error instanceof Error ? error.message.slice(0,200) : 'RECONCILIATION_FAILED';
     await client.query('BEGIN');
     try {
