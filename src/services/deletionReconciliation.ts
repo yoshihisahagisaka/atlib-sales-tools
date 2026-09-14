@@ -56,6 +56,7 @@ async function targetExists(c: PoolClient, entry: DeletionReconciliationEntry): 
     case 'AI_EXECUTION_RAW_IO': return !!(await c.query('SELECT 1 FROM ai_executions WHERE id=$1 AND diagnosis_case_id=$2',[entry.target_id,entry.diagnosis_case_id])).rows.length;
     case 'PARTICIPANT_IDENTITY': return !!(await c.query('SELECT 1 FROM participants WHERE id=$1 AND diagnosis_case_id=$2',[entry.target_id,entry.diagnosis_case_id])).rows.length;
     case 'SURVEY_RESPONSE_RAW': return !!(await c.query('SELECT 1 FROM survey_responses WHERE id=$1 AND diagnosis_case_id=$2',[entry.target_id,entry.diagnosis_case_id])).rows.length;
+    case 'ORGANIZATION_IDENTITY': return !!(await c.query(`SELECT 1 FROM organizations o JOIN diagnosis_cases dc ON dc.organization_id=o.id WHERE o.id=$1 AND dc.id=$2`,[entry.target_id,entry.diagnosis_case_id])).rows.length;
     default: return false;
   }
 }
@@ -86,6 +87,12 @@ async function applyEntry(c: PoolClient, entry: DeletionReconciliationEntry): Pr
         WHERE id=$1 AND diagnosis_case_id=$2 AND raw_value_json<>'null'::jsonb`,[entry.target_id,entry.diagnosis_case_id]);
       return result.rowCount ? 'CHANGED' : 'NOOP';
     }
+    case 'ORGANIZATION_IDENTITY': {
+      const replacement=`削除済み組織-${entry.target_id}`;
+      const result=await c.query(`UPDATE organizations o SET name=$3
+        FROM diagnosis_cases dc WHERE o.id=$1 AND dc.id=$2 AND dc.organization_id=o.id AND o.name<>$3`,[entry.target_id,entry.diagnosis_case_id,replacement]);
+      return result.rowCount ? 'CHANGED' : 'NOOP';
+    }
     default: return 'UNSUPPORTED';
   }
 }
@@ -114,7 +121,7 @@ export async function reconcileDeletionManifest(
       const exists = await targetExists(client,entry);
       if (exists) matched++;
       if (mode === 'VERIFY') {
-        if (entry.action === 'DELETE' || !['SOURCE_RECORD','AI_EXECUTION_RAW_IO','PARTICIPANT_IDENTITY','SURVEY_RESPONSE_RAW'].includes(entry.target_kind)) unsupported++;
+        if (entry.action === 'DELETE' || !['SOURCE_RECORD','AI_EXECUTION_RAW_IO','PARTICIPANT_IDENTITY','SURVEY_RESPONSE_RAW','ORGANIZATION_IDENTITY'].includes(entry.target_kind)) unsupported++;
         continue;
       }
       const result = await applyEntry(client,entry);
