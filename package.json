@@ -25,6 +25,7 @@
     "test:report": "node -r ts-node/register --test test/diagnosisReport.golden.test.ts",
     "test:management-feedback-mf-a": "node -r ts-node/register --test test/managementFeedbackMfA.golden.test.ts",
     "test:management-feedback-mf-b": "node -r ts-node/register --test test/managementFeedbackMfB.golden.test.ts",
+    "test:management-feedback-mf-c": "node -r ts-node/register --test test/managementFeedbackMfC.golden.test.ts",
     "test:readiness": "node -r ts-node/register --test test/productionReadiness.security.test.ts",
     "test:readiness:postgres": "node -r ts-node/register --test test/productionReadiness.postgres.test.ts",
     "test:policy-closure": "node -r ts-node/register --test test/controlledPilotPolicyClosure.golden.test.ts",
