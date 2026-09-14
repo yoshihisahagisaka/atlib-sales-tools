@@ -34,6 +34,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: node --check scripts/readiness/collect-external-evidence.cjs
+      - run: node --check scripts/readiness/rehearse-docker.cjs
       - run: npm run test:diagnosis
       - run: npm run test:preparation
       - run: npm run test:workspace
