@@ -43,6 +43,7 @@ jobs:
       - run: npm run test:management-feedback-mf-a
       - run: npm run test:management-feedback-mf-b
       - run: npm run test:management-feedback-mf-c
+      - run: npm run test:management-feedback-mf-d
       - run: npm run test:handoff
       - run: npm run test:readiness
       - run: npm run test:policy-closure

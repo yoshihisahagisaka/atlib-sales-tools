@@ -6,9 +6,10 @@
 
 - Branch: `feat/controlled-pilot-policy-closure`.
 - PR #2: OPEN / DRAFT, base `main`. No merge/deployment performed.
-- Implementation code head validated by full CI: `46f8d218c4106e573dbc8921cb5f938541f26189`.
-- Full CI run `34793748001`: **SUCCESS**.
-- SSOT: `git_KAIZEN` `dev/controlled-pilot-closure-v2`, docs/66–71.
+- Reconciliation: local `6fe142bd2ef633ced83af99d438513e71c07f0bc` → fetched feature `387bdcad15f1c74456bf193b9c53491fcf27babf`, fast-forward of 73 commits. No reset, force push or removal of parallel Management Feedback / Closure work.
+- Incoming CI run `34840564743`: **FAILED** in the real PostgreSQL fixture because it omitted the newly required Human Route C decision. The fixture now records C explicitly and separately proposes Assessment. Browser cosmetic-edit fixtures now preserve MF-B grounding.
+- Current implementation/validation details: [MF-D reconciliation and Fit/Gap](management-feedback-mf-d-fit-gap.md). Historical CI success at `46f8d218c4106e573dbc8921cb5f938541f26189` does not certify the incoming or current HEAD.
+- SSOT: `git_KAIZEN` Business `origin/main` at `b8d321402e6b9d80d01305066c2424932f7e34c3`, docs/66 and `71-management-feedback-business-output-specification-v1.md`; Development `origin/dev/controlled-pilot-closure-v2` at `fd0b563de668cc673099d988ad2c9496f4cc5b9f`, docs/67–70 and Closure progress / docs/76–79. Business and Development doc 71 have different names/contracts.
 - Business Canonical: `docs/66-customer-data-ai-continuity-business-policy-v1.md`.
 
 ## Fit / Gap
@@ -17,7 +18,7 @@
 |---|---|---|
 | A | Acknowledgement, atomic WEB creation, separate Transcript consent/DB guard | Technical PASS; approved Legal/Privacy copy/link and deployed enablement BLOCKED_EXTERNAL |
 | B | Human deletion scope/decision, Transcript purpose completion, Holds, retention preview, Human-approved anonymization worker, Organization identity classification, structured AI Proposal wipe | Application/CI PASS for current exact mapping; Approved Evidence 5-year destructive expiry deliberately disabled |
-| C | External-manifest replay for current anonymize targets; RESTRICT_RETAIN non-destructive provenance | Application PASS; durable external export/storage and real Cloud SQL restore BLOCKED_EXTERNAL |
+| C | External-manifest replay; GCS external-store adapter with integrity/readback controls; RESTRICT_RETAIN non-destructive provenance | Application PASS; actual durable external storage and real Cloud SQL restore BLOCKED_EXTERNAL |
 | D | AI-01–04 authority boundaries; AI-02/03 Transcript default-deny; Raw AI application storage lifecycle widened to structured AI proposal payload | Application PASS; real provider + provider retention/privacy BLOCKED_EXTERNAL |
 | E | Five-block Management Feedback translation, coded Pilot Evidence Capture, A–F test mapping, real PostgreSQL + browser CI | Application/CI PASS; actual Human A–F role-play, named owners and real staging E2E remain OPEN/BLOCKED_EXTERNAL |
 
@@ -58,6 +59,7 @@ The policy-expiry read model now exposes an explicit inventory including:
 - READY/TRANSFERRED/ACCEPTED handoffs.
 - HUMAN_APPROVED insights.
 - Human Reviews.
+- Management Feedback Decisions, including immutable context and supersession history.
 - Assessment Confirmation Items.
 - lifecycle transitions.
 - audit logs.
@@ -131,7 +133,7 @@ Real AI/provider checks are still not CI evidence for the external provider gate
 
 ## Remaining Critical Path
 
-1. **C continuity:** durable external reconciliation-manifest export/storage with access/integrity/completeness controls; real Cloud SQL backup/PITR/isolated restore/reconciliation/smoke; measure internal RPO/RTO <=24h and verify 30-day backup retention.
+1. **C continuity:** execute the existing external reconciliation-manifest adapter against actual storage with access/integrity/completeness evidence; real Cloud SQL backup/PITR/isolated restore/reconciliation/smoke; verify RPO <=24h, this task's requested internal RTO <=8h and 30-day backup retention. Doc 66 still states internal RTO <=24h: Business reconciliation is required before changing that Canonical/customer commitment; no SLA was changed here.
 2. **D/platform:** real Anthropic AI-01–04 and provider retention/privacy evidence; Secret Manager/IAM; real Google allowed/disallowed OAuth; Cloud Run worker/scale/lease/request-outside-CPU/deploy-shutdown behavior; proxy/rate-limit; Monitoring alert delivery; deployed Node runtime; moderate dependency review.
 3. **E/operation:** final Legal/Privacy-approved customer copy/link; named B9 operational owners and failure/correction/duplicate handling; Human A–F role-play; real WEB + SALES_VISIT staging E2E.
 4. **Approved Evidence lifecycle:** keep 5-year expiry execution fail-closed until exact immutable/accountability semantics are separately reviewed; this need not be silently widened merely to reach Pilot.
@@ -143,7 +145,7 @@ Controlled Customer Pilot: **NO-GO — EXTERNAL / OPERATIONAL CLOSURE REMAINS**.
 
 Business Decision BD-01〜05: **RESOLVED**.  
 Current application-level Retention/Deletion classification: **MATERIALLY CLOSED / CI PASS / FAIL-CLOSED WHERE AMBIGUOUS**.  
-Management Feedback Translation: **IMPLEMENTED / CI PASS**.  
+Management Feedback MF-A/B/C: **PRESERVED / REGRESSION VERIFIED**; MF-D extends the existing Decision snapshot, without another table/Core Object. See linked Fit/Gap for current validation.
 Pilot Evidence Capture: **IMPLEMENTED / CI PASS**.  
 Business Acceptance A–F automated mapping: **DONE; HUMAN ROLE-PLAY OPEN**.  
 External Cloud / Provider evidence: **OPEN**.

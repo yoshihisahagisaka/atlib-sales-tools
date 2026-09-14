@@ -121,6 +121,7 @@ async function approvedEvidenceInventory(c:PoolClient,caseId:string){
     ready_or_transferred_handoffs:await one(`SELECT count(*)::text AS count FROM assessment_handoffs WHERE diagnosis_case_id=$1 AND status IN ('READY','TRANSFERRED','ACCEPTED')`),
     human_approved_insights:await one(`SELECT count(*)::text AS count FROM diagnosis_insights WHERE diagnosis_case_id=$1 AND review_status='HUMAN_APPROVED'`),
     human_reviews:await one(`SELECT count(*)::text AS count FROM human_reviews WHERE diagnosis_case_id=$1`),
+    management_feedback_decisions:await one(`SELECT count(*)::text AS count FROM management_feedback_decisions WHERE diagnosis_case_id=$1`),
     assessment_confirmation_items:await one(`SELECT count(*)::text AS count FROM assessment_confirmation_items WHERE diagnosis_case_id=$1`),
     lifecycle_transitions:await one(`SELECT count(*)::text AS count FROM case_transitions WHERE diagnosis_case_id=$1`),
     audit_logs:await one(`SELECT count(*)::text AS count FROM diagnosis_audit_logs WHERE diagnosis_case_id=$1`),
