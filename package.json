@@ -14,6 +14,7 @@
     "test:diagnosis:browser": "playwright test --config=test/diagnosis.playwright.config.ts",
     "migrate": "node --env-file=.env -r ts-node/register migrations/runner.ts",
     "retention:worker": "node --env-file=.env -r ts-node/register scripts/retention-deletion-worker.ts",
+    "retention:export-manifest": "node --env-file=.env -r ts-node/register scripts/export-deletion-reconciliation-manifest.ts",
     "import:market-rates": "node --env-file=.env -r ts-node/register scripts/cost_estimation/import_market_rates.ts",
     "export:catalog-for-research": "node --env-file=.env -r ts-node/register scripts/cost_estimation/export_catalog_for_research.ts",
     "import:market-baseline": "node --env-file=.env -r ts-node/register scripts/cost_estimation/import_market_baseline.ts",
@@ -27,11 +28,10 @@
     "test:restore-ai-closure": "node -r ts-node/register --test test/controlledPilotRestoreAiClosure.golden.test.ts",
     "test:retention-deletion": "node -r ts-node/register --test test/retentionDeletionWorker.golden.test.ts",
     "test:pilot-evidence": "node -r ts-node/register --test test/pilotEvidence.golden.test.ts",
+    "test:external-manifest": "node -r ts-node/register --test test/externalDeletionManifestStore.golden.test.ts",
     "migrate:artifact": "node dist/db/migrateCli.js"
   },
-  "engines": {
-    "node": ">=22"
-  },
+  "engines": {"node": ">=22"},
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
     "@google-cloud/secret-manager": "^5.6.0",
