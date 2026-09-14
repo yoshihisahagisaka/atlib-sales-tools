@@ -52,6 +52,8 @@ import { ReportDraftWorker } from './services/reportDraftWorker';
 import { PreDiagnosisWorker } from './services/preDiagnosisWorker';
 import { PilotEvidenceRepo } from './services/pilotEvidenceRepo';
 import { createPilotEvidenceRouter } from './routes/pilotEvidence';
+import { ManagementFeedbackDecisionRepo } from './services/managementFeedbackDecisionRepo';
+import { createManagementFeedbackDecisionRouter } from './routes/managementFeedbackDecision';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -72,6 +74,7 @@ async function main(): Promise<void> {
   const staffAuthService = new StaffAuthService(config.staffAuth.jwtSecret);
   const itManagementDiagnosisRepo = new ItManagementDiagnosisRepo(pool);
   const pilotEvidenceRepo = new PilotEvidenceRepo(pool);
+  const managementFeedbackDecisionRepo = new ManagementFeedbackDecisionRepo(pool);
   const preparationRepo = new DiagnosisPreparationRepo(pool);
   const preparationProvider = new AnthropicPreDiagnosisProvider(config.aiAssist.anthropicApiKey);
   const preparationWorker = new PreDiagnosisWorker(preparationRepo, preparationProvider);
@@ -120,6 +123,7 @@ async function main(): Promise<void> {
   ];
   app.use('/api/admin/it-management-diagnosis', ...adminAuthGate,
     createAdminItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted, preparation, workspace, review, report, assessment));
+  app.use('/api/admin/it-management-diagnosis', ...adminAuthGate, createManagementFeedbackDecisionRouter(managementFeedbackDecisionRepo));
   app.use('/api/admin/it-management-diagnosis', ...adminAuthGate, createPilotEvidenceRouter(pilotEvidenceRepo));
   app.use('/api/admin/isms-diagnostic', ...adminAuthGate, createAdminIsmsDiagnosticRouter(ismsDiagnosticRepo));
   app.use('/api/admin/free-hearing-assessment',...adminAuthGate,createAdminFreeHearingAssessmentRouter(freeHearingAssessmentRepo));
