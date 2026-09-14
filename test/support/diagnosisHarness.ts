@@ -30,6 +30,8 @@ import { DiagnosisReportRepo } from '../../src/services/diagnosisReportRepo';
 import { AnthropicReportDraftProvider, type ReportDraftProvider } from '../../src/services/reportDraftProvider';
 import { ReportDraftWorker } from '../../src/services/reportDraftWorker';
 import { PreDiagnosisWorker } from '../../src/services/preDiagnosisWorker';
+import { ManagementFeedbackDecisionRepo } from '../../src/services/managementFeedbackDecisionRepo';
+import { createManagementFeedbackDecisionRouter } from '../../src/routes/managementFeedbackDecision';
 
 /** Real PostgreSQL SQL/constraints/transactions in a disposable WASM database.
  * A single connection adapter serializes transactions, matching pg Pool checkout.
@@ -50,6 +52,7 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   await db.exec(fs.readFileSync(path.join(root, 'migrations/012_it_management_diagnosis_assessment_handoff.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/013_it_management_diagnosis_policy_closure.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/014_it_management_diagnosis_restore_reconciliation.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/015_management_feedback_decision.sql'), 'utf8'));
   let tail = Promise.resolve();
   async function acquire() {
     const previous = tail;
@@ -72,6 +75,7 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   const postWorker = new PostDiagnosisWorker(preparation,review,postProvider);
   const assessment = new DiagnosisAssessmentRepo(pool);
   const report = new DiagnosisReportRepo(pool);
+  const feedbackDecision = new ManagementFeedbackDecisionRepo(pool);
   const reportWorker = new ReportDraftWorker(preparation,report,reportProvider);
   const staffAuth = new StaffAuthService('disposable-test-key-not-a-production-secret');
   const staffCookie = `staff_session=${staffAuth.issueSessionToken({ email: 'operator@atlib.jp' })}`;
@@ -80,9 +84,6 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   app.set('trust proxy', 'loopback');
   app.use(pinoHttp({ logger: pino({ level: 'info' }, { write: text => { logs.push(text); } }), serializers: { req: safeAccessRequest } }));
   app.use(express.json()); app.use(cookieParser());
-  // Existing Golden tests predate BD-05. Inject the current acknowledgement only in the
-  // disposable harness so regression tests keep exercising the same business flow.
-  // Policy-specific tests can opt out with X-Test-Skip-Policy-Injection: 1.
   app.use('/api/it-management-diagnosis/cases', (req, _res, next) => {
     if (req.method === 'POST' && req.get('x-test-skip-policy-injection') !== '1' && req.body && typeof req.body === 'object') {
       req.body = { ...req.body, policyNoticeVersion: DIAGNOSIS_POLICY_NOTICE_VERSION, policyAcknowledged: true };
@@ -91,6 +92,7 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   });
   app.use('/api/it-management-diagnosis', createItManagementDiagnosisRouter(repo, notify));
   app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createAdminItManagementDiagnosisRouter(repo, notify,{ repo: preparation,provider,worker },{repo:workspace,provider:interviewProvider,worker:interviewWorker},{repo:review,provider:postProvider,worker:postWorker},{repo:report,provider:reportProvider,worker:reportWorker},assessment));
+  app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createManagementFeedbackDecisionRouter(feedbackDecision));
   app.use('/api/kaizen-diagnostic', createKaizenDiagnosticRouter(new KaizenDiagnosticRepo(pool), {} as Mailer,
     { portalBaseUrl: 'http://localhost', slack: {} } as Config));
   app.use('/admin', requireStaffAuth(staffAuth), express.static(path.join(root, 'public/admin')));
@@ -98,6 +100,6 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  return { db, pool, repo, url, logs, staffCookie, preparation, worker, workspace, interviewWorker, review, postWorker, report, reportWorker, assessment,
+  return { db, pool, repo, url, logs, staffCookie, preparation, worker, workspace, interviewWorker, review, postWorker, report, reportWorker, assessment, feedbackDecision,
     close: async () => { await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve())); await db.close(); } };
 }
