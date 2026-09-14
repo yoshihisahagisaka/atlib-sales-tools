@@ -2,8 +2,8 @@ import { createHash,randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { DiagnosisError } from './itManagementDiagnosis';
 import type { InsightInput } from './diagnosisReview';
-export const REPORT_PROMPT_VERSION='report-draft-generator-v1';
-export const REPORT_POLICY_VERSION='free-diagnosis-report-v1';
+export const REPORT_PROMPT_VERSION='report-draft-generator-v2';
+export const REPORT_POLICY_VERSION='free-diagnosis-report-v2';
 // Internal section keys remain stable for compatibility. Customer/management-facing titles translate them to the Business Launch Gate five-block language.
 export const SECTIONS=['FUTURE','CURRENT_AND_UNKNOWN','GAP','ROOT_CAUSE_AND_KAIZEN','NEXT_CONFIRMATION'] as const;
 export const SECTION_TITLES:Record<typeof SECTIONS[number],string>={
@@ -15,14 +15,19 @@ export const SECTION_TITLES:Record<typeof SECTIONS[number],string>={
 };
 export type FutureKnowledgeStatus='CUSTOMER_STATED'|'UNKNOWN';
 export interface ReportInsight {id:string;version:number;semantic_type:InsightInput['semantic_type'];title:string;content:string;unknown_type:InsightInput['unknown_type'];area_tag:InsightInput['area_tag'];improvement_lens:InsightInput['improvement_lens'];report_text:string}
+export interface WhyConnection {hypothesis_insight_id:string;supporting_insight_refs:string[];evidence_confirmation_refs:string[];report_text:string}
 export interface ReportContext {
  organization_display_name:string;provider_display_name:string;
  future:{id:string;version:number;statement:string;time_horizon:string|null;intent_status:string;knowledge_status:FutureKnowledgeStatus;report_text:string};
  insights:ReportInsight[];
  assessment_confirmation_items:{id:string;title:string;purpose:string;priority:number;status:'OPEN';report_text:string}[];
+ why_connections:WhyConnection[];
 }
 export const SEMANTIC_LABELS:Record<InsightInput['semantic_type'],string>={OBSERVATION:'観察（Human Review済み）',UNKNOWN:'未確認',HYPOTHESIS:'仮説',GAP_CANDIDATE:'Gapの可能性',ROOT_CAUSE_HYPOTHESIS:'Root Cause仮説',KAIZEN_DIRECTION:'KAIZENの方向性（候補）',EVIDENCE_CANDIDATE:'Evidence確認候補'};
 export function insightReportText(i:Pick<ReportInsight,'semantic_type'|'content'|'unknown_type'>){return `${SEMANTIC_LABELS[i.semantic_type]}${i.unknown_type?'（'+i.unknown_type+'）':''}：${i.content}`;}
+export function whyConnectionReportText(hypothesis:ReportInsight,supporting:ReportInsight[],evidence:{title:string;purpose:string}[]){
+ return [`HYPOTHESIS：${hypothesis.content}`,`Supporting Observation / Context：${supporting.map(i=>i.content).join(' / ')||'未接続（Human Reviewで確認が必要）'}`,`Evidence Needed：${evidence.map(i=>`${i.title}（${i.purpose}）`).join(' / ')||'未接続（Human Reviewで確認が必要）'}`].join('\n');
+}
 /** Q01 may validly be "分からない". Treat that as epistemic UNKNOWN, never as a fabricated Future statement. */
 export function futureKnowledgeStatus(statement:string):FutureKnowledgeStatus{
  return statement.split('/').map(v=>v.trim()).includes('分からない')?'UNKNOWN':'CUSTOMER_STATED';
@@ -53,6 +58,16 @@ function expectedSection(i:ReportInsight):typeof SECTIONS[number]{
  if(['KAIZEN_DIRECTION','EVIDENCE_CANDIDATE'].includes(i.semantic_type)) return 'NEXT_CONFIRMATION';
  return 'CURRENT_AND_UNKNOWN';
 }
+function expectedInsightText(context:ReportContext,i:ReportInsight){
+ if(expectedSection(i)==='ROOT_CAUSE_AND_KAIZEN')return context.why_connections.find(w=>w.hypothesis_insight_id===i.id)?.report_text??i.report_text;
+ return i.report_text;
+}
+export function assertWhyConnectionsReady(context:ReportContext){
+ for(const insight of context.insights.filter(i=>['HYPOTHESIS','ROOT_CAUSE_HYPOTHESIS'].includes(i.semantic_type))){
+  const connection=context.why_connections.find(w=>w.hypothesis_insight_id===insight.id);
+  if(!connection||!connection.supporting_insight_refs.length||!connection.evidence_confirmation_refs.length)throw new DiagnosisError(409,'WHY_CONNECTION_REVIEW_REQUIRED');
+ }
+}
 export function validateReportOutput(raw:unknown,context:ReportContext):ReportOutput{
  const parsed=reportOutputSchema.safeParse(raw);if(!parsed.success)throw new DiagnosisError(422,'REPORT_SCHEMA_INVALID');
  if(new Set(parsed.data.sections.map(s=>s.section_key)).size!==5)throw new DiagnosisError(422,'REPORT_SECTIONS_INVALID');
@@ -68,7 +83,7 @@ export function validateReportOutput(raw:unknown,context:ReportContext):ReportOu
     expected=block.assessment_refs.map(id=>{const a=context.assessment_confirmation_items.find(a=>a.id===id);if(!a)throw new DiagnosisError(422,'REPORT_ASSESSMENT_REF_INVALID');return a.report_text;}).join('\n');
    }else{
     if(!block.insight_refs.length||block.assessment_refs.length)throw new DiagnosisError(422,'REPORT_REFS_INVALID');
-    expected=block.insight_refs.map(id=>{const i=context.insights.find(i=>i.id===id);if(!i||expectedSection(i)!==section.section_key)throw new DiagnosisError(422,'REPORT_INSIGHT_REF_INVALID');if(used.has(id))throw new DiagnosisError(422,'REPORT_DUPLICATE_INSIGHT');used.add(id);return i.report_text;}).join('\n');
+    expected=block.insight_refs.map(id=>{const i=context.insights.find(i=>i.id===id);if(!i||expectedSection(i)!==section.section_key)throw new DiagnosisError(422,'REPORT_INSIGHT_REF_INVALID');if(used.has(id))throw new DiagnosisError(422,'REPORT_DUPLICATE_INSIGHT');used.add(id);return expectedInsightText(context,i);}).join('\n');
    }
    if(!sameWording(block.text,expected))throw new DiagnosisError(422,'REPORT_MEANING_CHANGE_REQUIRES_REVIEW');
   }
@@ -79,7 +94,7 @@ export function validateReportOutput(raw:unknown,context:ReportContext):ReportOu
 export function manualReport(context:ReportContext):ReportOutput{
  return {sections:SECTIONS.map(section_key=>({section_key,title:SECTION_TITLES[section_key],blocks:[
   ...(section_key==='FUTURE'?[{block_type:'FUTURE' as const,text:context.future.report_text,insight_refs:[],assessment_refs:[]}]:[]),
-  ...context.insights.filter(i=>expectedSection(i)===section_key).map(i=>({block_type:'INSIGHT' as const,text:i.report_text,insight_refs:[i.id],assessment_refs:[]})),
+  ...context.insights.filter(i=>expectedSection(i)===section_key).map(i=>({block_type:'INSIGHT' as const,text:expectedInsightText(context,i),insight_refs:[i.id],assessment_refs:[]})),
   ...(section_key==='NEXT_CONFIRMATION'?context.assessment_confirmation_items.map(a=>({block_type:'ASSESSMENT' as const,text:a.report_text,insight_refs:[],assessment_refs:[a.id]})):[]),
  ]}))};
 }
