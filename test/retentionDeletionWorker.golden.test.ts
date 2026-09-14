@@ -108,3 +108,35 @@ test('shared Organization identity fails closed instead of anonymizing another C
   const organization=await h.db.query<{name:string}>('SELECT name FROM organizations WHERE id=$1',[org]);
   assert.equal(organization.rows[0]!.name,'ABC株式会社');
 });
+
+test('RAW_AI_IO wipes execution snapshots and structured AI proposal wording while keeping provenance rows',async()=>{
+  const c=await startedCase(h);
+  const executionId=randomUUID();
+  const proposalId=randomUUID();
+  await h.db.query(`INSERT INTO ai_executions
+    (id,diagnosis_case_id,process_type,status,provider,model,prompt_version,policy_version,input_snapshot_json,raw_output_json,validation_status,requested_by_user_id,completed_at)
+    VALUES($1,$2,'INTERVIEW_ASSISTANT','SUCCEEDED','fake','fake-model','p1','policy1',$3,$4,'VALID',$5,now())`,
+    [executionId,c.id,JSON.stringify({secret:'customer-context'}),JSON.stringify({suggestion:'sensitive-ai-output'}),operatorUserId]);
+  await h.db.query(`INSERT INTO ai_proposals
+    (id,diagnosis_case_id,ai_execution_id,proposal_type,status,title,content_json,display_order)
+    VALUES($1,$2,$3,'HYPOTHESIS','REJECTED','AIが生成した仮説',$4,1)`,
+    [proposalId,c.id,executionId,JSON.stringify({text:'sensitive structured suggestion'})]);
+  const req=await h.repo.createDeletionRequest(c.id,operator,'raw-ai-retention');
+  await h.repo.scopeDeletionRequest(c.id,req.id,operator,['RAW_AI_IO']);
+  await h.repo.decideDeletionRequest(c.id,req.id,operator,'APPROVE','Raw AI I/O retention expiry');
+  const result=await worker.executeApprovedRequest(c.id,req.id,operatorUserId);
+  assert.equal(result.status,'COMPLETED');
+  assert.equal(result.anonymized.ai_executions,1);
+  assert.equal(result.anonymized.ai_proposals,1);
+  const execution=await h.db.query<{input_snapshot_json:any;raw_output_json:any;provider:string;model:string}>('SELECT input_snapshot_json,raw_output_json,provider,model FROM ai_executions WHERE id=$1',[executionId]);
+  assert.deepEqual(execution.rows[0]!.input_snapshot_json,{});
+  assert.equal(execution.rows[0]!.raw_output_json,null);
+  assert.equal(execution.rows[0]!.provider,'fake');
+  const proposal=await h.db.query<{title:string;content_json:any;status:string}>('SELECT title,content_json,status FROM ai_proposals WHERE id=$1',[proposalId]);
+  assert.equal(proposal.rows[0]!.title,'[REDACTED]');
+  assert.deepEqual(proposal.rows[0]!.content_json,{});
+  assert.equal(proposal.rows[0]!.status,'REJECTED');
+  const manifest=await buildDeletionReconciliationManifest(h.pool);
+  const verify=await reconcileDeletionManifest(h.pool,manifest,operatorUserId,'VERIFY');
+  assert.equal(verify.unsupported_count,0);
+});
