@@ -44,6 +44,7 @@ jobs:
       - run: npm run test:restore-ai-closure
       - run: npm run test:retention-deletion
       - run: npm run test:pilot-evidence
+      - run: npm run test:external-manifest
       - run: npm run test:readiness:postgres
         env:
           RUN_READINESS_PG: '1'
