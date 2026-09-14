@@ -48,6 +48,20 @@
    card.append(node('h4',labels[s.source_type]));const raw=node('p',s.content);raw.className='diagnosis-raw';card.append(raw);
    const speaker=data.participants.find(p=>p.id===s.speaker_participant_id);
    card.append(node('p',`${speaker?'話者：'+speaker.name+' / ':''}入力：${s.entered_by_user_id} / ${new Date(s.created_at).toLocaleString('ja-JP')}`));
+   if(s.source_type==='TRANSCRIPT') {
+    if(s.purpose_completed_at) {
+     card.append(node('p','取得目的完了：'+new Date(s.purpose_completed_at).toLocaleString('ja-JP')+' / 原則保持上限：'+new Date(new Date(s.purpose_completed_at).getTime()+90*86400000).toLocaleString('ja-JP')));
+    } else {
+     const label=node('label','取得目的が完了した日時：'),input=document.createElement('input');input.type='datetime-local';input.step='0.001';label.append(input);
+     const button=node('button','取得目的の完了を記録');button.type='button';button.className='btn btn-secondary';
+     button.onclick=()=>{
+      const completed=new Date(input.value);
+      if(!input.value||!Number.isFinite(completed.getTime())){error('取得目的が完了した日時を入力してください。');return;}
+      if(window.confirm('このTranscriptの取得目的が完了したことを記録します。原則90日以内の保持上限が設定され、完了日時は変更できません。記録しますか？'))command('/sources/'+encodeURIComponent(s.id)+'/purpose-completion',{completedAt:completed.toISOString()});
+     };
+     card.append(node('p','取得目的の完了が未記録です。完了後に担当者が日時を記録してください。'),label,button);
+    }
+   }
    if(s.parent_source_record_id)card.append(node('p','元記録：'+s.parent_source_record_id));card.append(node('small','Source ID: '+s.id));return card;
   }));
   el('executions').replaceChildren(...data.executions.map(e=>node('p',`${e.status}${e.error_code?' / '+e.error_code:''}`)));

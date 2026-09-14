@@ -41,7 +41,16 @@ runnerは一つのDB connectionでadvisory lockを取得し、全migrationを直
 5. app不具合時は直前revisionへtrafficを戻す。DDLがadditiveで旧app互換ならDBをそのまま保持できる。例: `gcloud run services update-traffic sales-tools --project=msp-zabbix --region=asia-northeast1 --to-revisions=VERIFIED_PREVIOUS_REVISION=100`。旧revisionの互換性を先に確認する。
 6. DB破損時は書き込みを停止しbackup/PITRから**別instance/DB**へrestore。ledger、row count、FK、report/handoff trigger、synthetic smokeを確認して接続先を切替。復旧時点以降の差分は監査記録と照合し、再入力はHuman判断。新旧DBを混在して書き込まない。
 
-down migration、既存SQLの書き換え、承認snapshotのSQL修正は行わない。Cloud SQL Console/現在のgcloud公式手順でbackup IDと復旧先を選び、破壊対象をDB責任者が確認する。RPO/RTOの数値・backup保持期間は責任者の未決定事項であり本書では設定しない。
+down migration、既存SQLの書き換え、承認snapshotのSQL修正は行わない。Cloud SQL Console/現在のgcloud公式手順でbackup IDと復旧先を選び、破壊対象をDB責任者が確認する。最新docs/66〜70の内部目標はRPO ≤24h、RTO ≤24h、Backup保持30日。顧客向けSLAではなく、設定のみでPASSにしない。最新Fit/Gapは [closure status](controlled-pilot-policy-closure-status.md)。
+
+### Controlled Pilot restore — 上記手順6のtraffic復帰前に必須
+
+1. 平常時に `buildDeletionReconciliationManifest` の出力をDB/backup系統外へ永続化する。保管先、権限、完全性、更新頻度、最新削除までの網羅性をEvidenceで確認する。現在この外部保管jobは未実装であり、DB内tombstoneだけでは復元安全性を満たさない。
+2. 隔離DBへrestoreし、reviewed revisionのmigrationを適用する。外部manifestの版・hash・出所・更新時点を照合する。hash一致だけでは出所や完全性の証明にならない。
+3. `reconcileDeletionManifest` のVERIFYで対象を確認し、承認済み範囲をAPPLYする。VERIFYは対象存在確認であり「削除済み」の証明ではない。物理DELETE・未対応分類・不整合・再適用失敗があればtraffic復帰を止める。
+4. 対象別にRaw削除/マスキング結果を検査し、再APPLYが冪等であること、Approved Report/Handoff/Decision/Auditの内容・参照・不変性が保たれることを確認する。対象フィールドのマスキングをCase全体の匿名化完了とは扱わない。
+5. 復元DBに接続したアプリの認証・案件読取・合成smokeを確認する。停止開始、復元可能時点、復旧完了時点から実測RPO/RTOを記録し、30日保持設定と実backup履歴を確認する。
+6. DB/Operations責任者がEvidenceを確認してからtraffic復帰を判断・記録する。実名owner、外部manifest保管、実Cloud SQL rehearsalが揃うまで本手順はBLOCKED_EXTERNAL。
 
 ローカル再現（本番データ禁止、Docker Desktop起動済み）:
 

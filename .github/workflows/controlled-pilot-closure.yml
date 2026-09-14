@@ -1,0 +1,58 @@
+name: Controlled Pilot Closure
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: readiness
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 55436:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d readiness"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node --check scripts/readiness/collect-external-evidence.cjs
+      - run: node --check scripts/readiness/rehearse-docker.cjs
+      - run: npm run test:diagnosis
+      - run: npm run test:preparation
+      - run: npm run test:workspace
+      - run: npm run test:review
+      - run: npm run test:report
+      - run: npm run test:management-feedback-mf-a
+      - run: npm run test:management-feedback-mf-b
+      - run: npm run test:management-feedback-mf-c
+      - run: npm run test:management-feedback-mf-d
+      - run: npm run test:handoff
+      - run: npm run test:readiness
+      - run: npm run test:policy-closure
+      - run: npm run test:restore-ai-closure
+      - run: npm run test:retention-deletion
+      - run: npm run test:pilot-evidence
+      - run: npm run test:external-manifest
+      - run: npm run test:readiness:postgres
+        env:
+          RUN_READINESS_PG: '1'
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:diagnosis:browser
