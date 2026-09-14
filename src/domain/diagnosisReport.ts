@@ -4,8 +4,15 @@ import { DiagnosisError } from './itManagementDiagnosis';
 import type { InsightInput } from './diagnosisReview';
 export const REPORT_PROMPT_VERSION='report-draft-generator-v1';
 export const REPORT_POLICY_VERSION='free-diagnosis-report-v1';
+// Internal section keys remain stable for compatibility. Customer/management-facing titles translate them to the Business Launch Gate five-block language.
 export const SECTIONS=['FUTURE','CURRENT_AND_UNKNOWN','GAP','ROOT_CAUSE_AND_KAIZEN','NEXT_CONFIRMATION'] as const;
-export const SECTION_TITLES:Record<typeof SECTIONS[number],string>={FUTURE:'実現したい会社の未来',CURRENT_AND_UNKNOWN:'現在分かっていること / 現時点で分からないこと',GAP:'Futureとの差（Gapの可能性）',ROOT_CAUSE_AND_KAIZEN:'Root Cause仮説 / KAIZENの方向性',NEXT_CONFIRMATION:'次に確認・判断すべきこと'};
+export const SECTION_TITLES:Record<typeof SECTIONS[number],string>={
+ FUTURE:'実現したい会社の未来',
+ CURRENT_AND_UNKNOWN:'現在分かっていること / 現時点で分からないこと',
+ GAP:'Futureとの差（Gapの可能性）',
+ ROOT_CAUSE_AND_KAIZEN:'WHY：なぜこのGapが起きている可能性があるか',
+ NEXT_CONFIRMATION:'NEXT DECISION：次に確認・判断すべきこと',
+};
 export interface ReportInsight {id:string;version:number;semantic_type:InsightInput['semantic_type'];title:string;content:string;unknown_type:InsightInput['unknown_type'];area_tag:InsightInput['area_tag'];improvement_lens:InsightInput['improvement_lens'];report_text:string}
 export interface ReportContext {
  organization_display_name:string;provider_display_name:string;
@@ -28,7 +35,13 @@ export function sameWording(a:string,b:string){
   .replace(/[\s\u3000]+/g,(space:string,offset:number,whole:string)=>/[A-Za-z0-9０-９]/.test(whole[offset-1]??'')&&/[A-Za-z0-9０-９]/.test(whole[offset+space.length]??'')?' ':'');
  return normalize(a)===normalize(b);
 }
-function expectedSection(i:ReportInsight):typeof SECTIONS[number]{return i.semantic_type==='GAP_CANDIDATE'?'GAP':['ROOT_CAUSE_HYPOTHESIS','KAIZEN_DIRECTION'].includes(i.semantic_type)?'ROOT_CAUSE_AND_KAIZEN':i.semantic_type==='EVIDENCE_CANDIDATE'?'NEXT_CONFIRMATION':'CURRENT_AND_UNKNOWN';}
+function expectedSection(i:ReportInsight):typeof SECTIONS[number]{
+ if(i.semantic_type==='GAP_CANDIDATE') return 'GAP';
+ if(i.semantic_type==='ROOT_CAUSE_HYPOTHESIS') return 'ROOT_CAUSE_AND_KAIZEN';
+ // KAIZEN_DIRECTION is still only a candidate; present it under NEXT DECISION rather than mixing a proposed solution into WHY.
+ if(['KAIZEN_DIRECTION','EVIDENCE_CANDIDATE'].includes(i.semantic_type)) return 'NEXT_CONFIRMATION';
+ return 'CURRENT_AND_UNKNOWN';
+}
 export function validateReportOutput(raw:unknown,context:ReportContext):ReportOutput{
  const parsed=reportOutputSchema.safeParse(raw);if(!parsed.success)throw new DiagnosisError(422,'REPORT_SCHEMA_INVALID');
  if(new Set(parsed.data.sections.map(s=>s.section_key)).size!==5)throw new DiagnosisError(422,'REPORT_SECTIONS_INVALID');
