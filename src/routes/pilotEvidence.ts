@@ -33,15 +33,17 @@ export function createPilotEvidenceRouter(repo:PilotEvidenceRepo){
   });
   router.get('/cases/:id/pilot-evidence',async(req,res,next)=>{
     try{
-      const id=caseSchema.parse(req.params.id);
-      res.json({items:await repo.list(id)});
+      const id=caseSchema.safeParse(req.params.id);
+      if(!id.success){res.status(400).json({error:'案件IDを確認してください。'});return;}
+      res.json({items:await repo.list(id.data)});
     }catch(error){next(error);}
   });
   router.post('/cases/:id/pilot-evidence',async(req,res,next)=>{
     try{
-      const id=caseSchema.parse(req.params.id);
-      const input=inputSchema.parse(req.body);
-      res.status(201).json(await repo.record(id,req.staffEmail!,input));
+      const id=caseSchema.safeParse(req.params.id);
+      const input=inputSchema.safeParse(req.body);
+      if(!id.success||!input.success){res.status(422).json({error:'Pilot Evidenceの入力内容を確認してください。'});return;}
+      res.status(201).json(await repo.record(id.data,req.staffEmail!,input.data));
     }catch(error){next(error);}
   });
   return router;
