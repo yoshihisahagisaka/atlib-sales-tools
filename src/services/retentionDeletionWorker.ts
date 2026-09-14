@@ -17,7 +17,7 @@ export interface DeletionExecutionResult {
   request_id:string;
   diagnosis_case_id:string;
   status:'COMPLETED'|'PARTIALLY_RETAINED';
-  anonymized:{ source_records:number; survey_responses:number; participants:number; organizations:number; ai_executions:number };
+  anonymized:{ source_records:number; survey_responses:number; participants:number; organizations:number; ai_executions:number; ai_proposals:number };
   restricted_classes:RetentionClass[];
   tombstones_written:number;
   idempotent:boolean;
@@ -95,14 +95,23 @@ async function anonymizeGeneralRaw(c:PoolClient,requestId:string,caseId:string,a
 
 async function anonymizeRawAi(c:PoolClient,requestId:string,caseId:string,actorId:string){
   const {rows}=await c.query<{id:string}>(`SELECT id FROM ai_executions WHERE diagnosis_case_id=$1 ORDER BY id FOR UPDATE`,[caseId]);
-  let changed=0,tombstones=0;
+  let executions=0,proposals=0,tombstones=0;
   for(const row of rows){
     const result=await c.query(`UPDATE ai_executions SET input_snapshot_json='{}'::jsonb,raw_output_json=NULL,updated_at=now()
       WHERE id=$1 AND diagnosis_case_id=$2 AND (input_snapshot_json<>'{}'::jsonb OR raw_output_json IS NOT NULL)`,[row.id,caseId]);
-    if(result.rowCount) changed++;
+    if(result.rowCount) executions++;
     tombstones+=await addTombstone(c,requestId,caseId,'RAW_AI_IO','AI_EXECUTION_RAW_IO',row.id,'ANONYMIZE',actorId);
   }
-  return {changed,tombstones};
+  // Structured ai_proposals are still AI output. Preserve IDs, type/status/order and source links for
+  // Human-review provenance, but do not retain the generated wording/payload beyond the Raw AI I/O window.
+  const {rows:proposalRows}=await c.query<{id:string}>(`SELECT id FROM ai_proposals WHERE diagnosis_case_id=$1 ORDER BY id FOR UPDATE`,[caseId]);
+  for(const row of proposalRows){
+    const result=await c.query(`UPDATE ai_proposals SET title='[REDACTED]',content_json='{}'::jsonb,updated_at=now()
+      WHERE id=$1 AND diagnosis_case_id=$2 AND (title<>'[REDACTED]' OR content_json<>'{}'::jsonb)`,[row.id,caseId]);
+    if(result.rowCount) proposals++;
+    tombstones+=await addTombstone(c,requestId,caseId,'RAW_AI_IO','AI_PROPOSAL_RAW_IO',row.id,'ANONYMIZE',actorId);
+  }
+  return {executions,proposals,tombstones};
 }
 
 async function approvedEvidenceInventory(c:PoolClient,caseId:string){
@@ -134,7 +143,7 @@ export class RetentionDeletionWorker {
       if(!req) throw new Error('DELETION_REQUEST_NOT_FOUND');
       if(['COMPLETED','PARTIALLY_RETAINED'].includes(req.status)){
         await c.query('COMMIT');
-        return {request_id:requestId,diagnosis_case_id:caseId,status:req.status as 'COMPLETED'|'PARTIALLY_RETAINED',anonymized:{source_records:0,survey_responses:0,participants:0,organizations:0,ai_executions:0},restricted_classes:[],tombstones_written:0,idempotent:true};
+        return {request_id:requestId,diagnosis_case_id:caseId,status:req.status as 'COMPLETED'|'PARTIALLY_RETAINED',anonymized:{source_records:0,survey_responses:0,participants:0,organizations:0,ai_executions:0,ai_proposals:0},restricted_classes:[],tombstones_written:0,idempotent:true};
       }
       if(req.status!=='APPROVED') throw new Error('DELETION_REQUEST_NOT_APPROVED');
       const scoped=new Set(req.scoped_data_classes ?? []);
@@ -151,7 +160,7 @@ export class RetentionDeletionWorker {
       // restricted-retain until a separately reviewed expiry worker is approved for those immutable/accountability records.
       if(scoped.has('APPROVED_DECISION_EVIDENCE')) restricted.add('APPROVED_DECISION_EVIDENCE');
 
-      let sourceRecords=0,surveyResponses=0,participants=0,organizations=0,aiExecutions=0,tombstones=0;
+      let sourceRecords=0,surveyResponses=0,participants=0,organizations=0,aiExecutions=0,aiProposals=0,tombstones=0;
       if(scoped.has('GENERAL_RAW_DIAGNOSIS')&&!restricted.has('GENERAL_RAW_DIAGNOSIS')){
         const r=await anonymizeGeneralRaw(c,requestId,caseId,executedByUserId);
         sourceRecords+=r.source; surveyResponses+=r.survey; participants+=r.participants; organizations+=r.organizations; tombstones+=r.tombstones;
@@ -162,7 +171,7 @@ export class RetentionDeletionWorker {
       }
       if(scoped.has('RAW_AI_IO')&&!restricted.has('RAW_AI_IO')){
         const r=await anonymizeRawAi(c,requestId,caseId,executedByUserId);
-        aiExecutions+=r.changed; tombstones+=r.tombstones;
+        aiExecutions+=r.executions; aiProposals+=r.proposals; tombstones+=r.tombstones;
       }
 
       for(const dataClass of [...restricted].filter(v=>scoped.has(v))){
@@ -171,12 +180,13 @@ export class RetentionDeletionWorker {
 
       const restrictedClasses=[...restricted].filter(v=>scoped.has(v));
       const status: 'COMPLETED'|'PARTIALLY_RETAINED'=restrictedClasses.length?'PARTIALLY_RETAINED':'COMPLETED';
+      const anonymized={source_records:sourceRecords,survey_responses:surveyResponses,participants,organizations,ai_executions:aiExecutions,ai_proposals:aiProposals};
       await c.query(`UPDATE diagnosis_deletion_requests SET status=$3,executed_by_user_id=$4,executed_at=now(),updated_at=now(),failure_code=NULL
         WHERE id=$1 AND diagnosis_case_id=$2`,[requestId,caseId,status,executedByUserId]);
       await c.query(`INSERT INTO diagnosis_audit_logs(id,diagnosis_case_id,command,actor_type,actor_user_id,detail_json)
-        VALUES($1,$2,'ExecuteDeletionRequest','STAFF',$3,$4)`,[randomUUID(),caseId,executedByUserId,JSON.stringify({deletion_request_id:requestId,status,restricted_classes:restrictedClasses,anonymized:{source_records:sourceRecords,survey_responses:surveyResponses,participants,organizations,ai_executions:aiExecutions},tombstones_written:tombstones})]);
+        VALUES($1,$2,'ExecuteDeletionRequest','STAFF',$3,$4)`,[randomUUID(),caseId,executedByUserId,JSON.stringify({deletion_request_id:requestId,status,restricted_classes:restrictedClasses,anonymized,tombstones_written:tombstones})]);
       await c.query('COMMIT');
-      return {request_id:requestId,diagnosis_case_id:caseId,status,anonymized:{source_records:sourceRecords,survey_responses:surveyResponses,participants,organizations,ai_executions:aiExecutions},restricted_classes:restrictedClasses,tombstones_written:tombstones,idempotent:false};
+      return {request_id:requestId,diagnosis_case_id:caseId,status,anonymized,restricted_classes:restrictedClasses,tombstones_written:tombstones,idempotent:false};
     }catch(error){
       await c.query('ROLLBACK');
       throw error;
