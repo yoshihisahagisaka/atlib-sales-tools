@@ -30,6 +30,7 @@ test('approved deletion request anonymizes raw classes, preserves provenance IDs
   assert.ok(result.anonymized.source_records>=2);
   assert.ok(result.anonymized.survey_responses>0);
   assert.ok(result.anonymized.participants>0);
+  assert.equal(result.anonymized.organizations,1);
 
   const sources=await h.db.query<{id:string;content:string;external_reference:string|null}>('SELECT id,content,external_reference FROM source_records WHERE id IN ($1,$2) ORDER BY id',[note.id,transcript.id]);
   assert.equal(sources.rows.length,2);
@@ -39,6 +40,8 @@ test('approved deletion request anonymizes raw classes, preserves provenance IDs
   assert.ok(responses.rows.every(r=>r.raw_value_json===null));
   const participant=await h.db.query<{name:string;email:string;phone:string|null}>('SELECT name,email,phone FROM participants WHERE diagnosis_case_id=$1',[c.id]);
   assert.ok(participant.rows.every(p=>p.name==='削除済み'&&p.email.endsWith('@invalid.local')&&p.phone===null));
+  const organization=await h.db.query<{name:string}>(`SELECT o.name FROM organizations o JOIN diagnosis_cases c ON c.organization_id=o.id WHERE c.id=$1`,[c.id]);
+  assert.match(organization.rows[0]!.name,/^削除済み組織-/);
 
   const request=await h.db.query<{status:string;executed_by_user_id:string|null}>('SELECT status,executed_by_user_id FROM diagnosis_deletion_requests WHERE id=$1',[req.id]);
   assert.equal(request.rows[0]!.status,'PARTIALLY_RETAINED');
@@ -74,7 +77,7 @@ test('active Hold prevents scoped class anonymization while allowing request to 
   assert.equal(tombstone.rows[0]!.action,'RESTRICT_RETAIN');
 });
 
-test('worker refuses non-approved request and policy expiry preview uses calendar intervals',async()=>{
+test('worker refuses non-approved request and policy expiry preview uses calendar intervals with explicit approved evidence inventory',async()=>{
   const c=await startedCase(h);
   const req=await h.repo.createDeletionRequest(c.id,operator,'not-approved');
   await h.repo.scopeDeletionRequest(c.id,req.id,operator,['GENERAL_RAW_DIAGNOSIS']);
@@ -84,4 +87,24 @@ test('worker refuses non-approved request and policy expiry preview uses calenda
   assert.equal(preview.general_raw_due,true);
   assert.equal(preview.raw_ai_due,true);
   assert.equal(preview.approved_evidence_due,false);
+  assert.equal(preview.approved_decision_evidence_execution_enabled,false);
+  assert.equal(preview.organization_identity_policy,'ANONYMIZE_IF_CASE_EXCLUSIVE_ELSE_REVIEW');
+  assert.ok(preview.approved_decision_evidence_inventory.audit_logs>=1);
+  assert.ok(preview.approved_decision_evidence_inventory.policy_acknowledgements>=1);
+  assert.ok(preview.approved_decision_evidence_inventory.transcript_consent_records>=1);
+});
+
+test('shared Organization identity fails closed instead of anonymizing another Case',async()=>{
+  const first=await startedCase(h);
+  const second=await startedCase(h);
+  const org=(await h.db.query<{organization_id:string}>('SELECT organization_id FROM diagnosis_cases WHERE id=$1',[first.id])).rows[0]!.organization_id;
+  await h.db.query('UPDATE diagnosis_cases SET organization_id=$2 WHERE id=$1',[second.id,org]);
+  const req=await h.repo.createDeletionRequest(first.id,operator,'shared-org-review');
+  await h.repo.scopeDeletionRequest(first.id,req.id,operator,['GENERAL_RAW_DIAGNOSIS']);
+  await h.repo.decideDeletionRequest(first.id,req.id,operator,'APPROVE','raw deletion approved');
+  await assert.rejects(()=>worker.executeApprovedRequest(first.id,req.id,operatorUserId),/SHARED_ORGANIZATION_CLASSIFICATION_REQUIRES_REVIEW/);
+  const row=await h.db.query<{status:string}>('SELECT status FROM diagnosis_deletion_requests WHERE id=$1',[req.id]);
+  assert.equal(row.rows[0]!.status,'APPROVED');
+  const organization=await h.db.query<{name:string}>('SELECT name FROM organizations WHERE id=$1',[org]);
+  assert.equal(organization.rows[0]!.name,'ABC株式会社');
 });
