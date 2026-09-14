@@ -44,7 +44,7 @@ const object=(properties:Record<string,unknown>)=>({type:'object',properties,req
 export const REPORT_JSON_SCHEMA=object({sections:{type:'array',items:object({section_key:{type:'string',enum:SECTIONS},title:{type:'string'},blocks:{type:'array',items:object({block_type:{type:'string',enum:['FUTURE','INSIGHT','ASSESSMENT']},text:{type:'string'},insight_refs:{type:'array',items:{type:'string'}},assessment_refs:{type:'array',items:{type:'string'}}})}})}});
 /** Formatting-only equivalence: no model/heuristic decides that a new diagnosis is equivalent. */
 export function sameWording(a:string,b:string){
- const normalize=(s:string)=>s.replace(/である(?=。|$)/g,'です').replace(/可能性がある(?=。|$)/g,'可能性があります').replace(/と考えられる(?=。|$)/g,'と考えられます').replace(/確認できていない(?=。|$)/g,'確認できていません')
+ const normalize=(s:string)=>s.replace(/である(?=。|\n|$)/g,'です').replace(/可能性がある(?=。|\n|$)/g,'可能性があります').replace(/と考えられる(?=。|\n|$)/g,'と考えられます').replace(/確認できていない(?=。|\n|$)/g,'確認できていません')
   .replace(/[\s\u3000]+/g,(space:string,offset:number,whole:string)=>/[A-Za-z0-9０-９]/.test(whole[offset-1]??'')&&/[A-Za-z0-9０-９]/.test(whole[offset+space.length]??'')?' ':'');
  return normalize(a)===normalize(b);
 }
