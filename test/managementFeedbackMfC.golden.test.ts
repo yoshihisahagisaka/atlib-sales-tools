@@ -16,7 +16,7 @@ async function decide(id:string,route:'DIRECT_ACT'|'FOCUSED_CONFIRMATION'|'DESIG
 }
 
 test('MF-C: Human-only A/B/C/D decision is append-only and does not auto-start Assessment',async()=>{
- const c=await feedbackCase(h);
+ const c=await feedbackCase(h,{decision:false});
  for(const route of ['DIRECT_ACT','FOCUSED_CONFIRMATION','STOP_HOLD','DESIGN_ASSESSMENT'] as const){
   const before=await h.assessment.read(c.id,operator);const result=await decide(c.id,route);const after=await h.assessment.read(c.id,operator);
   assert.equal(after.assessment_status,'NOT_PROPOSED');assert.equal(after.version,before.version+1);assert.equal(result.route,route);
@@ -28,25 +28,25 @@ test('MF-C: Human-only A/B/C/D decision is append-only and does not auto-start A
  await assert.rejects(h.db.query('DELETE FROM management_feedback_decisions WHERE id=$1',[rows[0]!.id]));
 });
 
-test('MF-C: A/B/D block Assessment proposal; only latest Human Route C permits proposal',async()=>{
+test('MF-C: A/B/D and no decision block Assessment proposal; only latest Human Route C permits proposal',async()=>{
+ const undecided=await feedbackCase(h,{decision:false});let u=await h.assessment.read(undecided.id,operator);await assert.rejects(h.assessment.lifecycle(undecided.id,operator,'propose',u.version,'Assessment提案'),status(409));
  for(const route of ['DIRECT_ACT','FOCUSED_CONFIRMATION','STOP_HOLD'] as const){
-  const c=await feedbackCase(h);await decide(c.id,route);const d=await h.assessment.read(c.id,operator);await assert.rejects(h.assessment.lifecycle(c.id,operator,'propose',d.version,'Assessment提案'),status(409));assert.equal((await h.assessment.read(c.id,operator)).assessment_status,'NOT_PROPOSED');
+  const c=await feedbackCase(h,{decision:false});await decide(c.id,route);const d=await h.assessment.read(c.id,operator);await assert.rejects(h.assessment.lifecycle(c.id,operator,'propose',d.version,'Assessment提案'),status(409));assert.equal((await h.assessment.read(c.id,operator)).assessment_status,'NOT_PROPOSED');
  }
- const c=await feedbackCase(h);await decide(c.id,'DESIGN_ASSESSMENT');let d=await h.assessment.read(c.id,operator);await h.assessment.lifecycle(c.id,operator,'propose',d.version,'Human Decisionに基づく提案');d=await h.assessment.read(c.id,operator);assert.equal(d.assessment_status,'PROPOSED');
+ const c=await feedbackCase(h,{decision:false});await decide(c.id,'DESIGN_ASSESSMENT');let d=await h.assessment.read(c.id,operator);await h.assessment.lifecycle(c.id,operator,'propose',d.version,'Human Decisionに基づく提案');d=await h.assessment.read(c.id,operator);assert.equal(d.assessment_status,'PROPOSED');
 });
 
 test('MF-C: customer restatement is same-Case Feedback source ref only and decision snapshot freezes reviewed context',async()=>{
- const c=await feedbackCase(h);await h.report.reissue(c.id,operator,(await h.assessment.read(c.id,operator)).version,'Feedback statementを追加するため再開');
- // Return to the already supported feedback flow is deliberately not used here; use a fresh case source created during feedback fixture when present.
- const sources=(await h.db.query("SELECT id FROM source_records WHERE diagnosis_case_id=$1 AND source_type='FEEDBACK_STATEMENT' ORDER BY created_at,id",[c.id])).rows as Array<{id:string}>;
- const restatement=sources[0]?.id??null;const decision=await decide(c.id,'DESIGN_ASSESSMENT',restatement);const read=await h.feedbackDecision.read(c.id,operator);const frozen=structuredClone(read.latest!.context_snapshot_json);
- assert.equal(frozen.customer_restatement_source_id,restatement);assert.equal(contentHash(frozen),decision.context_hash);
+ const c=await feedbackCase(h,{decision:false});
+ const decision=await decide(c.id,'DESIGN_ASSESSMENT',c.feedbackStatementId);const read=await h.feedbackDecision.read(c.id,operator);const frozen=structuredClone(read.latest!.context_snapshot_json);
+ assert.equal(frozen.customer_restatement_source_id,c.feedbackStatementId);assert.equal(contentHash(frozen),decision.context_hash);
  await h.db.query("UPDATE diagnosis_insights SET content='後続で変更された表現' WHERE diagnosis_case_id=$1 AND review_status='HUMAN_APPROVED' AND id=(SELECT id FROM diagnosis_insights WHERE diagnosis_case_id=$1 AND review_status='HUMAN_APPROVED' LIMIT 1)",[c.id]);
  assert.deepEqual((await h.feedbackDecision.read(c.id,operator)).latest!.context_snapshot_json,frozen);
+ const other=await feedbackCase(h,{decision:false});await assert.rejects(h.feedbackDecision.decide(other.id,operator,{expectedVersion:(await h.assessment.read(other.id,operator)).version,route:'DESIGN_ASSESSMENT',materialDecision:'x',nextAction:'y',customerRestatementSourceId:c.feedbackStatementId}),status(422));
 });
 
 test('MF-C: AI actor cannot commit management decision and API remains staff command gated',async()=>{
- const c=await feedbackCase(h),d=await h.assessment.read(c.id,operator);
+ const c=await feedbackCase(h,{decision:false}),d=await h.assessment.read(c.id,operator);
  await assert.rejects(h.feedbackDecision.decide(c.id,{kind:'AI'} as any,{expectedVersion:d.version,route:'DESIGN_ASSESSMENT',materialDecision:'x',nextAction:'y'}),status(403));
  const url=`${h.url}/api/admin/it-management-diagnosis/cases/${c.id}/feedback/decision`,body={expectedVersion:d.version,route:'DESIGN_ASSESSMENT',materialDecision:'経営判断',nextAction:'Assessmentを検討'};
  assert.equal((await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).status,401);
