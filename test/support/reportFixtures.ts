@@ -11,7 +11,8 @@ export class FakeReportProvider implements ReportDraftProvider {
 export async function reportCase(h:Awaited<ReturnType<typeof createDiagnosisHarness>>){
  const c=await reviewCase(h);
  // Report regression fixtures exercise the CUSTOMER_STATED path. MF-A UNKNOWN behavior has a separate synthetic Golden test.
- await h.db.query("UPDATE diagnosis_futures SET statement='社員が本来の仕事に集中できる会社にしたい' WHERE diagnosis_case_id=$1 AND is_current",[c.id]);
+ // Use the Pool abstraction so the fixture works in both the PGlite harness and real PostgreSQL readiness harness.
+ await h.pool.query("UPDATE diagnosis_futures SET statement='社員が本来の仕事に集中できる会社にしたい' WHERE diagnosis_case_id=$1 AND is_current",[c.id]);
  const unknown=await h.review.createInsight(c.id,operator,humanInsight(c.source.id));
  const hypothesis=await h.review.createInsight(c.id,operator,{...humanInsight(c.source.id),semantic_type:'HYPOTHESIS',unknown_type:null,title:'情報共有の仮説',content:'情報共有の方法に差がある可能性がある'});
  await h.review.createInsight(c.id,operator,{...humanInsight(c.source.id),semantic_type:'ROOT_CAUSE_HYPOTHESIS',unknown_type:null,title:'背景の仮説',content:'役割分担が背景にある可能性がある'});
