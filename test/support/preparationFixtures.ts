@@ -2,6 +2,7 @@ import type { AIProvider } from '../../src/services/preDiagnosisProvider';
 import type { PreDiagnosisContext } from '../../src/services/preDiagnosisContext';
 import type { OrganizerOutput } from '../../src/domain/diagnosisPreparation';
 import { SURVEY_QUESTIONS, type Actor } from '../../src/domain/itManagementDiagnosis';
+import { DIAGNOSIS_POLICY_NOTICE_VERSION } from '../../src/routes/itManagementDiagnosis';
 import type { createDiagnosisHarness } from './diagnosisHarness';
 
 export const operator: Actor = { kind: 'STAFF', userId: 'operator@atlib.jp' };
@@ -21,7 +22,12 @@ export class FakePreparationProvider implements AIProvider {
   organize(context: PreDiagnosisContext, signal: AbortSignal) { return this.run(context,signal); }
 }
 export async function completedCase(h: Awaited<ReturnType<typeof createDiagnosisHarness>>) {
-  const result = await h.repo.createCase({companyName:'ABC株式会社',contactName:'回答者',email:'private@example.test',phone:'PRIVATE_PHONE'},'WEB',{kind:'CUSTOMER',token:''});
+  const result = await h.repo.createCase(
+    {companyName:'ABC株式会社',contactName:'回答者',email:'private@example.test',phone:'PRIVATE_PHONE'},
+    'WEB',
+    {kind:'CUSTOMER',token:''},
+    {noticeVersion:DIAGNOSIS_POLICY_NOTICE_VERSION},
+  );
   const actor: Actor={kind:'CUSTOMER',token:result.access_token!};
   await h.repo.startSurvey(result.id,actor);
   for (const q of SURVEY_QUESTIONS.filter(q=>q.is_required)) {

@@ -23,6 +23,8 @@ interface FutureRow {
   source_ref_type: string; source_ref_id: string; version: number; is_current: boolean;
 }
 const staffId = (actor: Actor): string | null => actor.kind === 'STAFF' ? actor.userId : null;
+const RETENTION_CLASSES = ['GENERAL_RAW_DIAGNOSIS','TRANSCRIPT_RECORDING','RAW_AI_IO','APPROVED_DECISION_EVIDENCE'] as const;
+export type RetentionClass = typeof RETENTION_CLASSES[number];
 
 /** Same pg repository pattern as the legacy tools; all commands lock the aggregate.
  * No SurveyResponse is copied into SourceRecord, Insight or an authoritative fact.
@@ -43,9 +45,9 @@ export class ItManagementDiagnosisRepo {
     } finally { client.release(); }
   }
 
-  private async audit(client: PoolClient, id: string, command: string, actor: Actor): Promise<void> {
-    await client.query(`INSERT INTO diagnosis_audit_logs (id, diagnosis_case_id, command, actor_type, actor_user_id)
-      VALUES ($1,$2,$3,$4,$5)`, [randomUUID(), id, command, actor.kind, staffId(actor)]);
+  private async audit(client: PoolClient, id: string, command: string, actor: Actor, detail?: unknown): Promise<void> {
+    await client.query(`INSERT INTO diagnosis_audit_logs (id, diagnosis_case_id, command, actor_type, actor_user_id, detail_json)
+      VALUES ($1,$2,$3,$4,$5,$6)`, [randomUUID(), id, command, actor.kind, staffId(actor), detail === undefined ? null : JSON.stringify(detail)]);
   }
 
   private async transition(client: PoolClient, id: string, from: DiagnosisStatus | null, to: DiagnosisStatus, command: string, actor: Actor): Promise<void> {
@@ -76,16 +78,16 @@ export class ItManagementDiagnosisRepo {
     return rows;
   }
 
-  async createCase(input: unknown, entryChannel: EntryChannel, actor: Actor) {
+  async createCase(input: unknown, entryChannel: EntryChannel, actor: Actor, policyAcknowledgement?: { noticeVersion: string }) {
     const parsed = applicationSchema.safeParse(input);
     if (!parsed.success) throw new DiagnosisError(422, '会社名・ご担当者名・連絡先を確認してください。');
     if (entryChannel === 'SALES_VISIT' && (actor.kind !== 'STAFF' || !actor.userId)) throw new DiagnosisError(401, 'スタッフ認証が必要です。');
+    if (entryChannel === 'WEB' && !policyAcknowledgement?.noticeVersion) throw new DiagnosisError(422, 'サービス内容とデータ利用について確認してからお申し込みください。');
     const application = parsed.data;
     const token = entryChannel === 'WEB' ? createAccessToken() : null;
     const expires = token ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null;
     const id = randomUUID();
     await this.transaction(async client => {
-      // Insert immutable catalog versions once. Never rewrite wording used by existing responses.
       for (const q of SURVEY_QUESTIONS) await client.query(`INSERT INTO survey_questions
         (id,question_code,version,display_order,question_text,answer_type,options_json,is_required,is_active)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (question_code,version) DO NOTHING`,
@@ -100,6 +102,11 @@ export class ItManagementDiagnosisRepo {
       await client.query(`INSERT INTO participants (id,diagnosis_case_id,name,email,phone,job_title) VALUES ($1,$2,$3,$4,$5,$6)`,
         [participantId, id, application.contactName, application.email, application.phone ?? null, application.jobTitle ?? null]);
       await client.query(`INSERT INTO participant_roles (participant_id,role) VALUES ($1,'RESPONDENT')`, [participantId]);
+      if (entryChannel === 'WEB' && policyAcknowledgement) {
+        await client.query(`INSERT INTO diagnosis_policy_acknowledgements
+          (id,diagnosis_case_id,notice_version,channel,acknowledged_by_type,acknowledged_by_user_id)
+          VALUES($1,$2,$3,'WEB','CUSTOMER',NULL)`, [randomUUID(), id, policyAcknowledgement.noticeVersion]);
+      }
       await this.transition(client, id, null, 'APPLICATION_STARTED', 'CreateDiagnosisCase', actor);
     });
     return { id, organization_display_name: companyDisplayName(application.companyName), provider_name: PROVIDER_NAME,
@@ -107,11 +114,32 @@ export class ItManagementDiagnosisRepo {
       ...(token ? { access_token: token, access_token_expires_at: expires!.toISOString() } : {}) };
   }
 
+  async recordPolicyAcknowledgement(id: string, noticeVersion: string, channel: EntryChannel, actor: Actor): Promise<void> {
+    await this.transaction(async client => {
+      const row = await this.authorizedCase(client, id, actor);
+      if (row.entry_channel !== channel) throw new DiagnosisError(409, '申込経路が一致しません。');
+      const existing = await client.query<{ notice_version: string }>('SELECT notice_version FROM diagnosis_policy_acknowledgements WHERE diagnosis_case_id=$1', [id]);
+      if (existing.rows[0]) {
+        if (existing.rows[0].notice_version !== noticeVersion) throw new DiagnosisError(409, '既に別バージョンの案内確認が記録されています。');
+        return;
+      }
+      await client.query(`INSERT INTO diagnosis_policy_acknowledgements
+        (id,diagnosis_case_id,notice_version,channel,acknowledged_by_type,acknowledged_by_user_id)
+        VALUES($1,$2,$3,$4,$5,$6)`, [randomUUID(), id, noticeVersion, channel, actor.kind, staffId(actor)]);
+      // The acknowledgement row itself is immutable provenance. Do not add a second
+      // lifecycle audit event because that changes legacy transition/audit cardinality.
+    });
+  }
+
   async startSurvey(id: string, actor: Actor): Promise<void> {
     await this.transaction(async client => {
       const row = await this.authorizedCase(client, id, actor);
       if (row.diagnosis_status === 'SURVEY_IN_PROGRESS') return;
       if (row.diagnosis_status !== 'APPLICATION_STARTED') throw new DiagnosisError(409, 'この案件のアンケートは開始できません。');
+      if (row.entry_channel === 'WEB') {
+        const ack = await client.query('SELECT id FROM diagnosis_policy_acknowledgements WHERE diagnosis_case_id=$1', [id]);
+        if (!ack.rows.length) throw new DiagnosisError(409, 'サービス内容とデータ利用の確認記録が必要です。');
+      }
       await client.query(`UPDATE diagnosis_cases SET diagnosis_status='SURVEY_IN_PROGRESS', started_at=now(), updated_at=now(), version=version+1 WHERE id=$1`, [id]);
       await this.transition(client, id, row.diagnosis_status, 'SURVEY_IN_PROGRESS', 'StartSurvey', actor);
     });
@@ -171,6 +199,141 @@ export class ItManagementDiagnosisRepo {
     });
   }
 
+  async recordTranscriptConsent(id: string, actor: Actor, input: { consentVersion: string; consentScope: string; consentedAt: string; customerReference?: string; evidenceNote?: string }) {
+    if (actor.kind !== 'STAFF' || !actor.userId) throw new DiagnosisError(403, 'スタッフのみ記録できます。');
+    return this.transaction(async client => {
+      await this.authorizedCase(client, id, actor);
+      const active = await client.query('SELECT id FROM diagnosis_transcript_consents WHERE diagnosis_case_id=$1 AND status=\'ACTIVE\'', [id]);
+      if (active.rows.length) throw new DiagnosisError(409, '有効なTranscript同意が既に記録されています。');
+      const consentedAt = new Date(input.consentedAt);
+      if (Number.isNaN(consentedAt.getTime()) || consentedAt.getTime() > Date.now() + 5 * 60 * 1000) throw new DiagnosisError(422, '同意日時を確認してください。');
+      const key = randomUUID();
+      await client.query(`INSERT INTO diagnosis_transcript_consents
+        (id,diagnosis_case_id,consent_version,consent_scope,customer_reference,evidence_note,recorded_by_user_id,consented_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [key,id,input.consentVersion,input.consentScope,input.customerReference ?? null,input.evidenceNote ?? null,actor.userId,consentedAt]);
+      await this.audit(client, id, 'RecordTranscriptConsent', actor, { consent_id: key, consent_version: input.consentVersion, consent_scope: input.consentScope, consented_at: consentedAt.toISOString() });
+      return { id: key, status: 'ACTIVE' as const };
+    });
+  }
+
+  async revokeTranscriptConsent(id: string, consentId: string, actor: Actor): Promise<void> {
+    if (actor.kind !== 'STAFF' || !actor.userId) throw new DiagnosisError(403, 'スタッフのみ操作できます。');
+    await this.transaction(async client => {
+      await this.authorizedCase(client, id, actor);
+      const result = await client.query(`UPDATE diagnosis_transcript_consents SET status='REVOKED',revoked_by_user_id=$3,revoked_at=now()
+        WHERE id=$1 AND diagnosis_case_id=$2 AND status='ACTIVE' RETURNING id`, [consentId,id,actor.userId]);
+      if (!result.rows.length) throw new DiagnosisError(404, '有効なTranscript同意が見つかりません。');
+      await this.audit(client, id, 'RevokeTranscriptConsent', actor, { consent_id: consentId });
+    });
+  }
+
+  async completeTranscriptPurpose(id: string, sourceId: string, actor: Actor, completedAt: string) {
+    if (actor.kind !== 'STAFF' || !actor.userId) throw new DiagnosisError(403, 'スタッフのみ操作できます。');
+    const completed = new Date(completedAt);
+    if (!Number.isFinite(completed.getTime()) || completed.getTime() > Date.now()) throw new DiagnosisError(422, '取得目的の完了日時を確認してください。');
+    return this.transaction(async client => {
+      await this.authorizedCase(client, id, actor);
+      const { rows } = await client.query<{ created_at: Date; purpose_completed_at: Date | null }>(
+        `SELECT created_at,purpose_completed_at FROM source_records WHERE id=$1 AND diagnosis_case_id=$2 AND source_type='TRANSCRIPT' FOR UPDATE`, [sourceId,id]);
+      const source = rows[0];
+      if (!source) throw new DiagnosisError(404, 'この案件のTranscriptが見つかりません。');
+      if (completed.getTime() < new Date(source.created_at).getTime()) throw new DiagnosisError(422, '保存日時以降の取得目的完了日時を指定してください。');
+      if (source.purpose_completed_at && new Date(source.purpose_completed_at).getTime() !== completed.getTime()) {
+        throw new DiagnosisError(409, '取得目的の完了日時は記録済みです。保持期限を変更できません。');
+      }
+      if (!source.purpose_completed_at) {
+        await client.query('UPDATE source_records SET purpose_completed_at=$3 WHERE id=$1 AND diagnosis_case_id=$2', [sourceId,id,completed]);
+        await this.audit(client, id, 'CompleteTranscriptPurpose', actor, { source_record_id: sourceId, purpose_completed_at: completed.toISOString() });
+      }
+      return { source_record_id: sourceId, purpose_completed_at: completed.toISOString(), expires_at: new Date(completed.getTime() + 90 * 86400000).toISOString() };
+    });
+  }
+
+  async createDeletionRequest(id: string, actor: Actor, requesterReference: string) {
+    if (actor.kind !== 'STAFF' || !actor.userId) throw new DiagnosisError(403, 'スタッフのみ操作できます。');
+    return this.transaction(async client => {
+      await this.authorizedCase(client, id, actor);
+      const key = randomUUID();
+      await client.query(`INSERT INTO diagnosis_deletion_requests
+        (id,diagnosis_case_id,status,requester_reference,created_by_user_id)
+        VALUES($1,$2,'REQUESTED',$3,$4)`, [key,id,requesterReference,actor.userId]);
+      await this.audit(client, id, 'CreateDeletionRequest', actor, { deletion_request_id: key });
+      return { id: key, status: 'REQUESTED' as const };
+    });
+  }
+
+  async scopeDeletionRequest(id: string, requestId: string, actor: Actor, dataClasses: RetentionClass[], restrictedRetention: unknown[] = []) {
+    if (actor.kind !== 'STAFF' || !actor.userId) throw new DiagnosisError(403, 'スタッフのみ操作できます。');
+    if (!dataClasses.length || dataClasses.some(v => !RETENTION_CLASSES.includes(v))) throw new DiagnosisError(422, '削除対象データ分類を確認してください。');
+    await this.transaction(async client => {
+      await this.authorizedCase(client, id, actor);
+      const current = await client.query<{ status: string }>('SELECT status FROM diagnosis_deletion_requests WHERE id=$1 AND diagnosis_case_id=$2 FOR UPDATE', [requestId,id]);
+      if (!current.rows[0]) throw new DiagnosisError(404, '削除要求が見つかりません。');
+      if (!['REQUESTED','SCOPED'].includes(current.rows[0].status)) throw new DiagnosisError(409, 'この削除要求は対象範囲を変更できません。');
+      await client.query(`UPDATE diagnosis_deletion_requests SET status='SCOPED',scoped_data_classes=$3,restricted_retention_json=$4,updated_at=now() WHERE id=$1 AND diagnosis_case_id=$2`,
+        [requestId,id,JSON.stringify(dataClasses),JSON.stringify(restrictedRetention)]);
+      await this.audit(client, id, 'ScopeDeletionRequest', actor, { deletion_request_id: requestId, data_classes: dataClasses, restricted_retention_count: restrictedRetention.length });
+    });
+  }
+
+  async decideDeletionRequest(id: string, requestId: string, actor: Actor, decision: 'APPROVE'|'REJECT', reason: string): Promise<void> {
+    if (actor.kind !== 'STAFF' || !actor.userId) throw new DiagnosisError(403, 'スタッフのみ操作できます。');
+    await this.transaction(async client => {
+      await this.authorizedCase(client, id, actor);
+      const current = await client.query<{ status: string }>('SELECT status FROM diagnosis_deletion_requests WHERE id=$1 AND diagnosis_case_id=$2 FOR UPDATE', [requestId,id]);
+      if (!current.rows[0]) throw new DiagnosisError(404, '削除要求が見つかりません。');
+      if (current.rows[0].status !== 'SCOPED') throw new DiagnosisError(409, '対象範囲を確定してから承認判断してください。');
+      if (decision === 'APPROVE') await client.query(`UPDATE diagnosis_deletion_requests SET status='APPROVED',decision_reason=$3,approved_by_user_id=$4,approved_at=now(),updated_at=now() WHERE id=$1 AND diagnosis_case_id=$2`, [requestId,id,reason,actor.userId]);
+      else await client.query(`UPDATE diagnosis_deletion_requests SET status='REJECTED',decision_reason=$3,rejected_by_user_id=$4,rejected_at=now(),updated_at=now() WHERE id=$1 AND diagnosis_case_id=$2`, [requestId,id,reason,actor.userId]);
+      await this.audit(client, id, decision === 'APPROVE' ? 'ApproveDeletionRequest' : 'RejectDeletionRequest', actor, { deletion_request_id: requestId, reason });
+    });
+  }
+
+  async retentionDryRun(id: string, actor: Actor) {
+    if (actor.kind !== 'STAFF' || !actor.userId) throw new DiagnosisError(403, 'スタッフのみ実行できます。');
+    return this.transaction(async client => {
+      const row = await this.authorizedCase(client, id, actor);
+      const { rows: closed } = await client.query<{ closed_at: Date | null }>('SELECT closed_at FROM diagnosis_cases WHERE id=$1', [id]);
+      const closedAt = closed[0]?.closed_at ?? null;
+      const { rows: source } = await client.query<{ source_type: string; purpose_completed_at: Date | null; count: string }>(`SELECT source_type,purpose_completed_at,count(*)::text AS count FROM source_records WHERE diagnosis_case_id=$1 GROUP BY source_type,purpose_completed_at`, [id]);
+      const { rows: ai } = await client.query<{ count: string }>(`SELECT count(*)::text AS count FROM ai_executions WHERE diagnosis_case_id=$1 AND (input_snapshot_json IS NOT NULL OR raw_output_json IS NOT NULL)`, [id]);
+      const now = Date.now();
+      const generalExpired = !!closedAt && now >= new Date(closedAt).getTime() + 365 * 24 * 60 * 60 * 1000;
+      const aiExpired = !!closedAt && now >= new Date(closedAt).getTime() + 90 * 24 * 60 * 60 * 1000;
+      const transcriptRows = source.filter(s => s.source_type === 'TRANSCRIPT');
+      const transcriptExpired = transcriptRows.reduce((sum, s) => sum + (s.purpose_completed_at && now >= new Date(s.purpose_completed_at).getTime() + 90 * 24 * 60 * 60 * 1000 ? Number(s.count) : 0), 0);
+      const activeHolds = await client.query(`SELECT data_class,reason,expires_at FROM diagnosis_retention_holds WHERE diagnosis_case_id=$1 AND ended_at IS NULL AND (expires_at IS NULL OR expires_at>now())`, [id]);
+      const held = new Set(activeHolds.rows.map(h => h.data_class));
+      return {
+        diagnosis_case_id: id,
+        diagnosis_status: row.diagnosis_status,
+        closed_at: closedAt,
+        dry_run: true,
+        eligible: {
+          GENERAL_RAW_DIAGNOSIS: generalExpired && !held.has('GENERAL_RAW_DIAGNOSIS') ? source.filter(s => s.source_type !== 'TRANSCRIPT').reduce((n,s)=>n+Number(s.count),0) : 0,
+          TRANSCRIPT_RECORDING: held.has('TRANSCRIPT_RECORDING') ? 0 : transcriptExpired,
+          RAW_AI_IO: aiExpired && !held.has('RAW_AI_IO') ? Number(ai[0]?.count ?? 0) : 0,
+          APPROVED_DECISION_EVIDENCE: 0,
+        },
+        active_holds: activeHolds.rows,
+        transcript_purpose_pending_count: transcriptRows.filter(s => !s.purpose_completed_at).reduce((n,s) => n + Number(s.count), 0),
+        destructive_execution_enabled: false,
+      };
+    });
+  }
+
+  async getPolicyReadModel(id: string, actor: Actor) {
+    if (actor.kind !== 'STAFF' || !actor.userId) throw new DiagnosisError(403, 'スタッフのみ参照できます。');
+    return this.transaction(async client => {
+      await this.authorizedCase(client, id, actor);
+      const ack = await client.query('SELECT notice_version,channel,acknowledged_by_type,acknowledged_at FROM diagnosis_policy_acknowledgements WHERE diagnosis_case_id=$1', [id]);
+      const consents = await client.query('SELECT id,consent_version,consent_scope,consented_at,status,revoked_at FROM diagnosis_transcript_consents WHERE diagnosis_case_id=$1 ORDER BY created_at DESC', [id]);
+      const deletions = await client.query('SELECT id,status,requester_reference,requested_at,scoped_data_classes,decision_reason,approved_at,rejected_at,executed_at,restricted_retention_json FROM diagnosis_deletion_requests WHERE diagnosis_case_id=$1 ORDER BY created_at DESC', [id]);
+      const holds = await client.query('SELECT id,data_class,reason,started_at,expires_at,ended_at FROM diagnosis_retention_holds WHERE diagnosis_case_id=$1 ORDER BY created_at DESC', [id]);
+      return { policy_acknowledgement: ack.rows[0] ?? null, transcript_consents: consents.rows, deletion_requests: deletions.rows, retention_holds: holds.rows };
+    });
+  }
+
   async getSurvey(id: string, actor: Actor) {
     return this.transaction(async client => {
       const row = await this.authorizedCase(client, id, actor);
@@ -182,7 +345,6 @@ export class ItManagementDiagnosisRepo {
       const { rows: futures } = await client.query<FutureRow>(`SELECT id,statement,time_horizon,intent_status,source_ref_type,source_ref_id,version,is_current
         FROM diagnosis_futures WHERE diagnosis_case_id=$1 AND is_current`, [id]);
       const answered = questions.filter(q => q.is_required && hasAnswer(responses.find(r => r.question_code === q.question_code)?.raw_value_json)).length;
-      // Explicit projection: tokens, staff principal, and internal business fields never leak publicly.
       const base = { id, organization_display_name: companyDisplayName(organizations[0]!.name), provider_name: PROVIDER_NAME,
         diagnosis_status: row.diagnosis_status, survey_version: row.survey_version, version: row.version,
         questions, responses: responses.map(r => ({ id: r.id, question_code: r.question_code, question_version: r.question_version,
@@ -210,7 +372,7 @@ export class ItManagementDiagnosisRepo {
       (SELECT status FROM assessment_handoffs h WHERE h.diagnosis_case_id=c.id ORDER BY version DESC LIMIT 1) AS handoff_status,
       (SELECT count(*)::int FROM survey_questions q WHERE q.version=c.survey_version AND q.is_required) AS total_required,
       (SELECT count(*)::int FROM survey_responses r JOIN survey_questions q ON q.id=r.question_id
-        WHERE r.diagnosis_case_id=c.id AND q.is_required AND r.raw_value_json NOT IN ('[]'::jsonb,'""'::jsonb)) AS answered_required
+        WHERE r.diagnosis_case_id=c.id AND q.is_required AND r.raw_value_json NOT IN ('[]'::jsonb,'\"\"'::jsonb)) AS answered_required
       FROM diagnosis_cases c JOIN organizations o ON o.id=c.organization_id
       JOIN participants p ON p.diagnosis_case_id=c.id JOIN participant_roles pr ON pr.participant_id=p.id AND pr.role='RESPONDENT'
       LEFT JOIN diagnosis_futures f ON f.diagnosis_case_id=c.id AND f.is_current

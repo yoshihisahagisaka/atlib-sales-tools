@@ -15,29 +15,32 @@ const env = {DB_HOST:'127.0.0.1', DB_NAME:'readiness', DB_USER:'postgres', DB_PA
 const envArgs = values => Object.entries(values).flatMap(([k,v]) => ['-e', `${k}=${v}`]);
 const migration = () => docker('run','--rm','--network',`container:${pg}`,...envArgs(env),'diagnosis-readiness:migration');
 const rerun = migration();
-assert.equal(rerun.split('\n').filter(s => s.includes('migration_skipped')).length,12);
-console.log(JSON.stringify({event:'migration_artifact_rerun',skipped:12}));
+const skipped = rerun.split('\n').filter(s => s.includes('migration_skipped')).length;
+assert.ok(skipped > 0, 'expected existing migrations to be skipped on rerun');
+console.log(JSON.stringify({event:'migration_artifact_rerun',skipped}));
 const psql = (db, sql) => docker('exec', pg, 'psql','-v','ON_ERROR_STOP=1','-U','postgres','-d',db,'-Atc',sql);
+const expectedMigrations = Number(psql('readiness','SELECT count(*) FROM schema_migrations'));
+assert.equal(skipped, expectedMigrations);
 psql('readiness', "CREATE TABLE IF NOT EXISTS readiness_restore_marker(value text); TRUNCATE readiness_restore_marker; INSERT INTO readiness_restore_marker VALUES ('synthetic-only');");
 docker('exec',pg,'pg_dump','-U','postgres','-d','readiness','-Fc','-f','/tmp/readiness-rehearsal.dump');
 docker('exec',pg,'dropdb','-U','postgres','--if-exists','readiness_restore');
 docker('exec',pg,'createdb','-U','postgres','readiness_restore');
 docker('exec',pg,'pg_restore','-U','postgres','--exit-on-error','-d','readiness_restore','/tmp/readiness-rehearsal.dump');
 assert.equal(psql('readiness_restore','SELECT value FROM readiness_restore_marker'), 'synthetic-only');
-assert.equal(psql('readiness_restore','SELECT count(*) FROM schema_migrations'),'12');
+assert.equal(Number(psql('readiness_restore','SELECT count(*) FROM schema_migrations')), expectedMigrations);
 const triggers = "SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal";
 assert.equal(psql('readiness_restore',triggers),psql('readiness',triggers));
-console.log(JSON.stringify({event:'local_backup_restore_verified',ledger:12,triggers:Number(psql('readiness_restore',triggers)),customerData:false}));
+console.log(JSON.stringify({event:'local_backup_restore_verified',ledger:expectedMigrations,triggers:Number(psql('readiness_restore',triggers)),customerData:false}));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(),'readiness-runtime-'));
 let started = false;
 (async () => {
  try {
-  docker('run','-d','--name',runtime,'--label','purpose=diagnosis-readiness','--network',`container:${pg}`,...envArgs({...env,DB_NAME:'readiness_restore',SMTP_HOST:'127.0.0.1',SMTP_PASSWORD:'synthetic-only',SMTP_USER:'synthetic',SMTP_FROM:'synthetic@example.test',DIAGNOSTIC_NOTIFY_EMAIL:'synthetic@example.test',GOOGLE_OAUTH_CLIENT_ID:'synthetic',GOOGLE_OAUTH_CLIENT_SECRET:'synthetic-only',STAFF_JWT_SECRET:'synthetic-readiness-signing-key-only-123456',PORTAL_BASE_URL:'https://example.test'}),'diagnosis-readiness:runtime'); started=true;
+  docker('run','-d','--name',runtime,'--label','purpose=diagnosis-readiness','--network',`container:${pg}`,...envArgs({...env,DB_NAME:'readiness_restore',EXPECTED_MIGRATIONS:String(expectedMigrations),SMTP_HOST:'127.0.0.1',SMTP_PASSWORD:'synthetic-only',SMTP_USER:'synthetic',SMTP_FROM:'synthetic@example.test',DIAGNOSTIC_NOTIFY_EMAIL:'synthetic@example.test',GOOGLE_OAUTH_CLIENT_ID:'synthetic',GOOGLE_OAUTH_CLIENT_SECRET:'synthetic-only',STAFF_JWT_SECRET:'synthetic-readiness-signing-key-only-123456',PORTAL_BASE_URL:'https://example.test'}),'diagnosis-readiness:runtime'); started=true;
   const probe = `const assert=require('node:assert/strict'),fs=require('node:fs'); (async()=>{
-    assert.equal(process.getuid(),1000);assert.match(process.version,/^v20\\./);
+    assert.equal(process.getuid(),1000);assert.match(process.version,/^v22\\./);
     assert.equal(fs.existsSync('/app/node_modules/ts-node'),false);assert.equal(fs.existsSync('/app/.env'),false);assert.equal(fs.existsSync('/app/migrations'),false);
     for(const [url,status] of [['/healthz',200],['/auth/login',302],['/it-management-diagnosis.html',200],['/admin/it-management-diagnosis-detail.html',302],['/api/admin/it-management-diagnosis/cases',401]]){const r=await fetch('http://127.0.0.1:8080'+url,{redirect:'manual'});assert.equal(r.status,status,url);}
-    const pool=new (require('/app/node_modules/pg').Pool)({host:process.env.DB_HOST,user:process.env.DB_USER,database:process.env.DB_NAME,password:process.env.DB_PASSWORD});assert.equal((await pool.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,12);await pool.end();
+    const pool=new (require('/app/node_modules/pg').Pool)({host:process.env.DB_HOST,user:process.env.DB_USER,database:process.env.DB_NAME,password:process.env.DB_PASSWORD});assert.equal((await pool.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,Number(process.env.EXPECTED_MIGRATIONS));await pool.end();
     console.log(JSON.stringify({event:'runtime_smoke_pass',node:process.version,uid:process.getuid(),restoredDatabase:true,aiKeyConfigured:!!process.env.ANTHROPIC_API_KEY}));
   })().catch(error=>{console.error(JSON.stringify({event:'runtime_probe_failed',code:error.code,message:error.message}));process.exitCode=1;});`;
   fs.writeFileSync(path.join(tmp,'probe.cjs'),probe);docker('cp',path.join(tmp,'probe.cjs'),`${runtime}:/tmp/probe.cjs`);

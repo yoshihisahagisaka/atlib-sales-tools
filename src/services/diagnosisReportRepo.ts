@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Pool,PoolClient } from 'pg';
 import { DiagnosisError,nextAction,type Actor,type DiagnosisStatus } from '../domain/itManagementDiagnosis';
 import { rawSourceSchema } from '../domain/diagnosisWorkspace';
-import { REPORT_PROMPT_VERSION,REPORT_POLICY_VERSION,validateReportOutput,manualReport,storeReport,reportOutput,contentHash,wordingSchema,type StoredReport,type ReportContext,type ReportOutput } from '../domain/diagnosisReport';
+import { REPORT_PROMPT_VERSION,REPORT_POLICY_VERSION,assertWhyConnectionsReady,validateReportOutput,manualReport,storeReport,reportOutput,contentHash,wordingSchema,type StoredReport,type ReportContext,type ReportOutput } from '../domain/diagnosisReport';
 import { buildReportContext } from './reportContext';
 import type { Execution } from './diagnosisPreparationRepo';
 interface ReportCase {id:string;version:number;diagnosis_status:DiagnosisStatus;feedback_report_id:string|null;feedback_started_at:Date|null;feedback_completed_at:Date|null;feedback_started_by_user_id:string|null}
@@ -56,7 +56,7 @@ export class DiagnosisReportRepo {
   const detail={report_id:key,reason,return_to_review:returnToReview};if(returnToReview){await c.query('UPDATE diagnosis_cases SET review_completed_at=NULL,review_completed_by_user_id=NULL WHERE id=$1',[id]);await this.transition(c,row,actor,'HUMAN_REVIEW_REQUIRED','RequestReportRevision',detail);}else await this.audit(c,id,actor,'RequestReportRevision',detail);
  });}
  async approve(id:string,actor:Actor,key:string,expectedVersion:number){await this.tx(async c=>{
-  const row=await this.locked(c,id,actor,['REPORT_REVIEW_REQUIRED'],expectedVersion),report=await this.target(c,id,key,['DRAFT','REVIEW_REQUIRED']),context=await this.freshContext(c,id,report);validateReportOutput(reportOutput(report.content_json),context);
+  const row=await this.locked(c,id,actor,['REPORT_REVIEW_REQUIRED'],expectedVersion),report=await this.target(c,id,key,['DRAFT','REVIEW_REQUIRED']),context=await this.freshContext(c,id,report);validateReportOutput(reportOutput(report.content_json),context);assertWhyConnectionsReady(context);
   const approvedAt=new Date().toISOString();const snapshot={future:context.future,insights:context.insights,assessment_confirmation_items:context.assessment_confirmation_items,organization_display_name:context.organization_display_name,provider_display_name:context.provider_display_name,policy_version:report.policy_version,prompt_version:report.prompt_version,report_version:report.version,content_version:report.content_version,content_hash:contentHash(report.content_json),approved_by:this.staff(actor),approved_at:approvedAt};
   await c.query(`UPDATE diagnosis_reports SET status='APPROVED',snapshot_json=$2,approved_by_user_id=$3,approved_at=$4,updated_at=now() WHERE id=$1`,[key,JSON.stringify(snapshot),this.staff(actor),approvedAt]);await this.transition(c,row,actor,'REPORT_APPROVED','ApproveReport',{report_id:key,version:report.version,content_hash:snapshot.content_hash});
  });}

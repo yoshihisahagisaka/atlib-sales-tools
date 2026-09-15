@@ -31,7 +31,9 @@ test('Workspace: Human Start → 原文記録 → AI候補のAsk/Later/Unnecessa
 });
 
 test('Future再確認・Transcript追跡・自発的Evidence存在とHuman追加',async({page})=>{
- const c=await readyCase(h);await page.goto(`${h.url}/admin/it-management-diagnosis-workspace.html?id=${c.id}`);await page.locator('#start').click();await expect(page.locator('#case-status')).toHaveText('DIAGNOSIS_IN_PROGRESS');
+ const c=await readyCase(h);
+ await h.repo.recordTranscriptConsent(c.id,operator,{consentVersion:'TEST-v1',consentScope:'browser transcript capture',consentedAt:new Date().toISOString()});
+ await page.goto(`${h.url}/admin/it-management-diagnosis-workspace.html?id=${c.id}`);await page.locator('#start').click();await expect(page.locator('#case-status')).toHaveText('DIAGNOSIS_IN_PROGRESS');
  await page.getByText('Transcriptを貼り付けて保存',{exact:true}).click();await page.locator('#transcript-content').fill('顧客：採用を増やせる会社を目指す');await page.getByRole('button',{name:'Transcriptを保存',exact:true}).click();await expect(page.locator('#sources')).toContainText('Transcript');
  const transcript=(await h.workspace.read(c.id,operator)).sources[0];await page.locator('#statement-parent').selectOption(transcript.id);await page.locator('#statement-content').fill('採用を増やせる会社を目指す');await page.getByRole('button',{name:'顧客発言を保存',exact:true}).click();await expect(page.locator('#sources')).toContainText('元記録：');
  await page.getByText('対話でFutureを再確認する',{exact:true}).click();await page.locator('#future-statement').fill('採用を増やせる会社を目指す');const statement=(await h.workspace.read(c.id,operator)).sources.find(s=>s.source_type==='INTERVIEW_STATEMENT');await page.locator('#future-source').selectOption(statement.id);
@@ -41,6 +43,16 @@ test('Future再確認・Transcript追跡・自発的Evidence存在とHuman追加
  await page.getByText('担当者がテーマ・確認項目を追加する',{exact:true}).click();await page.locator('#theme-title').fill('採用時の情報共有');await page.locator('#theme-relation').fill('採用を増やす未来のため');await page.getByRole('button',{name:'テーマを追加',exact:true}).click();await expect(page.locator('#themes')).toContainText('採用時の情報共有');
  await page.locator('#plan-text').fill('連絡はどのように行われますか？');await page.getByRole('button',{name:'確認項目を追加',exact:true}).click();await expect(page.locator('#plan-items')).toContainText('連絡はどのように行われますか？');
  page.once('dialog',d=>d.accept());await page.locator('#finish').click();await expect(page.locator('#case-status')).toHaveText('HUMAN_REVIEW_REQUIRED');
+ const card=page.locator(`[data-source-id="${transcript.id}"]`);
+ // Chromium normalizes trailing fractional zeros (e.g. .110 -> .11). Playwright
+ // requires the normalized value; otherwise a valid timestamp can fail fill.
+ await card.locator('input[type="datetime-local"]').fill(await page.evaluate(()=>{
+  const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+  const input=document.createElement('input');input.type='datetime-local';input.step='0.001';input.value=d.toISOString().slice(0,23);return input.value;
+ }));
+ page.once('dialog',d=>d.accept());await card.getByRole('button',{name:'取得目的の完了を記録',exact:true}).click();
+ await expect(card).toContainText('取得目的完了：');await expect(card).toContainText('原則保持上限：');
+ await page.reload();await expect(card).toContainText('取得目的完了：');await expect(card.getByRole('button',{name:'取得目的の完了を記録',exact:true})).toHaveCount(0);
 });
 
 test('AI failureでもHuman-onlyの記録・終了が可能',async({page},info)=>{

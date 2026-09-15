@@ -13,6 +13,11 @@ async function application(page: Page, staff = false) {
   await page.getByLabel('会社名（敬称不要）').fill('ABC株式会社様');
   await page.getByLabel('ご担当者名').fill('山田');
   await page.getByLabel('メールアドレス').fill('customer@example.test');
+  if (!staff) {
+    await page.getByRole('button', { name: '申し込んでアンケートへ進む' }).click();
+    await expect(page.locator('#survey-questions')).toBeHidden();
+    await page.locator('#policy-acknowledged').check();
+  }
   await page.getByRole('button', { name: staff ? '営業訪問の案件を作成する' : '申し込んでアンケートへ進む' }).click();
   await expect(page.locator('#survey-questions')).toBeVisible();
   await expect(page.locator('#company-display')).toHaveText('ABC株式会社様');

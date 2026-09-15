@@ -8,7 +8,7 @@ import pinoHttp from 'pino-http';
 import { PGlite } from '@electric-sql/pglite';
 import type { Pool } from 'pg';
 import { ItManagementDiagnosisRepo } from '../../src/services/itManagementDiagnosisRepo';
-import { createItManagementDiagnosisRouter, type CompletionNotifier } from '../../src/routes/itManagementDiagnosis';
+import { createItManagementDiagnosisRouter, DIAGNOSIS_POLICY_NOTICE_VERSION, type CompletionNotifier } from '../../src/routes/itManagementDiagnosis';
 import { createAdminItManagementDiagnosisRouter } from '../../src/routes/adminItManagementDiagnosis';
 import { StaffAuthService } from '../../src/services/staffAuthService';
 import { requireStaffAuth } from '../../src/middleware/staffAuth';
@@ -30,6 +30,10 @@ import { DiagnosisReportRepo } from '../../src/services/diagnosisReportRepo';
 import { AnthropicReportDraftProvider, type ReportDraftProvider } from '../../src/services/reportDraftProvider';
 import { ReportDraftWorker } from '../../src/services/reportDraftWorker';
 import { PreDiagnosisWorker } from '../../src/services/preDiagnosisWorker';
+import { ManagementFeedbackDecisionRepo } from '../../src/services/managementFeedbackDecisionRepo';
+import { createManagementFeedbackDecisionRouter } from '../../src/routes/managementFeedbackDecision';
+import { PilotInstrumentationRepo } from '../../src/services/pilotInstrumentationRepo';
+import { createPilotInstrumentationRouter } from '../../src/routes/pilotInstrumentation';
 
 /** Real PostgreSQL SQL/constraints/transactions in a disposable WASM database.
  * A single connection adapter serializes transactions, matching pg Pool checkout.
@@ -48,6 +52,9 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   await db.exec(fs.readFileSync(path.join(root, 'migrations/010_it_management_diagnosis_human_review.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/011_it_management_diagnosis_report_feedback.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/012_it_management_diagnosis_assessment_handoff.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/013_it_management_diagnosis_policy_closure.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/014_it_management_diagnosis_restore_reconciliation.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/015_management_feedback_decision.sql'), 'utf8'));
   let tail = Promise.resolve();
   async function acquire() {
     const previous = tail;
@@ -70,6 +77,7 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   const postWorker = new PostDiagnosisWorker(preparation,review,postProvider);
   const assessment = new DiagnosisAssessmentRepo(pool);
   const report = new DiagnosisReportRepo(pool);
+  const feedbackDecision = new ManagementFeedbackDecisionRepo(pool);
   const reportWorker = new ReportDraftWorker(preparation,report,reportProvider);
   const staffAuth = new StaffAuthService('disposable-test-key-not-a-production-secret');
   const staffCookie = `staff_session=${staffAuth.issueSessionToken({ email: 'operator@atlib.jp' })}`;
@@ -78,8 +86,16 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   app.set('trust proxy', 'loopback');
   app.use(pinoHttp({ logger: pino({ level: 'info' }, { write: text => { logs.push(text); } }), serializers: { req: safeAccessRequest } }));
   app.use(express.json()); app.use(cookieParser());
+  app.use('/api/it-management-diagnosis/cases', (req, _res, next) => {
+    if (req.method === 'POST' && req.get('x-test-skip-policy-injection') !== '1' && req.body && typeof req.body === 'object') {
+      req.body = { ...req.body, policyNoticeVersion: DIAGNOSIS_POLICY_NOTICE_VERSION, policyAcknowledged: true };
+    }
+    next();
+  });
   app.use('/api/it-management-diagnosis', createItManagementDiagnosisRouter(repo, notify));
   app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createAdminItManagementDiagnosisRouter(repo, notify,{ repo: preparation,provider,worker },{repo:workspace,provider:interviewProvider,worker:interviewWorker},{repo:review,provider:postProvider,worker:postWorker},{repo:report,provider:reportProvider,worker:reportWorker},assessment));
+  app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createManagementFeedbackDecisionRouter(feedbackDecision));
+  app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createPilotInstrumentationRouter(new PilotInstrumentationRepo(pool)));
   app.use('/api/kaizen-diagnostic', createKaizenDiagnosticRouter(new KaizenDiagnosticRepo(pool), {} as Mailer,
     { portalBaseUrl: 'http://localhost', slack: {} } as Config));
   app.use('/admin', requireStaffAuth(staffAuth), express.static(path.join(root, 'public/admin')));
@@ -87,6 +103,6 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  return { db, pool, repo, url, logs, staffCookie, preparation, worker, workspace, interviewWorker, review, postWorker, report, reportWorker, assessment,
+  return { db, pool, repo, url, logs, staffCookie, preparation, worker, workspace, interviewWorker, review, postWorker, report, reportWorker, assessment, feedbackDecision,
     close: async () => { await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve())); await db.close(); } };
 }

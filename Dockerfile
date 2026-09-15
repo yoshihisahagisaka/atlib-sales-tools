@@ -1,4 +1,4 @@
-﻿FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -6,13 +6,13 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
-FROM node:20-alpine AS production-deps
+FROM node:22-alpine AS production-deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 # Dedicated deploy job/CI step; never run migrations at service startup.
-FROM node:20-alpine AS migration
+FROM node:22-alpine AS migration
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=production-deps /app/node_modules ./node_modules
@@ -21,7 +21,7 @@ COPY migrations/*.sql ./migrations/
 USER node
 CMD ["node", "dist/db/migrateCli.js"]
 
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=production-deps /app/node_modules ./node_modules

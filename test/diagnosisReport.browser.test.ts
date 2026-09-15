@@ -13,7 +13,12 @@ test('Report: AI Draft→Grounding→wording→Human approval→Delivery→Raw F
  await expect(page.locator('#company')).toHaveText('ABC株式会社様');await expect(page.getByText('無料 IT経営診断 / 提供：atLIB株式会社',{exact:true})).toBeVisible();await expect(page.locator('#tab-assessment')).toBeEnabled();
  await page.locator('#run-ai').click();await expect(page.locator('#executions')).toContainText('SUCCEEDED');await expect(page.locator('#case-status')).toHaveText('REPORT_REVIEW_REQUIRED');await expect(page.locator('#report-sections > section')).toHaveCount(5);await expect(page.locator('#report-future-status')).toHaveText('SURVEY_STATED');
  const block=page.locator('.report-block').filter({hasText:c.hypothesis.id});await block.locator('summary').click();await expect(block.locator('details')).toContainText(c.hypothesis.id);await expect(block.locator('details')).toContainText('HYPOTHESIS / v1');
- await block.getByRole('button',{name:'表現を調整する'}).click();await page.locator('#wording-text').fill('仮説：情報共有の方法に差がある可能性があります');await page.getByRole('button',{name:'表現を保存',exact:true}).click();await expect(page.locator('#content-version')).toHaveText('本文version 2');await expect(page.locator('#report-error')).toBeHidden();
+ await block.getByRole('button',{name:'表現を調整する'}).click();
+ const groundedWording=await page.locator('#wording-text').inputValue();
+ expect(groundedWording).toContain('Supporting Observation / Context');expect(groundedWording).toContain('Evidence Needed');
+ const editedWording=groundedWording.replace('可能性がある\n','可能性があります\n');expect(editedWording).not.toBe(groundedWording);
+ await page.locator('#wording-text').fill(editedWording);
+ await page.getByRole('button',{name:'表現を保存',exact:true}).click();await expect(page.locator('#content-version')).toHaveText('本文version 2');await expect(page.locator('#report-error')).toBeHidden();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBeTruthy();await page.screenshot({path:info.outputPath('report-grounded-draft.png'),fullPage:true});
  page.once('dialog',d=>d.accept());await page.locator('#approve').click();await expect(page.locator('#case-status')).toHaveText('REPORT_APPROVED');await expect(page.locator('#approval-info')).toContainText('operator@atlib.jp');await expect(page.locator('#approve')).toBeDisabled();await expect(block.getByRole('button',{name:'表現を調整する'})).toBeDisabled();
  await page.emulateMedia({media:'print'});await expect(page.locator('#report-preview')).toBeVisible();await expect(page.locator('#run-ai')).toBeHidden();await page.screenshot({path:info.outputPath('report-print.png'),fullPage:true});await page.emulateMedia({media:'screen'});
