@@ -32,6 +32,8 @@ import { ReportDraftWorker } from '../../src/services/reportDraftWorker';
 import { PreDiagnosisWorker } from '../../src/services/preDiagnosisWorker';
 import { ManagementFeedbackDecisionRepo } from '../../src/services/managementFeedbackDecisionRepo';
 import { createManagementFeedbackDecisionRouter } from '../../src/routes/managementFeedbackDecision';
+import { PilotInstrumentationRepo } from '../../src/services/pilotInstrumentationRepo';
+import { createPilotInstrumentationRouter } from '../../src/routes/pilotInstrumentation';
 
 /** Real PostgreSQL SQL/constraints/transactions in a disposable WASM database.
  * A single connection adapter serializes transactions, matching pg Pool checkout.
@@ -93,6 +95,7 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   app.use('/api/it-management-diagnosis', createItManagementDiagnosisRouter(repo, notify));
   app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createAdminItManagementDiagnosisRouter(repo, notify,{ repo: preparation,provider,worker },{repo:workspace,provider:interviewProvider,worker:interviewWorker},{repo:review,provider:postProvider,worker:postWorker},{repo:report,provider:reportProvider,worker:reportWorker},assessment));
   app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createManagementFeedbackDecisionRouter(feedbackDecision));
+  app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createPilotInstrumentationRouter(new PilotInstrumentationRepo(pool)));
   app.use('/api/kaizen-diagnostic', createKaizenDiagnosticRouter(new KaizenDiagnosticRepo(pool), {} as Mailer,
     { portalBaseUrl: 'http://localhost', slack: {} } as Config));
   app.use('/admin', requireStaffAuth(staffAuth), express.static(path.join(root, 'public/admin')));

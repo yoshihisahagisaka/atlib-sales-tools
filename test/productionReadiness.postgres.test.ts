@@ -29,6 +29,7 @@ import {FakePostDiagnosisProvider,humanInsight} from './support/reviewFixtures';
 import {FakeReportProvider,reportCase} from './support/reportFixtures';
 import {feedbackCase} from './support/assessmentFixtures';
 import {contentHash} from '../src/domain/diagnosisReport';
+import {instrumentationContinuity} from './support/pilotInstrumentationScenario';
 import type {createDiagnosisHarness} from './support/diagnosisHarness';
 const dir=path.resolve(__dirname,'../migrations');
 const config={host:'127.0.0.1',port:55436,database:'readiness',user:'postgres',max:5,connectionTimeoutMillis:5000};
@@ -89,6 +90,9 @@ test('Real PostgreSQL readiness: migrations, multi-connection concurrency, WEB /
     await assert.rejects(other.decide(c.id,operator,{...input,expectedVersion:currentVersion}),/test audit failure/);
     assert.equal((await x.s.assessment.read(c.id,operator)).version,currentVersion);assert.deepEqual(await other.read(c.id,operator),before);
    }finally{await x.close();}
+  });
+  await t.test('MF-E concurrent read consistency, supersession, audit and raw deletion continuity',async()=>{
+   const x=await setup();try{await instrumentationContinuity(x.h,x.other);}finally{await x.close();}
   });
   for(const channel of ['WEB','SALES_VISIT'] as const)await t.test(`${channel} synthetic real-PostgreSQL E2E AI-01–04 / Human Gates / CLOSED`,async()=>{
   const x=await setup();try{const {repo,preparation,workspace,review,report,assessment}=x.s,live=process.env.RUN_READINESS_AI_LIVE==='1';if(live&&!process.env.ANTHROPIC_API_KEY)throw Error('BLOCKED_EXTERNAL: AI key missing');

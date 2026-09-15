@@ -141,6 +141,8 @@ Real AI/provider checks are still not CI evidence for the external provider gate
 
 ## Current Gate
 
+2026-09-16 MF-E: [Pilot Instrumentation inventory and Fit/Gap](management-feedback-mf-e-fit-gap.md) adds a staff-only read-side projection over existing metadata. No Migration/Core Object or measurement-entry form. MF-A/B/C/D remain intact; actual conversation time and unavailable events are not fabricated. Prior validated baseline `f03aa649e96d3bc9785e2747a770937296a4a726`, CI `34843579645` SUCCESS. Current MF-E verification is recorded in the linked document.
+
 Controlled Customer Pilot: **NO-GO — EXTERNAL / OPERATIONAL CLOSURE REMAINS**.
 
 Business Decision BD-01〜05: **RESOLVED**.  

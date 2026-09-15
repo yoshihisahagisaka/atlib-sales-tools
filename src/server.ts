@@ -52,6 +52,8 @@ import { ReportDraftWorker } from './services/reportDraftWorker';
 import { PreDiagnosisWorker } from './services/preDiagnosisWorker';
 import { PilotEvidenceRepo } from './services/pilotEvidenceRepo';
 import { createPilotEvidenceRouter } from './routes/pilotEvidence';
+import { PilotInstrumentationRepo } from './services/pilotInstrumentationRepo';
+import { createPilotInstrumentationRouter } from './routes/pilotInstrumentation';
 import { ManagementFeedbackDecisionRepo } from './services/managementFeedbackDecisionRepo';
 import { createManagementFeedbackDecisionRouter } from './routes/managementFeedbackDecision';
 
@@ -125,6 +127,7 @@ async function main(): Promise<void> {
     createAdminItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted, preparation, workspace, review, report, assessment));
   app.use('/api/admin/it-management-diagnosis', ...adminAuthGate, createManagementFeedbackDecisionRouter(managementFeedbackDecisionRepo));
   app.use('/api/admin/it-management-diagnosis', ...adminAuthGate, createPilotEvidenceRouter(pilotEvidenceRepo));
+  app.use('/api/admin/it-management-diagnosis', ...adminAuthGate, createPilotInstrumentationRouter(new PilotInstrumentationRepo(pool)));
   app.use('/api/admin/isms-diagnostic', ...adminAuthGate, createAdminIsmsDiagnosticRouter(ismsDiagnosticRepo));
   app.use('/api/admin/free-hearing-assessment',...adminAuthGate,createAdminFreeHearingAssessmentRouter(freeHearingAssessmentRepo));
   app.use('/api/admin/kaizen-diagnostic',...adminAuthGate,createAdminKaizenDiagnosticRouter(kaizenDiagnosticRepo));

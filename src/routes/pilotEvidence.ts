@@ -8,14 +8,14 @@ const inputSchema=z.object({
   customer_segment:code,
   entry_trigger:code,
   future_theme_code:code,
-  completion_status:z.enum(['IN_PROGRESS','COMPLETED','ABANDONED']),
+  completion_status:z.enum(['IN_PROGRESS','COMPLETED','ABANDONED']).optional(),
   confusing_question_codes:codes,
   unknown_pattern_codes:codes,
   operator_correction_categories:codes,
   ai_misclassification_categories:codes,
   management_feedback_reaction:z.enum(['POSITIVE','NEUTRAL','NEGATIVE','NOT_OBSERVED']),
   assessment_need_understood:z.enum(['YES','NO','UNCLEAR','NOT_ASKED']),
-  next_action_code:code,
+  next_action_code:code.optional(),
   customer_feedback_signal:z.enum(['POSITIVE','NEUTRAL','NEGATIVE','NONE']),
 }).strict();
 const caseSchema=z.string().uuid();

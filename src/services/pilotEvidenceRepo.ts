@@ -5,14 +5,14 @@ export interface PilotEvidenceInput {
   customer_segment: string;
   entry_trigger: string;
   future_theme_code: string;
-  completion_status: 'IN_PROGRESS'|'COMPLETED'|'ABANDONED';
+  completion_status?: 'IN_PROGRESS'|'COMPLETED'|'ABANDONED';
   confusing_question_codes: string[];
   unknown_pattern_codes: string[];
   operator_correction_categories: string[];
   ai_misclassification_categories: string[];
   management_feedback_reaction: 'POSITIVE'|'NEUTRAL'|'NEGATIVE'|'NOT_OBSERVED';
   assessment_need_understood: 'YES'|'NO'|'UNCLEAR'|'NOT_ASKED';
-  next_action_code: string;
+  next_action_code?: string;
   customer_feedback_signal: 'POSITIVE'|'NEUTRAL'|'NEGATIVE'|'NONE';
 }
 
