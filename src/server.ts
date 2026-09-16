@@ -56,6 +56,8 @@ import { PilotInstrumentationRepo } from './services/pilotInstrumentationRepo';
 import { createPilotInstrumentationRouter } from './routes/pilotInstrumentation';
 import { ManagementFeedbackDecisionRepo } from './services/managementFeedbackDecisionRepo';
 import { createManagementFeedbackDecisionRouter } from './routes/managementFeedbackDecision';
+import { AssessmentScopeContextRepo } from './services/assessmentScopeContextRepo';
+import { createAssessmentScopeContextRouter } from './routes/assessmentScopeContext';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -77,6 +79,7 @@ async function main(): Promise<void> {
   const itManagementDiagnosisRepo = new ItManagementDiagnosisRepo(pool);
   const pilotEvidenceRepo = new PilotEvidenceRepo(pool);
   const managementFeedbackDecisionRepo = new ManagementFeedbackDecisionRepo(pool);
+  const assessmentScopeContextRepo = new AssessmentScopeContextRepo(pool);
   const preparationRepo = new DiagnosisPreparationRepo(pool);
   const preparationProvider = new AnthropicPreDiagnosisProvider(config.aiAssist.anthropicApiKey);
   const preparationWorker = new PreDiagnosisWorker(preparationRepo, preparationProvider);
@@ -126,6 +129,7 @@ async function main(): Promise<void> {
   app.use('/api/admin/it-management-diagnosis', ...adminAuthGate,
     createAdminItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted, preparation, workspace, review, report, assessment));
   app.use('/api/admin/it-management-diagnosis', ...adminAuthGate, createManagementFeedbackDecisionRouter(managementFeedbackDecisionRepo));
+  app.use('/api/admin/it-management-diagnosis', ...adminAuthGate, createAssessmentScopeContextRouter(assessmentScopeContextRepo));
   app.use('/api/admin/it-management-diagnosis', ...adminAuthGate, createPilotEvidenceRouter(pilotEvidenceRepo));
   app.use('/api/admin/it-management-diagnosis', ...adminAuthGate, createPilotInstrumentationRouter(new PilotInstrumentationRepo(pool)));
   app.use('/api/admin/isms-diagnostic', ...adminAuthGate, createAdminIsmsDiagnosticRouter(ismsDiagnosticRepo));
@@ -148,7 +152,7 @@ async function main(): Promise<void> {
   pollPostDiagnosis(); setInterval(pollPostDiagnosis,5000).unref();
   const pollInterview = () => { void interviewWorker.tick().catch(() => logger.warn({ event: 'interview_worker_failed' }, 'Interview worker failed')); };
   pollInterview(); setInterval(pollInterview,5000).unref();
-  const pollPreparation = () => { void preparationWorker.tick().catch(() => logger.warn({ event: 'preparation_worker_failed' }, 'Preparation worker failed')); };
+  const pollPreparation = () => { void preparationWorker.tick().catch(() => logger.warn({ event: 'preparation_worker_failed' }, 'Pre diagnosis worker failed')); };
   pollPreparation(); setInterval(pollPreparation, 5000).unref();
 }
 
