@@ -1,32 +1,32 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>Human Review | atLIB株式会社</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer">
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>無料診断 分析・Human Review | atLIB株式会社</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer">
 <link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/css/style.css"><link rel="stylesheet" href="/css/it-management-diagnosis.css"><link rel="stylesheet" href="/css/diagnosis-review.css"><script src="/js/it-management-diagnosis-review.js" defer></script></head>
-<body><main class="page review-page"><p><a id="back">← 案件概要</a> / <a id="workspace-link">60分診断の記録</a></p>
-<p><a id="report-link" hidden>Report / Feedbackへ</a></p><h1 id="company">Human Review</h1><p>無料 IT経営診断 / 提供：atLIB株式会社</p><div id="review-error" class="error-message" role="alert" hidden></div>
-<section class="card"><p id="case-status"></p><p id="next-action"></p><p>Human Approvedは、診断Contextとして使用するための判断です。企業FACTの確定ではありません。</p><button id="refresh" class="btn btn-secondary">再読み込み</button></section>
-<div class="review-columns"><aside class="card"><h2>実現したい会社の未来</h2><p id="future" class="diagnosis-raw"></p><p id="future-status"></p><h2>重点テーマ</h2><div id="themes"></div><h2>診断Plan</h2><div id="plan"></div><details><summary>Raw Source・Survey回答</summary><div id="raw-sources"></div></details></aside>
-<div><section class="card"><h2>AI診断後整理</h2><button id="run-ai" class="btn" disabled>AIに診断後の整理を依頼する</button><p id="ai-status" role="status"></p><div id="executions"></div><div id="proposals"></div></section>
-<section class="card editable" id="editor"><h2 id="editor-title">担当者がInsightを追加</h2><form id="insight-form">
-<div class="form-row"><label for="semantic-type">意味区分</label><select id="semantic-type"></select></div>
-<div class="form-row"><label for="unknown-type">UNKNOWN区分（UNKNOWNのみ必須）</label><select id="unknown-type"></select></div>
+<body><main class="page review-page"><p><a id="back">← 案件概要</a> / <a id="workspace-link">診断の記録</a></p>
+<p><a id="report-link" hidden>経営フィードバックへ</a></p><h1 id="company">無料診断 分析・Human Review</h1><p>IT経営KAIZEN 無料診断 / 提供：atLIB株式会社</p><div id="review-error" class="error-message" role="alert" hidden></div>
+<section class="card"><p id="case-status"></p><p id="next-action"></p><p><strong>この画面の目的：</strong>目指している会社の姿を起点に、今確認できていること・まだ分かっていないこと・私たちの仮説・改善の選択肢を分けて確認し、経営フィードバックにつなげます。</p><p>Human Approvedは診断Contextとして使用するための判断であり、企業FACTの確定ではありません。</p><button id="refresh" class="btn btn-secondary">再読み込み</button></section>
+<div class="review-columns"><aside class="card"><h2>1. 目指している会社の姿</h2><p id="future" class="diagnosis-raw"></p><p id="future-status"></p><h2>今回確認したいテーマ</h2><div id="themes"></div><h2>確認Plan</h2><div id="plan"></div><details><summary>回答・会話記録などの元情報</summary><div id="raw-sources"></div></details></aside>
+<div><section class="card"><h2>AIによる診断後整理</h2><p>AIは整理案を提示します。確認済み・UNKNOWN・仮説を混ぜず、最終的な採用・修正は担当者が行います。</p><button id="run-ai" class="btn" disabled>AIに診断後の整理を依頼する</button><p id="ai-status" role="status"></p><div id="executions"></div><div id="proposals"></div></section>
+<section class="card editable" id="editor"><h2 id="editor-title">分析内容を追加・確認</h2><form id="insight-form">
+<div class="form-row"><label for="semantic-type">情報の位置づけ</label><select id="semantic-type"></select></div>
+<div class="form-row"><label for="unknown-type">まだ分かっていない理由（UNKNOWNのみ必須）</label><select id="unknown-type"></select></div>
 <div class="form-row"><label for="insight-title">タイトル</label><input type="text" id="insight-title" maxlength="200" required></div>
-<div class="form-row"><label for="insight-content">診断Contextとして使用する内容</label><textarea id="insight-content" maxlength="2000" required></textarea></div>
+<div class="form-row"><label for="insight-content">経営フィードバックで使用する内容</label><textarea id="insight-content" maxlength="2000" required></textarea></div>
 <div class="form-row"><label for="insight-theme">関連テーマ</label><select id="insight-theme"></select></div>
-<div class="form-row"><label for="area-tag">Area（任意）</label><select id="area-tag"></select></div>
-<div class="form-row"><label for="improvement-lens">改善視点（任意）</label><select id="improvement-lens"></select></div>
-<div class="form-row"><label for="insight-sources">出典（1件以上選択）</label><select id="insight-sources" multiple size="5" required></select></div>
-<div class="form-row"><label for="review-reason">判断理由（任意）</label><textarea id="review-reason" maxlength="2000"></textarea></div>
-<p>Evidenceに関するObservationは存在確認までです。内容の正確性・最新性・妥当性はAssessmentで扱います。</p>
-<button class="btn" id="save-insight" type="submit">Human Approvedとして追加</button> <button class="btn btn-secondary" id="cancel-edit" type="button">新規入力に戻る</button></form>
-<form id="unknown-form" hidden><h3>候補をUNKNOWNとして残す</h3><p id="unknown-target"></p><div class="form-row"><label for="convert-type">UNKNOWN区分</label><select id="convert-type"></select></div><div class="form-row"><label for="convert-reason">判断理由</label><textarea id="convert-reason" maxlength="2000" required></textarea></div><button class="btn" type="submit">UNKNOWNとして承認</button></form></section>
-<section class="card"><h2>Human Approved Context</h2><div id="approved"></div><details><summary>Insightの履歴</summary><div id="history"></div></details></section>
-<section class="card"><h2>Assessmentで次に確認すること</h2><p>Insightとは別に、Assessmentで確認する項目を記録します。</p><div id="assessment-candidates"></div><div id="assessment-items"></div>
-<form id="assessment-form" class="editable"><h3>確認項目を作成</h3><p id="assessment-origin"></p>
+<div class="form-row"><label for="area-tag">視点：技術 / 運用 / 管理（任意）</label><select id="area-tag"></select></div>
+<div class="form-row"><label for="improvement-lens">改善の考え方（任意）</label><select id="improvement-lens"></select></div>
+<div class="form-row"><label for="insight-sources">根拠となる回答・会話記録（1件以上）</label><select id="insight-sources" multiple size="5" required></select></div>
+<div class="form-row"><label for="review-reason">担当者の判断理由（任意）</label><textarea id="review-reason" maxlength="2000"></textarea></div>
+<p>資料や画面について無料診断で扱うのは「存在を確認した」範囲までです。内容が何を証明するかは設計Assessmentで確認します。</p>
+<button class="btn" id="save-insight" type="submit">確認済みContextとして保存</button> <button class="btn btn-secondary" id="cancel-edit" type="button">新規入力に戻る</button></form>
+<form id="unknown-form" hidden><h3>まだ分かっていないこととして残す</h3><p id="unknown-target"></p><div class="form-row"><label for="convert-type">分かっていない理由</label><select id="convert-type"></select></div><div class="form-row"><label for="convert-reason">判断理由</label><textarea id="convert-reason" maxlength="2000" required></textarea></div><button class="btn" type="submit">UNKNOWNとして承認</button></form></section>
+<section class="card"><h2>経営フィードバックの材料</h2><p>「今、確認できていること」「まだ分かっていないこと」「私たちの仮説」「Futureとの差」「ITで良くできそうなこと」を意味区分を保ったまま確認します。</p><div id="approved"></div><details><summary>変更履歴</summary><div id="history"></div></details></section>
+<section class="card"><h2>設計Assessmentで確認する候補</h2><p>無料診断の通常の追加質問とは別です。経営判断に必要なEvidence確認を有料Assessmentで行う必要がある場合だけ記録します。</p><div id="assessment-candidates"></div><div id="assessment-items"></div>
+<form id="assessment-form" class="editable"><h3>Assessment確認候補を作成</h3><p id="assessment-origin"></p>
 <div class="form-row"><label for="assessment-title">確認項目</label><input type="text" id="assessment-title" maxlength="200" required></div>
-<div class="form-row"><label for="assessment-purpose">Assessmentで確認する目的</label><textarea id="assessment-purpose" maxlength="2000" required></textarea></div>
+<div class="form-row"><label for="assessment-purpose">確認する目的</label><textarea id="assessment-purpose" maxlength="2000" required></textarea></div>
 <div class="form-row"><label for="assessment-priority">確認の優先順（1が先）</label><select id="assessment-priority"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
 <div class="form-row"><label for="assessment-theme">関連テーマ</label><select id="assessment-theme"></select></div>
-<div class="form-row"><label for="assessment-insight">関連するHuman Approved Insight（任意）</label><select id="assessment-insight"></select></div>
-<div class="form-row"><label for="assessment-evidence">関連するEvidence Candidate（任意）</label><select id="assessment-evidence"></select></div>
-<button class="btn" type="submit">Assessment確認項目を保存</button> <button class="btn btn-secondary" id="cancel-assessment" type="button">新規入力に戻る</button></form></section>
-<section class="card"><h2>Human Reviewの完了</h2><p>UNKNOWNや未処理候補は残せます。Reportで使用するのはHuman Approved Contextです。</p><p id="pending"></p><label><input type="checkbox" id="leave-unreviewed"> 未処理の候補・実行中AIを今回のReport対象に含めず残します</label><p><button id="complete" class="btn" disabled>担当者としてHuman Reviewを完了する</button></p><p id="completion"></p></section>
+<div class="form-row"><label for="assessment-insight">関連する確認済みContext（任意）</label><select id="assessment-insight"></select></div>
+<div class="form-row"><label for="assessment-evidence">関連するEvidence候補（任意）</label><select id="assessment-evidence"></select></div>
+<button class="btn" type="submit">Assessment確認候補を保存</button> <button class="btn btn-secondary" id="cancel-assessment" type="button">新規入力に戻る</button></form></section>
+<section class="card"><h2>分析確認を完了</h2><p>UNKNOWNは無理に埋めず残せます。経営フィードバックで使用するのは担当者が確認したContextです。</p><p id="pending"></p><label><input type="checkbox" id="leave-unreviewed"> 未処理のAI候補を今回の経営フィードバック対象に含めず残します</label><p><button id="complete" class="btn" disabled>担当者として分析確認を完了する</button></p><p id="completion"></p></section>
 <section class="card"><h2>Human Review記録</h2><div id="reviews"></div></section></div></div></main></body></html>
