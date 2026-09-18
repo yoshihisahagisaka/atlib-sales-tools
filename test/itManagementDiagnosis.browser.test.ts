@@ -89,7 +89,7 @@ test('営業訪問: Google認証Gate→代理回答完了→新一覧と概要�
   await expect(page.locator('#raw-responses')).toContainText('<script>window.injected=true</script>');
   expect(await page.evaluate(() => (window as unknown as { injected?: boolean }).injected)).toBeUndefined();
   await page.screenshot({ path: info.outputPath('staff-overview.png'), fullPage: true });
-  await page.getByRole('link', { name: '← 診断案件一覧' }).click();
+  await page.getByRole('link', { name: '← 無料診断案件一覧' }).click();
   await page.locator('#channel-filter').selectOption('SALES_VISIT');
   await expect(page.locator('#case-list tr')).toHaveCount(1);
   await expect(page.locator('#case-list')).toContainText('ABC株式会社様');
