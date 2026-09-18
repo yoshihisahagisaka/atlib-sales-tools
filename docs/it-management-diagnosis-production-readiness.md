@@ -326,3 +326,134 @@ Human Decisionにより承認された範囲（`npm audit fix`のみ、`--force`
 ### 22.5 総合判定
 
 F1・F2（Risk Accepted）・UI Audit/Traceabilityが解消し、F7/F8のBusiness Decision面も整理済みだが、F3・F4（インフラ層）・F5・F6・F7（Production Evidence）・F8（Named Owners/Monitoring Evidence）・F9が未解決のため、**Production Readinessは引き続きNO-GO**。mainへのmerge可否・Production deploy可否・実顧客データ利用可否は別Gateとして扱い、本追記時点ではいずれも承認していない。次のReadiness解消フェーズはF3〜F9を対象としたstaging readiness session（別途計画）とする。
+
+## 23. Staging Readiness Session 実施計画 v2（F3〜F9、Human Decision 2026-09-19で条件付き承認・未実行）
+
+**本章は計画のみを記録する。staging infrastructure作成・Cloud Run deploy・Cloud SQL migration・Secret設定・外部API疎通・実テストはいずれも未実施。** v1（前回提示、文書未記録）に対し、Human Decision（2026-09-19）により4点を修正しv2として確定した。
+
+### 23.1 v1からの修正点（Human Decision 2026-09-19）
+
+1. **F5 PASS条件の修正**: 「request外CPU割当なしでのjob処理保証」を前提としない。採用するCloud Run構成において、request lifecycle／instance termination／scale-to-zero／multi-instance条件下でも、lease expiry/reclaimを含めjobが恒久的に失われず最終的に処理されることをEvidenceで確認する方式へ変更。現Architectureで保証できない場合はPASSにせず、execution modelの再設計GapとしてHuman Decisionへ戻す。
+2. **F9の前提条件追加**: Load Test実施前にPilot Capacity AssumptionとInternal Acceptance ThresholdをHuman Decisionする。外部SLAは現時点で設定しない。数値を推測で設定しない。
+3. **F7-Eの分離**: Technical EvidenceとLegal Reviewを分離する。Legal ReviewはInfrastructure/Staging Evidenceとは別Gateとして管理する。
+4. **F8の実施順序変更**: 6Roleの実名Owner AssignmentをSession Preparationフェーズへ移動し、Monitoring/Alert/Escalation Drillより前に完了させる。
+
+### 23.2 前提として必要なStaging Infrastructure
+
+| 項目 | 内容 | 対応するF |
+|---|---|---|
+| Cloud Run staging service | production構成を模した専用service（別revision/別URL、production trafficと分離） | F5, F6 |
+| Cloud SQL staging instance | production cloneまたは同等schema、synthetic/匿名化dataのみ投入 | F4, F6, F7 |
+| GCS staging bucket | `externalDeletionManifestStore`用、production bucketとは別 | F7 |
+| Secret Manager staging project/secrets | 本番と分離したsecret set（OAuth client/JWT/SMTP/Slack/Anthropic） | 全般 |
+| ロードバランサ/ingress | Cloud Run標準ingressで実X-Forwarded-For付与経路を再現 | F3 |
+| 監視対象outbound | 実SMTP送信先・実Slack webhook・実Anthropic API疎通経路 | F6 |
+
+### 23.3 外部依存（Secret / OAuth / AI / SMTP / Slack）
+
+- **OAuth**: 実Google Workspace OAuth client（staging用redirect URI登録）、許可domain（`atlib.jp`）アカウント1件＋非許可domainアカウント1件で許可/拒否を実確認
+- **AI (Anthropic)**: 実APIキーをSecret Manager経由で注入、AI-01〜04を実際に1回ずつ成功させる（fake Providerの代替をやめる）
+- **SMTP**: 実送信先アドレスへの到達確認（受信ボックス目視）
+- **Slack**: 実webhook URLでの通知受信確認
+- 全SecretはSecret Manager経由で注入し、チャット/Gitへ値を出さない（既存ガードライン継続）
+
+### 23.4 Cloud SQL role / IAM（F4, F7関連）
+
+- runtime用DBロールとmigration用DBロールを分離（runtimeはaudit/rawテーブルへの書込み権限を持たない構成を検証）
+- IAM authentication or password rotation経路の実確認
+- 監査ログ（`audit`テーブル）の外部保存（Cloud Logging export等）とアクセス制御、改ざん検知の実設定確認
+
+### 23.5 Cloud Run構成（F5関連、23.1-1の修正を前提とする）
+
+- 採用するexecution model（例: always-on CPU allocation、Cloud Tasks/Pub Sub経由のwork queue、外部scheduler、min-instances≥1固定等の選択肢）を先に決定し、それがrequest外でのjob処理をどう保証するかを明示する
+- min instances / max instances / concurrency設定の実反映確認
+- scale-to-zero時のcold start・DB接続pool再確立の確認、およびscale-to-zero中にjobが失われないことの確認（既存lease機構がinstance再起動をまたいで機能するか）
+- deploy中断（新旧revision混在）時の既存in-flight job/requestへの影響確認
+- DB接続pool上限（既存`max5`前提）× 複数instance × 他アプリのcapacity budget再計算
+- 上記で「恒久的なjob処理保証」が実証できない場合、execution model再設計のGapとしてHuman Decisionへ戻し、PASSにしない
+
+### 23.6 Monitoring / Alert / Escalation（F8関連）
+
+- Cloud Monitoring alert policyの実設定（AI失敗率、queue滞留、5xx率等）
+- 実alert発火→実受信確認（Slack/email等、実名Owner宛）
+- incident escalation経路（Technical Incident Escalation Role、Privacy/Security Escalation Role）の実運用確認
+- 前提: 6Roleへの実名Owner割当はSession Preparationフェーズで完了済みであること（23.1-4）
+
+### 23.7 Backup / Restore（F4, F6, F7関連）
+
+- 実Cloud SQL自動backup + PITR (Point-in-Time Recovery) の実施・復元検証
+- 復元後のapp接続・データ整合性確認（既存local pg_dump/restore rehearsalの実Cloud SQL版）
+
+### 23.8 Deletion Reconciliation（F7関連、Technical Evidenceのみ）
+
+- 実GCSへの`externalDeletionManifestStore`書込み・読出し確認
+- 実Cloud SQL backup/restore後に削除済みデータが復活しないことの実証（現状はlocal Dockerのみで確認済み、実Cloud SQL版が必要）
+- F7-EのLegal Review（顧客向けNotice/Consent文言の逐語チェック）は本フェーズに含めない（23.9参照）
+
+### 23.9 F7-E Legal Review（Infrastructure/Staging Evidenceとは別Gate）
+
+- F7-A〜D（Retention/Deletion/Backup整合/AI Data Minimization）のTechnical EvidenceはStaging Sessionで取得する
+- F7-E（Customer Notice/Consent文言）はLEGAL_REVIEW_PENDINGのまま、Staging Session実施順序（23.11）には含めず、Legal担当者による独立したReview Gateとして並行管理する。Staging SessionのGO判定はF7-EのLegal Review完了を待たない（別Gateであるため）が、Production最終GOにはF7-E完了が別途必要。
+
+### 23.10 Worker / Lease Recovery（F5関連）
+
+- 実Cloud Run multi-instance環境でのjob claim/lease排他の実証（現状はlocal 2 Poolのみ）
+- instance再起動・scale-in時のlease失効・再claimの実確認（23.5のexecution model決定に依存）
+
+### 23.11 Ingress / Forwarded Header（F3関連）
+
+- 実Cloud Run ingressが付与する`X-Forwarded-For`の実際の形式を確認
+- `trust proxy=true`設定を、Cloud Run前段の信頼できるproxy段数に限定する設定へ変更し、外部から任意ヘッダーでの`req.ip`偽装が不可能であることを実ingressで確認
+- rate limiterのinstance分散問題（in-memory実装の限界）への対応要否を判断
+
+### 23.12 F9 Capacity Assumption / Threshold（Load Test前提、Human Decision必須）
+
+- Load Test実施前に、Pilot Capacity Assumption（想定Case数・同時ユーザー数・想定Context長等）とInternal Acceptance Threshold（許容レイテンシ・エラー率等の内部目安）をHuman Decisionとして確定する
+- 外部顧客向けSLAとしては設定しない（Controlled Pilot段階のため）
+- 数値は推測で設定せず、実際の営業規模・pilot対象数等のFACTに基づいて決定する
+- このHuman Decisionが完了するまでLoad Testフェーズは開始しない
+
+### 23.13 Load Test（F9関連、23.12完了後）
+
+- 23.12で確定したCapacity Assumptionに基づき、大量Case・長期履歴・AI-04大Context・同時admin操作の性能測定を実施
+- 結果をInternal Acceptance Thresholdと比較し、超過項目があればGap/Owner/対応方針を記録
+
+### 23.14 実名Owner（Session Preparationフェーズ、23.1-4により最優先で実施）
+
+- docs/72§1で採用した6Role（Diagnosis Owner／Human Reviewer／Management Feedback Facilitator／Customer Follow-up Owner／Technical Incident Escalation／Privacy・Security Escalation）それぞれへの実名割当をSession開始前に完了させる
+- 兼務時の責任所在明確化（Guardrail通り）
+- この割当が完了するまで、23.6（Monitoring/Alert/Escalation Drill）は開始しない
+
+### 23.15 実施順序（v2、Human Decision確定）
+
+各フェーズ完了ごとにHuman Decisionへ結果を戻し、次フェーズへの進行可否を確認する（一括承認は求めない）。
+
+1. Session Preparation / Owner Assignment（23.14）
+2. Staging Infrastructure（23.2）
+3. IAM / DB Role / Audit（23.4）
+4. Ingress / Proxy（23.11）
+5. External Integration（23.3）
+6. Backup / Restore / Deletion Reconciliation（23.7, 23.8。F7-E Legal Reviewは別Gate、23.9）
+7. Worker / Cloud Run Lifecycle / Capacity（23.5, 23.10）
+8. Monitoring / Alert / Escalation Drill（23.6）
+9. Integrated E2E（F6: 実AI+実OAuth+実通知を組み合わせたWEB/SALES_VISIT両経路の完走）
+10. F9 Threshold Human Decision（23.12）
+11. Load Test（23.13）
+12. Evidence Consolidation / GO-NO-GO Human Decision（全Fの結果をmatrixへ反映、GO/NO-GO再判定。F7-E Legal ReviewはStaging Session GOとは別Gateのため、Production最終GOの前提として別途確認）
+
+### 23.16 各F項目のPASS条件とEvidence（v2、修正反映済み）
+
+| F | PASS条件（v2） | 取得Evidence |
+|---|---|---|
+| F3 | 実ingress経由でX-Forwarded-For偽装によるreq.ip操作が不可能であることを実証。rate limitが複数instance環境でも有効に機能する（またはinstance分散を許容する運用判断が記録される） | 実ingressでのheader偽装試験ログ、rate limit動作ログ |
+| F4 | runtimeロールがaudit/rawテーブルを変更できないことをDB権限設定で実証。監査ログの外部保存・改ざん検知が実際に機能する | IAM/ロール設定のスクリーンショットまたはSQL、改ざん試行→検知ログ |
+| F5 | **（修正）** request外CPU割当なしでの処理保証を前提としない。採用したexecution modelにおいて、request lifecycle/instance termination/scale-to-zero/multi-instance条件下でもjobが恒久的に失われず、lease expiry/reclaimを含め最終的に処理されることを実証。保証できない場合はPASSにせずexecution model再設計GapとしてHuman Decisionへ戻す | Cloud Run設定export、execution model決定記録、instance再起動/scale-to-zeroを跨いだjob完走ログ、deploy中断リハーサル記録 |
+| F6 | 実AI-01〜04・実OAuth（許可/拒否双方）・実SMTP送達・実Slack受信・実Cloud SQL restoreを組み合わせたWEB/SALES_VISIT両経路が完走 | 実行ログ、受信確認スクリーンショット、restore後データ整合性確認記録 |
+| F7-A〜D | Retention/Deletion/Backup整合/AI Data Minimizationが実Cloud SQL・実GCS・実AI環境でEVIDENCEDとなる（Technical Evidenceのみ） | 実環境でのretention worker実行ログ、削除→backup restore→非復活の実証ログ |
+| F7-E | **（分離）** Legal Reviewが独立Gateとして完了する。Staging Session GO判定の前提条件にはしない | Legal担当者によるReviewサインオフ（Staging Evidenceとは別文書） |
+| F8 | **（修正）** 6Roleへの実名Owner割当がSession Preparation時点で完了していることを前提に、Cloud Monitoring alertが実際に発火し担当者が実際に受信したことを確認。escalation経路を実際にたどって確認 | Owner一覧（実名、Session Preparation時点で取得）、alert発火→受信のタイムスタンプ付き記録 |
+| F9 | **（修正）** Load Test実施前にPilot Capacity Assumption/Internal Acceptance ThresholdがHuman Decisionとして確定していること（外部SLAではなく、推測値でもない）。その上で実測値がThreshold内に収まる、または超過項目にGap/Owner/対応方針が記録される | Human Decision記録（Capacity Assumption/Threshold）、負荷試験結果（レイテンシ/エラー率）、ボトルネック分析 |
+
+### 23.17 現時点の状態
+
+v2計画はHuman Decision（2026-09-19）により条件付き承認された。**staging infrastructure作成・Cloud Run deploy・Cloud SQL migration・Secret設定・外部API疎通・実テストはいずれも未着手**。次のステップはフェーズ1（Session Preparation / Owner Assignment）の実施可否について、あらためてHuman Decisionを得ることである。
