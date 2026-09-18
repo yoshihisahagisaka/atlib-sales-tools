@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>顧客適合性チェック 一覧 | atLIB Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .filters { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-end; }
+  .decision-badge { display: inline-block; font-size: 0.75rem; padding: 0.15rem 0.55rem; border-radius: 999px; font-weight: 600; }
+  .decision-A { background: #d9f5ee; color: #219c80; }
+  .decision-B { background: #fff3e0; color: #9c640c; }
+  .decision-C { background: #f3f4f6; color: #6b7280; }
+  .decision-D { background: #e3edfb; color: #1f3556; }
+  .decision-none { background: #f3f4f6; color: #9ca3af; }
+</style>
+</head>
+<body>
+
+<div class="page" style="max-width:1080px;">
+  <h1>IT経営KAIZEN 顧客適合性チェック 一覧</h1>
+  <p class="info-message">
+    営業担当の感覚だけで決めず、FACT / UNKNOWN / 営業仮説を分けて確認し、人が最終判断（Human Decision）するためのツールです。
+  </p>
+  <p><a href="/admin/customer-fit-check-detail.html">＋ 新規チェックを作成する</a></p>
+
+  <div class="card">
+    <div class="filters">
+      <div class="form-row" style="max-width:220px;">
+        <label for="decision-filter">Human Decisionで絞り込み</label>
+        <select id="decision-filter">
+          <option value="">すべて</option>
+          <option value="A">A：提案する</option>
+          <option value="B">B：要確認</option>
+          <option value="C">C：提案しない</option>
+          <option value="D">D：別サービス</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="list-error" class="error-message" style="display:none;"></div>
+    <div id="list-loading" class="info-message">読み込み中...</div>
+
+    <table id="list-table" style="display:none;">
+      <thead>
+        <tr>
+          <th>確認日</th>
+          <th>顧客名</th>
+          <th>営業担当</th>
+          <th>Human Decision</th>
+          <th>更新日時</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="list-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const DECISION_LABELS = { A: 'A：提案する', B: 'B：要確認', C: 'C：提案しない', D: 'D：別サービス' };
+
+function formatDateOnly(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+}
+
+function formatDateTime(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function decisionBadge(decision) {
+  if (!decision) return '<span class="decision-badge decision-none">未確定</span>';
+  return `<span class="decision-badge decision-${decision}">${DECISION_LABELS[decision]}</span>`;
+}
+
+async function loadList() {
+  const loadingEl = document.getElementById('list-loading');
+  const errorEl = document.getElementById('list-error');
+  const table = document.getElementById('list-table');
+  const tbody = document.getElementById('list-body');
+  const decision = document.getElementById('decision-filter').value;
+
+  loadingEl.style.display = 'block';
+  errorEl.style.display = 'none';
+  table.style.display = 'none';
+
+  try {
+    const params = new URLSearchParams();
+    if (decision) params.set('humanDecision', decision);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch('/api/admin/customer-fit-check' + qs);
+    if (!res.ok) throw new Error('failed to load');
+    const data = await res.json();
+
+    tbody.innerHTML = '';
+    data.items.forEach((item) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${formatDateOnly(item.checkedOn)}</td>
+        <td>${item.customerName}</td>
+        <td>${item.salesRepEmail}</td>
+        <td>${decisionBadge(item.humanDecision)}</td>
+        <td>${formatDateTime(item.updatedAt)}</td>
+        <td><a href="/admin/customer-fit-check-detail.html?id=${encodeURIComponent(item.id)}">開く</a></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    loadingEl.style.display = 'none';
+    table.style.display = data.items.length > 0 ? 'table' : 'none';
+    if (data.items.length === 0) {
+      loadingEl.textContent = '該当するチェックはありません。';
+      loadingEl.style.display = 'block';
+    }
+  } catch {
+    loadingEl.style.display = 'none';
+    errorEl.textContent = '一覧の取得に失敗しました。ページを再読み込みしてください。';
+    errorEl.style.display = 'block';
+  }
+}
+
+document.getElementById('decision-filter').addEventListener('change', loadList);
+loadList();
+</script>
+</body>
+</html>
