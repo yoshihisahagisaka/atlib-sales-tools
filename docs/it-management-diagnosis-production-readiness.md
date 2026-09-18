@@ -56,7 +56,7 @@ imageはlocal buildでありArtifact Registryへpublishしていない。Docker 
 | E Workspace OAuth | **BLOCKED_EXTERNAL** | E4/E6: 未認証/顧客token拒否・state/secure cookie/domain契約はlocal成功。実Google login/非許可accountは未実施。 |
 | F Cloud Run Worker | **BLOCKED_EXTERNAL** | E3: DB claim/lease/late result成功。実CPU allocation/min instances/scale zero/deploy中断のEvidenceなし。 |
 | G PostgreSQL concurrency | **PASS** | E3: 実PG・2 Pool、one claim、SKIP LOCKED、type isolation、期限切れlease、late result、同時Human/version、rollback、immutable trigger。 |
-| H Security / Privacy | **FAIL**（BUSINESS_DECISION_REQUIREDは解消、詳細§21） | E4/E5/E6/E7: local token/CSRF/XSS/ログ/immutable確認。依存脆弱性F2・proxy/rate F3・DB権限F4残存。保持/削除/Transcript方針はdocs/66でDECIDED済み、実装(retentionDeletionWorker等)・テストまで確認済みだが実環境Evidence未取得（F7、§21）。UI Audit/Traceability（F4とは別建て）は今回のセッションで復元・regression test化済み（§21）。 |
+| H Security / Privacy | **FAIL**（BUSINESS_DECISION_REQUIREDは解消、詳細§21・§22） | E4/E5/E6/E7: local token/CSRF/XSS/ログ/immutable確認。F2はRisk Accepted（§22、`vulnerabilities=0`ではない点を隠さない）、proxy/rate F3・DB権限F4残存。保持/削除/Transcript方針はdocs/66でDECIDED済み、実装(retentionDeletionWorker等)・テストまで確認済みだが実環境Evidence未取得（F7、§21）。UI Audit/Traceability（F4とは別建て）は今回のセッションで復元・regression test化済み（§21）。 |
 | I Observability | **BLOCKED_EXTERNAL** | E8: safe events/read-only SQLは実行成功。外部alert/受信先/通知受信/uptime監視は未確認。F8のRole Model（Diagnosis Owner等6Role）はgit_KAIZEN docs/72§1にてHuman Decision（2026-09-18）でDECIDED済み（§21）。実名Owner割当とalert実設定・受信確認は引き続きOPEN。 |
 | J Backup / Runbook | **BLOCKED_EXTERNAL** | E2: pg_dump→別DB restoreとapp接続成功、runbookあり。Cloud SQL restore/旧revision traffic rollbackの実証なし。 |
 | K Pilot E2E | **BLOCKED_EXTERNAL** | E3/E6: local両経路CLOSEDとbrowser成功。実staging+実AI+実OAuth+実通知を組み合わせた完走は未実施。 |
@@ -94,8 +94,8 @@ ownerは責任ロールであり、担当者指名済みという意味ではな
 
 | ID | Severity / status | Owner | Action |
 |---|---|---|---|
-| F1 | High / **CLOSED**（2026-09-18） | Platform + Maintainer | commit `0c2bb7c`でDockerfile全stage・CI・package.json engines共に`node:22-alpine`/Node22へ移行済みであることを確認。E9（本追記）で使い捨てDocker上のmigration/runtime imageを再buildし、Node v22.23.2・非root(uid1000)・migration冪等性(16件全skip)・pg_dump/restore一致・secret非漏洩を再証跡化。Human Decisionにより2026-09-18付でCLOSEDとして記録。 |
-| F2 | Moderate / FAIL | Maintainer + Security | express→qs、Google SDK系→uuid由来の7件。audit fix後も残存。到達性調査と互換性を確認した上で依存更新/overrideをレビューする。auditのfixAvailableだけでは解消済みにしない。 |
+| F1 | High / **CLOSED — FIXED / EVIDENCED**（2026-09-18） | Platform + Maintainer | commit `0c2bb7c`でDockerfile全stage・CI・package.json engines共に`node:22-alpine`/Node22へ移行済みであることを確認。E9（本追記）で使い捨てDocker上のmigration/runtime imageを再buildし、Node v22.23.2・非root(uid1000)・migration冪等性(16件全skip)・pg_dump/restore一致・secret非漏洩を再証跡化。Human Decisionにより2026-09-18付でCLOSEDとして記録。 |
+| F2 | Moderate / **CLOSED — RISK ACCEPTED / NOT REACHABLE**（2026-09-18・詳細§22） | Maintainer + Security | qs分（express 4.22.2→4.22.3／qs 6.15.3→6.16.0、`npm audit fix`no `--force`）はFIXEDとして解消。残るuuid由来5件（gaxios/google-gax/retry-request/teeny-request/uuid、GHSA-w5hq-g745-h8pq）はソース追跡＋ローカルPoCにより「脆弱コード自体は存在するが、脆弱API（v3/v5/v6+buf/offset）へ到達する経路が現在の依存グラフ・アプリ利用パターンに存在しない」ことを確認しHuman DecisionによりRisk Accepted。`npm audit`件数（moderate5）は解消したと記録しない。再評価条件は§22参照。 |
 | F3 | High / FAIL（構成未確認） | Platform + Security | `trust proxy=true`は任意のX-Forwarded-Forを信頼し得る。in-memory rate limitはinstance別、expired keyの全体掃除なし。local同設定probeでcaller指定X-Forwarded-Forがreq.ipになることを再現済み（本番ingress試験ではない）。実ingressでheader偽装を検証し信頼proxy/edge rate制御を確定。legacy大容量parserはauth前なのでedge/body上限も確認。 |
 | F4 | High / BLOCKED_EXTERNAL | DB + Security | report/handoff triggerは実証したがaudit/raw tableはDB ownerなら変更可能。migration identityとruntime/read-only identityの権限分離、監査ログ外部保存/アクセス/改変検知のEvidenceが必要。 |
 | F5 | Critical gate / BLOCKED_EXTERNAL | Platform | request外CPU、min/max/scale zero、Cloud SQL接続枠、deploy中断を実環境で検証。pool max5×旧新instance+他appのcapacity budgetを作る。 |
@@ -253,3 +253,76 @@ F4（DB owner権限分離・監査ログ外部保存・改ざん検知）はイ�
 ### 21.7 総合判定
 
 F1解消・F7/F8のBusiness Decision面の整理・UI Audit/Traceability解消にもかかわらず、F2・F3・F4（インフラ層）・F5・F6・F8（Evidence面）・F9が未解決のため、**Production Readinessは引き続きNO-GO**。mainへのmerge可否・Production deploy可否・実顧客データ利用可否は別Gateとして扱い、本追記時点ではいずれも承認していない。
+
+## 22. Update — 2026-09-19（F2: npm audit fix実行結果 / uuid Risk Acceptance）
+
+検証日: 2026-09-19。Base: `fix/free-diagnosis-development-lane-normalization` @ `122a72c`（commit `d1e952c`の次）。mainへのmerge/Production deploy/Cloud SQL migrationは未実施。本章は§1〜21の記録を書き換えず追記する。
+
+### 22.1 npm audit fix（`--force`なし）実行結果
+
+Human Decisionにより承認された範囲（`npm audit fix`のみ、`--force`不使用、package.json直接依存の手動メジャー更新なし）で実行した。
+
+- **package.json**: 変更なし（byte-for-byte一致を確認）
+- **package-lock.json**: resolved versionの変更は以下3件のみ
+  - `express`: 4.22.2 → 4.22.3
+  - `qs`（直下）: 6.15.3 → 6.16.0
+  - `body-parser/node_modules/qs`: 6.16.0 → 削除（dedup）
+- **意図しない依存変更なし**: `uuid`/`gaxios`/`google-gax`/`teeny-request`/`retry-request`/`google-auth-library`/`@google-cloud/secret-manager`は変更なし
+- `npm audit --omit=dev`: **moderate 7 → 5**（qs由来2件解消、uuid由来5件は`--force`なしでは解消不可）
+
+再検証（すべてgreen）: `npm run build`、golden test 18スクリプト全件（0 fail）、`test:readiness:postgres`（disposable Docker、実PostgreSQL、9/9 pass）、browser test 32/32 pass、Customer Fit Check golden test 2/2 pass（`feat/customer-fit-check`ブランチ上、影響なし）、GitHub Actions CI（HEAD `122a72c`、`workflow_dispatch`実行、success）。`google-auth-library`/`gaxios`/`google-gax`のresolved versionは変更されていないため、staff auth/OAuth callback/allowed-denied domain/session-auth gateの既存契約（`test:readiness`3テスト）に影響なし。
+
+### 22.2 uuid残存advisory（GHSA-w5hq-g745-h8pq / CVE-2026-41907）の実到達性調査
+
+**advisory概要**: 対象APIは`v3()`/`v5()`/`v6()`のみ。呼び出し時に`buf`（出力先バッファ）と`offset`を渡した場合、サイズ／offsetの境界チェックが欠落し部分的な書き込みが起こり得る（CWE-787/CWE-1285、CVSS 6.3 Moderate、Integrity Lowのみ）。`v4()`/`v1()`/`v7()`は対象外。修正版は11.1.1/12.0.1/13.0.1。installed `uuid@9.0.1`には`v6`自体が存在しない。
+
+**installed dependency sourceの追跡結果**（`node_modules`実ファイルをgrep・読解、`npm ls uuid --all`で単一install `uuid@9.0.1`のdedup先を確認）:
+
+| Chain | uuid参照箇所 | 呼び出し関数 | buf/offset | 到達性判定 |
+|---|---|---|---|---|
+| `@google-cloud/secret-manager`→`google-gax`→`uuid` | `google-gax/build/src/util.js:108`（`makeUUID()`） | `v4()`のみ | 渡していない | **NOT REACHABLE**（`makeUUID()`はgoogle-gax内部からもsecret-managerからも一度も呼ばれていない） |
+| `google-gax`→`retry-request`→`teeny-request`→`uuid` | `teeny-request/build/src/index.js:135`（`retry-request`自体はuuidを一切参照しない） | `v4()`のみ | 渡していない | **NOT REACHABLE**（multipart upload branch限定、かつ本アプリはmultipart upload自体を行わない） |
+| `google-auth-library`→`gaxios`→`uuid` | `gaxios/build/src/gaxios.js:417` | `v4()`のみ | 渡していない | **NOT REACHABLE**（同上） |
+
+補強確認:
+- この3ファイル以外に4パッケージ内で`uuid`をrequireする箇所はない（網羅的grep）。
+- `atlib-sales-tools`自身のソース（`src/**`）は`uuid`を直接importしていない。
+- アプリの実利用経路（`src/lib/secrets.ts`の`accessSecretVersion`＝単純取得、`src/services/externalDeletionManifestStore.ts`のGCS入出力＝素の`fetch()`直接使用でgaxios/teeny-requestを経由しない、`src/routes/staffAuth.ts`のOAuth token交換＝単純POST）はいずれもmultipart uploadを伴わない。
+
+**ローカルPoC再現**（installed `uuid@9.0.1`、`node -e`で実行）: `v3(name, NS, buf[8], offset=4)`・`v5(name, NS, buf[8], offset=4)`はいずれも例外を投げず境界外へ書き込む（advisory記述と一致、脆弱コード自体の存在を確認）。ただし、この`buf`/`offset`付き呼び出し自体が3パッケージのどこからも行われていないことを上記ソース追跡で確認済み。
+
+### 22.3 F2 Human Decision — CLOSED — RISK ACCEPTED / NOT REACHABLE
+
+**記録する内容**: Finding exists / vulnerable package installed（`uuid@9.0.1`、GHSA-w5hq-g745-h8pq対象範囲内） / vulnerable code path（`v3`/`v5`/`v6`+`buf`/`offset`）NOT REACHABLE under current dependency graph and application usage。
+
+**明記しないこと**: 「脆弱性が存在しない」「修正済みである」とは記録しない。`npm audit --omit=dev`はmoderate 5件を報告し続ける（qs分2件解消、uuid分5件はRisk Acceptedであり解消ではない）。
+
+**再評価（再OPEN）条件**（いずれか発生時にF2を再OPENする）:
+1. `uuid`のresolved versionまたはdependency chainの変更
+2. `google-gax`/`gaxios`/`teeny-request`/`retry-request`のversion変更
+3. `@google-cloud/secret-manager`/`google-auth-library`のversion変更
+4. `uuid`の`v3`/`v5`/`v6`の新規利用（このリポジトリまたは依存先での追加）
+5. multipart upload等、現在このアプリが使用していないGoogle client library code pathの利用開始
+6. advisory内容・severity・exploit条件のGitHub Advisory Database上の更新
+7. dependency security scanで新しい関連findingが検出された場合
+
+**終了条件**: 将来の通常dependency maintenanceで`uuid`がpatched version（11.1.1以降）へ自然に解消された場合、本Risk Acceptanceは終了し、F2を**CLOSED — FIXED**へ更新する。
+
+**今回のRisk Acceptanceのために実施しなかったこと**（ガードレールとして維持）: `npm audit fix --force`、Google関連library（`@google-cloud/secret-manager`/`google-auth-library`等）のメジャーバージョン更新。
+
+### 22.4 Readiness状態サマリ（2026-09-19時点、最新）
+
+- **F1**: CLOSED — FIXED / EVIDENCED
+- **F2**: CLOSED — RISK ACCEPTED / NOT REACHABLE（§22.3。再評価条件あり）
+- **F3**: OPEN
+- **F4**: OPEN
+- **F5**: OPEN
+- **F6**: OPEN
+- **F7**: Business Decision CLOSED（docs/66）／Implementation + Test確認済み／**Production Evidence OPEN**
+- **F8**: Role Model DECIDED（docs/72§1）／**Named Owners OPEN**／**Monitoring & Alert Evidence OPEN**
+- **F9**: OPEN
+- **UI Audit / Traceability**（F4とは別建て）: CLOSED
+
+### 22.5 総合判定
+
+F1・F2（Risk Accepted）・UI Audit/Traceabilityが解消し、F7/F8のBusiness Decision面も整理済みだが、F3・F4（インフラ層）・F5・F6・F7（Production Evidence）・F8（Named Owners/Monitoring Evidence）・F9が未解決のため、**Production Readinessは引き続きNO-GO**。mainへのmerge可否・Production deploy可否・実顧客データ利用可否は別Gateとして扱い、本追記時点ではいずれも承認していない。次のReadiness解消フェーズはF3〜F9を対象としたstaging readiness session（別途計画）とする。
