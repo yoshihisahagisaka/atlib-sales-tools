@@ -457,3 +457,56 @@ F1・F2（Risk Accepted）・UI Audit/Traceabilityが解消し、F7/F8のBusines
 ### 23.17 現時点の状態
 
 v2計画はHuman Decision（2026-09-19）により条件付き承認された。**staging infrastructure作成・Cloud Run deploy・Cloud SQL migration・Secret設定・外部API疎通・実テストはいずれも未着手**。次のステップはフェーズ1（Session Preparation / Owner Assignment）の実施可否について、あらためてHuman Decisionを得ることである。
+
+## 24. Update — 2026-09-19（Phase 1 / 1.5 / 1.6 — Session Preparation・Environment Architecture Assessment・Cloud Reality & Cost Check）
+
+検証日: 2026-09-19。本章もplanning/investigationのみを記録する。**resource作成・IAM変更・Secret変更・OAuth変更・deploy・migration・外部API実行・Production変更・実顧客データ投入はいずれも未実施。**
+
+### 24.1 Phase 1 — Session Preparation / Owner Assignment（Human Decision承認済み）
+
+docs/72§1でDECIDEDの6Role（Diagnosis Owner／Human Reviewer／Management Feedback Facilitator／Customer Follow-up Owner／Technical Incident Escalation／Privacy・Security Escalation）について、既存Canonical/repositoryを調査した結果、**全6Roleで実名Owner割当のFACTは存在しない**（docs/72§11が「named owners...are NOT DECIDED by this document」と明記）。全RoleをHUMAN ASSIGNMENT REQUIREDとして分類し、Technical Incident EscalationとPrivacy/Security EscalationについてはOwner（一次受付・調整）と専門判断先（技術/Legal・Security）を分離した構造を提示した。実名は推定・設定していない。実名Owner割当はHuman側で別途決定する。
+
+### 24.2 Phase 1.5 — Environment Architecture Assessment（Human Decision承認済み）
+
+現Production環境（GCP project `msp-zabbix`）の構成を調査した結果、以下のFACTが判明した:
+
+- **GCP Project**: `msp-zabbix`をmsp-customer-portal・Zabbix監視系・sales-toolsが共有（SHARED）
+- **Cloud SQL instance**: `msp-customer-portal-db`という単一instanceを共有。`sales_tools`はそのinstance内の別database（instance自体はSHARED、database/DBユーザーは分離）
+- **OAuth client**: msp-customer-portal用の既存clientをredirect URI追加登録で共用（SHARED）
+- **SMTP secret**: `portal-*`の値をそのまま共有（SHARED）
+- **Anthropic API key**: repository記載に矛盾があり専用/共有はUNKNOWN（要Console確認）
+- **GCS**: sales-tools用バケットは本番含め未作成（NOT EXISTS）
+- **Monitoring**: sales-tools向けのUptime Check/Alertは未設定（NOT EXISTS）
+
+Data/Failure Boundary調査により、共有Cloud SQL instanceはbackup/restoreがinstance単位であること、DB接続枠を共有すること、既存`controlled-pilot-external-evidence-execution-pack-v1.md`が「共有本番instanceへの直接restoreリハーサル」を既に禁止していることを確認した。Staging Architecture 3案（Option A Fully Isolated／Option B Project Shared・Resources Isolated／Option C Minimum）を比較し、Production Shared Architectureの扱い（Blocker/Risk Accepted/GA分離候補）は未確定のまま候補提示にとどめた。
+
+### 24.3 Phase 1.6 — Cloud Reality & Cost Check（Human Decision承認済み）
+
+**gcloud CLIは引き続き動作不能**（`gcloud config list`、exit code 49）。修復は目的化せず、Claude Code側からのGCP実態確認は不可能なため、Human確認用の**13項目Consoleチェックリスト**を提示した（sales-tools Cloud Run/SA/Cloud SQL instance・database・backup・PITR・tier/region/DB user/関連Secret存在/Anthropic key専用性/SMTP secret共有確認/IAM binding/GCSバケット/Monitoring、および staging専用OAuth client作成可否）。**この確認結果を受け取るまで、repository記載と実Cloud状態が一致しているとは扱わない**。
+
+費用確認では、公式GCP pricing page（JS動的描画）を直接取得できなかったため、第三者集計サイト（bytebase.com、2026-09-14更新、US Central/Iowa基準・compute単体）からCloud SQL tier間の相対的な費用差（参考値）のみ確認できた: db-f1-micro約$8/月 < db-g1-small約$26/月 < db-standard-1（1vCPU/3.75GB）約$49/月。**Tokyo（asia-northeast1）実額、storage/backup/HA/egress、Cloud Run/GCS/Secret Manager/Monitoringの正確な単価は取得できていない**。架空のusageを置いた月額断定はしていない。
+
+### 24.4 Architecture Decision（Human Decision 2026-09-19）
+
+**Staging Architecture**: **Option B — Project Shared / Resources Isolated** をStaging Architectureとして確定した。**これはProduction Architectureを同一構成にするDecisionではない。** Stagingでは少なくとも次のresourceをProductionからresource単位で分離する方針とする: Cloud Run service／Cloud SQL instance／database・DB roles／GCS bucket／Service Account／Secrets／OAuth client／Monitoring・Alert。**Cloud SQL instanceはProduction共有instance（`msp-customer-portal-db`）から必ず分離する**（§24.2のBackup/Restore/接続枠/blast radius理由を維持）。
+
+**Temporary Staging**: Phase 2で構築する環境は当面「**Temporary Staging for Production Readiness Evidence**」と位置付ける。恒久Staging環境として最初から扱わない。Readiness Session終了後、継続利用するか削除するかは別途Human Decisionする。
+
+**Phase 2 Resource Plan**: §23.16/前回提示のResource Planを基本承認。原則すべて**CREATE**とし、Production resourceを再利用しない構成を第一候補とする。**staging OAuth clientも専用client作成を第一候補**とする。Production OAuth clientへのredirect URI追加は、専用client作成が不可能と判明した場合のみ、あらためてHuman Decisionへ戻す（現時点では採用しない）。
+
+**Cloud Reality Check**: Phase 2のresource作成前に、Human によるGoogle Cloud Console確認（§24.3の13項目）を実施する。確認結果を受け取るまでrepository記載と実Cloud状態の一致を前提としない。差異があった場合はCloud実態を**Current FACT**として扱い、repository/documentationとの差異を記録する。Secret値そのものの確認・記録は不要。
+
+**Cost**: Phase 2開始前に必要なのは精密な月額見積ではなく、**Cloud SQL staging instanceのtier選定と、その構成で許容可能な費用であることの確認**。Google Cloud Pricing CalculatorをHumanが直接利用して確認する。Cloud Run/GCS/Secret Manager/Monitoringについて、現時点で架空usageを設定した月額確定は行わない。
+
+**Production Shared Architecture**: 引き続き確定Decisionにしない（Production Cloud SQL共有のBlocker認定／Production OAuth・SMTP共有のRisk Accepted可否／GAまでのProject分離要否は、Staging Evidence取得後のProduction GO判定で判断する）。「Production共有Cloud SQL上でrestore rehearsalを行わない」は既存方針どおり維持する。
+
+### 24.5 Phase 2ゲート — 次のHuman入力待ち
+
+Phase 2（Staging Infrastructure構築）は開始しない。以下4点のHuman入力を待つ:
+
+1. Console 13項目の確認結果（§24.3）
+2. Cloud SQL staging instanceの候補tier／許容費用の確認結果
+3. staging専用OAuth client作成可否の確認結果
+4. GCP resource作成権限の確認結果
+
+これらが揃うまで、resource作成・IAM変更・Secret作成/変更・OAuth作成/変更・Cloud Run deploy・Cloud SQL migration・外部API実行・Production変更・実顧客データ投入のいずれも行わない。
