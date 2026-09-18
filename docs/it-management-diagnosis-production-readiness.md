@@ -49,15 +49,15 @@ imageはlocal buildでありArtifact Registryへpublishしていない。Docker 
 
 | Gate | Result | Evidence / 残条件 |
 |---|---|---|
-| A Build / Runtime | **FAIL** | E1/E2: clean ci/build、Docker/health/static/admin gate/prod deps/UID1000成功。ただしNode20はEOL（F1）。 |
+| A Build / Runtime | **PASS**（2026-09-18更新、詳細§21） | E1/E2: clean ci/build、Docker/health/static/admin gate/prod deps/UID1000成功。F1（Node20 EOL）はcommit `0c2bb7c`でNode22移行済みをE9で再証跡化しCLOSED。 |
 | B Migration / DB | **BLOCKED_EXTERNAL** | E2/E3: 空DB001〜012、001〜006からadditive更新、ledger12件、rollback/rerun/restore成功。実production clone・Cloud SQL backup/PITR・既存ledgerは未確認。 |
 | C Environment / Secrets | **BLOCKED_EXTERNAL** | E4/E7: 必須config fail-fast・AI未設定起動・Secret pattern scan成功。SM/IAM/実注入/本番URLは未確認。 |
 | D Real Anthropic | **BLOCKED_EXTERNAL** | 実APIキーなし、実AI成功は0回。E3/E5はfake/invalid/timeout/Human Gateのlocal Evidenceのみ。 |
 | E Workspace OAuth | **BLOCKED_EXTERNAL** | E4/E6: 未認証/顧客token拒否・state/secure cookie/domain契約はlocal成功。実Google login/非許可accountは未実施。 |
 | F Cloud Run Worker | **BLOCKED_EXTERNAL** | E3: DB claim/lease/late result成功。実CPU allocation/min instances/scale zero/deploy中断のEvidenceなし。 |
 | G PostgreSQL concurrency | **PASS** | E3: 実PG・2 Pool、one claim、SKIP LOCKED、type isolation、期限切れlease、late result、同時Human/version、rollback、immutable trigger。 |
-| H Security / Privacy | **FAIL** + **BUSINESS_DECISION_REQUIRED** | E4/E5/E6/E7: local token/CSRF/XSS/ログ/immutable確認。依存脆弱性F2・proxy/rate F3・DB権限F4残存。保持/削除/Transcript方針未決定。 |
-| I Observability | **BLOCKED_EXTERNAL** | E8: safe events/read-only SQLは実行成功。外部alert/受信先/通知受信/uptime監視は未確認。 |
+| H Security / Privacy | **FAIL**（BUSINESS_DECISION_REQUIREDは解消、詳細§21） | E4/E5/E6/E7: local token/CSRF/XSS/ログ/immutable確認。依存脆弱性F2・proxy/rate F3・DB権限F4残存。保持/削除/Transcript方針はdocs/66でDECIDED済み、実装(retentionDeletionWorker等)・テストまで確認済みだが実環境Evidence未取得（F7、§21）。UI Audit/Traceability（F4とは別建て）は今回のセッションで復元・regression test化済み（§21）。 |
+| I Observability | **BLOCKED_EXTERNAL** | E8: safe events/read-only SQLは実行成功。外部alert/受信先/通知受信/uptime監視は未確認。F8のRole Model（Diagnosis Owner等6Role）はgit_KAIZEN docs/72§1にてHuman Decision（2026-09-18）でDECIDED済み（§21）。実名Owner割当とalert実設定・受信確認は引き続きOPEN。 |
 | J Backup / Runbook | **BLOCKED_EXTERNAL** | E2: pg_dump→別DB restoreとapp接続成功、runbookあり。Cloud SQL restore/旧revision traffic rollbackの実証なし。 |
 | K Pilot E2E | **BLOCKED_EXTERNAL** | E3/E6: local両経路CLOSEDとbrowser成功。実staging+実AI+実OAuth+実通知を組み合わせた完走は未実施。 |
 
@@ -94,14 +94,14 @@ ownerは責任ロールであり、担当者指名済みという意味ではな
 
 | ID | Severity / status | Owner | Action |
 |---|---|---|---|
-| F1 | High / FAIL | Platform + Maintainer | docs32指定Node20の動作は確認したが、現日付ではEOL。サポートされるLTSへの更新方針をレビューし、runtime/依存/実接続を再検証。今回勝手にmajor変更しない。 |
+| F1 | High / **CLOSED**（2026-09-18） | Platform + Maintainer | commit `0c2bb7c`でDockerfile全stage・CI・package.json engines共に`node:22-alpine`/Node22へ移行済みであることを確認。E9（本追記）で使い捨てDocker上のmigration/runtime imageを再buildし、Node v22.23.2・非root(uid1000)・migration冪等性(16件全skip)・pg_dump/restore一致・secret非漏洩を再証跡化。Human Decisionにより2026-09-18付でCLOSEDとして記録。 |
 | F2 | Moderate / FAIL | Maintainer + Security | express→qs、Google SDK系→uuid由来の7件。audit fix後も残存。到達性調査と互換性を確認した上で依存更新/overrideをレビューする。auditのfixAvailableだけでは解消済みにしない。 |
 | F3 | High / FAIL（構成未確認） | Platform + Security | `trust proxy=true`は任意のX-Forwarded-Forを信頼し得る。in-memory rate limitはinstance別、expired keyの全体掃除なし。local同設定probeでcaller指定X-Forwarded-Forがreq.ipになることを再現済み（本番ingress試験ではない）。実ingressでheader偽装を検証し信頼proxy/edge rate制御を確定。legacy大容量parserはauth前なのでedge/body上限も確認。 |
 | F4 | High / BLOCKED_EXTERNAL | DB + Security | report/handoff triggerは実証したがaudit/raw tableはDB ownerなら変更可能。migration identityとruntime/read-only identityの権限分離、監査ログ外部保存/アクセス/改変検知のEvidenceが必要。 |
 | F5 | Critical gate / BLOCKED_EXTERNAL | Platform | request外CPU、min/max/scale zero、Cloud SQL接続枠、deploy中断を実環境で検証。pool max5×旧新instance+他appのcapacity budgetを作る。 |
 | F6 | Critical gate / BLOCKED_EXTERNAL | Platform + QA + Workspace | 実AI/OAuth/SMTP/Slack/staging E2E/Cloud SQL restoreを実行。偽Providerの成功を転用しない。 |
-| F7 | Critical privacy / BUSINESS_DECISION_REQUIRED | Product Owner + Security | retention/deletion/Transcript/AI保存範囲/顧客削除要求について決定。下記8を参照。 |
-| F8 | High operations / BLOCKED_EXTERNAL | Operations + Product Owner | alert/当番/復旧責任者/backup復旧目標、通知失敗時手動確認の担当を確定してtest alertを受信する。 |
+| F7 | Critical privacy / **Business Decision CLOSED（docs/66）／実装+テスト確認済み／Production Evidence OPEN**（2026-09-18更新、詳細§21） | Product Owner + Security | BD-01〜BD-05はgit_KAIZEN `docs/66`でDECIDED済み（新規Business Decision不要）。F7-A〜Eに分解しDECIDED→IMPLEMENTED→TESTED→EVIDENCEDで再評価、実装・テストまでは到達。実Cloud SQL/GCS/実AIでのEVIDENCED化のみ残る（下記8は削除、§21参照）。F7-EのLegal wordingはBUSINESS_DECISION_REQUIREDではなくLEGAL_REVIEW_PENDING。 |
+| F8 | High operations / **Role Model DECIDED（docs/72§1）／Named Owners OPEN／Monitoring&Alert Evidence OPEN**（2026-09-18更新、詳細§21） | Operations + Product Owner | Role構成(Diagnosis Owner等6Role)とguardrailはgit_KAIZEN `docs/72`§1のHuman Decision（2026-09-18）でDECIDED（新規Business Decision不要）。残るのは実名Owner割当・Cloud Monitoring alert実設定・実受信確認・incident/privacy-securityエスカレーション経路の実運用確認。通知SLA数値化はdocs/66 BD-04の通りControlled Pilotでは対象外のまま。 |
 | F9 | Medium practical limit / 未検証部分あり | Maintainer + 診断責任者 | 1 SourceRecord上限20,000文字。AI02/03は直近20source×先頭2,000文字、theme/plan各100件等で切り詰める。大量Case/長期履歴/AI04の大Context/同時admin高負荷の実staging測定は未実施。 |
 
 [Node release table](https://nodejs.org/en/about/previous-releases) と [release schedule](https://github.com/nodejs/Release) でNode20 EOLを確認。依存指摘は [qs isBuffer DoS](https://github.com/advisories/GHSA-4mjr-xmp4-gh2g)、[qs array limit](https://github.com/advisories/GHSA-x5fp-wj9c-mxmx)、[uuid bounds check](https://github.com/advisories/GHSA-w5hq-g745-h8pq)。audit件数は依存経路の影響package数を含み、独立した7攻撃を意味しない。
@@ -186,3 +186,70 @@ Golden **87 PASS / 4 external skip / 0 FAIL**、browser **32 PASS**、新securit
 ## 20. Recommended next action
 
 Product Owner/Platform/SecurityがF1〜9の担当者と期限を決める。Node/依存/proxy/privacyを解決し、認証済みstagingで実AI/OAuth/worker/通知/Cloud SQL restore/両経路を実証してmatrixを更新する。それまでmainへmerge・顧客提供しない。本branchはレビュー待ちとする。
+
+## 21. Update — 2026-09-18（Development Lane正常化 / F1・F7・F8再評価）
+
+検証日: 2026-09-18。Base: `fix/free-diagnosis-development-lane-normalization` @ `0c2bb7c`（`feat/free-diagnosis-sales-launch`から分岐）。mainへのmerge/Production deploy/Cloud SQL migrationは未実施。本章は§1〜20の記録を書き換えず、追記としてEvidenceと再評価結果を記録する。**総合判定は引き続きNO-GO。**
+
+### 21.1 Development Lane正常化（本Gate外の前提作業）
+
+commit `0c2bb7c`時点のHEADに対し、build失敗（TS2345×2）・golden test terminology drift 5件・browser test 24件failをすべて解消。build/golden test 19スクリプト/実PostgreSQL 9件/browser 32件/GitHub Actions（run `35330633766`）いずれもgreenであることを確認済み。**これはLocal/CI PASSの確認であり、単独でProduction Readinessを構成しない。**
+
+修正過程でUI層の情報欠落14件（Category C：実装バグ）を発見・復元した。`#case-status`・`#handoff-future`/`intent_status`・`#assessment-audit`・`handoff-hash`・`handoff-snapshot`・`assessment-items`のstatus・`report-sections` traceのid/version等。バックエンドAPI/DBには該当データが元々保持されたままであること（UI表示のみの欠落、データ損失ではないこと）をPGlite環境で実地検証済み。Progressive Disclosure（通常表示＝翻訳済み日本語、詳細表示＝括弧併記または既存`<details>`展開）で復元し、再発防止のためbrowser testへregression assertionを追加した。これは独立した「UI Audit / Traceability」Readiness補足項目として扱う（§21.4参照、F4そのものではない）。
+
+未assertの画面要素に同種の欠落が残っている可能性、および`#assessment-metadata`・`#assessment-diagnosis-status`・`#feedback-status`の簡略化はUNKNOWNのまま維持し、「問題なし」とは扱わない。将来のReadiness/UX監査対象として記録する。
+
+### 21.2 E9 — F1 Node22移行の再証跡化（CLOSED）
+
+使い捨てのローカルDocker環境（Cloud SQL非接続、synthetic dataのみ）で`docker build --target migration`・`docker build --target runtime`をこのHEADから実行し、`scripts/readiness/rehearse-docker.cjs`でE1/E2相当のEvidenceを再取得した。
+
+```
+{"event":"migration_artifact_rerun","skipped":16}
+{"event":"local_backup_restore_verified","ledger":16,"triggers":4,"customerData":false}
+{"event":"runtime_smoke_pass","node":"v22.23.2","uid":1000,"restoredDatabase":true,"aiKeyConfigured":false}
+{"event":"runtime_log_synthetic_secret_check","result":"PASS"}
+```
+
+Dockerfile全stage（build/production-deps/migration/runtime）およびCI（`node-version: '22'`）が`node:22-alpine`/Node22を使用していることをソースからも確認済み。**F1（Node20 EOL）はHuman Decisionにより2026-09-18付でCLOSEDとして記録する。** Gate Aの判定をFAILからPASSへ更新した（§4参照）。
+
+### 21.3 F7 再評価 — Business Decision CLOSED（docs/66）／Production Evidence OPEN
+
+前回記録（F7 = BUSINESS_DECISION_REQUIRED）は誤りだった。git_KAIZEN `docs/66-customer-data-ai-continuity-business-policy-v1.md`（Status: CANONICAL — BUSINESS POLICY / DECISION、2026-09-13）がBD-01〜BD-05を既にDECIDED済みであり、**新しいBusiness Decisionは不要**。同文書§8は「**Business Decision completed ≠ Production Ready**」と明記し、Development Laneが実装・Evidenceで再評価すべき残Gate（実AI provider・実OAuth・Cloud Run Worker・Secret/IAM・Monitoring・Cloud SQL backup/restore・staging E2E・privacy/legal実装・consent実装・retention/deletion実装）を明示している。この残Gateに沿い、現在HEADでの実装・テスト状況のみを評価した。
+
+| 分解 | 内容 | DECIDED | IMPLEMENTED | TESTED | EVIDENCED（実環境） |
+|---|---|---|---|---|---|
+| F7-A Retention | General Raw+1年／Transcript+90日／Raw AI I/O+90日／Approved Evidence+5年 | ✅ docs/66 BD-01 | ✅ `retentionDeletionWorker.ts`の`interval '1 year'/'90 days'/'90 days'/'5 years'`がBD-01数値と一致 | ✅ `test/retentionDeletionWorker.golden.test.ts`で境界値検証、golden test 5/5 pass | ❌ UNKNOWN（PGlite/使い捨てDockerのみ、実Cloud SQL未検証） |
+| F7-B Customer Deletion | request／Human approval／execution audit／anonymization・制限保存 | ✅ docs/66 BD-02 | ✅ `diagnosis_deletion_requests`の状態機械、DB CHECK制約でHuman承認必須を強制 | ✅ 同golden testに含まれる（承認済み匿名化・active Hold保護・未承認拒否） | ❌ UNKNOWN |
+| F7-C Backup/Restore整合 | 削除済みデータがRestore後に恒久復活しないcontrol | ✅ docs/66 BD-02 | ✅ `deletionReconciliation.ts`（外部永続化・content-addressed・tamper-evident manifest） | ✅ `test/controlledPilotRestoreAiClosure.golden.test.ts`・`test/externalDeletionManifestStore.golden.test.ts`、3/3・2/2 pass | ❌ UNKNOWN（実Cloud SQL restore・実GCS未検証、docs/66§8明記の残Gate） |
+| F7-D AI Data Minimization | Context目的限定／Raw AI I/O保持／Human Approved Resultとの分離 | ✅ docs/66 BD-03 | ✅ Transcript default除外、explicit consent + necessity opt-in時のみbounded excerpt | ✅ 同上golden testでpass | ❌ UNKNOWN（実Anthropic AI呼び出しはF6と共通のBLOCKED_EXTERNAL） |
+| F7-E Customer Notice/Consent | AI利用事前説明／AIのみで判断しない旨／Transcript別途同意 | ✅ docs/66 BD-05（最低限9項目） | ✅ `DIAGNOSIS_POLICY_NOTICE_VERSION`を`z.literal()`でAPI契約として強制。Transcriptは`recordTranscriptConsent()`で別経路の同意記録 | ✅ `test/controlledPilotPolicyClosure.golden.test.ts`でnotice_version一致検証、Transcript別同意はbrowser testで経路確認 | **LEGAL_REVIEW_PENDING**（BUSINESS_DECISION_REQUIREDではない。文言はBD-05の大半をカバーするが、顧客向けLegal wordingの逐語網羅性チェックは未実施。docs/66自身が「Legal wordingは専門Reviewを経て確定」と明記し別工程として意図的に切り離している） |
+
+**F7総括**: Business Decision CLOSED（docs/66）。IMPLEMENTED・TESTEDまで到達。**残るのは全項目共通で実環境（Cloud SQL/GCS/実AI）でのEVIDENCED化のみ**であり、Production Readiness Gapとして記録する。F7-EのみLEGAL_REVIEW_PENDINGという別カテゴリを持つ。
+
+### 21.4 F8 再評価 — Role Model DECIDED（docs/72§1）／Named Owners OPEN／Monitoring & Alert Evidence OPEN
+
+git_KAIZEN `docs/72-controlled-pilot-business-operations-pack-v1.md`はStatus: PROPOSAL FOR VALIDATIONのままであり、当初§11でも「Role model」はPROPOSAL FOR PILOT VALIDATION扱いだった。**したがって「既存CanonicalによりRole ModelがBusiness Decision済み」ではなかった。**
+
+これを受け、Human Decision（2026-09-18）により、docs/72§1 Operating Roles — Pilot Minimumを**Controlled Pilotの運用Role Modelとして新たに採用**した（commit `280975f`、docs/72側を更新）。採用したRole: Diagnosis Owner／Human Reviewer／Management Feedback Facilitator／Customer Follow-up Owner／Technical Incident Escalation／Privacy / Security Escalation。「一人が複数Roleを兼務可能。ただし責任の所在を曖昧にしない」というGuardrailも採用。Human Review Sheet・45-minute facilitation・Decision Record・Pilot Observation等、他のProposal内容は今回のDecisionに含まれず、引き続きPROPOSAL FOR PILOT VALIDATIONのまま。
+
+通知SLAの数値化はdocs/66 BD-04の通り、Controlled Pilotでは意図的に対象外（GA前に再評価）。
+
+**F8残課題**: (1) Pilot開始前の実名Owner割当（軽量なHuman Decision、Business Decisionではない）、(2) Cloud Monitoring alertの実設定、(3) 実際のalert受信確認、(4) technical incident / privacy-security escalation routeの実運用確認。いずれもInfrastructure/External Evidence待ちであり、新しいBusiness Decisionは不要。
+
+### 21.5 UI Audit / Traceability — 独立したReadiness補足項目（F4とは別建て）
+
+F4（DB owner権限分離・監査ログ外部保存・改ざん検知）はインフラ/DB層の論点であり、今回の修正では変わらずBLOCKED_EXTERNALのまま。
+
+今回のセッションで発見・解消したのは、F4とは別の論点：バックエンドには監査データ（`audit.command`・`actor_user_id`・`diagnosis_status`・`intent_status`・`version`・`snapshot_hash`・`snapshot_json`・`approved_by_user_id`等）が保持されているにもかかわらず、admin UIがそれを表示できず担当者が画面上で監査証跡を確認できない、というUI層のAudit/Traceability欠落（`docs/23`「Audit / Decision traceability」要求）。commit `0c2bb7c`で復元し、browser test 32件（regression assertion含む）で再発防止を確認済み。**この項目単体は解消済みであり、Production GOを阻害しない。** F4（インフラ層）は引き続き別問題としてBLOCKED_EXTERNALのまま残る。
+
+### 21.6 Readiness状態サマリ（2026-09-18時点）
+
+- **F1**: CLOSED
+- **F7**: Business Decision CLOSED（docs/66）／Implementation + Test確認済み／**Production Evidence OPEN**
+- **F8**: Role Model DECIDED（docs/72§1、Human Decision 2026-09-18）／**Named Owners OPEN**／**Monitoring & Alert Evidence OPEN**
+- **UI Audit / Traceability**（F4と別建て）: CLOSED（今回解消、regression test化済み）
+- F2〜F6・F9・F4（インフラ層）: 変化なし、引き続きOPEN
+
+### 21.7 総合判定
+
+F1解消・F7/F8のBusiness Decision面の整理・UI Audit/Traceability解消にもかかわらず、F2・F3・F4（インフラ層）・F5・F6・F8（Evidence面）・F9が未解決のため、**Production Readinessは引き続きNO-GO**。mainへのmerge可否・Production deploy可否・実顧客データ利用可否は別Gateとして扱い、本追記時点ではいずれも承認していない。
