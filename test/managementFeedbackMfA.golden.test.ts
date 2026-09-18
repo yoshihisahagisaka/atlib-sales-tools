@@ -25,7 +25,7 @@ function context(statement:string):ReportContext{
 test('MF-A: Q01 分からない is projected as explicit FUTURE UNKNOWN without fabricated future',()=>{
  const ctx=context('分からない');
  assert.equal(ctx.future.knowledge_status,'UNKNOWN');
- assert.equal(ctx.future.report_text,'FUTUREは現時点で未確認です。Management Feedbackで経営者の言葉を確認します。');
+ assert.equal(ctx.future.report_text,'目指している会社の姿は現時点で未確認です。経営フィードバックまでに経営者の言葉を確認します。');
  assert.equal(ctx.future.report_text.includes('分からない（1〜3年）'),false);
  const report=manualReport(ctx);
  assert.deepEqual(validateReportOutput(report,ctx),report);
@@ -41,9 +41,9 @@ test('MF-A: Page 2 contains Observation/UNKNOWN only; Hypothesis is shown on WHY
  const report=manualReport(ctx);
  const current=report.sections.find(s=>s.section_key==='CURRENT_AND_UNKNOWN')!;
  const why=report.sections.find(s=>s.section_key==='ROOT_CAUSE_AND_KAIZEN')!;
- assert.equal(current.title,'現時点で把握していること / まだ確認が必要なこと');
- assert.ok(current.blocks.some(b=>b.text.startsWith('観察（Human Review済み）：')));
- assert.ok(current.blocks.some(b=>b.text.startsWith('未確認（NOT_YET_CONFIRMED）：')));
+ assert.equal(current.title,'2. 今、確認できていること / 3. まだ分かっていないこと');
+ assert.ok(current.blocks.some(b=>b.text.startsWith('確認できていること（Human Review済み）：')));
+ assert.ok(current.blocks.some(b=>b.text.startsWith('まだ分かっていないこと（NOT_YET_CONFIRMED）：')));
  assert.equal(current.blocks.some(b=>b.text.startsWith('仮説：')),false);
  assert.ok(why.blocks.some(b=>b.text.startsWith('仮説：')));
  assert.deepEqual(validateReportOutput(report,ctx),report);

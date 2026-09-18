@@ -34,7 +34,7 @@ test('1–3: provider boundary excludes raw sources, survey, secret, proposals a
 test('4–7: semantic labels, strict output schema and same approved Case grounding',async()=>{
  const c=await reportCase(h),foreign=await reportCase(h),ctx=(await read(c.id)).context,good=manualReport(ctx);
  assert.deepEqual(validateReportOutput(good,ctx),good);const blocks=good.sections.flatMap(s=>s.blocks);
- assert.ok(blocks.some(b=>b.text.startsWith('未確認（UNRESOLVED）')));assert.ok(blocks.some(b=>b.text.startsWith('仮説：')));assert.ok(blocks.some(b=>b.text.startsWith('Root Cause仮説：')));
+ assert.ok(blocks.some(b=>b.text.startsWith('まだ分かっていないこと（UNRESOLVED）')));assert.ok(blocks.some(b=>b.text.startsWith('仮説：')));assert.ok(blocks.some(b=>b.text.startsWith('WHY仮説：')));
  for(const field of ['FACT','CONFIRMED_FACT','score','maturity','rating','semantic_type','case_id','approved_by','system_metadata']){const bad=structuredClone(good);(bad.sections[1]!.blocks[0] as any)[field]=true;assert.throws(()=>validateReportOutput(bad,ctx));}
  for(const ref of [randomUUID(),foreign.unknown.id]){const bad=structuredClone(good);bad.sections[1]!.blocks[0]!.insight_refs=[ref];assert.throws(()=>validateReportOutput(bad,ctx));}
  for(const text of ['御社は管理できていません','原因は役割分担です','サービスを導入すべきです','50％改善します','FACT：確定','台帳は最新です']){const bad=structuredClone(good);bad.sections[1]!.blocks[0]!.text=text;assert.throws(()=>validateReportOutput(bad,ctx));}
