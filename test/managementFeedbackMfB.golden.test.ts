@@ -17,14 +17,14 @@ test('MF-B: WHY projects reviewed Hypothesis → Supporting Observation → Evid
   assert.ok(item.why_connection);
   assert.ok(item.why_connection!.supporting_insight_refs.includes(c.observation.id));
   assert.ok(item.why_connection!.evidence_confirmation_refs.length>0);
-  assert.ok(item.report_text.startsWith(item.semantic_type==='HYPOTHESIS'?'仮説：':'Root Cause仮説：'));
-  assert.ok(item.report_text.includes('Supporting Observation / Context：'));
-  assert.ok(item.report_text.includes('Evidence Needed：'));
+  assert.ok(item.report_text.startsWith(item.semantic_type==='HYPOTHESIS'?'仮説：':'WHY仮説：'));
+  assert.ok(item.report_text.includes('確認できていることとのつながり：'));
+  assert.ok(item.report_text.includes('次に確認が必要なこと：'));
   assert.equal(item.report_text.includes('原因は'),false);
  }
  const report=manualReport(ctx),why=report.sections.find(s=>s.section_key==='ROOT_CAUSE_AND_KAIZEN')!;
  assert.equal(why.blocks.length,2);
- assert.ok(why.blocks.every(b=>b.text.includes('Supporting Observation / Context：')&&b.text.includes('Evidence Needed：')));
+ assert.ok(why.blocks.every(b=>b.text.includes('確認できていることとのつながり：')&&b.text.includes('次に確認が必要なこと：')));
  assert.deepEqual(validateReportOutput(report,ctx),report);
  const serialized=JSON.stringify(ctx);
  for(const forbidden of ['source_ref_id','SOURCE_RECORD:','SURVEY_RESPONSE:','raw_value_json','PRIVATE_RAW_TRANSCRIPT'])assert.equal(serialized.includes(forbidden),false,forbidden);

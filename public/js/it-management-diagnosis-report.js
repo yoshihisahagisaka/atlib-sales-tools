@@ -1,6 +1,7 @@
 'use strict';
 (() => {
  const el=id=>document.getElementById(id),node=(tag,text)=>{const n=document.createElement(tag);n.textContent=text;return n;};
+ const diagnosisLabels={"HUMAN_REVIEW_REQUIRED":"分析内容の確認待ち","REPORT_REVIEW_REQUIRED":"経営フィードバック資料作成待ち","REPORT_APPROVED":"経営フィードバック資料承認済み","FEEDBACK_PENDING":"経営フィードバック待ち","FEEDBACK_COMPLETED":"経営フィードバック完了","CLOSED":"完了"};
  const id=new URLSearchParams(location.search).get('id'),base='/api/admin/it-management-diagnosis/cases/'+encodeURIComponent(id);
  const reportStatusLabels={DRAFT:'資料案',REVIEW_REQUIRED:'担当者確認待ち',REVISION_REQUIRED:'修正待ち',APPROVED:'承認済み'};
  const executionLabels={PENDING:'作成待ち',RUNNING:'作成中',SUCCEEDED:'作成完了',FAILED:'作成失敗'};
@@ -15,7 +16,7 @@
  async function command(path,body,after){if(busy)return;busy=true;clearTimeout(timer);error('');controls();try{const result=await api(path,body);if(result?.id&&path.startsWith('/report/')&&path!=='/report/wording')selectedId=result.id;if(after)after();await load();}catch(e){error(e.message==='REPORT_MEANING_CHANGE_REQUIRES_REVIEW'?'内容の意味が変わる編集は、この画面では保存できません。「内容の修正」から分析内容の確認へ戻してください。':e.message);}finally{busy=false;controls();}}
  const target=()=>({report_id:selected().id,expectedVersion:data.version});
  function render(){
-  el('company').textContent=data.context.organization_display_name;el('case-status').textContent='進行状況：経営フィードバック';el('next-action').textContent=data.current_next_action;
+  el('company').textContent=data.context.organization_display_name;el('case-status').textContent='進行状況：'+(diagnosisLabels[data.diagnosis_status]||'状況確認中');el('next-action').textContent=data.current_next_action;
   el('report-version').replaceChildren(...data.reports.map(r=>{const n=node('option',`第${r.version}版 / ${reportStatusLabels[r.status]||'状況確認中'}`);n.value=r.id;return n;}));const report=selected();selectedId=report?.id||null;el('report-version').value=selectedId||'';
   const context=report?.snapshot_json||report?.context_json||data.context;el('report-company').textContent=context.organization_display_name;el('report-future-status').textContent=context.future?.intent_status?'顧客が目指している会社の姿として回答':'';
   el('print-report-status').textContent=report?`第${report.version}版 / ${report.approved_at?'承認済み（'+new Date(report.approved_at).toLocaleString('ja-JP')+'）':'資料案・未承認'}`:'資料案未作成';el('report-status').textContent=report?`第${report.version}版 / ${reportStatusLabels[report.status]||'状況確認中'}`:'資料案未作成';el('content-version').textContent='';

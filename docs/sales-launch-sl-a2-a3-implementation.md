@@ -2,6 +2,8 @@
 
 Status: local Application implementation only. Production / Controlled Customer Pilot remains NO-GO.
 
+The validation counts below describe commit `63c84bd`. Subsequent failure classification and acceptance validation are recorded in [sales-launch-sl-a2-a3-acceptance-validation.md](sales-launch-sl-a2-a3-acceptance-validation.md).
+
 ## Baseline and FIT / GAP
 
 - Branch: `feat/free-diagnosis-sales-launch`; starting HEAD: `2cd1ecb5b9b1e8b0b600d450dd89ecf39a68a95e`.

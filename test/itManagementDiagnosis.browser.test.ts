@@ -69,7 +69,7 @@ test('Web: 申込→自動保存→別タブ再開→通信失敗から再保存
   await resumed.locator('[data-question-code="Q10_FREE_COMMENT"] textarea').fill('前任者しか分からない\n<script>window.injected=true</script>');
   await resumed.getByRole('button', { name: '回答を完了する', exact: true }).click();
   await expect(resumed.locator('#survey-success')).toBeVisible();
-  await expect(resumed.locator('#survey-success')).toContainText('重要なテーマを中心に確認');
+  await expect(resumed.locator('#survey-success')).toContainText('同じ質問を最初から繰り返すことはしません');
   expect((await h.db.query<{ name: string }>('SELECT o.name FROM organizations o JOIN diagnosis_cases c ON c.organization_id=o.id WHERE c.id=$1',[id])).rows[0]!.name).toBe('ABC株式会社');
   const future = await h.db.query<{ intent_status: string }>('SELECT intent_status FROM diagnosis_futures WHERE diagnosis_case_id=$1',[id]);
   expect(future.rows[0]!.intent_status).toBe('SURVEY_STATED');
@@ -89,16 +89,16 @@ test('営業訪問: Google認証Gate→代理回答完了→新一覧と概要�
   await expect(page.locator('#survey-success')).toBeVisible();
   await page.getByRole('link', { name: '案件の概要を確認する' }).click();
   await expect(page.locator('#future')).toHaveText('分からない');
-  await expect(page.locator('#future-source')).toContainText('SURVEY_STATED');
+  await expect(page.locator('#future-source')).toContainText('顧客が目指している会社の姿として回答');
   await expect(page.locator('#case-meta')).toContainText('operator@atlib.jp');
   await expect(page.locator('#raw-responses')).toContainText('<script>window.injected=true</script>');
   expect(await page.evaluate(() => (window as unknown as { injected?: boolean }).injected)).toBeUndefined();
   await page.screenshot({ path: info.outputPath('staff-overview.png'), fullPage: true });
-  await page.getByRole('link', { name: '← 診断案件一覧' }).click();
+  await page.getByRole('link', { name: '← 無料診断案件一覧' }).click();
   await page.locator('#channel-filter').selectOption('SALES_VISIT');
   await expect(page.locator('#case-list tr')).toHaveCount(1);
   await expect(page.locator('#case-list')).toContainText('ABC株式会社様');
-  await expect(page.locator('#case-list')).toContainText('NOT_PROPOSED');
+  await expect(page.locator('#case-list')).toContainText('未提案');
   await expect(page.locator('#case-list')).toContainText('AI事前整理を実行し、診断準備を開始');
   await page.screenshot({ path: info.outputPath('staff-list.png'), fullPage: true });
   const records = await h.db.query<{ entry_channel: string; entered_by_user_id: string }>('SELECT entry_channel,entered_by_user_id FROM survey_responses WHERE diagnosis_case_id=$1',[id]);
