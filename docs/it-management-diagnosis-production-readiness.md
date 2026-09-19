@@ -510,3 +510,99 @@ Phase 2（Staging Infrastructure構築）は開始しない。以下4点のHuman
 4. GCP resource作成権限の確認結果
 
 これらが揃うまで、resource作成・IAM変更・Secret作成/変更・OAuth作成/変更・Cloud Run deploy・Cloud SQL migration・外部API実行・Production変更・実顧客データ投入のいずれも行わない。
+
+## 25. Update — 2026-09-19（Human Cloud Reality Check — Console確認結果、Current Production FACT）
+
+検証日: 2026-09-19。HumanがGoogle Cloud Consoleを直接確認した結果を、repository推定ではなく**Current Production Cloud FACT**として記録する。commit `6837150`（Phase 1/1.5/1.6・Architecture Decision）は維持し、書き換えない。**Production resourceは今回も一切変更していない。**
+
+### 25.1 Cloud Run — sales-tools（Console確認済みFACT）
+
+| 項目 | 値 |
+|---|---|
+| Region | asia-northeast1 |
+| Runtime Service Account | `sales-tools-sa@msp-zabbix.iam.gserviceaccount.com` |
+| CPU | 1 vCPU |
+| Memory | 512 MiB |
+| Auto Scaling | あり |
+| Min instances | 0 |
+| Max instances | 20 |
+| CPU allocation / billing | Request-based |
+| Request timeout | 300秒 |
+| Concurrency | 80 / instance |
+| Container port | 8080 |
+| Cloud SQL connection | `msp-customer-portal-db` |
+
+### 25.2 Cloud SQL — msp-customer-portal-db（Console確認済みFACT）
+
+| 項目 | 値 |
+|---|---|
+| Engine | PostgreSQL 16.14 |
+| Edition | Cloud SQL Enterprise |
+| Machine | 1 vCPU / 628.74 MB |
+| Region | asia-northeast1 |
+| Availability | Single zone |
+| Automatic backup | enabled |
+| Retained automatic backups | 7 |
+| PITR | **disabled** |
+
+**Production共有Cloud SQL上ではrestore rehearsalを行わない既存Decision（§7・§23の方針）を維持する。Production設定は今回変更していない。**
+
+### 25.3 docs/66 BD-04とのGAP（記録のみ、Production変更なし）
+
+git_KAIZEN `docs/66` BD-04は「Backup retention target: 30 days」、Pilot internal RPO 24h / RTO 24hを定めている。Console確認済みFACTと比較すると:
+
+- **Backup retention GAP**: 現在保持されている自動バックアップは7世代。BD-04目標の30日（バックアップ頻度が日次である場合は約30世代相当）に対し、明確な差がある。実際のバックアップ頻度（日次かどうか）は今回未確認のため、7世代が何日分に相当するかはUNKNOWNのまま記録する。
+- **PITR GAP**: PITRが無効のため、任意時点への復元ができない。既存`controlled-pilot-external-evidence-execution-pack-v1.md`§4（Cloud SQL isolated restore rehearsal）は「source backup/PITR timestamp」を復元起点として想定しており、**現在のProduction設定ではPITRに基づく復元Evidence取得はそもそも技術的に不可能**というGAPが新たに判明した。F7-C（Backup/Restore整合のEVIDENCED化）のEvidence取得は、Production自体のPITR設定変更ではなく、Temporary Staging Cloud SQL側でPITRを有効にして代替検証する方針とする（Production非変更の原則を維持するため）。
+
+このGAPはProduction Readiness Gap（F7関連）として記録するのみであり、**Production側のPITR有効化・backup retention変更は行っていない。**
+
+### 25.4 Secret Boundary（UNKNOWN解消）
+
+| Secret用途 | 参照Secret名 | 分類 |
+|---|---|---|
+| DB password | `sales-tools-db-password` | DEDICATED |
+| Staff JWT | `sales-tools-staff-jwt-secret` | DEDICATED |
+| Google OAuth Client Secret | `sales-tools-google-oauth-client-secret` | DEDICATED |
+| Anthropic API Key | `portal-anthropic-api-key` | **SHARED**（§24.2のUNKNOWNを解消。`sales-tools-anthropic-api-key`という名前のsecretはSecret Manager全27件の一覧に存在せず、実Cloud Runは`portal-anthropic-api-key`を参照していることをConsoleで確認） |
+| SMTP password | `portal-smtp-password` | SHARED（§24.2のFACTを再確認） |
+
+`docs/運用手順書_デプロイ.md`手順4が記載する「`sales-tools-anthropic-api-key`ローテーション手順」は、**現在の実Cloud Run参照とは一致しない（手順書が実態を反映していない）**。この差異を記録する。運用手順書の修正はこのHuman Decisionの範囲外のため、本Update内では現状のまま記録に留める。
+
+### 25.5 Slack Webhook — Production Security GAP
+
+`SLACK_WEBHOOK_DIAGNOSTIC`はSecret Manager参照ではなく、**Cloud Runの通常環境変数として平文設定されていることをConsoleで確認した**（Secret値そのものは記録しない）。これをProduction Security GAPとして記録する。
+
+**Production GO前の対応候補**（今回は未実施・未決定）:
+- Secret Manager化（環境変数からSecret参照への切替）
+- webhook rotation（環境変数として存在していた期間のExposure面を考慮したローテーション）
+
+現時点ではProduction設定を変更していない。対応要否は別途Human Decision。
+
+### 25.6 IAM（確認できた範囲のみ、推測なし）
+
+- `sales-tools-sa@msp-zabbix.iam.gserviceaccount.com`の実在をConsoleで確認
+- Project IAM上で当該SAへの`Cloud SQL Client`ロール付与を確認
+- **他のresource-level IAM（Secret単位のaccessor付与範囲等）は今回確認できておらず、推測しない。** UNKNOWNのまま維持する。
+
+### 25.7 GCS
+
+sales-tools専用のGCSバケットは現在のバケット一覧に存在しないことをConsoleで確認した（§24.2のNOT EXISTS判定を確定FACT化）。Phase 2ではdeletion reconciliation Evidence用のstaging GCSをCREATEする既存方針（§23.16・§24.4）を維持する。
+
+### 25.8 Monitoring
+
+現在のAlert Policyは「Portal and Topology Uptime Failure」の1件のみで、sales-tools専用のMonitoring/Alert Policyは存在しないことをConsoleで確認した（§24.2のNOT EXISTS判定を確定FACT化）。Phase 2ではstaging専用Monitoring/AlertをCREATEする既存方針を維持する。
+
+### 25.9 OAuth
+
+Google Cloud Console上でOAuth 2.0 Client IDの管理画面・新規認証情報作成導線が利用可能であることを確認した（作成そのものはまだ実施していない）。現在3つのOAuth Clientが存在するが、**どれがProduction sales-toolsの実Client IDに対応するかは未確定のまま**である。Phase 2ではstaging専用OAuth clientをCREATEする第一候補方針（§24.4）を維持する。
+
+### 25.10 Phase 2ゲートの現在状態（更新）
+
+| 項目 | 状態 |
+|---|---|
+| Console Reality Check | **主要項目確認済み**（§25.1〜25.9） |
+| Cloud SQL staging tier / 許容費用 | **OPEN** |
+| staging専用OAuth client | 作成導線確認済み／実作成は未実施 |
+| GCP resource作成権限 | **OPEN**（閲覧可能であることと作成権限があることは別、未確認） |
+
+resource作成・IAM変更・Secret変更・OAuth変更・deploy・migration・外部API実行・Production変更・実顧客データ投入はいずれも未実施。
