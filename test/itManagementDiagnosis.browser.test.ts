@@ -18,7 +18,12 @@ async function application(page: Page, staff = false) {
     await expect(page.locator('#survey-questions')).toBeHidden();
     await page.locator('#policy-acknowledged').check();
   }
-  await page.getByRole('button', { name: staff ? '営業訪問の案件を作成する' : '申し込んでアンケートへ進む' }).click();
+  if(staff){
+    await page.getByRole('button',{name:'会話内容を保存する',exact:true}).click();
+    await expect(page.locator('#consent')).toBeVisible();
+    await page.locator('#consent-customer').fill('山田');await page.locator('#customer-agreed').check();
+    await page.locator('#start').click();
+  }else await page.getByRole('button', { name: '申し込んでアンケートへ進む' }).click();
   await expect(page.locator('#survey-questions')).toBeVisible();
   await expect(page.locator('#company-display')).toHaveText('ABC株式会社様');
   const id = staff ? new URL(page.url()).searchParams.get('id')! : new URLSearchParams(new URL(page.url()).hash.slice(1)).get('case')!;
@@ -114,4 +119,38 @@ test('無効token画面は回答を表示せず、スタッフが再開リンク
   await expect(page.locator('#access-status')).toHaveText('顧客の再開リンクは失効済みです。');
   await page.goto(resume);
   await expect(page.locator('#diagnosis-error')).toContainText('無効または期限切れ');
+});
+
+test('営業会話: 同意前は案件なし、3分類と取得済み回答を同意後に再利用', async ({page,context},info)=>{
+  await login(context);
+  const before=(await h.db.query('SELECT id FROM diagnosis_cases')).rows.length;
+  await page.goto(h.url+'/admin/sales-conversation.html');
+  await page.locator('#company-name').fill('会話保存テスト');
+  await page.locator('#contact-name').fill('田中');
+  await page.locator('#email').fill('conversation@example.test');
+  await page.locator('#customer-statements').fill('担当者は2名と伺った');
+  await page.locator('#unknowns').fill('契約更新日はまだ分からない');
+  await page.locator('#salesperson-notes').fill('引継ぎに課題があるかもしれない');
+  await page.getByText('既に伺った回答を記録する（任意）',{exact:true}).click();
+  await page.locator('[data-code="Q04_IT_VISIBILITY"]').getByLabel('分からない',{exact:true}).check();
+  await page.locator('#save').click();
+  await expect(page.locator('#consent')).toBeVisible();
+  expect((await h.db.query('SELECT id FROM diagnosis_cases')).rows.length).toBe(before);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBeTruthy();
+  await page.screenshot({path:info.outputPath('sales-conversation.png'),fullPage:true});
+  await page.reload();
+  await expect(page.locator('#unknowns')).toHaveValue('契約更新日はまだ分からない');
+  await page.locator('#consent-customer').fill('田中・代表者');
+  await page.locator('#customer-agreed').check();
+  await page.locator('#start').click();
+  await expect(page.locator('#survey-questions')).toBeVisible();
+  await expect(page.locator('[data-question-code="Q04_IT_VISIBILITY"]').getByLabel('分からない',{exact:true})).toBeChecked();
+  await expect(page.locator('#survey-questions')).toContainText('営業会話で伺った回答を引き継いでいます');
+  const id=new URL(page.url()).searchParams.get('id')!;
+  await page.goto(h.url+'/admin/it-management-diagnosis-detail.html?id='+id);
+  const summary=page.locator('#sales-conversation-summary');
+  await expect(summary).toContainText('担当者は2名と伺った');
+  await expect(summary).toContainText('契約更新日はまだ分からない');
+  await expect(summary).toContainText('引継ぎに課題があるかもしれない');
+  expect((await h.db.query('SELECT id FROM diagnosis_cases')).rows.length).toBe(before+1);
 });

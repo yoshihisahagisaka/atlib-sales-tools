@@ -135,8 +135,10 @@ test('Golden: SALES_VISITは既存staff認証、同一Surveyとactor記録、顧
   assert.equal((await request(`${adminBase}/cases`, 'POST', application, undefined, false, { Cookie: h.staffCookie })).status, 403);
   assert.equal((await request(`${adminBase}/cases`, 'POST', application, undefined, true, { 'Sec-Fetch-Site': 'cross-site' })).status, 403);
   assert.equal((await request(`${publicBase}/cases`, 'POST', { ...application, entry_channel: 'SALES_VISIT', owner_user_id: 'forged' })).status, 422);
-  const response = await request(`${adminBase}/cases`, 'POST', application, undefined, true);
-  assert.equal(response.status, 201); const c = await response.json(); assert.equal(c.entry_channel, 'SALES_VISIT'); assert.ok(!c.access_token);
+  assert.equal((await request(`${adminBase}/cases`, 'POST', application, undefined, true)).status,409);
+  const draft=await (await request(`${adminBase}/sales-intakes`,'POST',{customer:application,customerStatements:[],unknowns:[],salespersonNotes:[],surveyAnswers:{}},undefined,true)).json();
+  const response = await request(`${adminBase}/sales-intakes/${draft.id}/consent-and-start`, 'POST', {expectedVersion:draft.version,customerAgreed:true,customerReference:'Synthetic customer'}, undefined, true);
+  assert.equal(response.status, 200); const c = await response.json(); assert.equal(c.entry_channel, 'SALES_VISIT'); assert.ok(!c.access_token);
   assert.equal((await request(`${adminBase}/cases/${c.id}/survey/start`, 'POST', {}, undefined, true)).status, 204);
   await fullAnswers(c.id, staff);
   assert.equal((await request(`${adminBase}/cases/${c.id}/survey/complete`, 'POST', {}, undefined, true)).status, 204);

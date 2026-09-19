@@ -1,6 +1,7 @@
 'use strict';
 (() => {
   const staff = document.body.dataset.mode === 'staff';
+  if(staff&&!new URLSearchParams(location.search).get('id')){location.replace('/admin/sales-conversation.html');return;}
   const base = staff ? '/api/admin/it-management-diagnosis' : '/api/it-management-diagnosis';
   const el = id => document.getElementById(id);
   const fragment = new URLSearchParams(location.hash.slice(1));
@@ -57,6 +58,8 @@
     const legend = document.createElement('legend');
     legend.textContent = `${q.display_order}. ${q.question_text}`;
     field.append(legend);
+    const origin=survey.responses.find(r=>r.question_code===q.question_code)?.intake_origin_id;
+    if(staff&&origin){const hint=document.createElement('p');hint.textContent='営業会話で伺った回答を引き継いでいます。必要に応じて現在も同じか確認してください。';field.append(hint);}
     const value = saved.get(q.question_code);
     if (q.answer_type === 'TEXT') {
       const input = document.createElement('textarea'); input.name = q.question_code; input.maxLength = 4000;

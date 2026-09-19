@@ -50,6 +50,7 @@ export async function buildDeletionReconciliationManifest(pool: Pool): Promise<D
 
 async function targetExists(c: PoolClient, entry: DeletionReconciliationEntry): Promise<boolean> {
   switch (entry.target_kind) {
+    case 'SALES_INTAKE_RAW': return !!(await c.query('SELECT 1 FROM sales_conversation_intakes WHERE id=$1 AND diagnosis_case_id=$2',[entry.target_id,entry.diagnosis_case_id])).rows.length;
     case 'SOURCE_RECORD': return !!(await c.query('SELECT 1 FROM source_records WHERE id=$1 AND diagnosis_case_id=$2',[entry.target_id,entry.diagnosis_case_id])).rows.length;
     case 'AI_EXECUTION_RAW_IO': return !!(await c.query('SELECT 1 FROM ai_executions WHERE id=$1 AND diagnosis_case_id=$2',[entry.target_id,entry.diagnosis_case_id])).rows.length;
     case 'AI_PROPOSAL_RAW_IO': return !!(await c.query('SELECT 1 FROM ai_proposals WHERE id=$1 AND diagnosis_case_id=$2',[entry.target_id,entry.diagnosis_case_id])).rows.length;
@@ -64,6 +65,10 @@ async function applyEntry(c: PoolClient, entry: DeletionReconciliationEntry): Pr
   if (entry.action === 'RESTRICT_RETAIN') return 'NOOP';
   if (entry.action === 'DELETE') return 'UNSUPPORTED';
   switch (entry.target_kind) {
+    case 'SALES_INTAKE_RAW': {
+      const result=await c.query(`UPDATE sales_conversation_intakes SET customer_json='{}',customer_statements='[]',unknowns='[]',salesperson_notes='[]',survey_answers='{}',consent_customer_reference='[REDACTED]',raw_redacted_at=now() WHERE id=$1 AND diagnosis_case_id=$2 AND raw_redacted_at IS NULL`,[entry.target_id,entry.diagnosis_case_id]);
+      return result.rowCount?'CHANGED':'NOOP';
+    }
     case 'SOURCE_RECORD': {
       const result = await c.query(`UPDATE source_records SET content='[REDACTED]',speaker_participant_id=NULL,external_reference=NULL,updated_at=now()
         WHERE id=$1 AND diagnosis_case_id=$2 AND (content<>'[REDACTED]' OR speaker_participant_id IS NOT NULL OR external_reference IS NOT NULL)`,[entry.target_id,entry.diagnosis_case_id]);
@@ -100,7 +105,7 @@ async function applyEntry(c: PoolClient, entry: DeletionReconciliationEntry): Pr
   }
 }
 
-const supportedAnonymizeTargets=['SOURCE_RECORD','AI_EXECUTION_RAW_IO','AI_PROPOSAL_RAW_IO','PARTICIPANT_IDENTITY','SURVEY_RESPONSE_RAW','ORGANIZATION_IDENTITY'];
+const supportedAnonymizeTargets=['SOURCE_RECORD','AI_EXECUTION_RAW_IO','AI_PROPOSAL_RAW_IO','PARTICIPANT_IDENTITY','SURVEY_RESPONSE_RAW','ORGANIZATION_IDENTITY','SALES_INTAKE_RAW'];
 
 export async function reconcileDeletionManifest(
   pool: Pool,

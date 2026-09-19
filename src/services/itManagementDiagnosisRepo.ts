@@ -79,15 +79,24 @@ export class ItManagementDiagnosisRepo {
   }
 
   async createCase(input: unknown, entryChannel: EntryChannel, actor: Actor, policyAcknowledgement?: { noticeVersion: string }) {
+    return this.transaction(client=>this.createCaseInTransaction(client,input,entryChannel,actor,policyAcknowledgement));
+  }
+
+  /** Used by the explicit sales-consent command so creation and handoff commit atomically. */
+  async createCaseInTransaction(client:PoolClient,input: unknown, entryChannel: EntryChannel, actor: Actor, policyAcknowledgement?: { noticeVersion: string },salesIntakeId?:string) {
     const parsed = applicationSchema.safeParse(input);
     if (!parsed.success) throw new DiagnosisError(422, '会社名・ご担当者名・連絡先を確認してください。');
     if (entryChannel === 'SALES_VISIT' && (actor.kind !== 'STAFF' || !actor.userId)) throw new DiagnosisError(401, 'スタッフ認証が必要です。');
+    if (entryChannel === 'SALES_VISIT') {
+      const consent=salesIntakeId&&(await client.query(`SELECT id FROM sales_conversation_intakes WHERE id=$1 AND consent_state='CONSENTED' AND diagnosis_case_id IS NULL FOR UPDATE`,[salesIntakeId])).rows[0];
+      if(!consent)throw new DiagnosisError(409,'営業で伺った内容を保存し、顧客同意を記録してから無料診断を開始してください。');
+    }
     if (entryChannel === 'WEB' && !policyAcknowledgement?.noticeVersion) throw new DiagnosisError(422, 'サービス内容とデータ利用について確認してからお申し込みください。');
     const application = parsed.data;
     const token = entryChannel === 'WEB' ? createAccessToken() : null;
     const expires = token ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null;
     const id = randomUUID();
-    await this.transaction(async client => {
+    {
       for (const q of SURVEY_QUESTIONS) await client.query(`INSERT INTO survey_questions
         (id,question_code,version,display_order,question_text,answer_type,options_json,is_required,is_active)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (question_code,version) DO NOTHING`,
@@ -96,9 +105,9 @@ export class ItManagementDiagnosisRepo {
       const participantId = randomUUID();
       await client.query('INSERT INTO organizations (id,name) VALUES ($1,$2)', [organizationId, application.companyName]);
       await client.query(`INSERT INTO diagnosis_cases
-        (id,organization_id,entry_channel,diagnosis_status,assessment_status,owner_user_id,survey_version,access_token_hash,access_token_expires_at)
-        VALUES ($1,$2,$3,'APPLICATION_STARTED','NOT_PROPOSED',$4,$5,$6,$7)`,
-      [id, organizationId, entryChannel, staffId(actor), SURVEY_VERSION, token ? hashAccessToken(token) : null, expires]);
+        (id,organization_id,entry_channel,diagnosis_status,assessment_status,owner_user_id,survey_version,access_token_hash,access_token_expires_at,sales_intake_id)
+        VALUES ($1,$2,$3,'APPLICATION_STARTED','NOT_PROPOSED',$4,$5,$6,$7,$8)`,
+      [id, organizationId, entryChannel, staffId(actor), SURVEY_VERSION, token ? hashAccessToken(token) : null, expires,salesIntakeId??null]);
       await client.query(`INSERT INTO participants (id,diagnosis_case_id,name,email,phone,job_title) VALUES ($1,$2,$3,$4,$5,$6)`,
         [participantId, id, application.contactName, application.email, application.phone ?? null, application.jobTitle ?? null]);
       await client.query(`INSERT INTO participant_roles (participant_id,role) VALUES ($1,'RESPONDENT')`, [participantId]);
@@ -108,7 +117,7 @@ export class ItManagementDiagnosisRepo {
           VALUES($1,$2,$3,'WEB','CUSTOMER',NULL)`, [randomUUID(), id, policyAcknowledgement.noticeVersion]);
       }
       await this.transition(client, id, null, 'APPLICATION_STARTED', 'CreateDiagnosisCase', actor);
-    });
+    }
     return { id, organization_display_name: companyDisplayName(application.companyName), provider_name: PROVIDER_NAME,
       entry_channel: entryChannel, diagnosis_status: 'APPLICATION_STARTED' as const, assessment_status: 'NOT_PROPOSED',
       ...(token ? { access_token: token, access_token_expires_at: expires!.toISOString() } : {}) };
@@ -158,7 +167,7 @@ export class ItManagementDiagnosisRepo {
         (id,diagnosis_case_id,question_id,question_version,respondent_participant_id,raw_value_json,entry_channel,entered_by_user_id)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
         ON CONFLICT (diagnosis_case_id,question_id) DO UPDATE SET raw_value_json=EXCLUDED.raw_value_json,
-          entered_by_user_id=EXCLUDED.entered_by_user_id, answered_at=now()`,
+          entered_by_user_id=EXCLUDED.entered_by_user_id, answered_at=now(),intake_origin_id=NULL,intake_origin_version=NULL,intake_origin_recorded_at=NULL`,
       [randomUUID(), id, q.id, q.version, participant.rows[0]!.id, JSON.stringify(value), row.entry_channel, staffId(actor)]);
       await client.query('UPDATE diagnosis_cases SET updated_at=now(), version=version+1 WHERE id=$1', [id]);
     });
@@ -340,7 +349,7 @@ export class ItManagementDiagnosisRepo {
       const { rows: organizations } = await client.query<{ name: string }>('SELECT name FROM organizations WHERE id=$1', [row.organization_id]);
       const questions = await this.questions(client, row.survey_version);
       const { rows: responses } = await client.query<ResponseRow>(`SELECT r.id,q.question_code,r.question_version,r.raw_value_json,
-        r.respondent_participant_id,r.entry_channel,r.entered_by_user_id,r.answered_at
+        r.respondent_participant_id,r.entry_channel,r.entered_by_user_id,r.answered_at,r.intake_origin_id,r.intake_origin_version,r.intake_origin_recorded_at
         FROM survey_responses r JOIN survey_questions q ON q.id=r.question_id WHERE r.diagnosis_case_id=$1 ORDER BY q.display_order`, [id]);
       const { rows: futures } = await client.query<FutureRow>(`SELECT id,statement,time_horizon,intent_status,source_ref_type,source_ref_id,version,is_current
         FROM diagnosis_futures WHERE diagnosis_case_id=$1 AND is_current`, [id]);

@@ -1,0 +1,19 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>営業で伺った内容を登録する | atLIB株式会社</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="/css/style.css"><link rel="stylesheet" href="/css/it-management-diagnosis.css"><script src="/js/sales-conversation.js" defer></script></head>
+<body><main class="section diagnosis-page"><p><a href="/admin/it-management-diagnosis.html">診断案件一覧へ</a></p><h1>営業で伺った内容を登録する</h1>
+<p>会話の記録を保存するだけでは無料診断は始まりません。お客様が「分析して返してもらう」ことに同意してから開始します。</p>
+<div id="error" role="alert" hidden></div><p id="status" role="status"></p>
+<form id="record-form"><fieldset id="record-fields"><legend>営業で伺った内容</legend>
+<label for="company-name">会社名（敬称不要）</label><input id="company-name" maxlength="200" required>
+<label for="contact-name">ご担当者名</label><input id="contact-name" maxlength="200">
+<label for="email">メールアドレス</label><input id="email" type="email" maxlength="254">
+<label for="phone">電話番号（任意）</label><input id="phone" maxlength="50">
+<p>ご担当者名・メールアドレスは、無料診断を開始するときに確認します。</p>
+<section class="card"><h2>確認できたこと</h2><label for="customer-statements">顧客の発言 / 確認できたこと</label><textarea id="customer-statements" maxlength="4000" rows="4"></textarea></section>
+<section class="card"><h2>まだ分かっていないこと</h2><label for="unknowns">まだ分かっていない内容を記録してください</label><textarea id="unknowns" maxlength="4000" rows="4"></textarea><p>「まだ分かっていない」と確認した内容を残します。空欄は未記録であり、問題がないという意味ではありません。</p></section>
+<section class="card"><h2>私たちの仮説・気づき</h2><label for="salesperson-notes">営業担当者の気づき / 仮説 / メモ</label><textarea id="salesperson-notes" maxlength="4000" rows="4"></textarea></section>
+<details><summary>既に伺った回答を記録する（任意）</summary><p>無料診断と共通の項目です。聞けたことだけ記録し、同じ質問を繰り返さないでください。以前伺った情報は、必要に応じて現在も同じか確認します。</p><div id="questions"></div></details>
+<button type="submit" id="save" class="btn">会話内容を保存する</button></fieldset></form>
+<section id="consent" class="card" hidden><h2>無料診断として分析して返すことへの顧客同意</h2><p>保存内容を確認してから、顧客の同意を記録してください。録音・文字起こしへの同意とは別です。</p><label for="consent-customer">同意したお客様のお名前・立場</label><input id="consent-customer" maxlength="200"><label><input type="checkbox" id="customer-agreed">お客様が、伺った内容を無料診断として分析して返してもらうことに同意しました</label><button type="button" id="start" class="btn" disabled>顧客同意を記録して無料診断を開始する</button></section>
+<p id="case-link" hidden><a id="continue" href="#">引き継いだ回答を確認し、足りない内容だけ追加する</a></p>
+<details><summary>保存した営業会話を開く</summary><ul id="saved-records"></ul></details>
+</main></body></html>

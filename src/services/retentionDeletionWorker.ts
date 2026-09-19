@@ -75,6 +75,11 @@ async function anonymizeGeneralRaw(c:PoolClient,requestId:string,caseId:string,a
   const source=await anonymizeSourceRecords(c,requestId,caseId,'GENERAL_RAW_DIAGNOSIS',false,actorId);
   const {rows:responses}=await c.query<{id:string}>(`SELECT id FROM survey_responses WHERE diagnosis_case_id=$1 ORDER BY id FOR UPDATE`,[caseId]);
   let survey=0,participants=0,tombstones=source.tombstones;
+  const intakes=(await c.query<{id:string}>('SELECT id FROM sales_conversation_intakes WHERE diagnosis_case_id=$1 FOR UPDATE',[caseId])).rows;
+  for(const intake of intakes){
+    await c.query(`UPDATE sales_conversation_intakes SET customer_json='{}',customer_statements='[]',unknowns='[]',salesperson_notes='[]',survey_answers='{}',consent_customer_reference='[REDACTED]',raw_redacted_at=COALESCE(raw_redacted_at,now()) WHERE id=$1`,[intake.id]);
+    tombstones+=await addTombstone(c,requestId,caseId,'GENERAL_RAW_DIAGNOSIS','SALES_INTAKE_RAW',intake.id,'ANONYMIZE',actorId);
+  }
   for(const row of responses){
     const result=await c.query(`UPDATE survey_responses SET raw_value_json='null'::jsonb WHERE id=$1 AND diagnosis_case_id=$2 AND raw_value_json<>'null'::jsonb`,[row.id,caseId]);
     if(result.rowCount) survey++;

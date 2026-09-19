@@ -34,6 +34,8 @@ import { ManagementFeedbackDecisionRepo } from '../../src/services/managementFee
 import { createManagementFeedbackDecisionRouter } from '../../src/routes/managementFeedbackDecision';
 import { PilotInstrumentationRepo } from '../../src/services/pilotInstrumentationRepo';
 import { createPilotInstrumentationRouter } from '../../src/routes/pilotInstrumentation';
+import {SalesIntakeRepo} from '../../src/services/salesIntakeRepo';
+import {createSalesIntakeRouter} from '../../src/routes/salesIntake';
 
 /** Real PostgreSQL SQL/constraints/transactions in a disposable WASM database.
  * A single connection adapter serializes transactions, matching pg Pool checkout.
@@ -55,6 +57,7 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   await db.exec(fs.readFileSync(path.join(root, 'migrations/013_it_management_diagnosis_policy_closure.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/014_it_management_diagnosis_restore_reconciliation.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/015_management_feedback_decision.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/017_sales_conversation_intake.sql'), 'utf8'));
   let tail = Promise.resolve();
   async function acquire() {
     const previous = tail;
@@ -95,6 +98,7 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   app.use('/api/it-management-diagnosis', createItManagementDiagnosisRouter(repo, notify));
   app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createAdminItManagementDiagnosisRouter(repo, notify,{ repo: preparation,provider,worker },{repo:workspace,provider:interviewProvider,worker:interviewWorker},{repo:review,provider:postProvider,worker:postWorker},{repo:report,provider:reportProvider,worker:reportWorker},assessment));
   app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createManagementFeedbackDecisionRouter(feedbackDecision));
+  app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createSalesIntakeRouter(new SalesIntakeRepo(pool)));
   app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createPilotInstrumentationRouter(new PilotInstrumentationRepo(pool)));
   app.use('/api/kaizen-diagnostic', createKaizenDiagnosticRouter(new KaizenDiagnosticRepo(pool), {} as Mailer,
     { portalBaseUrl: 'http://localhost', slack: {} } as Config));

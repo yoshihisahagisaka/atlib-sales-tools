@@ -10,6 +10,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "test:kaizen": "node -r ts-node/register --test test/kaizenAssessment.golden.test.ts",
     "test:diagnosis": "node -r ts-node/register --test test/itManagementDiagnosis.golden.test.ts",
+    "test:sales-intake": "node -r ts-node/register --test test/salesIntake.golden.test.ts",
     "test:preparation": "node -r ts-node/register --test test/diagnosisPreparation.golden.test.ts",
     "test:diagnosis:browser": "playwright test --config=test/diagnosis.playwright.config.ts",
     "migrate": "node --env-file=.env -r ts-node/register migrations/runner.ts",

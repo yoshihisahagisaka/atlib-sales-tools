@@ -36,6 +36,7 @@ jobs:
       - run: node --check scripts/readiness/collect-external-evidence.cjs
       - run: node --check scripts/readiness/rehearse-docker.cjs
       - run: npm run test:diagnosis
+      - run: npm run test:sales-intake
       - run: npm run test:preparation
       - run: npm run test:workspace
       - run: npm run test:review

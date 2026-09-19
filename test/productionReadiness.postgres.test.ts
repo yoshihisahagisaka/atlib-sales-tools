@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
+import {consentedSalesCase} from './support/salesIntakeFixtures';
+import {salesConsentScenario} from './support/salesIntakeScenario';
 import {Pool} from 'pg';
 import {runMigrations} from '../src/db/migrate';
 import {ItManagementDiagnosisRepo} from '../src/services/itManagementDiagnosisRepo';
@@ -44,7 +46,8 @@ test('Real PostgreSQL readiness: migrations, multi-connection concurrency, WEB /
   try{
    for(const f of fs.readdirSync(dir).filter(f=>/^\d+_.*\.sql$/.test(f)&&Number(f.slice(0,3))<=12))fs.copyFileSync(path.join(dir,f),path.join(temp,f));
    await runMigrations(x.pool,temp);
-   const c=await x.s.repo.createCase({companyName:'Upgrade Synthetic',contactName:'Test',email:'upgrade@example.test'},'SALES_VISIT',operator);
+   // Existing pre-017 sales record: do not fabricate retrospective consent during upgrade.
+   const c={id:randomUUID()},org=randomUUID();await x.pool.query('INSERT INTO organizations(id,name) VALUES($1,$2)',[org,'Upgrade Synthetic']);await x.pool.query("INSERT INTO diagnosis_cases(id,organization_id,entry_channel,diagnosis_status,survey_version) VALUES($1,$2,'SALES_VISIT','APPLICATION_STARTED',2)",[c.id,org]);
    await runMigrations(x.pool,dir);await runMigrations(x.pool,dir);
    assert.equal((await x.s.repo.getSurvey(c.id,operator)).organization_display_name,'Upgrade Synthetic様');
    assert.equal((await x.s.repo.getPolicyReadModel(c.id,operator)).policy_acknowledgement,null);
@@ -94,10 +97,14 @@ test('Real PostgreSQL readiness: migrations, multi-connection concurrency, WEB /
   await t.test('MF-E concurrent read consistency, supersession, audit and raw deletion continuity',async()=>{
    const x=await setup();try{await instrumentationContinuity(x.h,x.other);}finally{await x.close();}
   });
+  await t.test('SL-A2/A3: pre-consent isolation and concurrent consent create exactly one Case with provenance',async()=>{
+   const x=await setup();try{await salesConsentScenario(x.pool,x.other);}finally{await x.close();}
+  });
   for(const channel of ['WEB','SALES_VISIT'] as const)await t.test(`${channel} synthetic real-PostgreSQL E2E AI-01–04 / Human Gates / CLOSED`,async()=>{
   const x=await setup();try{const {repo,preparation,workspace,review,report,assessment}=x.s,live=process.env.RUN_READINESS_AI_LIVE==='1';if(live&&!process.env.ANTHROPIC_API_KEY)throw Error('BLOCKED_EXTERNAL: AI key missing');
    const p1=live?new AnthropicPreDiagnosisProvider(process.env.ANTHROPIC_API_KEY):new FakePreparationProvider(),p2=live?new AnthropicInterviewProvider(process.env.ANTHROPIC_API_KEY):new FakeInterviewProvider(),p3=live?new AnthropicPostDiagnosisProvider(process.env.ANTHROPIC_API_KEY):new FakePostDiagnosisProvider(),p4=live?new AnthropicReportDraftProvider(process.env.ANTHROPIC_API_KEY):new FakeReportProvider();
-   const c=await repo.createCase({companyName:'Pilot Synthetic株式会社',contactName:'Test Operator',email:'synthetic@example.test'},channel,channel==='WEB'?{kind:'CUSTOMER',token:''}:operator,channel==='WEB'?{noticeVersion:DIAGNOSIS_POLICY_NOTICE_VERSION}:undefined),actor:Actor=channel==='WEB'?{kind:'CUSTOMER',token:c.access_token!}:operator;
+   const customer={companyName:'Pilot Synthetic株式会社',contactName:'Test Operator',email:'synthetic@example.test'};
+   const c=channel==='WEB'?await repo.createCase(customer,'WEB',{kind:'CUSTOMER',token:''},{noticeVersion:DIAGNOSIS_POLICY_NOTICE_VERSION}):{...await consentedSalesCase(x.pool,customer),access_token:undefined},actor:Actor=channel==='WEB'?{kind:'CUSTOMER',token:c.access_token!}:operator;
    await repo.startSurvey(c.id,actor);for(const q of SURVEY_QUESTIONS.filter(q=>q.is_required))await repo.submitResponse(c.id,q.question_code,2,q.answer_type==='MULTI_SELECT'?['分からない']:'分からない',actor);await repo.completeSurvey(c.id,actor);
    await preparation.enqueue(c.id,operator,p1.provider,p1.model);await new PreDiagnosisWorker(preparation,p1).tick();assert.equal((await preparation.read(c.id,operator)).executions[0].status,'SUCCEEDED');assert.equal((await preparation.read(c.id,operator)).diagnosis_status,'SURVEY_COMPLETED');
    await preparation.start(c.id,operator);await preparation.addTheme(c.id,operator,{title:'未確認情報',description:'',future_relation:'未来に必要な判断'});await preparation.addPlan(c.id,operator,{text:'現在分からないことは何ですか',purpose:'確認',item_type:'QUESTION',diagnosis_theme_id:null});await preparation.confirm(c.id,operator,(await preparation.read(c.id,operator)).version);await workspace.transition(c.id,operator,'START',(await workspace.read(c.id,operator)).version);

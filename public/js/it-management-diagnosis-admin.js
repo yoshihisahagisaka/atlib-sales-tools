@@ -23,6 +23,9 @@
     error('');
     try {
       const data = await api(`/cases/${encodeURIComponent(id)}/overview`); el('organization').textContent = data.organization_display_name;
+      const sales=(await api(`/cases/${encodeURIComponent(id)}/sales-conversation`)).record;
+      document.getElementById('sales-conversation-summary')?.remove();
+      if(sales){const section=node('section','');section.id='sales-conversation-summary';section.className='card';section.append(node('h2','営業で伺った内容'),node('p',`記録：${new Date(sales.updated_at).toLocaleString('ja-JP')} / ${sales.updated_by_user_id}。以前伺った内容です。必要に応じて現在も同じか確認してください。`));for(const [key,label] of [['customer_statements','確認できたこと'],['unknowns','まだ分かっていないこと'],['salesperson_notes','私たちの仮説・気づき']])section.append(node('h3',label),node('p',sales.raw_redacted_at?'削除済み':sales[key].length?sales[key].join('\n'):'未記録'));const link=node('a','元の営業会話の記録を見る');link.href=`/admin/sales-conversation.html?id=${sales.id}`;section.append(link);el('organization').after(section);}
       el('report-link').href='/admin/it-management-diagnosis-report.html?id='+encodeURIComponent(id); el('report-link').hidden=!['REPORT_REVIEW_REQUIRED','REPORT_APPROVED','FEEDBACK_PENDING','FEEDBACK_COMPLETED','CLOSED'].includes(data.diagnosis_status);
       el('review-link').href='/admin/it-management-diagnosis-review.html?id='+encodeURIComponent(id); el('review-link').hidden=!['HUMAN_REVIEW_REQUIRED','REPORT_REVIEW_REQUIRED','REPORT_APPROVED','FEEDBACK_PENDING','FEEDBACK_COMPLETED','CLOSED'].includes(data.diagnosis_status);
       el('workspace-link').href = '/admin/it-management-diagnosis-workspace.html?id='+encodeURIComponent(id); el('workspace-link').hidden = !['READY_FOR_DIAGNOSIS','DIAGNOSIS_IN_PROGRESS','HUMAN_REVIEW_REQUIRED','REPORT_REVIEW_REQUIRED','REPORT_APPROVED','FEEDBACK_PENDING','FEEDBACK_COMPLETED','CLOSED'].includes(data.diagnosis_status);

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { randomUUID } from 'node:crypto';
+import {consentedSalesCase} from './support/salesIntakeFixtures';
 import { createDiagnosisHarness } from './support/diagnosisHarness';
 import { DIAGNOSIS_POLICY_NOTICE_VERSION } from '../src/routes/itManagementDiagnosis';
 
@@ -97,7 +98,7 @@ test('BD-02: deletion requestはHuman scope/approvalを経由し、destructive�
 
 test('BD-01: Human purpose completion starts the Transcript clock independently of case close; retries cannot extend it', async () => {
   const c = await h.repo.createCase(application,'WEB',{kind:'CUSTOMER',token:''},{noticeVersion:DIAGNOSIS_POLICY_NOTICE_VERSION});
-  const other = await h.repo.createCase(application,'SALES_VISIT',operator), sourceId = randomUUID(), noteId = randomUUID();
+  const other = await consentedSalesCase(h.pool,application), sourceId = randomUUID(), noteId = randomUUID();
   await h.repo.recordTranscriptConsent(c.id, operator, { consentVersion: 'test-v1', consentScope: 'test', consentedAt: new Date().toISOString() });
   await h.db.query(`INSERT INTO source_records(id,diagnosis_case_id,source_type,entered_by_user_id,content,created_at)
     VALUES($1,$2,'TRANSCRIPT','operator@atlib.jp','private raw text',now()-interval '100 days')`, [sourceId,c.id]);
