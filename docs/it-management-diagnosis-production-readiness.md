@@ -847,3 +847,44 @@ Step 11完了時点でSTOPした。実アプリdeploy、DB user/GRANT設計、`n
 ### 30.9 Rollback可能性
 
 Step 1〜11で作成した全resourceは、§29 Execution Plan v2の削除順序（Monitoring→OAuth Secret→OAuth Client→JWT Secret→GCSバケット→Cloud SQL instance→Cloud Run→Service Account）でrollback可能。Temporary Staging終了後、継続利用するか削除するかは別途Human Decisionする（§24.4の位置付けを維持）。
+
+## 31. Update — 2026-09-19（F4 — DB Authority / Role / GRANT Design: 調査結果とHuman Decision）
+
+検証日: 2026-09-19。**本章はread-only repository investigationの結果と、それに基づくHuman Decisionの記録のみ。DB User作成・GRANT・migration・コード変更はいずれも未実施。**
+
+### 31.1 調査FACT（`migrate.ts`／`pool.ts`／`config.ts`／全16 migration／`src/services/*.ts`を悉皆調査）
+
+1. **migration roleとruntime roleは現在同一**: `migrateCli.ts`は`loadDatabaseConfig()`（runtimeと共通の関数）を呼んでおり、コード上、migrationとruntimeを異なるDB認証情報で分離する仕組みは存在しない。
+2. **同一roleが全schema objectのowner**: 全16 migrationがこのroleでCREATE TABLE/FUNCTION/TRIGGERを実行しているため、Postgresの所有権規則上、単なるGRANT設計だけでは不十分（ownerはfreeze triggerの無効化等、GRANTを超えた権限を暗黙に持つ）。
+3. 既存のimmutability機構は**trigger方式**（`diagnosis_reports`・`assessment_handoffs`・`management_feedback_decisions`の3テーブルのみ）で、GRANT/REVOKE文は全16 migrationに一つも存在しない。
+4. `diagnosis_audit_logs`・`case_transitions`はDB側の保護が一切なく、全`src/services/*.ts`を横断確認した結果、書き込みは**INSERTのみ**（UPDATE/DELETEは0件）。
+5. `diagnosis_restore_reconciliation_runs`は insert-only ではない（`deletionReconciliation.ts`がINSERT後にUPDATEで完了状態を記録）。
+6. runtimeはBD-02（削除・匿名化）実装のため`source_records`・`ai_executions`・`ai_proposals`・`participants`・`survey_responses`・`organizations`等へ正当にUPDATEが必要（「runtime=read+insertのみ」は実機能を壊す）。
+7. `survey_questions`（マスタ相当）もruntimeが自己seeding INSERTする（`itManagementDiagnosisRepo.ts`）。
+8. `gen_random_uuid()`（pgcrypto）は旧機能（001/002/004/005/006）がDB側defaultとして使用中のため、同一DB・同一roleが扱う以上EXECUTE権限は必要。
+9. `schema_migrations`はruntimeから一度も参照されない。
+10. GRANT/REVOKE/ROW LEVEL SECURITY文は全migrationに0件。DB権限分離を検証するテストも現状ゼロ。
+
+### 31.2 F4基本設計 — Human Decision（承認事項）
+
+| 項目 | Decision |
+|---|---|
+| `sales_tools_migration` | schema object owner／migration専用 |
+| `sales_tools_runtime` | application runtime専用／全objectのnon-owner／必要最小DMLのみ |
+| migration credentialとruntime credential | **分離する**（コード変更含め別途Execution Plan v2で設計） |
+| `schema_migrations` | migration roleのみアクセス可能 |
+| `diagnosis_audit_logs`／`case_transitions` | runtimeからSELECT／INSERTのみ。UPDATE／DELETE／DDL／trigger disableを禁止し、**Negative Testで証明する** |
+| `sales_tools_readonly` | **今回のF4では作成しない**。将来のIncident/Operations設計で必要性を再評価 |
+| Row Level Security (RLS) | **F4スコープに含めない** |
+| `diagnosis_audit_logs`／`case_transitions`への新規immutability trigger追加 | **今回のF4必須要件にしない**。まずownership separation + PostgreSQL privilege separationのみでruntimeによるUPDATE/DELETE/DDLを拒否できることを独立して実証する。trigger追加によるDefense in Depthは、そのEvidence取得後に別途Human Decisionとする |
+
+### 31.3 残存UNKNOWNの扱い（Human Decision）
+
+| UNKNOWN | 扱い |
+|---|---|
+| Cloud SQL built-in/admin privilege layer（`postgres`スーパーユーザー等） | F4のblockerにはしない。Security/Operations側のOPEN itemとして保持 |
+| Row Level Security (RLS) | F4 scope外 |
+| node-postgres runtime roleとの互換性 | F4 staging実証（Execution Plan v2）で確認する |
+| Production `sales_tools_app`のownership | 現時点ではUNKNOWNのまま維持。Production DBへの確認SQLはまだ実行しない |
+
+F4 Staging Execution Plan v2は別途提示し、DB Role/User/GRANT作成・コード変更はいずれもまだ実行しない。
