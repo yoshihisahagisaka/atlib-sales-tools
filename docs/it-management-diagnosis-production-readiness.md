@@ -606,3 +606,44 @@ Google Cloud Console上でOAuth 2.0 Client IDの管理画面・新規認証情�
 | GCP resource作成権限 | **OPEN**（閲覧可能であることと作成権限があることは別、未確認） |
 
 resource作成・IAM変更・Secret変更・OAuth変更・deploy・migration・外部API実行・Production変更・実顧客データ投入はいずれも未実施。
+
+## 26. Update — 2026-09-19（Temporary Staging Cloud SQL tier方針・F7-C Evidence分割、Human Decision）
+
+検証日: 2026-09-19。commit `3a0a657`のCurrent Production Cloud FACTは維持し、書き換えない。本章もdecision/planningの記録のみであり、**resource作成・IAM変更・Secret変更・OAuth変更・deploy・migration・外部API実行・Production変更・実顧客データ投入はいずれも未実施。**
+
+### 26.1 Cloud SQL tier方針の修正（2段階運用を撤回）
+
+前回提示した「F4/F6/F7は最小tier、F9のみProduction同等tierへ一時拡張」という2段階運用は**採用しない**。Human Decisionにより、Temporary Stagingは**可能であれば最初からProductionと同等のCloud SQL tier/specを使用する**方針とする。
+
+理由: (1) F4〜F9を同一Environment条件でEvidence化できる、(2) F5のconnection pool/capacity検証とF9のload test結果の比較可能性を維持できる、(3) Production自体が小規模構成であり、Staging側でtierを途中変更する複雑性を避けられる。
+
+現在確認できているspecは§25.2の**1 vCPU / 628.74 MB**のみであり、これに対応する正確なCloud SQL tier名（例: db-custom系のカスタムマシンタイプか、既定tier名か）は**推測しない**。HumanがConsoleで確認した正確なtier名を受けて最終確定する。
+
+### 26.2 F7-C Evidence — Backup/Restore・PITR・Deletion Reconciliationを別Evidenceとして分割
+
+従来のF7-C（§21.3・§23.16）は「PITR based restore」を前提とした単一のEvidence項目として扱っていたが、Human Decisionにより以下3つに分割し、**F7-C全体をPITR based restoreに限定しない**。
+
+| Evidence項目 | 内容 |
+|---|---|
+| Backup / Restore | Cloud SQL自動backupからの復元が正常に行えることの実証（PITRの有無によらない、通常のbackupからの復元） |
+| PITR | Point-in-Time Recoveryによる任意時点への復元が正常に行えることの実証（Staging側でPITRを有効化した上で取得） |
+| Deletion Reconciliation after Restore | 削除済みCustomer Dataがrestore後に恒久的に復活せず、external deletion manifest（`externalDeletionManifestStore`）等からreconciliationされることの実証 |
+
+**Deletion ReconciliationのPASS条件を明確化**: 「PITR based restoreが成功すること」ではなく、**「削除済みCustomer Dataがrestore後に恒久的に復活せず、external deletion manifest等からreconciliationされること」**をPASS条件とする。restore方式（通常backupかPITRか）そのものはPASS条件に含めない。
+
+StagingではPITRを有効化し（§25.3のGAP是正としてStaging側で実施、Production側は変更しない）、PITRの実Evidenceも別途取得する方針は維持する。
+
+### 26.3 Temporary Staging方針（維持）
+
+§24.4のTemporary Staging位置付けを維持する。Readiness Session終了後、継続利用するか削除するかは別途Human Decisionする。
+
+### 26.4 Phase 2ゲート（更新）
+
+Phase 2（Staging Infrastructure構築）はまだ開始しない。残るGate:
+
+1. Production Cloud SQLの正確なtier名の確認（Console確認待ち、推測しない）
+2. そのtierをasia-northeast1でTemporary Stagingとして利用した場合の費用確認
+3. GCP resource作成権限の確認
+4. staging専用OAuth client作成権限の確認
+
+これらが確認できるまで、resource作成・IAM変更・Secret変更・OAuth変更・deploy・migration・外部API実行・Production変更・実顧客データ投入のいずれも行わない。
