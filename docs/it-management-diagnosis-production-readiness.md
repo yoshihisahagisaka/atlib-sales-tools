@@ -942,3 +942,111 @@ pgcrypto拡張の導入は、migration roleへ管理者権限を付与するの�
 Rollback: `DROP DATABASE sales_tools_staging_f4; DROP ROLE sales_tools_migration; DROP ROLE sales_tools_runtime;`で即座に完全rollback可能。**Production（`msp-customer-portal-db`他）には一切接続・変更していない。**
 
 F4 Bootstrap Execution Planは別途提示し、追加SQLの実行はまだ行わない。
+
+## 33. Update — 2026-09-19（F4 — DB Authority / Role / GRANT Design: PASS / CLOSED）
+
+検証日: 2026-09-19。F4 Bootstrap Execution Planを承認どおり実行し、Bootstrap → migration完了 → actual inventory → code usage照合 → final explicit GRANT → ownership verification → negative tests → positive testsまで全Step完了した。**F4はPASS / CLOSEDとする。Production Readiness全体は引き続きNO-GO。** Production DB（`msp-customer-portal-db`）へは本Update含め一切接続・変更していない。対象は`sales-tools-staging-db`instance内の`sales_tools_staging_f4`データベースのみ。
+
+### 33.1 Bootstrap / Migration / Runtimeの3層Authority分離（確定）
+
+| 層 | 役割 | 権限 |
+|---|---|---|
+| Cloud SQL Admin / Bootstrap | DB基盤レベルの一回限りの準備（pgcrypto拡張導入） | Cloud SQL管理者credential（`postgres`、`cloudsqlsuperuser`member）のみ使用。Productionには実施しない |
+| `sales_tools_migration` | application schema migration専用 | schema object owner（40 tables全件）。Cloud SQL管理者権限（`cloudsqlsuperuser`）は持たない |
+| `sales_tools_runtime` | application runtime専用 | non-owner。explicit DML GRANTのみ（§33.5） |
+
+### 33.2 pgcrypto Bootstrap結果
+
+Bootstrap前は`plpgsql`のみ存在。`postgres`（Cloud SQL管理ユーザー）による`CREATE EXTENSION IF NOT EXISTS pgcrypto;`実行後、`extname=pgcrypto, extversion=1.3, schema=public, owner=postgres`を確認。**owner は`sales_tools_migration`／`sales_tools_runtime`いずれでもない。** Bootstrap前後で両roleの`rolsuper`/`rolcreatedb`/`rolcreaterole`/`pg_auth_members`membershipは完全に無変化（想定外の権限昇格なし）。
+
+### 33.3 Migration 16/16 PASS
+
+`sales_tools_migration`credentialで実際の`migrations/runner.ts`（`migrateCli.ts`経由）を実行し、001〜016全件`migration_applied`、exit code 0。`CREATE EXTENSION IF NOT EXISTS pgcrypto`（migration 001、無変更のまま）は、Bootstrap後は非管理者migration roleでも正常通過することを実測確認した。
+
+### 33.4 Actual Inventory と draftとの差異
+
+| 項目 | 結果 |
+|---|---|
+| Tables | 40件、全件`sales_tools_migration`所有 |
+| Sequences | **0件**（コード調査段階の「SERIAL/BIGSERIAL不使用」仮説を実測確認） |
+| Functions（public schema） | pgcrypto由来関数はowner=postgres（想定通り）。migration定義trigger関数4件（`enforce_transcript_consent`／`prevent_management_feedback_decision_mutation`／`protect_approved_diagnosis_report`／`protect_assessment_handoff`）はowner=`sales_tools_migration` |
+| Triggers | `information_schema.triggers`は非owner（`postgres`含む）から見ると0件と表示される可視性制限を確認。`pg_catalog.pg_trigger`直接照会で4件全て実在を確認（ownership分離の副次的実証） |
+
+**draft GRANT一覧との差異8 tables**: `ai_proposal_sources`／`assessment_confirmation_items`／`diagnosis_deletion_tombstones`／`diagnosis_policy_acknowledgements`／`diagnosis_retention_holds`／`human_reviews`／`insight_sources`／`participant_roles`。推測GRANTは行わず、全8件についてコード実利用箇所（grep）を個別調査し分類した（§33.5）。
+
+### 33.5 Final Explicit GRANT Matrix（`sales_tools_migration`＝table owner、が実行）
+
+| カテゴリ | テーブル数 | 内訳 |
+|---|---|---|
+| SELECT/INSERT/UPDATE | 25 | 既存draft分（`diagnosis_cases`等） |
+| SELECT/INSERT/UPDATE/DELETE | 2 | `estimate_line_items`, `estimate_selected_preconditions`（コード上DELETEが実在する唯一の2テーブル） |
+| SELECT/INSERT のみ | 11 | 既存4件（`diagnosis_audit_logs`／`case_transitions`／`survey_questions`／`management_feedback_decisions`）＋新発見7件（`ai_proposal_sources`／`assessment_confirmation_items`／`diagnosis_deletion_tombstones`／`diagnosis_policy_acknowledgements`／`human_reviews`／`insight_sources`／`participant_roles`） |
+| SELECT のみ | 1 | `diagnosis_retention_holds`（コード上INSERT/UPDATE/DELETEが一切存在しない） |
+| 権限なし（deny-by-default） | 1 | `schema_migrations` |
+| **合計** | **40** | actual inventoryと完全一致 |
+
+`gen_random_uuid()`: `proacl=null`（PostgreSQLデフォルトでPUBLICにEXECUTE権限あり）を実測確認し、機械的なGRANT EXECUTE文は実行しなかった。明示GRANT不要と判断。
+
+### 33.6 `participant_roles`のSELECT根拠（再調査、Human Decisionによる訂正）
+
+初回分類時の「将来需要に備える」という理由付けはleast-privilege上の根拠として採用しない、というHuman Decisionを受け、read-onlyで再調査した。
+
+結果: **SELECTは現在のコードで実際に必要**であることを確認した。
+- `src/services/assessmentScopeContextRepo.ts:20` — `LEFT JOIN participant_roles pr ON pr.participant_id=p.id`
+- `src/services/itManagementDiagnosisRepo.ts:155` — `JOIN participant_roles r ON r.participant_id=p.id`
+- `src/services/itManagementDiagnosisRepo.ts:377` — `JOIN participant_roles pr ON pr.participant_id=p.id AND pr.role='RESPONDENT'`
+
+PostgreSQLのJOINは対象テーブルへのSELECT権限を要求するため、上記3箇所いずれかが実行される限り`sales_tools_runtime`にSELECTが必要。**「将来INSERT-onlyへ縮小可能」という記録は不適切であり撤回する**（現在時点で縮小不可能）。この再調査はF4 PASS判定を変更するものではない（GRANT内容自体は変更なし、根拠の記録のみ訂正）。
+
+### 33.7 Ownership Verification — PASS
+
+```
+runtime-owned tables: 0
+runtime-owned functions: 0
+runtime-owned sequences: 0
+migration-owned tables: 40（全件説明可能）
+```
+
+### 33.8 Negative Tests — 全10件PASS（`sales_tools_runtime`接続）
+
+| テスト | 結果 |
+|---|---|
+| UPDATE diagnosis_audit_logs | permission denied |
+| DELETE FROM diagnosis_audit_logs | permission denied |
+| UPDATE case_transitions | permission denied |
+| DELETE FROM case_transitions | permission denied |
+| ALTER TABLE diagnosis_audit_logs DISABLE TRIGGER ALL | must be owner of table |
+| ALTER TABLE diagnosis_reports DISABLE TRIGGER freeze | must be owner of table |
+| DROP TRIGGER diagnosis_reports_freeze | must be owner of relation |
+| ALTER TABLE case_transitions ADD COLUMN | must be owner of table |
+| SELECT FROM schema_migrations | permission denied |
+| INSERT INTO schema_migrations | permission denied |
+
+### 33.9 runtime credentialでのmigration実行不能テスト — PASS
+
+`DB_MIGRATION_USER`/`PASSWORD`を`sales_tools_runtime`credentialに設定し`migrateCli.ts`を実行 → 実際の失敗地点は`permission denied for schema public`（`CREATE TABLE IF NOT EXISTS schema_migrations`実行前に拒否、推測固定せず実測記録）。実行前後で`schema_migrations`件数（16件で不変）・tables件数（40件で不変）を比較し、**migration未完遂・schema変更なし・migration historyへの不正記録なし**を確認。
+
+### 33.10 Runtime CredentialでのRepo Positive Test — PASS
+
+既存`test:readiness:postgres`はport 55436固定のローカルDocker専用構成のため、実アプリのRepoクラス（`ItManagementDiagnosisRepo`）を`sales_tools_runtime`credentialで直接駆動して実証。`createCase()`（WEB channel）で`survey_questions`/`organizations`/`diagnosis_cases`/`participants`/`participant_roles`/`diagnosis_policy_acknowledgements`/`case_transitions`/`diagnosis_audit_logs`への複数テーブルtransaction INSERTが全件成功。`listCases()`でSELECTによる読み戻しも成功。
+
+**node-postgres runtime role互換性のUNKNOWNはこれにより解消**（実際のnode-postgres Poolがrole切り替え後も正常動作することを実証）。
+
+### 33.11 UNKNOWN・OPEN Itemの最終状態
+
+| 項目 | 状態 |
+|---|---|
+| Cloud SQL built-in/admin privilege layer | **OPEN**（F4 blockerではない、Security/Operations側の継続検討事項） |
+| Row Level Security (RLS) | **F4 scope外**（変更なし） |
+| node-postgres runtime role互換性 | **UNKNOWN解消**（§33.10で実証） |
+| Production `sales_tools_app`のownership | **UNKNOWN**（Production DBへの確認SQLは未実行のまま） |
+
+### 33.12 Production DBへの接続・変更 — なし
+
+本Update・F4実行全体を通じて、Production（`msp-customer-portal-db`）へは一切接続・SQL実行・変更を行っていない。対象は`sales-tools-staging-db`instance内の`sales_tools_staging_f4`データベースのみ。
+
+### 33.13 現状保持
+
+`sales_tools_staging_f4`データベース・`sales_tools_migration`／`sales_tools_runtime`ロールは、Human Decisionにより**現時点では削除せず保持**する。データはF4検証用のsynthetic test data 1件のみ（実顧客データは投入していない）。Rollback手順（`DROP DATABASE`/`DROP ROLE`）は§32.5に記載済みで、いつでも実行可能な状態を維持する。
+
+F5にはまだ着手しない。
