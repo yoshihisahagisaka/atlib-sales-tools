@@ -721,3 +721,40 @@ Console確認画面ではデフォルトがPostgreSQL 18になっていたが、
 | staging専用OAuth client作成権限 | **CLOSED**（§28.1） |
 
 **Phase 2開始前Gateはすべて CLOSED。** ただし、resource作成はこの記録の時点でもまだ開始しない。Execution Planを別途提示し、実際の作成は次のHuman GOを待つ。
+
+## 29. Update — 2026-09-19（Phase 2 Execution Plan修正、Human Decision）
+
+検証日: 2026-09-19。前回提示したExecution Plan（未提示・未commit）に対し、Human Decisionにより3点の修正を行った。**resource作成・IAM変更・Secret作成/変更・OAuth client作成・deploy・migration・外部API実行・Production変更・実顧客データ投入はいずれも未実施。**
+
+### 29.1 修正1 — OAuth Redirect URIを予測しない
+
+Cloud Run URLパターンからのredirect URI事前予測は行わない。**staging Cloud Run serviceを先に作成し、実際に発行されたURLをFACTとして取得した後、その実URL + `/auth/callback`を使ってstaging専用OAuth Clientを作成する順序へ変更する。**
+
+### 29.2 修正2 — Placeholder Cloud RunはInfrastructure placeholderに限定
+
+Placeholder作成時点では、値がまだ存在しないSMTP / Anthropic / OAuth等のSecretを参照させない。Phase 2のCloud Runは**Runtime SAと必要最小限の設定のみ**（region、port、image）で作成する。DB接続・Secret参照・アプリ固有環境変数は、実アプリdeploy前の次Phaseで設定する。
+
+**Placeholder image選定（調査済み、根拠を記録）**: `us-docker.pkg.dev/cloudrun/container/hello`を採用する。根拠: Google Cloud公式ドキュメント（`docs.cloud.google.com/build/docs/deploy-containerized-application-cloud-run`、Cloud Build→Cloud Runの公式チュートリアル）が、Cloud Runサービスへdeployする「prebuilt image」としてこのイメージを直接指定している。Artifact Registry上の`cloudrun`という名前空間配下（`us-docker.pkg.dev/cloudrun/container/`）に置かれており、レガシーの`gcr.io/cloudrun/hello`（Container Registry、Artifact Registryへの移行に伴い非推奨）の後継にあたる。ページ内に明示的な「Google公式イメージ」との記載文言は無いが、Google自身のドキュメントが直接参照し、Google管理の名前空間パスに置かれていることから、安全な最小限のplaceholderとして妥当と判断する。
+
+### 29.3 修正3 — DB Role / GRANT設計をPhase 2で確定しない
+
+F4（runtime/migration/read-only/audit protection等のAuthority Model）は別途F4 Execution Planで検証する。**Phase 2ではDB infrastructure作成（instance・empty database）までを基本とし、staging DBユーザー（`sales_tools_staging_app`）の作成と最終GRANT設計はF4 Execution Planへ留保する。**
+
+### 29.4 Human Decision（承認事項）
+
+| 項目 | Decision |
+|---|---|
+| Staging Architecture | Option B / Temporary Staging — **APPROVED** |
+| Cloud SQL | db-f1-micro / PostgreSQL 16系 / asia-northeast1 / 10 GiB SSD / Single zone / Automatic Backup ON / PITR ON — **APPROVED** |
+| Placeholder image | `us-docker.pkg.dev/cloudrun/container/hello`（§29.2の根拠により選定） |
+| Monitoring通知 | Phase 2はHuman emailを使用。Slackは別Phase |
+| GCS bucket名 | staging専用であることが明確なglobal unique nameを次節で決定 |
+| SMTP test destination | Phase 3（Phase 2では扱わない） |
+| Anthropic staging key | Phase 3（Phase 2では扱わない） |
+| OAuth Client | staging Cloud Run実URL取得後に専用Clientを作成（§29.1） |
+
+### 29.5 GCS bucket名（案）
+
+`msp-zabbix-sales-tools-staging-deletion-manifests`（project ID prefixによりglobal unique性を高め、staging専用であることも名称から明確）。実際の利用可能性は作成試行時にのみ確定するため、最終確定はresource作成時点で行う。
+
+修正版Execution Planは別途提示し、実際のresource作成は次のHuman GOを待つ。
