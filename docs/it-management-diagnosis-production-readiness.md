@@ -647,3 +647,38 @@ Phase 2（Staging Infrastructure構築）はまだ開始しない。残るGate:
 4. staging専用OAuth client作成権限の確認
 
 これらが確認できるまで、resource作成・IAM変更・Secret変更・OAuth変更・deploy・migration・外部API実行・Production変更・実顧客データ投入のいずれも行わない。
+
+## 27. Update — 2026-09-19（Production Cloud SQL tier確定・GCP作成権限確認、Human Decision）
+
+検証日: 2026-09-19。HumanがGoogle Cloud Consoleで追加確認した結果を記録する。**resource作成・IAM変更・Secret変更・OAuth変更・deploy・migration・外部API実行・Production変更・実顧客データ投入はいずれも未実施。**
+
+### 27.1 Production Cloud SQL tier — CONFIRMED（§26.1 Gate CLOSED）
+
+| 項目 | 値 |
+|---|---|
+| Instance | `msp-customer-portal-db` |
+| Edition | Enterprise |
+| Machine type / tier | **db-f1-micro** |
+| Region | asia-northeast1 |
+| PostgreSQL | 16.14 |
+| vCPU | 1 |
+| RAM | 628.74 MB |
+| Storage | 10 GB SSD |
+| Availability | Single zone |
+| Automatic Backup | Enabled |
+| PITR | Disabled |
+
+§26.1で「推測しない」としていた正確なtier名は**db-f1-micro**としてCLOSEDとする。Temporary Staging Cloud SQLは、Enterprise / db-f1-micro / asia-northeast1 / 10 GB SSD / Single zoneを基本構成とする。
+
+**Intentional Test Configuration**: F7 Evidence取得のため、StagingではPITRを有効化する（Production側はDisabledのまま変更しない）。これはProduction設定からの意図的な差分であり、§26.2のBackup/Restore・PITR・Deletion Reconciliationの分割Evidence取得のために必要な構成差として記録する。
+
+### 27.2 GCP resource作成権限 — CONFIRMED（Gate CLOSED、project内Phase 2 resource作成について）
+
+Google Cloud ConsoleのIAM画面で、Human accountがproject `msp-zabbix`に対して**Owner role**を持っていることを確認した。project内でのPhase 2 resource作成（Cloud Run／Cloud SQL／GCS／Secret Manager／Service Account等）に必要な権限は、このOwner roleにより充足していると判断できる。**不要なIAM role追加は行っていない。**
+
+### 27.3 残るPhase 2 Gate
+
+1. db-f1-micro / asia-northeast1 のTemporary Staging費用確認
+2. staging専用OAuth clientを新規作成できる権限の確認
+
+これら以外の項目（Production Cloud SQL tier、GCP resource作成権限（project内））はCLOSEDとする。resource作成・IAM変更・Secret変更・OAuth変更・deploy・migration・外部API実行・Production変更・実顧客データ投入はいずれも未実施のまま、Phase 2は開始しない。
