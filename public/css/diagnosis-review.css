@@ -8,3 +8,5 @@
 .review-columns .btn { white-space: normal; }
 .review-columns details { margin: 16px 0; }
 @media (max-width: 900px) { .review-columns { grid-template-columns: minmax(0,1fr); } }
+
+.analysis-section{margin-block:1.5rem;padding-block:1rem;border-top:1px solid #dbe3ec}.analysis-item{padding:1rem;margin-block:.75rem;border:1px solid #dbe3ec;border-radius:8px;overflow-wrap:anywhere}.analysis-item p{white-space:pre-wrap}.analysis-lens{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:1rem}#management-analysis details{margin-block:.75rem}#management-analysis{overflow-wrap:anywhere}

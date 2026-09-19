@@ -11,6 +11,7 @@ function parse<T>(schema:z.ZodType<T,any,any>,raw:unknown):T{const p=schema.safe
 export function createDiagnosisReviewRouter({repo,provider,worker}:ReviewServices){
  const router=Router(),base='/cases/:id/review';
  router.get(base,diagnosisHandler(async(req,res)=>{res.json(await repo.read(caseId(req),staffActor(req)));}));
+ router.get(base+'/analysis',diagnosisHandler(async(req,res)=>{res.json(await repo.analysis(caseId(req),staffActor(req)));}));
  router.get(base+'/approved-context',diagnosisHandler(async(req,res)=>{res.json(await repo.reportContext(caseId(req),staffActor(req)));}));
  router.post(base+'/ai/run',diagnosisHandler(async(req,res)=>{parse(z.object({}).strict(),req.body??{});res.status(202).json(await repo.enqueue(caseId(req),staffActor(req),provider.provider,provider.model));void worker.tick().catch(()=>req.log?.warn({event:'post_diagnosis_worker_failed'},'Post diagnosis worker failed'));}));
  for(const [path,action] of [['approve','APPROVE'],['reject','REJECT']] as const)router.post(base+'/proposals/:proposalId/'+path,diagnosisHandler(async(req,res)=>{const input=parse(reasonSchema,req.body??{});const result=await repo.resolve(caseId(req),parse(z.string().uuid(),req.params.proposalId),staffActor(req),action,input.reason);res.status(result?201:204);if(result)res.json(result);else res.end();}));

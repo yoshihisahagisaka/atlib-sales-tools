@@ -4,10 +4,12 @@ import { DiagnosisError,nextAction,type Actor,type DiagnosisStatus } from '../do
 import { insightInputSchema,assessmentInputSchema,checkReviewBoundary,validateStructurerOutput,REVIEW_PROMPT_VERSION,REVIEW_POLICY_VERSION,type InsightInput,type AssessmentInput } from '../domain/diagnosisReview';
 import { buildPostDiagnosisContext,postDiagnosisSourceKeys,type PostDiagnosisContext } from './postDiagnosisContext';
 import type { Execution } from './diagnosisPreparationRepo';
+import {managementAnalysisReadModel} from './managementAnalysisReadModel';
 interface ReviewCase {id:string;version:number;diagnosis_status:DiagnosisStatus;review_completed_at:Date|null;review_completed_by_user_id:string|null}
 type ReviewAction='APPROVE'|'APPROVE_WITH_EDIT'|'CONVERT_TO_UNKNOWN'|'REJECT'|'SUPERSEDE';
 export class DiagnosisReviewRepo {
  constructor(private readonly pool:Pool){}
+ async analysis(id:string,actor:Actor){return this.tx(async c=>{await this.locked(c,id,actor,false);return managementAnalysisReadModel(c,id);});}
  private async tx<T>(work:(c:PoolClient)=>Promise<T>){const c=await this.pool.connect();try{await c.query('BEGIN');const result=await work(c);await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}}
  private staff(actor:Actor){if(actor.kind!=='STAFF'||!actor.userId)throw new DiagnosisError(403,'スタッフによる操作が必要です。');return actor.userId;}
  private async locked(c:PoolClient,id:string,actor:Actor,mutate=true,version?:number){

@@ -1,0 +1,48 @@
+import assert from 'node:assert/strict';
+import type {createDiagnosisHarness} from './diagnosisHarness';
+import {operator} from './preparationFixtures';
+import {reviewCase,humanInsight,structurerOutput} from './reviewFixtures';
+import {manualReport,validateReportOutput} from '../../src/domain/diagnosisReport';
+
+export async function managementAnalysisScenario(h:Awaited<ReturnType<typeof createDiagnosisHarness>>){
+ const c=await reviewCase(h);
+ await h.review.enqueue(c.id,operator,'fake','test');
+ const job=await h.preparation.claimExecution('POST_DIAGNOSIS_STRUCTURER');assert.ok(job);
+ const output=structurerOutput(job.input_snapshot_json as any);
+ const titles={OBSERVATION:'台帳の存在についての記録',UNKNOWN:'更新担当者がまだ分からない',HYPOTHESIS:'情報共有についての仮説',GAP_CANDIDATE:'目指す姿と情報共有の差の候補',ROOT_CAUSE_HYPOTHESIS:'役割分担が背景にある可能性',KAIZEN_DIRECTION:'情報共有の方法を整える選択肢',EVIDENCE_CANDIDATE:'更新方法を確認する資料の候補'};
+ for(const item of output.insight_candidates)item.title=titles[item.semantic_type];
+ await h.review.finishExecution(job as any,output);
+ const before=await h.review.analysis(c.id,operator);
+ assert.equal(before.items.length,7);assert.ok(before.items.every(i=>i.approval==='PROPOSAL'));
+ assert.equal(before.report_context!.insights.length,0);
+ assert.equal(before.lens.cells.length,1);assert.equal(before.lens.cells[0]!.items.length,1);
+ assert.equal(before.lens.cells[0]!.items[0]!.semantic_type,'KAIZEN_DIRECTION');
+ assert.equal(before.decision,null);
+ const root=before.items.find(i=>i.semantic_type==='ROOT_CAUSE_HYPOTHESIS')!;
+ assert.equal(root.why_connection,null);assert.ok(root.sources[0]!.text.length);
+ await h.review.resolve(c.id,root.id,operator,'APPROVE','仮説として採用');
+ const observation=before.items.find(i=>i.semantic_type==='OBSERVATION')!;await h.review.resolve(c.id,observation.id,operator,'APPROVE','観察として採用');
+ const gap=before.items.find(i=>i.semantic_type==='GAP_CANDIDATE')!;await h.review.resolve(c.id,gap.id,operator,'APPROVE','差の候補として採用');
+ const kaizen=before.items.find(i=>i.semantic_type==='KAIZEN_DIRECTION')!;await h.review.resolve(c.id,kaizen.id,operator,'APPROVE','改善の選択肢として採用');
+ const unknown=before.items.find(i=>i.semantic_type==='UNKNOWN')!;await h.review.resolve(c.id,unknown.id,operator,'CONVERT_TO_UNKNOWN','今回は残す',undefined,'NOT_REQUIRED_NOW');
+ const adopted=(await h.review.read(c.id,operator)).approved_insights;
+ const why=adopted.find(i=>i.semantic_type==='ROOT_CAUSE_HYPOTHESIS')!;
+ await h.review.createAssessment(c.id,operator,{title:'役割の記録の確認候補',purpose:'仮説を確認するため',priority:1,diagnosis_theme_id:null,related_insight_id:why.id,related_evidence_candidate_id:null,source_ai_proposal_id:null,source_ai_execution_id:null,source_candidate_index:null});
+ await h.review.createInsight(c.id,operator,{...humanInsight(c.source.id),semantic_type:'KAIZEN_DIRECTION',unknown_type:null,title:'分類しない改善の選択肢',content:'共有方法を見直す選択肢がある'});
+ const view=await h.review.analysis(c.id,operator);
+ assert.equal(view.lens.unclassified.length,1);assert.equal(view.lens.cells.length,1);
+ assert.equal(view.items.filter(i=>i.id===root.id).length,0,'accepted proposal is not duplicated');
+ const projected=view.items.find(i=>i.id===why.id)!;
+ assert.ok(projected.why_connection?.supporting_insight_refs.length);assert.ok(projected.why_connection?.evidence_confirmation_refs.length);
+ assert.deepEqual(projected.why_connection,view.report_context!.insights.find(i=>i.id===why.id)!.why_connection);
+ assert.ok(view.reuse.unknown.some(e=>e.unknown_type==='NOT_REQUIRED_NOW'));
+ assert.ok(view.reuse.plans.length);assert.ok(view.reuse.known.some(e=>e.text==='分からないことがあります'));
+ assert.ok(view.items.every(i=>i.semantic_type!=='FACT'));assert.equal(Object.hasOwn(view,'score'),false);
+ const report=manualReport(view.report_context!);assert.deepEqual(validateReportOutput(report,view.report_context!),report);
+ const reportIds=report.sections.flatMap(s=>s.blocks.flatMap(b=>b.insight_refs));
+ for(const i of view.items.filter(i=>i.approval==='PROPOSAL'))assert.equal(reportIds.includes(i.id),false);
+ assert.ok(report.sections.find(s=>s.section_key==='GAP')!.blocks[0]!.text.includes('候補'));
+ assert.ok(report.sections.find(s=>s.section_key==='ROOT_CAUSE_AND_KAIZEN')!.blocks.some(b=>b.text.includes('WHY仮説')));
+ const version=(await h.review.read(c.id,operator)).version;await h.review.analysis(c.id,operator);assert.equal((await h.review.read(c.id,operator)).version,version);
+ return c;
+}

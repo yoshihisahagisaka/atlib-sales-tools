@@ -12,6 +12,7 @@
     "test:kaizen": "node -r ts-node/register --test test/kaizenAssessment.golden.test.ts",
     "test:diagnosis": "node -r ts-node/register --test test/itManagementDiagnosis.golden.test.ts test/assessmentScopeRouteValidation.golden.test.ts",
     "test:sales-intake": "node -r ts-node/register --test test/salesIntake.golden.test.ts",
+    "test:management-analysis": "node -r ts-node/register --test test/managementAnalysis.golden.test.ts",
     "test:progressive-reuse": "node -r ts-node/register --test test/progressiveReuse.golden.test.ts",
     "test:preparation": "node -r ts-node/register --test test/diagnosisPreparation.golden.test.ts",
     "test:diagnosis:browser": "playwright test --config=test/diagnosis.playwright.config.ts",
