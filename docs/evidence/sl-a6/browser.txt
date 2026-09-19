@@ -1,0 +1,69 @@
+
+> sales-tools@0.1.0 test:diagnosis:browser
+> playwright test --config=test/diagnosis.playwright.config.ts
+
+
+Running 50 tests using 1 worker
+
+npm.cmd : (node:24704) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+発生場所 行:2 文字:36
++ ... SER_PG='1'; npm.cmd run test:diagnosis:browser *> C:\atlib\sl-a6-fina ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:24704) Wa... env being set.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 [desktop] › test\diagnosisAssessment.browser.test.ts:8:5 › Assessment受注: 保留guard→受注→引継ぎ情報→引渡し（無料診断は判断時に完了） (4.0s)
+  ok  2 [desktop] › test\diagnosisAssessment.browser.test.ts:18:5 › Assessment辞退: 人が記録し引継ぎなしでも無料診断は完了済み (2.1s)
+  ok  3 [desktop] › test\diagnosisAssessment.browser.test.ts:22:5 › Handoff再生成: 最新の引継ぎ情報だけ引渡し可能・無料診断の完了は独立 (3.5s)
+  ok  4 [desktop] › test\diagnosisAssessment.browser.test.ts:27:5 › 再読込中に選んだ過去の引継ぎ版を保持する (1.8s)
+  ok  5 [desktop] › test\diagnosisPreparation.browser.test.ts:14:5 › AI提案→担当者が準備開始→編集採用・質問採用・却下→順序変更→Plan確定 (2.9s)
+  ok  6 [desktop] › test\diagnosisPreparation.browser.test.ts:55:5 › AI失敗→再実行可能なままHuman-onlyでテーマと確認項目を作成し確定 (4.3s)
+  ok  7 [desktop] › test\diagnosisReport.browser.test.ts:10:5 › Report: AI Draft→Grounding→wording→Human approval→Delivery→Raw Feedback完了 (4.6s)
+  ok  8 [desktop] › test\diagnosisReport.browser.test.ts:32:5 › Human-only: AI failure→manual→meaning edit rejection→Human Review→regeneration→reissue (5.6s)
+  ok  9 [desktop] › test\diagnosisReport.browser.test.ts:43:5 › AI regeneration selects newest draft and mobile layout remains usable (2.9s)
+  ok 10 [desktop] › test\diagnosisReview.browser.test.ts:8:5 › Human Review: AI提案→出典確認→承認・編集・UNKNOWN変換・却下→Assessment確認→完了 (6.0s)
+  ok 11 [desktop] › test\diagnosisReview.browser.test.ts:27:5 › Human-only Review: AI失敗→UNKNOWN作成→Supersedeで履歴保持→Review完了 (3.9s)
+  ok 12 [desktop] › test\diagnosisWorkspace.browser.test.ts:9:5 › Workspace: Human Start → 原文記録 → AI候補のAsk/Later/Unnecessary → 未確認を残してFinish (4.3s)
+  ok 13 [desktop] › test\diagnosisWorkspace.browser.test.ts:37:5 › Future再確認・Transcript追跡・自発的Evidence存在とHuman追加 (2.2s)
+  ok 14 [desktop] › test\diagnosisWorkspace.browser.test.ts:62:5 › AI failureでもHuman-onlyの記録・終了が可能 (1.2s)
+  ok 15 [desktop] › test\itManagementDiagnosis.browser.test.ts:45:5 › Web: 申込→自動保存→別タブ再開→通信失敗から再保存→必須guard→完了 (4.7s)
+  ok 16 [desktop] › test\itManagementDiagnosis.browser.test.ts:82:5 › 営業訪問: Google認証Gate→代理回答完了→新一覧と概要にFuture・担当者・原文表示 (2.2s)
+  ok 17 [desktop] › test\itManagementDiagnosis.browser.test.ts:108:5 › 無効token画面は回答を表示せず、スタッフが再開リンクを失効できる (922ms)
+  ok 18 [desktop] › test\itManagementDiagnosis.browser.test.ts:124:5 › 営業会話: 同意前は案件なし、3分類と取得済み回答を同意後に再利用 (1.1s)
+  ok 19 [desktop] › test\managementAnalysis.browser.test.ts:11:5 › SL-A5: ordered analysis, sparse lens, WHY source, Human review and reuse navigation (2.9s)
+  ok 20 [desktop] › test\managementAnalysis.browser.test.ts:27:5 › SL-A5: no empty-cell penalty and Human route translation without automatic order (2.5s)
+  ok 21 [desktop] › test\progressiveReuse.browser.test.ts:10:5 › SL-A4: overview -> select missing information -> confirmed plan -> record speech -> Human Review (2.4s)
+  ok 22 [desktop] › test\progressiveReuse.browser.test.ts:40:5 › SL-A4: Web answers stay saved while staff opens only missing answers (723ms)
+  ok 23 [desktop] › test\salesLaunchE2E.browser.test.ts:16:5 › SL-A6 A/C–K: sales intake to Human decision and independent Assessment handoff, entirely through browser (9.2s)
+  ok 24 [desktop] › test\salesLaunchE2E.browser.test.ts:41:5 › SL-A6 I/K: focused confirmation -> raw speech -> review -> feedback -> Human Re-Decision in browser (3.4s)
+  ok 25 [desktop] › test\salesLaunchE2E.browser.test.ts:47:5 › SL-A6 K: DIRECT_ACT completes without an Assessment proposal through Human UI (1.4s)
+(node:17016) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 26 [mobile] › test\diagnosisAssessment.browser.test.ts:8:5 › Assessment受注: 保留guard→受注→引継ぎ情報→引渡し（無料診断は判断時に完了） (3.2s)
+  ok 27 [mobile] › test\diagnosisAssessment.browser.test.ts:18:5 › Assessment辞退: 人が記録し引継ぎなしでも無料診断は完了済み (1.8s)
+  ok 28 [mobile] › test\diagnosisAssessment.browser.test.ts:22:5 › Handoff再生成: 最新の引継ぎ情報だけ引渡し可能・無料診断の完了は独立 (1.5s)
+  ok 29 [mobile] › test\diagnosisAssessment.browser.test.ts:27:5 › 再読込中に選んだ過去の引継ぎ版を保持する (969ms)
+  ok 30 [mobile] › test\diagnosisPreparation.browser.test.ts:14:5 › AI提案→担当者が準備開始→編集採用・質問採用・却下→順序変更→Plan確定 (5.6s)
+  ok 31 [mobile] › test\diagnosisPreparation.browser.test.ts:55:5 › AI失敗→再実行可能なままHuman-onlyでテーマと確認項目を作成し確定 (3.8s)
+  ok 32 [mobile] › test\diagnosisReport.browser.test.ts:10:5 › Report: AI Draft→Grounding→wording→Human approval→Delivery→Raw Feedback完了 (4.4s)
+  ok 33 [mobile] › test\diagnosisReport.browser.test.ts:32:5 › Human-only: AI failure→manual→meaning edit rejection→Human Review→regeneration→reissue (4.5s)
+  ok 34 [mobile] › test\diagnosisReport.browser.test.ts:43:5 › AI regeneration selects newest draft and mobile layout remains usable (2.6s)
+  ok 35 [mobile] › test\diagnosisReview.browser.test.ts:8:5 › Human Review: AI提案→出典確認→承認・編集・UNKNOWN変換・却下→Assessment確認→完了 (6.5s)
+  ok 36 [mobile] › test\diagnosisReview.browser.test.ts:27:5 › Human-only Review: AI失敗→UNKNOWN作成→Supersedeで履歴保持→Review完了 (3.9s)
+  ok 37 [mobile] › test\diagnosisWorkspace.browser.test.ts:9:5 › Workspace: Human Start → 原文記録 → AI候補のAsk/Later/Unnecessary → 未確認を残してFinish (4.9s)
+  ok 38 [mobile] › test\diagnosisWorkspace.browser.test.ts:37:5 › Future再確認・Transcript追跡・自発的Evidence存在とHuman追加 (1.8s)
+  ok 39 [mobile] › test\diagnosisWorkspace.browser.test.ts:62:5 › AI failureでもHuman-onlyの記録・終了が可能 (3.1s)
+  ok 40 [mobile] › test\itManagementDiagnosis.browser.test.ts:45:5 › Web: 申込→自動保存→別タブ再開→通信失敗から再保存→必須guard→完了 (6.0s)
+  ok 41 [mobile] › test\itManagementDiagnosis.browser.test.ts:82:5 › 営業訪問: Google認証Gate→代理回答完了→新一覧と概要にFuture・担当者・原文表示 (6.5s)
+  ok 42 [mobile] › test\itManagementDiagnosis.browser.test.ts:108:5 › 無効token画面は回答を表示せず、スタッフが再開リンクを失効できる (729ms)
+  ok 43 [mobile] › test\itManagementDiagnosis.browser.test.ts:124:5 › 営業会話: 同意前は案件なし、3分類と取得済み回答を同意後に再利用 (1.3s)
+  ok 44 [mobile] › test\managementAnalysis.browser.test.ts:11:5 › SL-A5: ordered analysis, sparse lens, WHY source, Human review and reuse navigation (1.3s)
+  ok 45 [mobile] › test\managementAnalysis.browser.test.ts:27:5 › SL-A5: no empty-cell penalty and Human route translation without automatic order (1.9s)
+  ok 46 [mobile] › test\progressiveReuse.browser.test.ts:10:5 › SL-A4: overview -> select missing information -> confirmed plan -> record speech -> Human Review (2.4s)
+  ok 47 [mobile] › test\progressiveReuse.browser.test.ts:40:5 › SL-A4: Web answers stay saved while staff opens only missing answers (559ms)
+  ok 48 [mobile] › test\salesLaunchE2E.browser.test.ts:16:5 › SL-A6 A/C–K: sales intake to Human decision and independent Assessment handoff, entirely through browser (9.4s)
+  ok 49 [mobile] › test\salesLaunchE2E.browser.test.ts:41:5 › SL-A6 I/K: focused confirmation -> raw speech -> review -> feedback -> Human Re-Decision in browser (2.9s)
+  ok 50 [mobile] › test\salesLaunchE2E.browser.test.ts:47:5 › SL-A6 K: DIRECT_ACT completes without an Assessment proposal through Human UI (1.2s)
+
+  50 passed (3.4m)

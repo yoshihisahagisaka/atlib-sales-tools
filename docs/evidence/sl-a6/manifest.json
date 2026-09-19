@@ -1,0 +1,85 @@
+{
+  "verifiedCodeCommit": "4e358b129e54d1f7b50c73f2890b2bdc85d62ef2",
+  "recordedAt": "2026-09-19T22:18:52.345Z",
+  "node": "v24.18.0",
+  "postgres": "17 (disposable loopback 55436 / fresh schemas)",
+  "exitCodes": {
+    "golden": 0,
+    "postgres": 0,
+    "browser": 0,
+    "typecheck": 0,
+    "build": 0
+  },
+  "results": {
+    "golden": {
+      "tests": 153,
+      "pass": 149,
+      "fail": 0,
+      "skip": 4
+    },
+    "postgres": {
+      "tests": 13,
+      "pass": 13,
+      "fail": 0,
+      "skip": 0
+    },
+    "browser": {
+      "desktop": 25,
+      "mobile": 25,
+      "pass": 50,
+      "fail": 0,
+      "skip": 0
+    }
+  },
+  "commands": {
+    "golden": "node -r ts-node/register --test --test-concurrency=2 <all test/*.golden.test.ts> test/productionReadiness.security.test.ts",
+    "postgres": "RUN_READINESS_PG=1 npm run test:readiness:postgres",
+    "browser": "RUN_READINESS_BROWSER_PG=1 npm run test:diagnosis:browser",
+    "typecheck": "npm run typecheck",
+    "build": "npm run build"
+  },
+  "surveyDefinitionPrefixSha256": "8f2cb98bd9fe53a8eee84fd4a90b7cee445a8c4576742950626c9822bf035d47",
+  "liveAi": {
+    "credentialPresent": false,
+    "optIn": false,
+    "evidence": "NOT_COLLECTED"
+  },
+  "files": [
+    {
+      "file": "golden.txt",
+      "sha256": "96d0589f0643ed83928557b6544c5694e39f375eb0708534e2b9ba339eb704f4"
+    },
+    {
+      "file": "postgres.txt",
+      "sha256": "ed4a83909ccd7ce48cf75e9c9ddd9e3c8b2287ba75aaa25a8478dd40acfeb25c"
+    },
+    {
+      "file": "browser.txt",
+      "sha256": "5aae2bc181a78499b8a481b7705da1c62eb616945dd76612be1eb0c2fe2a5f74"
+    },
+    {
+      "file": "typecheck.txt",
+      "sha256": "0440d851c975ea43aad8c36e2c07c5c2b2e022254d5de74d4e6c44a887f05793"
+    },
+    {
+      "file": "build.txt",
+      "sha256": "100e94fde431e9e9ff1e5ba4df8af596605209bbfe7be8d6502a253669d5d8ef"
+    },
+    {
+      "file": "desktop-sales-launch-completed.png",
+      "sha256": "f9dca876bd5e4496361b5d5b7457b961f683a8989f299170e730f61b04bb91c1"
+    },
+    {
+      "file": "desktop-human-redecision-history.png",
+      "sha256": "ec5455feae7046ca76b101c75e1898c34df4b1d30659d42f1af1865d73ae4506"
+    },
+    {
+      "file": "mobile-sales-launch-completed.png",
+      "sha256": "3daa773ee8195b8dc68d75366971facd3960b6020cbc200c98e6b84f97fbf518"
+    },
+    {
+      "file": "mobile-human-redecision-history.png",
+      "sha256": "375355488534c62f01b3930c775aad94925ba6c99a8e1f2ddd8f35aa4acf2c28"
+    }
+  ]
+}

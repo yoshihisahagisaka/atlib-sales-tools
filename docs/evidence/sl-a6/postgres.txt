@@ -1,0 +1,26 @@
+
+> sales-tools@0.1.0 test:readiness:postgres
+> node -r ts-node/register --test test/productionReadiness.postgres.test.ts
+
+▶ Real PostgreSQL readiness: migrations, multi-connection concurrency, WEB / SALES_VISIT
+  ✔ current main schema through 012 upgrades additively with customer records preserved (853.895ms)
+  ✔ empty DB / simultaneous runners / schema ledger / additive legacy upgrade / rollback / rerun (707.6522ms)
+  ✔ one execution one claim, SKIP LOCKED, process isolation, lease expiry / late result (1810.4472ms)
+  ✔ concurrent Human commands conflict; rollback; approved Report / READY Handoff triggers (1958.8413ms)
+  ✔ MF-D multi-connection decisions serialize; immutable snapshot and audit rollback preserve history (2666.735ms)
+  ✔ MF-E concurrent read consistency, supersession, audit and raw deletion continuity (2409.1322ms)
+  ✔ SL-A2/A3: pre-consent isolation and concurrent consent create exactly one Case with provenance (763.2732ms)
+  ✔ SL-A5: analysis reuses reviewed WHY and never exports unreviewed AI candidates (1973.0443ms)
+  ✔ BD-SL-01: focused continuation, immutable Re-Decision and terminal routes without orders (4728.706ms)
+  ✔ SL-A4: concurrent Human selection reuses one plan and speech reaches review without UNKNOWN resolution (2081.7749ms)
+  ✔ WEB synthetic real-PostgreSQL E2E AI-01–04 / Human Gates / CLOSED (2404.7045ms)
+  ✔ SALES_VISIT synthetic real-PostgreSQL E2E AI-01–04 / Human Gates / CLOSED (2215.534ms)
+✔ Real PostgreSQL readiness: migrations, multi-connection concurrency, WEB / SALES_VISIT (24580.2833ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 31640.9804
