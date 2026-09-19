@@ -1,6 +1,7 @@
 'use strict';
 (() => {
   const staff = document.body.dataset.mode === 'staff';
+  const missingOnly=staff&&new URLSearchParams(location.search).get('missingOnly')==='1';
   if(staff&&!new URLSearchParams(location.search).get('id')){location.replace('/admin/sales-conversation.html');return;}
   const base = staff ? '/api/admin/it-management-diagnosis' : '/api/it-management-diagnosis';
   const el = id => document.getElementById(id);
@@ -30,6 +31,7 @@
     return data;
   }
   function progress() {
+    if(missingOnly){el('survey-progress').hidden=true;el('progress-text').textContent='取得済みの回答は保存したまま、足りない内容だけ確認します。「分からない」も有効な回答です。';return;}
     const count = survey.questions.filter(q => q.is_required && (saved.get(q.question_code)?.length ?? 0) > 0).length;
     el('survey-progress').value = count;
     el('progress-text').textContent = `必須9問のうち ${count}問を保存済み`;
@@ -102,6 +104,12 @@
       saved.clear(); fields.clear(); dirty.clear();
       survey.responses.forEach(r => saved.set(r.question_code, r.raw_value_json));
       el('survey-questions').replaceChildren(...survey.questions.map(renderQuestion));
+      if(missingOnly){
+        document.getElementById('show-saved-answers')?.remove();
+        const toggle=document.createElement('button');toggle.id='show-saved-answers';toggle.type='button';toggle.className='btn btn-secondary';toggle.textContent='保存済みの回答も表示する';
+        let show=false;const apply=()=>{for(const [code,field] of fields)field.hidden=!show&&(saved.get(code)?.length??0)>0;toggle.textContent=show?'足りない回答だけ表示する':'保存済みの回答も表示する';};
+        toggle.onclick=()=>{show=!show;apply();};el('survey-questions').before(toggle);apply();
+      }
       el('survey-section').hidden = false; progress(); el('save-status').textContent = '保存済みの回答を読み込みました。';
     } catch (e) { error(e.message); el('reload-survey').hidden = false; }
   }

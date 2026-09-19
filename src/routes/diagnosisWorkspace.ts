@@ -12,6 +12,9 @@ function parse<T>(schema:z.ZodType<T,any,any>,raw:unknown):T {const p=schema.saf
 export function createDiagnosisWorkspaceRouter({repo,provider,worker}:WorkspaceServices) {
  const router=Router();const base='/cases/:id';
  router.get(base+'/workspace',diagnosisHandler(async(req,res)=>{res.json(await repo.read(caseId(req),staffActor(req)));}));
+ router.post(base+'/progressive-reuse/plan-items/:planId/statements',diagnosisHandler(async(req,res)=>{
+  res.status(201).json(await repo.addSource(caseId(req),staffActor(req),'INTERVIEW_STATEMENT',req.body,parse(z.string().uuid(),req.params.planId)));
+ }));
  for(const [path,action] of [['start','START'],['finish','FINISH']] as const)router.post(base+'/diagnosis/'+path,diagnosisHandler(async(req,res)=>{
   const p=parse(confirmSchema,req.body);await repo.transition(caseId(req),staffActor(req),action,p.expectedVersion);res.status(204).end();
  }));

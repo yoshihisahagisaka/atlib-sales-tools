@@ -20,3 +20,10 @@
 #record-form label, #consent label { display: block; margin: .75rem 0 .25rem; }
 #record-form input:not([type="radio"]):not([type="checkbox"]), #record-form textarea, #consent-customer { width: 100%; box-sizing: border-box; }
 #record-form textarea { min-height: 6rem; resize: vertical; }
+.reuse-groups { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,260px),1fr)); gap: 1rem; }
+.reuse-entry { padding: 1rem; margin: .75rem 0; border: 1px solid #ddd; border-radius: .5rem; overflow-wrap: anywhere; }
+.reuse-entry p { white-space: pre-wrap; }
+.reuse-editor { border: 2px solid #367b89; padding: 1rem; margin-bottom: 1rem; }
+.reuse-editor label { display: block; margin-top: .5rem; }
+.reuse-editor textarea,.reuse-editor select { width: 100%; box-sizing: border-box; }
+.reuse-editor textarea { min-height: 5rem; }

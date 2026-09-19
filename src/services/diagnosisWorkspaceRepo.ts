@@ -40,7 +40,7 @@ export class DiagnosisWorkspaceRepo {
    await this.audit(c,id,actor,command,{expected_version:expectedVersion});
   });
  }
- async addSource(id:string,actor:Actor,type:SourceType,raw:unknown) {
+ async addSource(id:string,actor:Actor,type:SourceType,raw:unknown,planItemId?:string) {
   this.staff(actor);
   const parsed=(type==='DOCUMENT_EXISTENCE_OBSERVED'?evidenceExistenceSchema:rawSourceSchema).safeParse(raw);
   if(!parsed.success)throw new DiagnosisError(422,'記録内容を確認してください。Evidenceは自発的な提示の存在のみ記録できます。');
@@ -48,12 +48,13 @@ export class DiagnosisWorkspaceRepo {
   if(type==='OPERATOR_NOTE'&&input.speaker_participant_id)throw new DiagnosisError(422,'担当者メモに顧客の話者を指定できません。');
   return this.tx(async c=>{
    await this.locked(c,id,actor,'DIAGNOSIS_IN_PROGRESS');
+   if(planItemId&&(type!=='INTERVIEW_STATEMENT'||!(await c.query("SELECT id FROM diagnosis_plan_items WHERE id=$1 AND diagnosis_case_id=$2 AND status='ACTIVE'",[planItemId,id])).rows.length))throw new DiagnosisError(422,'同じ案件の確認内容を選択してください。');
    if(input.speaker_participant_id&&!(await c.query('SELECT id FROM participants WHERE id=$1 AND diagnosis_case_id=$2',[input.speaker_participant_id,id])).rows.length)throw new DiagnosisError(422,'同じ案件の話者を指定してください。');
    if(input.parent_source_record_id&&!(await c.query('SELECT id FROM source_records WHERE id=$1 AND diagnosis_case_id=$2',[input.parent_source_record_id,id])).rows.length)throw new DiagnosisError(422,'同じ案件の元記録を指定してください。');
    const key=randomUUID();
    await c.query(`INSERT INTO source_records(id,diagnosis_case_id,source_type,speaker_participant_id,entered_by_user_id,content,occurred_at,parent_source_record_id,external_reference) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[key,id,type,input.speaker_participant_id,this.staff(actor),input.content,input.occurred_at,input.parent_source_record_id,input.external_reference]);
    const command={INTERVIEW_STATEMENT:'AddInterviewStatement',OPERATOR_NOTE:'AddOperatorNote',TRANSCRIPT:'AddTranscript',SCREEN_SHARED_INFORMATION:'RecordScreenSharedInformation',DOCUMENT_EXISTENCE_OBSERVED:'RecordEvidenceExistence'}[type];
-   await this.audit(c,id,actor,command,{source_record_id:key,source_type:type,...(type==='DOCUMENT_EXISTENCE_OBSERVED'?{voluntarily_presented:true}:{})});
+   await this.audit(c,id,actor,command,{source_record_id:key,source_type:type,...(planItemId?{plan_item_id:planItemId}:{}),...(type==='DOCUMENT_EXISTENCE_OBSERVED'?{voluntarily_presented:true}:{})});
    return {id:key};
   });
  }

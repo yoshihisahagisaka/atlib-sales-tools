@@ -3,8 +3,8 @@
   const el = id => document.getElementById(id);
   const id = new URLSearchParams(location.search).get('id');
   const base = `/api/admin/it-management-diagnosis/cases/${encodeURIComponent(id)}`;
-  const labels = { SURVEY_COMPLETED: 'アンケート回答完了', PREPARATION_IN_PROGRESS: '診断準備中', READY_FOR_DIAGNOSIS: '診断Plan確定', DIAGNOSIS_IN_PROGRESS: '診断中', HUMAN_REVIEW_REQUIRED: 'Human Review待ち', REPORT_REVIEW_REQUIRED: 'Report作成待ち', REPORT_APPROVED: 'Report承認済み', FEEDBACK_PENDING: 'Feedback待ち', FEEDBACK_COMPLETED: 'Feedback完了', CLOSED: '完了' };
-  const types = { THEME: '重点テーマ', QUESTION: '質問', UNKNOWN: '未確認', HYPOTHESIS: '仮説', EVIDENCE_CANDIDATE: 'Evidence確認候補' };
+  const labels = {"SURVEY_COMPLETED":"回答完了","PREPARATION_IN_PROGRESS":"診断準備中","READY_FOR_DIAGNOSIS":"確認内容確定","DIAGNOSIS_IN_PROGRESS":"確認・分析中","HUMAN_REVIEW_REQUIRED":"分析内容の確認待ち","REPORT_REVIEW_REQUIRED":"経営フィードバック資料作成待ち","REPORT_APPROVED":"経営フィードバック資料承認済み","FEEDBACK_PENDING":"経営フィードバック待ち","FEEDBACK_COMPLETED":"経営フィードバック完了","CLOSED":"完了"};
+  const types = { THEME: '重点テーマ', QUESTION: '質問', UNKNOWN: 'まだ分かっていないこと', HYPOTHESIS: '私たちの仮説・気づき', EVIDENCE_CANDIDATE: '資料等の確認候補' };
   const statusLabels = { GENERATED: '未レビュー', UNDER_REVIEW: 'レビュー中', ACCEPTED: '採用済み', ACCEPTED_WITH_EDIT: '編集して採用済み', REJECTED: '却下済み' };
   let state, overview, timer, busy = false, themeEdit = null, planEdit = null;
   const node = (tag,text) => { const n = document.createElement(tag); n.textContent = text; return n; };
@@ -49,7 +49,7 @@
     const type=proposal ? p.proposal_type==='QUESTION' ? 'QUESTION' : p.proposal_type==='EVIDENCE_CANDIDATE' ? 'EVIDENCE_CANDIDATE_CHECK' : 'CONFIRMATION' : p.item_type;
     const c=proposal ? p.content_json : p;
     planEdit={ id:p.id,proposal,lockType:proposal || !!p.source_ai_proposal_id };
-    el('plan-type').value=type; el('plan-text').value=c.text; el('plan-purpose').value=c.purpose || c.unknown_type || '';
+    el('plan-type').value=type; el('plan-text').value=c.text; el('plan-purpose').value=c.purpose || '';
     el('plan-theme').value=p.diagnosis_theme_id || ''; el('plan-type').disabled=planEdit.lockType;
     el('plan-form-title').textContent=proposal ? 'AI原文を保持して編集採用' : '採用・作成済み確認項目を編集'; el('plan-form').scrollIntoView(); el('plan-text').focus();
   }
@@ -58,7 +58,7 @@
     for (const ref of p.sources) {
       const r=overview.responses.find(r=>r.id===ref.source_ref_id);
       const q=overview.questions.find(q=>q.question_code===r?.question_code);
-      const text=node('p',`${q?.question_text || ref.source_ref_id}\n${Array.isArray(r?.raw_value_json) ? r.raw_value_json.join(' / ') : r?.raw_value_json || '未回答'}\n関係：${ref.relation}`);
+      const text=node('p',`${q?.question_text || '元の回答を確認できません'}\n${Array.isArray(r?.raw_value_json) ? r.raw_value_json.join(' / ') : r?.raw_value_json || '未回答'}\n関係：${{SUPPORTS:'参考にした情報',CONTRADICTS:'一致していない情報',RELATED:'関連する情報'}[ref.relation]||'関連する情報'}`);
       text.className='diagnosis-raw'; d.append(text);
     }
     return d;
@@ -67,9 +67,9 @@
     const card=node('section',''); card.className='card'; card.dataset.proposalId=p.id;
     card.append(node('h3',`[AI] ${types[p.proposal_type]} — ${p.title}`),node('p',statusLabels[p.status]));
     if (p.proposal_type==='THEME') {
-      card.append(node('p',`Futureとの関係：${p.content_json.future_relation}`),node('p',`確認する理由：${p.content_json.why_it_matters}`));
+      card.append(node('p',`目指している会社の姿との関係：${p.content_json.future_relation}`),node('p',`確認する理由：${p.content_json.why_it_matters}`));
       p.content_json.available_context.forEach(c=>card.append(node('p',`回答からの情報：${c.text}`)));
-    } else card.append(node('p',p.content_json.purpose || p.content_json.unknown_type || '仮説として確認する候補'));
+    } else card.append(node('p',p.content_json.purpose || '担当者が追加確認の必要性を判断する候補'));
     card.append(sources(p));
     const disabled=!editing() || !['GENERATED','UNDER_REVIEW'].includes(p.status);
     const actions=node('div',''); actions.className='diagnosis-actions';
@@ -82,7 +82,7 @@
     el('ai-status').textContent=pending() ? 'AI整理を実行しています。担当者だけで準備を続けることもできます。' : state.executions[0]?.status==='FAILED'
       ? 'AIによる整理に失敗しました。再実行するか、担当者のみで診断準備を続けられます。' : state.executions.length ? 'AI提案は担当者の採用・確認を待っています。' : 'AIはまだ実行していません。手動でも準備できます。';
     el('run-ai').textContent=state.executions.length ? 'AI事前整理を再実行する' : 'AI事前整理を実行する';
-    el('executions').replaceChildren(...state.executions.map(e=>node('p',`${e.status} / ${e.model} / ${new Date(e.created_at).toLocaleString('ja-JP')}${e.error_code ? ' / '+e.error_code : ''}`)));
+    el('executions').replaceChildren(...state.executions.map(e=>node('p',`${{PENDING:'整理待ち',RUNNING:'整理中',SUCCEEDED:'整理完了',FAILED:'整理失敗'}[e.status]||'状況確認中'} / ${new Date(e.created_at).toLocaleString('ja-JP')}`)));
     const cards=[];
     for (const p of state.proposals.filter(p=>p.proposal_type==='THEME')) {
       const card=proposal(p);
@@ -104,7 +104,7 @@
         card.append(node('h3',`${index+1}. ${item.title || item.text}`),node('p',item.future_relation || item.purpose || ''),
           node('p',item.created_by==='HUMAN' ? '[Human] 担当者が作成' : '[Human Accepted] AI提案を担当者が採用'));
         if (item.description) card.append(node('p',item.description));
-        if (item.item_type) card.append(node('p',item.item_type));
+        if (item.item_type) card.append(node('p',({QUESTION:'質問する',CONFIRMATION:'確認する',FOLLOW_UP:'追加で確認する',EVIDENCE_CANDIDATE_CHECK:'資料等の有無を確認する'})[item.item_type]||'確認する'));
         const actions=node('div',''); actions.className='diagnosis-actions';
         actions.append(button('編集',()=>kind==='themes' ? editTheme(item) : editPlan(item),!editing()),
           button('削除',()=>action(`/${kind}/${item.id}/remove`),!editing()),
@@ -123,11 +123,11 @@
       el('workspace-link').hidden=!['READY_FOR_DIAGNOSIS','DIAGNOSIS_IN_PROGRESS','HUMAN_REVIEW_REQUIRED','REPORT_REVIEW_REQUIRED','REPORT_APPROVED','FEEDBACK_PENDING','FEEDBACK_COMPLETED','CLOSED'].includes(next.diagnosis_status);
       state=next; overview=nextOverview;
       el('company').textContent=overview.organization_display_name;
-      el('future').textContent=overview.future?.statement || '未設定'; el('future-status').textContent=`意図：${overview.future?.intent_status || '—'}`;
-      el('case-status').textContent=`${labels[state.diagnosis_status] || state.diagnosis_status} (${state.diagnosis_status})`;
-      el('next-action').textContent=overview.current_next_action;
+      el('future').textContent=overview.future?.statement || '未設定'; el('future-status').textContent=overview.future?.intent_status==='INTERVIEW_RECONFIRMED'?'顧客の発言として再確認':'顧客の回答として記録';
+      el('case-status').textContent=labels[state.diagnosis_status] || '状況確認中';
+      el('next-action').textContent=overview.current_next_action.replaceAll('Future','目指している会社の姿').replaceAll('Plan','確認内容').replaceAll('Human Review','分析内容の確認');
       el('confirmation').textContent=state.plan_confirmed_at ? `担当者 ${state.plan_confirmed_by_user_id} が ${new Date(state.plan_confirmed_at).toLocaleString('ja-JP')} に確定しました。` : '';
-      renderAI(); renderPlan(); controls();
+      renderAI(); renderPlan(); controls();window.dispatchEvent(new Event('diagnosis-data-loaded'));
       if (pending()) timer=setTimeout(()=>load(true),2000);
     } catch(e) { error(e.message); }
   }
@@ -147,5 +147,6 @@
     const path=planEdit ? planEdit.proposal ? `/proposals/${planEdit.id}/accept-with-edit` : `/plan-items/${planEdit.id}/update` : '/plan-items';
     action(path,input,resetPlan);
   });
+  window.addEventListener('reuse-changed',()=>load());
   load();
 })();

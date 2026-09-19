@@ -1,0 +1,52 @@
+import {test,expect} from '@playwright/test';
+import {createDiagnosisHarness} from './support/diagnosisHarness';
+import {reuseSalesCase} from './support/progressiveReuseScenario';
+import {operator} from './support/preparationFixtures';
+import {DIAGNOSIS_POLICY_NOTICE_VERSION} from '../src/routes/itManagementDiagnosis';
+let h:Awaited<ReturnType<typeof createDiagnosisHarness>>;
+test.beforeAll(async()=>{h=await createDiagnosisHarness();});test.afterAll(async()=>{await h?.close();});
+test.beforeEach(async({context})=>{await context.addCookies([{name:'staff_session',value:h.staffCookie.slice('staff_session='.length),url:h.url,httpOnly:true,sameSite:'Lax'}]);});
+
+test('SL-A4: overview -> select missing information -> confirmed plan -> record speech -> Human Review',async({page},info)=>{
+ const c=await reuseSalesCase(h.pool),errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(h.url+'/admin/it-management-diagnosis-detail.html?id='+c.id);
+ await expect(page.locator('#reuse-known')).toContainText('売上を増やしたいと伺った');
+ await expect(page.locator('#reuse-unknown')).toContainText('現状の作業時間はまだ分かっていない');
+ await expect(page.locator('#reuse-hypotheses')).toContainText('効率化が必要かもしれない');
+ await expect(page.locator('#reuse-known')).not.toContainText('効率化が必要かもしれない');
+ await page.locator('#reuse-next').getByRole('link',{name:'追加で確認する内容を選ぶ'}).click();await page.locator('#start').click();
+ await page.locator('#theme-title').fill('作業時間の確認');await page.locator('#theme-relation').fill('目指す会社の姿に必要な時間の把握');await page.locator('#save-theme').click();
+ await expect(page.locator('#themes')).toContainText('作業時間の確認');
+ const candidate=page.locator('#reuse-candidates [data-reuse-key="intake:unknowns:0"]');
+ await candidate.getByRole('button',{name:'今回確認する',exact:true}).click();
+ await page.locator('#reuse-question').fill('作業時間の記録はありますか');await page.locator('#reuse-purpose').fill('どこまで把握できているか確認する');
+ const theme=(await h.preparation.read(c.id,operator)).themes[0];await page.locator('#reuse-theme').selectOption(theme.id);
+ await page.getByRole('button',{name:'今回確認する内容に追加',exact:true}).click();
+ await expect(page.locator('#reuse-selected')).toContainText('作業時間の記録はありますか');
+ page.once('dialog',d=>d.accept());await page.locator('#confirm').click();await expect(page.locator('#workspace-link')).toBeVisible();await page.locator('#workspace-link').click();
+ await page.locator('#start').click();await page.locator('#reuse-selected').getByRole('button',{name:'この内容を確認して記録する'}).click();
+ await expect(page.locator('#selected-confirmation')).toContainText('作業時間の記録はありますか');await expect(page.locator('#statement-content')).toHaveValue('');
+ await page.locator('#statement-content').fill('時間の記録はありますが、集計方法はまだ分かりません');await page.getByRole('button',{name:'顧客発言を保存',exact:true}).click();
+ await expect(page.locator('#reuse-known')).toContainText('時間の記録はありますが、集計方法はまだ分かりません');
+ await expect(page.locator('#reuse-selected')).toContainText('再質問する前に内容を確認してください');await expect(page.locator('#reuse-unknown')).toContainText('現状の作業時間はまだ分かっていない');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBeTruthy();
+ expect(await page.locator('#progressive-reuse').innerText()).not.toMatch(/SourceRecord|provenance|PlanItem|semantic_type|\bFACT\b|\bUNKNOWN\b|[0-9a-f]{8}-[0-9a-f]{4}-/);
+ await page.screenshot({path:info.outputPath('progressive-reuse.png'),fullPage:true});
+ page.once('dialog',d=>d.accept());await page.locator('#finish').click();await page.locator('#review-link').click();
+ await expect(page.locator('#raw-sources')).toContainText('時間の記録はありますが、集計方法はまだ分かりません');
+ expect((await h.review.read(c.id,operator)).approved_insights).toHaveLength(0);expect(errors).toEqual([]);
+});
+
+test('SL-A4: Web answers stay saved while staff opens only missing answers',async({page})=>{
+ const c=await h.repo.createCase({companyName:'既回答の再利用',contactName:'回答者',email:'reuse@example.test'},'WEB',{kind:'CUSTOMER',token:''},{noticeVersion:DIAGNOSIS_POLICY_NOTICE_VERSION});
+ const actor={kind:'CUSTOMER' as const,token:c.access_token!};await h.repo.startSurvey(c.id,actor);await h.repo.submitResponse(c.id,'Q04_IT_VISIBILITY',2,'IT環境は完全に把握できている',actor);
+ await page.goto(h.url+'/admin/it-management-diagnosis-detail.html?id='+c.id);await expect(page.locator('#reuse-known')).toContainText('IT環境は完全に把握できている');
+ await page.locator('#reuse-known details summary').first().click();await expect(page.locator('#reuse-known')).toContainText('Web回答');
+ await page.getByRole('link',{name:'足りない回答を確認する'}).click();
+ await expect(page.locator('[data-question-code="Q04_IT_VISIBILITY"]')).toBeHidden();
+ await expect(page.locator('[data-question-code="Q01_FUTURE"]')).toBeVisible();await expect(page.locator('#survey-progress')).toBeHidden();
+ await page.locator('#show-saved-answers').click();await expect(page.locator('[data-question-code="Q04_IT_VISIBILITY"]').getByLabel('IT環境は完全に把握できている',{exact:true})).toBeChecked();
+ const before=(await h.repo.getSurvey(c.id,operator)).responses;
+ await page.locator('#show-saved-answers').click();await page.getByRole('button',{name:'途中保存する',exact:true}).click();
+ expect((await h.repo.getSurvey(c.id,operator)).responses).toEqual(before);
+});

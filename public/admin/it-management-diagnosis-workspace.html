@@ -1,41 +1,41 @@
 <!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><title>60分診断 | atLIB株式会社</title>
+<html lang="ja"><head><meta charset="utf-8"><title>追加確認 | atLIB株式会社</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer">
 <link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/css/style.css"><link rel="stylesheet" href="/css/it-management-diagnosis.css">
-<link rel="stylesheet" href="/css/diagnosis-workspace.css"><script src="/js/it-management-diagnosis-workspace.js" defer></script></head>
+<link rel="stylesheet" href="/css/diagnosis-workspace.css"><script src="/js/it-management-diagnosis-workspace.js" defer></script><script src="/js/progressive-reuse.js" defer></script></head>
 <body><main class="page workspace-page">
 <p><a id="back">← 案件概要</a> / <a id="preparation-link">診断準備</a> / <a href="/admin/it-management-diagnosis.html">案件一覧</a></p>
-<p><a id="review-link" hidden>Human Reviewへ</a></p><h1 id="company">60分診断</h1><p>無料 IT経営診断 / 提供：atLIB株式会社</p>
+<p><a id="review-link" hidden>分析内容を確認する</a></p><h1 id="company">追加確認</h1><p>IT経営KAIZEN 無料診断 / 提供：atLIB株式会社</p>
 <div id="workspace-error" class="error-message" role="alert" hidden></div>
 <section class="card"><p id="case-status"></p><p id="next-action"></p><p id="session-time"></p>
 <div class="diagnosis-actions"><button id="start" class="btn" disabled>担当者として診断を開始する</button><button id="finish" class="btn" disabled>担当者として診断を終了する</button><button id="refresh" class="btn btn-secondary">再読み込み</button></div>
-<p>Futureに対して重要な確認に集中してください。分からないことや未確認の候補が残っていても終了できます。</p></section>
-<div class="workspace-columns">
-<aside class="card"><h2>実現したい会社の未来</h2><p id="future" class="diagnosis-raw"></p><p id="future-status"></p>
-<details><summary>Futureの履歴</summary><div id="future-history"></div></details>
-<details class="editable"><summary>対話でFutureを再確認する</summary><form id="future-form">
-<div class="form-row"><label for="future-statement">再確認したFuture</label><textarea id="future-statement" maxlength="2000" required></textarea></div>
+<p>目指している会社の姿に対して重要な確認に集中してください。分からないことや未確認の候補が残っていても終了できます。</p></section>
+<section id="progressive-reuse" class="card" aria-label="取得済み情報と追加確認"></section><div class="workspace-columns">
+<aside class="card"><h2>目指している会社の姿</h2><p id="future" class="diagnosis-raw"></p><p id="future-status"></p>
+<details><summary>目指している会社の姿の記録</summary><div id="future-history"></div></details>
+<details class="editable"><summary>対話で目指している会社の姿を再確認する</summary><form id="future-form">
+<div class="form-row"><label for="future-statement">再確認した会社の姿</label><textarea id="future-statement" maxlength="2000" required></textarea></div>
 <div class="form-row"><label for="future-horizon">目指す時期（任意）</label><input type="text" id="future-horizon" maxlength="200"></div>
-<div class="form-row"><label for="future-source">再確認の元となる顧客発言・Transcript</label><select id="future-source" required></select></div>
-<button class="btn" type="submit">担当者としてFutureを再確認したと記録</button></form></details>
-<h2>重点テーマ</h2><div id="themes"></div><h2>診断Plan</h2><div id="plan-items"></div>
-<details><summary>準備時に確定したPlan</summary><div id="confirmed-plan"></div></details>
+<div class="form-row"><label for="future-source">再確認の元となる顧客発言・会話記録</label><select id="future-source" required></select></div>
+<button class="btn" type="submit">担当者として会社の姿を再確認したと記録</button></form></details>
+<h2>重点テーマ</h2><div id="themes"></div><h2>今回確認する内容</h2><div id="plan-items"></div>
+<details><summary>準備時に確定した確認内容</summary><div id="confirmed-plan"></div></details>
 <details class="editable"><summary>担当者がテーマ・確認項目を追加する</summary>
 <form id="theme-form"><h3>テーマを追加</h3><div class="form-row"><label for="theme-title">テーマ名</label><input type="text" id="theme-title" maxlength="200" required></div>
-<div class="form-row"><label for="theme-relation">Futureとの関係</label><textarea id="theme-relation" maxlength="2000" required></textarea></div><button class="btn" type="submit">テーマを追加</button></form>
+<div class="form-row"><label for="theme-relation">目指している会社の姿との関係</label><textarea id="theme-relation" maxlength="2000" required></textarea></div><button class="btn" type="submit">テーマを追加</button></form>
 <form id="plan-form"><h3>確認項目を追加</h3><div class="form-row"><label for="plan-text">確認する内容</label><textarea id="plan-text" maxlength="2000" required></textarea></div>
 <div class="form-row"><label for="plan-theme">関連テーマ</label><select id="plan-theme"></select></div><button class="btn" type="submit">確認項目を追加</button></form></details>
 </aside>
 <section class="card"><h2>対話の記録</h2><p>顧客発言と担当者メモは別々に保存します。記録は原文として保持します。</p>
 <div class="editable">
 <form id="statement-form"><h3>顧客発言</h3><div class="form-row"><label for="statement-speaker">話者（任意）</label><select id="statement-speaker"></select></div>
-<div class="form-row"><label for="statement-parent">元のTranscript（任意）</label><select id="statement-parent"></select></div>
+<div class="form-row"><label for="statement-parent">元の会話記録（任意）</label><select id="statement-parent"></select></div>
 <div class="form-row"><label for="statement-content">顧客が話した内容</label><textarea id="statement-content" maxlength="20000" required></textarea></div><button class="btn" type="submit">顧客発言を保存</button></form>
 <form id="note-form"><h3>担当者メモ</h3><div class="form-row"><label for="note-content">担当者のメモ</label><textarea id="note-content" maxlength="20000" required></textarea></div><button class="btn" type="submit">担当者メモを保存</button></form>
-<details><summary>Transcriptを貼り付けて保存</summary><form id="transcript-form"><div class="form-row"><label for="transcript-content">Transcript原文</label><textarea id="transcript-content" maxlength="20000" required></textarea></div><button class="btn" type="submit">Transcriptを保存</button></form></details>
-<details><summary>Evidenceの存在を記録</summary><p>顧客が自発的に提示した台帳・手順書・画面などの存在だけを記録します。内容の正確性・最新性・妥当性はAssessmentで確認します。</p>
+<details><summary>会話記録を貼り付けて保存</summary><form id="transcript-form"><div class="form-row"><label for="transcript-content">会話記録の原文</label><textarea id="transcript-content" maxlength="20000" required></textarea></div><button class="btn" type="submit">会話記録を保存</button></form></details>
+<details><summary>資料等の存在を記録</summary><p>顧客が自発的に提示した台帳・手順書・画面などの存在だけを記録します。内容の正確性・最新性・妥当性はAssessmentで確認します。</p>
 <form id="evidence-form"><div class="form-row"><label for="evidence-content">何が存在したか</label><textarea id="evidence-content" maxlength="20000" required></textarea></div>
-<label><input type="checkbox" id="evidence-voluntary" required> 顧客が自発的に提示したものです</label><p><button class="btn" type="submit">Evidenceの存在を保存</button></p></form></details>
+<label><input type="checkbox" id="evidence-voluntary" required> 顧客が自発的に提示したものです</label><p><button class="btn" type="submit">資料等の存在を保存</button></p></form></details>
 </div><h3>保存済みの原文</h3><div id="sources"></div></section>
 <aside class="card"><h2>AI Assist</h2><p>AIは次の確認候補を提案します。質問するかどうかは担当者が決めてください。</p>
 <button id="run-ai" class="btn" disabled>AIに次の確認候補を聞く</button><p id="ai-status" role="status"></p><div id="executions"></div><div id="suggestions"></div></aside>

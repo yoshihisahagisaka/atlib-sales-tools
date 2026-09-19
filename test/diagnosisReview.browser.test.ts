@@ -7,7 +7,7 @@ test.beforeAll(async()=>{h=await createDiagnosisHarness(undefined,undefined,unde
 
 test('Human Review: AI提案→出典確認→承認・編集・UNKNOWN変換・却下→Assessment確認→完了',async({page},info)=>{
  const c=await reviewCase(h),errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto(`${h.url}/admin/it-management-diagnosis-workspace.html?id=${c.id}`);await page.getByRole('link',{name:'Human Reviewへ',exact:true}).click();
+ await page.goto(`${h.url}/admin/it-management-diagnosis-workspace.html?id=${c.id}`);await page.getByRole('link',{name:'分析内容を確認する',exact:true}).click();
  await expect(page.locator('#company')).toHaveText('ABC株式会社様');await expect(page.getByText('提供：atLIB株式会社')).toBeVisible();await expect(page.locator('#future-status')).toHaveText('顧客が目指している会社の姿として回答');
  await page.locator('#run-ai').click();await expect(page.locator('#executions')).toContainText('整理完了');await expect(page.locator('#case-status')).toHaveText('進行状況：分析内容の確認待ち');expect((await h.review.read(c.id,operator)).approved_insights).toHaveLength(0);
  const d=await h.review.read(c.id,operator),card=(type:string)=>page.locator(`[data-proposal-id="${d.proposals.find(p=>p.proposal_type===type).id}"]`);

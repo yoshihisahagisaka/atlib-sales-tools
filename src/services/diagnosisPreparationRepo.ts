@@ -3,6 +3,8 @@ import type { Pool, PoolClient } from 'pg';
 import { DiagnosisError, type Actor } from '../domain/itManagementDiagnosis';
 import { PROMPT_VERSION, POLICY_VERSION, type OrganizerOutput, type SourceRef, type HumanTheme, type HumanPlan } from '../domain/diagnosisPreparation';
 import { buildPreDiagnosisContext, type PreDiagnosisContext } from './preDiagnosisContext';
+import {progressiveReuseReadModel} from './progressiveReuseReadModel';
+import {humanPlanSchema} from '../domain/diagnosisPreparation';
 
 export interface Execution<T = PreDiagnosisContext> {
   id: string; diagnosis_case_id: string; status: string; input_snapshot_json: T;
@@ -171,6 +173,25 @@ export class DiagnosisPreparationRepo {
   async addPlan(id: string, actor: Actor, input: HumanPlan) {
     return this.tx(async c => { await this.locked(c,id,actor,['PREPARATION_IN_PROGRESS']); const key = await this.insertPlan(c,id,actor,input,null);
       await this.changed(c,id,actor,'AddDiagnosisPlanItem',{ id: key, input }); return { id: key }; });
+  }
+  async readReuse(id:string,actor:Actor){
+    return this.tx(async c=>{await this.locked(c,id,actor);return progressiveReuseReadModel(c,id);});
+  }
+  async selectReuse(id:string,actor:Actor,key:string,expectedVersion:number,input:HumanPlan){
+    return this.tx(async c=>{
+      const row=await this.locked(c,id,actor,['PREPARATION_IN_PROGRESS','DIAGNOSIS_IN_PROGRESS']);
+      const model=await progressiveReuseReadModel(c,id);
+      const candidate=model.candidates.find(e=>e.key===key);
+      if(!candidate)throw new DiagnosisError(409,'候補が更新されています。元の情報を確認してください。');
+      if(candidate.selected_plan_id)return {id:candidate.selected_plan_id,replayed:true};
+      if(row.version!==expectedVersion)throw new DiagnosisError(409,'内容が更新されています。再読み込みして確認してください。');
+      const parsed=humanPlanSchema.safeParse(input);
+      if(!parsed.success)throw new DiagnosisError(422,'確認内容を入力してください。');
+      const planId=await this.insertPlan(c,id,actor,parsed.data,null);
+      // Store origin IDs in the existing Human-command audit, not as a second customer statement.
+      await this.changed(c,id,actor,'SelectReuseConfirmation',{id:planId,reuse_origin:{key:candidate.key,...candidate.origin},expected_version:expectedVersion});
+      return {id:planId,replayed:false};
+    });
   }
   async update(id: string, key: string, actor: Actor, kind: 'themes' | 'plan-items', input: HumanTheme | HumanPlan) {
     return this.tx(async c => {

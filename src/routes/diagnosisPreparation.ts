@@ -21,6 +21,11 @@ export function createDiagnosisPreparationRouter(services: PreparationServices) 
   const { repo,provider,worker } = services;
   const router = Router();
   const prefix = '/cases/:id/preparation';
+  router.get('/cases/:id/progressive-reuse',diagnosisHandler(async(req,res)=>{res.json(await repo.readReuse(caseId(req),staffActor(req)));}));
+  router.post('/cases/:id/progressive-reuse/select',diagnosisHandler(async(req,res)=>{
+    const p=parse(z.object({candidateKey:z.string().min(1).max(200),expectedVersion:z.number().int().positive(),plan:humanPlanSchema}).strict(),req.body);
+    res.status(201).json(await repo.selectReuse(caseId(req),staffActor(req),p.candidateKey,p.expectedVersion,p.plan));
+  }));
   router.get(prefix,diagnosisHandler(async (req,res) => { res.json(await repo.read(caseId(req),staffActor(req))); }));
   router.post(prefix+'/ai/run',diagnosisHandler(async (req,res) => {
     const execution = await repo.enqueue(caseId(req),staffActor(req),provider.provider,provider.model);

@@ -6,6 +6,7 @@ import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {consentedSalesCase} from './support/salesIntakeFixtures';
 import {salesConsentScenario} from './support/salesIntakeScenario';
+import {progressiveReuseScenario} from './support/progressiveReuseScenario';
 import {Pool} from 'pg';
 import {runMigrations} from '../src/db/migrate';
 import {ItManagementDiagnosisRepo} from '../src/services/itManagementDiagnosisRepo';
@@ -99,6 +100,9 @@ test('Real PostgreSQL readiness: migrations, multi-connection concurrency, WEB /
   });
   await t.test('SL-A2/A3: pre-consent isolation and concurrent consent create exactly one Case with provenance',async()=>{
    const x=await setup();try{await salesConsentScenario(x.pool,x.other);}finally{await x.close();}
+  });
+  await t.test('SL-A4: concurrent Human selection reuses one plan and speech reaches review without UNKNOWN resolution',async()=>{
+   const x=await setup();try{await progressiveReuseScenario(x.pool,x.other);}finally{await x.close();}
   });
   for(const channel of ['WEB','SALES_VISIT'] as const)await t.test(`${channel} synthetic real-PostgreSQL E2E AI-01–04 / Human Gates / CLOSED`,async()=>{
   const x=await setup();try{const {repo,preparation,workspace,review,report,assessment}=x.s,live=process.env.RUN_READINESS_AI_LIVE==='1';if(live&&!process.env.ANTHROPIC_API_KEY)throw Error('BLOCKED_EXTERNAL: AI key missing');
