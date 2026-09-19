@@ -682,3 +682,42 @@ Google Cloud ConsoleのIAM画面で、Human accountがproject `msp-zabbix`に対
 2. staging専用OAuth clientを新規作成できる権限の確認
 
 これら以外の項目（Production Cloud SQL tier、GCP resource作成権限（project内））はCLOSEDとする。resource作成・IAM変更・Secret変更・OAuth変更・deploy・migration・外部API実行・Production変更・実顧客データ投入はいずれも未実施のまま、Phase 2は開始しない。
+
+## 28. Update — 2026-09-19（Phase 2開始前Gate 全件CLOSED、PostgreSQLバージョンDecision）
+
+検証日: 2026-09-19。HumanがGoogle Cloud Consoleで最終確認した結果を記録する。**resource作成・IAM変更・Secret変更・OAuth変更・deploy・migration・外部API実行・Production変更・実顧客データ投入はいずれも未実施。**
+
+### 28.1 staging専用OAuth client作成権限 — CONFIRMED（Gate CLOSED）
+
+Google Cloud Console上でOAuth Client作成画面まで正常に到達できることを確認した。**実際の作成は行っていない。**
+
+### 28.2 Temporary Staging Cloud SQL 費用 — CONFIRMED（Gate CLOSED）
+
+Console上で以下の構成と見積りを確認した。
+
+| 項目 | 値 |
+|---|---|
+| Edition | Enterprise |
+| Machine type | db-f1-micro |
+| Spec | 1 vCPU / 628.74 MB |
+| Region | asia-northeast1 |
+| Storage | 10 GiB SSD |
+| Availability | Single zone |
+| Automatic Backup | Enabled |
+| PITR | Enabled |
+| **Console estimate** | **$0.02/hour**（使用量割引なし。backup等のusage-dependent costは別途あり得る） |
+
+### 28.3 PostgreSQLバージョン — Human Decision
+
+Console確認画面ではデフォルトがPostgreSQL 18になっていたが、**Production（`msp-customer-portal-db`）はPostgreSQL 16.14**である。Human Decisionにより、**Temporary StagingはPostgreSQL 16系を使用し、Production major versionに合わせる**。Staging構成をPostgreSQL 18のまま作成しない。
+
+### 28.4 Phase 2開始前Gate — 最終状態
+
+| 項目 | 状態 |
+|---|---|
+| Production Cloud SQL tier | CLOSED（db-f1-micro、§27.1） |
+| GCP resource作成権限（project内） | CLOSED（Owner role、§27.2） |
+| db-f1-micro / asia-northeast1 Temporary Staging費用 | **CLOSED**（$0.02/hour、§28.2） |
+| staging専用OAuth client作成権限 | **CLOSED**（§28.1） |
+
+**Phase 2開始前Gateはすべて CLOSED。** ただし、resource作成はこの記録の時点でもまだ開始しない。Execution Planを別途提示し、実際の作成は次のHuman GOを待つ。
