@@ -35,6 +35,13 @@ export interface Config {
     // 本番はSecret Manager (sales-tools-anthropic-api-key) をCloud Runの--set-secretsで環境変数に注入する運用とする。
     anthropicApiKey?: string;
   };
+  scheduler: {
+    // F5 durable execution (internal worker endpoints)用。任意項目、値はSecretではなくService Accountの
+    // emailアドレス（識別子）であり、Secret Managerを経由しない。undefinedならinternal workerルートは
+    // server.tsでマウントされない。
+    aiInvokerServiceAccountEmail?: string;
+    deletionInvokerServiceAccountEmail?: string;
+  };
 }
 
 /**
@@ -109,6 +116,13 @@ export async function loadConfig(): Promise<Config> {
     },
     aiAssist: {
       anthropicApiKey: process.env.ANTHROPIC_API_KEY || undefined,
+    },
+    scheduler: {
+      // Optional: only set in environments where the F5 durable-execution internal worker
+      // endpoints are wired up (Temporary Staging). Undefined in Production leaves those
+      // routes unmounted entirely (see server.ts); no behavior change for existing deployments.
+      aiInvokerServiceAccountEmail: process.env.SCHEDULER_AI_INVOKER_SA || undefined,
+      deletionInvokerServiceAccountEmail: process.env.SCHEDULER_DELETION_INVOKER_SA || undefined,
     },
   };
 }

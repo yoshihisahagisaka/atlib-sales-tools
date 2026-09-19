@@ -194,6 +194,25 @@ export class RetentionDeletionWorker {
     }finally{ c.release(); }
   }
 
+  /** Human-approved requests awaiting execution, oldest-approved-first. Never includes non-APPROVED statuses. */
+  async listApprovedRequests(limit:number):Promise<Array<{id:string;diagnosis_case_id:string}>>{
+    const {rows}=await this.pool.query<{id:string;diagnosis_case_id:string}>(
+      `SELECT id,diagnosis_case_id FROM diagnosis_deletion_requests WHERE status='APPROVED' ORDER BY approved_at ASC LIMIT $1`,[limit]);
+    return rows;
+  }
+
+  /**
+   * Records a failed execution attempt using the existing FAILED status and failure_code
+   * column already defined in the schema (migration 013). Only transitions a request that
+   * is still APPROVED, so a request that has since completed (e.g. via a concurrent/idempotent
+   * retry) or been re-approved is never clobbered.
+   */
+  async markFailed(caseId:string,requestId:string,failureCode:string):Promise<void>{
+    await this.pool.query(
+      `UPDATE diagnosis_deletion_requests SET status='FAILED',failure_code=$3,updated_at=now()
+       WHERE id=$1 AND diagnosis_case_id=$2 AND status='APPROVED'`,[requestId,caseId,failureCode]);
+  }
+
   async previewPolicyExpiry(caseId:string){
     const c=await this.pool.connect();
     try{
