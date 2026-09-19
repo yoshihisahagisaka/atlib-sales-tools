@@ -758,3 +758,92 @@ F4（runtime/migration/read-only/audit protection等のAuthority Model）は別�
 `msp-zabbix-sales-tools-staging-deletion-manifests`（project ID prefixによりglobal unique性を高め、staging専用であることも名称から明確）。実際の利用可能性は作成試行時にのみ確定するため、最終確定はresource作成時点で行う。
 
 修正版Execution Planは別途提示し、実際のresource作成は次のHuman GOを待つ。
+
+## 30. Update — 2026-09-19（Phase 2 — Temporary Staging Infrastructure Resource Creation: COMPLETE / VERIFIED）
+
+検証日: 2026-09-19。Human Decision（Phase 2 GO、その後の`gcloud auth login`承認含む）に基づき、Execution Plan v2（§29）のStep 1〜11を実行した。**本章の3つの判定は明確に分離して記録する。**
+
+- **Phase 2 Temporary Staging Infrastructure: COMPLETE / VERIFIED**
+- **Production resource変更: NONE / VERIFIED**
+- **Overall Production Readiness: NO-GO**（変更なし。Phase 2完了はF3〜F9のEvidence取得基盤が整ったことを意味するのみで、Readiness判定そのものには未反映）
+
+### 30.1 実行環境に関する発見（前提）
+
+gcloud CLIは、Bash（Git Bash）経由では従来通り動作不能（exit 49）だったが、**PowerShell経由では動作可能**であることが本セッションで判明した。ただし当初はGoogle API呼び出し時に`Reauthentication failed. cannot prompt during non-interactive execution`で失敗（E8で記録した症状と同一原因）。Human承認のもと`gcloud auth login`（既存キャッシュ済み認証情報の再有効化、対話的な新規ログインは発生せず）を実行し、これを解消した。
+
+### 30.2 Preflight結果
+
+| 項目 | 結果 |
+|---|---|
+| authenticated account | `yoshihisa.hagisaka@atlib.jp` — 想定通り |
+| active project | `msp-zabbix`（projectNumber `135863453696`、ACTIVE） — 想定通り |
+| projectへのアクセス | 成功 |
+| 既存同名staging resource | 全件NOT_FOUND（衝突なし） |
+
+### 30.3 Step別実行結果
+
+| Step | Resource | 状態 | 主要設定・FACT |
+|---|---|---|---|
+| 1 | Service Account | CREATED / VERIFIED | `sales-tools-staging-sa@msp-zabbix.iam.gserviceaccount.com` |
+| 2 | Cloud Run（Infrastructure placeholder） | CREATED / VERIFIED | `sales-tools-staging`、image=`us-docker.pkg.dev/cloudrun/container/hello`、runtime SA=Step1、DB接続/Secret参照/app env varsなし。**実URL（FACT）: `https://sales-tools-staging-135863453696.asia-northeast1.run.app`**、HTTP 200「Congratulations \| Cloud Run」確認 |
+| 3 | Cloud SQL instance | CREATED / VERIFIED | `sales-tools-staging-db`、Enterprise／db-f1-micro／POSTGRES_16／asia-northeast1／ZONAL／10GB SSD／Backup enabled／PITR enabled（全項目describe出力で一致確認） |
+| 4 | Cloud SQL database | CREATED / VERIFIED | `sales_tools_staging`のみ。**DBユーザー・GRANTは作成せず**（F4 Execution Planへ留保） |
+| 5 | IAM: cloudsql.client（instance限定Condition） | CREATED / VERIFIED | `sales-tools-staging-sa`へ`roles/cloudsql.client`を`resource.name == "projects/msp-zabbix/instances/sales-tools-staging-db"`のCEL条件付きで付与。policy読み戻しでcondition式を確認、project-levelへのfallbackは発生しなかった |
+| 6 | GCS bucket | CREATED / VERIFIED | `msp-zabbix-sales-tools-staging-deletion-manifests`、asia-northeast1、uniform bucket-level access、public_access_prevention: enforced |
+| 7 | IAM: bucket権限 | CREATED / VERIFIED | `sales-tools-staging-sa`へ`roles/storage.objectAdmin`をこのbucketのみ（bucket-level IAM）に付与 |
+| 8 | Secret: Staff JWT | CREATED / VERIFIED | `sales-tools-staging-staff-jwt-secret`。§30.4のIncident参照 |
+| 8 (IAM) | secretAccessor（JWT） | CREATED / VERIFIED | このsecretのみへ個別付与 |
+| 9 | staging専用OAuth 2.0 Client | CREATED（Human Console操作） | §30.5参照 |
+| 10 | Secret: OAuth Client Secret | CREATED / VERIFIED | `sales-tools-staging-google-oauth-client-secret`、version 1、state=enabled。値はHuman側で安全に登録（コマンド引数・shell history・ファイル・標準出力への非露出手順を使用）、Claude Codeは値を取得・表示していない |
+| 10 (IAM) | secretAccessor（OAuth） | CREATED / VERIFIED | このsecretのみへ個別付与 |
+| 11a | Monitoring Uptime Check | CREATED / VERIFIED | `sales-tools-staging Uptime Check`、Step2の実URLに対しHTTPS/443/path=`/`、period 300s |
+| 11b | Monitoring Alert Policy | CREATED / VERIFIED | `sales-tools-staging Uptime Failure`、enabled=true。既存のHuman email通知チャネル（`atLIB Ops Alert (Yoshihisa)`、新規重複作成せず再利用）へ通知 |
+
+### 30.4 Incident — Step 8 JWT Secret生成（Evidence記録、削除せず保持）
+
+**Incident**: JWT secret生成のため使用した.NET API（`[System.Security.Cryptography.RandomNumberGenerator]::Fill`静的メソッド）が、このPowerShell 5.1（Windows PowerShell）環境には存在せず、メソッド呼び出しが失敗した。しかしこの失敗はエラー出力されたのみで後続処理を停止させず、未初期化（ゼロ埋め）のbyte配列がそのままBase64エンコードされ、**暗号学的に安全でない値でsecretのversion 1が作成された**。
+
+**Detection**: 値そのものを表示・使用・外部送信する前に、コマンド出力中のエラーメッセージに気づき発覚。
+
+**Unsafe version deleted before use**: 発覚後直ちに`gcloud secrets delete sales-tools-staging-staff-jwt-secret`を実行し、この安全でないsecret（コンテナごと）を削除した。このバージョンの値がstaging Cloud Runや他のresourceから参照・使用されたことはない。
+
+**CSPRNGで再生成**: `New-Object System.Security.Cryptography.RNGCryptoServiceProvider`のインスタンスメソッド`GetBytes()`（PowerShell 5.1互換のCSPRNG API）を用いて48byte（Base64後64文字）の乱数を再生成し、生成後に非ゼロであることを（値自体は表示せず、真偽値のみで）確認した上で、同名secretを再作成した。
+
+**final state verified**: 最終的に`sales-tools-staging-staff-jwt-secret`のversion 1として格納されている値は、上記CSPRNGによる安全な値のみである。Secret Manager上のsecret/version存在確認は行ったが、値自体は本文書・チャット・ログのいずれにも記録していない。
+
+### 30.5 OAuth Client — resourceタイプの誤り回避（Evidence記録）
+
+Execution Plan v2 Step 9実行時、gcloudに`iam oauth-clients create`というコマンドが存在することを確認したが、詳細確認の結果、これは**Workforce Identity Federation用の別製品**（`client-type=confidential-client`、`location=global`、`allowed-grant-types`等のパラメータを持つ）であり、既存Production `sales-tools`の`staffAuth.ts`が使用する**従来型のOAuth 2.0 Client ID（Web application、`google-auth-library`の`OAuth2Client`が要求する形式）とは別resourceタイプ**であることが判明した。
+
+この従来型OAuth 2.0 Client IDは、gcloud CLI・公開REST APIによる作成手段が存在せず、Google Cloud Console UIからのみ作成可能という制約がある（§28.1でHumanがConsole上の作成導線到達を確認済みなのはこのため）。
+
+**誤resourceを作成せずSTOP**: 上記の相違に気づいた時点で`gcloud iam oauth-clients create`の実行を行わず、Human Decisionへ差異を報告した。
+
+**Human Console操作でstaging専用Web Clientを作成**: HumanがGoogle Cloud Console上で、Application type: Web application、Name: 「sales-tools staging」、Redirect URI: Step2で取得した実URL（`https://sales-tools-staging-135863453696.asia-northeast1.run.app/auth/callback`）として、staging専用のOAuth 2.0 Web Clientを作成した。既存Production OAuth Client（3件）・OAuth consent screenへの変更はない。
+
+### 30.6 Observed Fact — Production Cloud Run URLの差異（原因未特定、Canonical化しない）
+
+Production `sales-tools` Cloud Run serviceをdescribeした際、`status.url`として`https://sales-tools-fz2pwhdtkq-an.a.run.app`が返された。これは`docs/運用手順書_デプロイ.md`に記載された本番URL`https://sales-tools-135863453696.asia-northeast1.run.app`とは異なる文字列である。
+
+**この差異の原因は推測せず、Canonical FACTとしても確定しない。** 「describeで返されたURLと既存文書記載URLが異なった」という観測事実のみをここに記録する。Production resourceへの変更操作は行っていない（読み取り専用のdescribeのみ）。原因調査は別途必要であれば独立したタスクとして扱う。
+
+### 30.7 Production resource変更確認（読み取り専用、実行後再確認）
+
+| Production resource | 確認結果 |
+|---|---|
+| Cloud Run `sales-tools` | 変更なし（runtime SA `sales-tools-sa@...`のまま。§30.6のURL表示差異はdescribe結果の観測事実のみで変更を意味しない） |
+| Cloud SQL `msp-customer-portal-db` | 変更なし（tier=db-f1-micro、backup enabled、PITR disabled＝§25.2のFACTと一致） |
+| `sales-tools-sa@msp-zabbix.iam.gserviceaccount.com` | 変更なし |
+| Production Secret | 参照・変更なし |
+| 既存OAuth Client（3件）・consent screen | 変更なし |
+| 通知チャネル`atLIB Ops Alert (Yoshihisa)` | 参照のみ（Alert Policyの通知先として使用）、チャネル自体の設定変更なし |
+
+**Production resource変更: NONE / VERIFIED。**
+
+### 30.8 Phase boundary遵守
+
+Step 11完了時点でSTOPした。実アプリdeploy、DB user/GRANT設計、`npm run migrate`、SMTP/Anthropic secret作成・値投入、実OAuthログインフロー、その他外部API実行、Production変更、実顧客データ投入のいずれにも進んでいない。
+
+### 30.9 Rollback可能性
+
+Step 1〜11で作成した全resourceは、§29 Execution Plan v2の削除順序（Monitoring→OAuth Secret→OAuth Client→JWT Secret→GCSバケット→Cloud SQL instance→Cloud Run→Service Account）でrollback可能。Temporary Staging終了後、継続利用するか削除するかは別途Human Decisionする（§24.4の位置付けを維持）。
