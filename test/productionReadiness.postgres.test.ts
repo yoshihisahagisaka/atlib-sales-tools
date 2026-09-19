@@ -8,6 +8,7 @@ import {consentedSalesCase} from './support/salesIntakeFixtures';
 import {salesConsentScenario} from './support/salesIntakeScenario';
 import {managementAnalysisScenario} from './support/managementAnalysisScenario';
 import {progressiveReuseScenario} from './support/progressiveReuseScenario';
+import {focusedConfirmation} from './support/focusedConfirmation';
 import {Pool} from 'pg';
 import {runMigrations} from '../src/db/migrate';
 import {ItManagementDiagnosisRepo} from '../src/services/itManagementDiagnosisRepo';
@@ -76,7 +77,7 @@ test('Real PostgreSQL readiness: migrations, multi-connection concurrency, WEB /
   const x=await setup();try{const c=await reportCase(x.h),d=await x.s.report.read(c.id,operator),other=new DiagnosisReportRepo(x.other),results=await Promise.allSettled([x.s.report.manual(c.id,operator,d.version),other.manual(c.id,operator,d.version)]);assert.equal(results.filter(r=>r.status==='fulfilled').length,1);let row=await x.s.report.read(c.id,operator);assert.equal(row.reports.length,1);
    await x.s.report.approve(c.id,operator,row.reports[0]!.id,row.version);await assert.rejects(x.other.query("UPDATE diagnosis_reports SET content_json='{}' WHERE id=$1",[row.reports[0]!.id]));row=await x.s.report.read(c.id,operator);await x.s.report.deliver(c.id,operator,row.reports[0]!.id,row.version);await x.s.report.startFeedback(c.id,operator,(await x.s.report.read(c.id,operator)).version);await x.s.report.completeFeedback(c.id,operator,(await x.s.report.read(c.id,operator)).version);
    await x.s.feedbackDecision.decide(c.id,operator,{expectedVersion:(await x.s.assessment.read(c.id,operator)).version,route:'DESIGN_ASSESSMENT',materialDecision:'合成試験のHuman判断',nextAction:'別のHuman操作で提案する'});
-   for(const action of ['propose','accept'] as const)await x.s.assessment.lifecycle(c.id,operator,action,(await x.s.assessment.read(c.id,operator)).version,'');const handoff=await x.s.assessment.generate(c.id,operator,(await x.s.assessment.read(c.id,operator)).version,'');await assert.rejects(x.other.query("UPDATE assessment_handoffs SET snapshot_json='{}' WHERE id=$1",[handoff.id]));await assert.rejects(x.s.assessment.close(c.id,operator,(await x.s.assessment.read(c.id,operator)).version,''));
+   for(const action of ['propose','accept'] as const)await x.s.assessment.lifecycle(c.id,operator,action,(await x.s.assessment.read(c.id,operator)).version,'');const handoff=await x.s.assessment.generate(c.id,operator,(await x.s.assessment.read(c.id,operator)).version,'');await assert.rejects(x.other.query("UPDATE assessment_handoffs SET snapshot_json='{}' WHERE id=$1",[handoff.id]));await x.s.assessment.close(c.id,operator,(await x.s.assessment.read(c.id,operator)).version,'');assert.equal((await x.s.assessment.read(c.id,operator)).diagnosis_status,'CLOSED');
   }finally{await x.close();}
  });
   await t.test('MF-D multi-connection decisions serialize; immutable snapshot and audit rollback preserve history',async()=>{
@@ -103,6 +104,18 @@ test('Real PostgreSQL readiness: migrations, multi-connection concurrency, WEB /
    const x=await setup();try{await salesConsentScenario(x.pool,x.other);}finally{await x.close();}
   });
   await t.test('SL-A5: analysis reuses reviewed WHY and never exports unreviewed AI candidates',async()=>{const x=await setup();try{await managementAnalysisScenario(x.h);}finally{await x.close();}});
+  await t.test('BD-SL-01: focused continuation, immutable Re-Decision and terminal routes without orders',async()=>{
+   const x=await setup();try{
+    for(const route of ['DIRECT_ACT','DESIGN_ASSESSMENT','STOP_HOLD'] as const){
+     const c=await feedbackCase(x.h,{decision:false}),insights=(await x.s.review.read(c.id,operator)).approved_insights;
+     const decide=async(r:'DIRECT_ACT'|'FOCUSED_CONFIRMATION'|'DESIGN_ASSESSMENT'|'STOP_HOLD')=>x.s.feedbackDecision.decide(c.id,operator,{expectedVersion:(await x.s.assessment.read(c.id,operator)).version,route:r,materialDecision:'Synthetic Human decision',nextAction:'Human next action'});
+     await decide('FOCUSED_CONFIRMATION');const first=(await x.s.feedbackDecision.read(c.id,operator)).latest!;
+     await focusedConfirmation(x.h,c.id);assert.deepEqual((await x.s.review.read(c.id,operator)).approved_insights,insights);
+     await decide(route);const after=await x.s.feedbackDecision.read(c.id,operator),state=await x.s.assessment.read(c.id,operator);
+     assert.deepEqual(after.history[1],first);assert.equal(after.latest!.supersedes_decision_id,first.id);assert.equal(state.diagnosis_status,'CLOSED');assert.equal(state.assessment_status,'NOT_PROPOSED');assert.equal(state.handoffs.length,0);
+    }
+   }finally{await x.close();}
+  });
   await t.test('SL-A4: concurrent Human selection reuses one plan and speech reaches review without UNKNOWN resolution',async()=>{
    const x=await setup();try{await progressiveReuseScenario(x.pool,x.other);}finally{await x.close();}
   });
@@ -118,7 +131,7 @@ test('Real PostgreSQL readiness: migrations, multi-connection concurrency, WEB /
    const source=await workspace.addSource(c.id,operator,'INTERVIEW_STATEMENT',{content:'担当者は分からない'});const transcript=await workspace.addSource(c.id,operator,'TRANSCRIPT',{content:'分からない。\n'.repeat(2000)});const completedAt=new Date().toISOString();await repo.completeTranscriptPurpose(c.id,transcript.id,operator,completedAt);await repo.completeTranscriptPurpose(c.id,transcript.id,operator,completedAt);assert.equal((await repo.retentionDryRun(c.id,operator)).transcript_purpose_pending_count,0);await workspace.enqueue(c.id,operator,p2.provider,p2.model);await new InterviewAssistantWorker(preparation,workspace,p2).tick();assert.equal((await workspace.read(c.id,operator)).executions[0].status,'SUCCEEDED');await workspace.transition(c.id,operator,'FINISH',(await workspace.read(c.id,operator)).version);
    await review.enqueue(c.id,operator,p3.provider,p3.model);await new PostDiagnosisWorker(preparation,review,p3).tick();assert.equal((await review.read(c.id,operator)).executions[0].status,'SUCCEEDED');assert.equal((await review.read(c.id,operator)).approved_insights.length,0);await review.createInsight(c.id,operator,humanInsight(source.id));await review.complete(c.id,operator,(await review.read(c.id,operator)).version,true);
    await report.enqueue(c.id,operator,p4.provider,p4.model);await new ReportDraftWorker(preparation,report,p4).tick();let r=await report.read(c.id,operator);assert.equal(r.executions[0].status,'SUCCEEDED');assert.equal(r.diagnosis_status,'REPORT_REVIEW_REQUIRED');await report.approve(c.id,operator,r.reports[0]!.id,r.version);r=await report.read(c.id,operator);await report.deliver(c.id,operator,r.reports[0]!.id,r.version);await report.startFeedback(c.id,operator,(await report.read(c.id,operator)).version);await report.feedbackStatement(c.id,operator,{content:'まだ分からない'});await report.completeFeedback(c.id,operator,(await report.read(c.id,operator)).version);
-   await assert.rejects(assessment.lifecycle(c.id,operator,'propose',(await assessment.read(c.id,operator)).version,''),/Human Decision/);
+   await assert.rejects(assessment.lifecycle(c.id,operator,'propose',(await assessment.read(c.id,operator)).version,''),/人が記録/);
    await x.s.feedbackDecision.decide(c.id,operator,{expectedVersion:(await assessment.read(c.id,operator)).version,route:'DESIGN_ASSESSMENT',materialDecision:'合成試験のHuman判断',nextAction:'別のHuman操作で提案する'});
    assert.equal((await assessment.read(c.id,operator)).assessment_status,'NOT_PROPOSED');
    for(const action of ['propose','accept'] as const)await assessment.lifecycle(c.id,operator,action,(await assessment.read(c.id,operator)).version,'');const hh=await assessment.generate(c.id,operator,(await assessment.read(c.id,operator)).version,'');await assessment.transfer(c.id,operator,hh.id,(await assessment.read(c.id,operator)).version,'');await assessment.close(c.id,operator,(await assessment.read(c.id,operator)).version,'');const result=await assessment.read(c.id,operator);assert.equal(result.diagnosis_status,'CLOSED');assert.equal(result.latest_handoff!.snapshot_json.entry_channel,channel);assert.equal(result.latest_handoff!.snapshot_json.insights[0]!.semantic_type,'UNKNOWN');assert.equal(result.organization_display_name,'Pilot Synthetic株式会社様');

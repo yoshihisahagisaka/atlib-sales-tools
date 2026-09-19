@@ -19,14 +19,14 @@ async function close(id:string){await h.assessment.close(id,operator,(await read
 async function snapshot(id:string){const c=await h.pool.connect();try{return await buildAssessmentHandoffSnapshot(c,id,'2026-09-13T00:00:00.000Z');}finally{c.release();}}
 async function post(id:string,path:string,body:unknown={},auth=true,header=true){return fetch(`${h.url}/api/admin/it-management-diagnosis/cases/${id}${path}`,{method:'POST',headers:{'Content-Type':'application/json',...(auth?{Cookie:h.staffCookie}:{}),...(header?{'X-Diagnosis-Command':'1'}:{})},body:JSON.stringify(body)});}
 
-test('1–4,24: separate sales lifecycle; early proposal, AI actor, pending close, early Handoff refused',async()=>{
+test('1–4,24: separate sales lifecycle; early proposal/AI/early Handoff refused; Human-completed diagnosis is independent',async()=>{
  const early=await completedCase(h);await assert.rejects(act(early.id,'propose'),status(409));const c=await feedbackCase(h);
- for(const state of ['NOT_PROPOSED','PROPOSED','PENDING']){const d=await read(c.id);assert.equal(d.assessment_status,state);assert.equal(d.diagnosis_status,'FEEDBACK_COMPLETED');assert.equal(d.close_eligibility.eligible,false);await assert.rejects(close(c.id),status(409));await assert.rejects(generate(c.id),status(409));if(state==='NOT_PROPOSED')await act(c.id,'propose');if(state==='PROPOSED')await act(c.id,'pending');}
+ for(const state of ['NOT_PROPOSED','PROPOSED','PENDING']){const d=await read(c.id);assert.equal(d.assessment_status,state);assert.equal(d.diagnosis_status,'CLOSED');assert.equal(d.close_eligibility.eligible,false);await close(c.id);await assert.rejects(generate(c.id),status(409));if(state==='NOT_PROPOSED')await act(c.id,'propose');if(state==='PROPOSED')await act(c.id,'pending');}
  await assert.rejects(h.assessment.lifecycle(c.id,{kind:'AI'} as any,'accept',(await read(c.id)).version,''),status(403));await assert.rejects(act(c.id,'propose'),status(409));await act(c.id,'accept');await assert.rejects(act(c.id,'decline'),status(409));
 });
 
-test('5–6,16,19: deterministic snapshot, System clock/hash, no AIExecution or automatic close',async()=>{
- const c=await accepted(),before=await h.db.query('SELECT id FROM ai_executions WHERE diagnosis_case_id=$1',[c.id]),a=await snapshot(c.id),b=await snapshot(c.id);assert.deepEqual(a,b);assert.equal(contentHash(a),contentHash(b));await generate(c.id);const d=await read(c.id);assert.equal(d.latest_handoff!.status,'READY');assert.equal(d.latest_handoff!.snapshot_hash,contentHash(d.latest_handoff!.snapshot_json));assert.equal(d.diagnosis_status,'FEEDBACK_COMPLETED');assert.deepEqual((await h.db.query('SELECT id FROM ai_executions WHERE diagnosis_case_id=$1',[c.id])).rows,before.rows);
+test('5–6,16,19: deterministic snapshot, System clock/hash, no AIExecution; already Human-completed diagnosis stays closed',async()=>{
+ const c=await accepted(),before=await h.db.query('SELECT id FROM ai_executions WHERE diagnosis_case_id=$1',[c.id]),a=await snapshot(c.id),b=await snapshot(c.id);assert.deepEqual(a,b);assert.equal(contentHash(a),contentHash(b));await generate(c.id);const d=await read(c.id);assert.equal(d.latest_handoff!.status,'READY');assert.equal(d.latest_handoff!.snapshot_hash,contentHash(d.latest_handoff!.snapshot_json));assert.equal(d.diagnosis_status,'CLOSED');assert.deepEqual((await h.db.query('SELECT id FROM ai_executions WHERE diagnosis_case_id=$1',[c.id])).rows,before.rows);
  assert.equal(a.future.intent_status,'SURVEY_STATED');assert.ok(a.report.approval_snapshot_hash);assert.equal(a.report.id,(await h.report.read(c.id,operator)).reports[0]!.id);
 });
 
@@ -61,30 +61,32 @@ test('17–18: READY snapshot is immutable, new version retains old and latest-o
  await generate(c.id);const d=await read(c.id);assert.equal(d.latest_handoff!.version,2);assert.deepEqual(d.handoffs[1],old);await assert.rejects(transfer(c.id,old.id),status(409));await transfer(c.id);assert.deepEqual((await read(c.id)).handoffs[1],old);
 });
 
-test('20–23: Human transfer preserves snapshot and OPEN items, enables Human Close; decline closes without Handoff',async()=>{
- const c=await accepted();await assert.rejects(close(c.id),status(409));await generate(c.id);await assert.rejects(close(c.id),status(409));const before=await read(c.id),items=await h.db.query('SELECT * FROM assessment_confirmation_items WHERE diagnosis_case_id=$1',[c.id]);const transferred=await transfer(c.id);assert.equal(transferred.close_eligibility.eligible,true);assert.deepEqual(transferred.latest_handoff!.snapshot_json,before.latest_handoff!.snapshot_json);assert.equal(transferred.latest_handoff!.snapshot_hash,before.latest_handoff!.snapshot_hash);assert.deepEqual((await h.db.query('SELECT * FROM assessment_confirmation_items WHERE diagnosis_case_id=$1',[c.id])).rows,items.rows);
- const closed=await close(c.id);assert.equal(closed.diagnosis_status,'CLOSED');assert.equal(closed.assessment_status,'ACCEPTED');assert.ok(closed.closed_at);assert.equal(closed.closed_by_user_id,'operator@atlib.jp');assert.equal(closed.current_next_action,'完了');await assert.rejects(close(c.id),status(409));await assert.rejects(generate(c.id),status(409));await assert.rejects(transfer(c.id),status(409));
+test('20–23: Human transfer preserves snapshot and OPEN items, keeps diagnosis closed; decline needs no Handoff',async()=>{
+ const c=await accepted();await close(c.id);await generate(c.id);await close(c.id);const before=await read(c.id),items=await h.db.query('SELECT * FROM assessment_confirmation_items WHERE diagnosis_case_id=$1',[c.id]);const transferred=await transfer(c.id);assert.equal(transferred.close_eligibility.eligible,false);assert.deepEqual(transferred.latest_handoff!.snapshot_json,before.latest_handoff!.snapshot_json);assert.equal(transferred.latest_handoff!.snapshot_hash,before.latest_handoff!.snapshot_hash);assert.deepEqual((await h.db.query('SELECT * FROM assessment_confirmation_items WHERE diagnosis_case_id=$1',[c.id])).rows,items.rows);
+ const closed=await close(c.id);assert.equal(closed.diagnosis_status,'CLOSED');assert.equal(closed.assessment_status,'ACCEPTED');assert.ok(closed.closed_at);assert.equal(closed.closed_by_user_id,'operator@atlib.jp');assert.equal(closed.current_next_action,'設計Assessmentへの引渡しを記録しています。');await close(c.id);await assert.rejects(transfer(c.id),status(409));
  const declined=await feedbackCase(h);await act(declined.id,'propose');await act(declined.id,'pending');await act(declined.id,'decline');assert.equal((await close(declined.id)).diagnosis_status,'CLOSED');assert.equal((await read(declined.id)).handoffs.length,0);
 });
 
-test('regeneration after transfer requires latest version transfer; changed Context cannot close',async()=>{
- const c=await accepted();await generate(c.id);await transfer(c.id);await generate(c.id);await assert.rejects(close(c.id),status(409));await transfer(c.id);
+test('regeneration after transfer requires latest version transfer; changed information cannot transfer',async()=>{
+ const c=await accepted();await generate(c.id);await transfer(c.id);await generate(c.id);await close(c.id);await transfer(c.id);
+ // Diagnosis is already complete; stale handoff transfer must still be rejected.
+ await generate(c.id);
  // Simulate administrative context correction outside the normal command path.
- await h.db.query("UPDATE diagnosis_insights SET content='担当者の範囲は未確認' WHERE id=$1",[c.unknown.id]);assert.equal((await read(c.id)).close_eligibility.eligible,false);await assert.rejects(close(c.id),status(409));await generate(c.id);await transfer(c.id);await close(c.id);
+ await h.db.query("UPDATE diagnosis_insights SET content='担当者の範囲は未確認' WHERE id=$1",[c.unknown.id]);assert.equal((await read(c.id)).close_eligibility.eligible,false);await assert.rejects(transfer(c.id),status(409));await close(c.id);await generate(c.id);await transfer(c.id);await close(c.id);
 });
 
-test('Audit failure rolls back lifecycle, handoff, transfer and close; optimistic version guards',async()=>{
+test('Audit failure rolls back lifecycle, handoff and transfer; optimistic version guards',async()=>{
  const c=await feedbackCase(h),before=await read(c.id);await assert.rejects(h.assessment.lifecycle(c.id,operator,'propose',before.version-1,''),status(409));
  await h.db.exec(`CREATE FUNCTION fail_assessment_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.command IN ('ProposeAssessment','GenerateAssessmentHandoff','TransferAssessmentHandoff','CloseDiagnosisCase') THEN RAISE EXCEPTION 'test audit failure'; END IF; RETURN NEW; END $$;`);
  const enable=()=>h.db.exec('CREATE TRIGGER fail_assessment_audit BEFORE INSERT ON diagnosis_audit_logs FOR EACH ROW EXECUTE FUNCTION fail_assessment_audit();'),disable=()=>h.db.exec('DROP TRIGGER fail_assessment_audit ON diagnosis_audit_logs;');
  await enable();try{await assert.rejects(act(c.id,'propose'));assert.deepEqual(await read(c.id),before);}finally{await disable();}await act(c.id,'propose');await act(c.id,'accept');
- for(const action of [()=>generate(c.id),()=>transfer(c.id),()=>close(c.id)]){const before=await read(c.id);await enable();try{await assert.rejects(action());assert.deepEqual(await read(c.id),before);}finally{await disable();}await action();}await h.db.exec('DROP FUNCTION fail_assessment_audit();');
+ for(const action of [()=>generate(c.id),()=>transfer(c.id)]){const before=await read(c.id);await enable();try{await assert.rejects(action());assert.deepEqual(await read(c.id),before);}finally{await disable();}await action();}await h.db.exec('DROP FUNCTION fail_assessment_audit();');
 });
 
 test('27–30: WEB to CLOSED end-to-end, audit continuity, display/Next Action and legacy intact',async()=>{
- const c=await feedbackCase(h);assert.equal((await read(c.id)).current_next_action,'Assessmentを提案してください');await act(c.id,'propose');await act(c.id,'pending');assert.equal((await read(c.id)).current_next_action,'Assessment回答待ちです');await act(c.id,'accept');assert.equal((await read(c.id)).current_next_action,'Assessment Handoffを作成してください');await generate(c.id);assert.equal((await read(c.id)).current_next_action,'Assessmentへ引き渡してください');await transfer(c.id);assert.equal((await read(c.id)).current_next_action,'Caseを完了してください');const d=await close(c.id);
+ const c=await feedbackCase(h);assert.equal((await read(c.id)).current_next_action,'設計Assessmentの提案を検討できます。受注は別の人操作です。');await act(c.id,'propose');await act(c.id,'pending');assert.equal((await read(c.id)).current_next_action,'設計Assessmentの回答待ちです。');await act(c.id,'accept');assert.equal((await read(c.id)).current_next_action,'設計Assessmentへの引継ぎ情報を作成・引渡ししてください。');await generate(c.id);assert.equal((await read(c.id)).current_next_action,'設計Assessmentへの引継ぎ情報を作成・引渡ししてください。');await transfer(c.id);assert.equal((await read(c.id)).current_next_action,'設計Assessmentへの引渡しを記録しています。');const d=await close(c.id);
  assert.equal(d.organization_display_name,'ABC株式会社様');assert.equal(d.provider_display_name,'atLIB株式会社');assert.equal(d.latest_handoff!.snapshot_json.entry_channel,'WEB');
  const states=d.transitions.map(t=>t.to_status);for(const state of ['SURVEY_IN_PROGRESS','SURVEY_COMPLETED','PREPARATION_IN_PROGRESS','READY_FOR_DIAGNOSIS','DIAGNOSIS_IN_PROGRESS','HUMAN_REVIEW_REQUIRED','REPORT_REVIEW_REQUIRED','REPORT_APPROVED','FEEDBACK_PENDING','FEEDBACK_COMPLETED','CLOSED'])assert.ok(states.includes(state),state);
- for(const command of ['ProposeAssessment','MarkAssessmentPending','AcceptAssessment','GenerateAssessmentHandoff','TransferAssessmentHandoff','CloseDiagnosisCase'])assert.ok(d.audit.some(a=>a.command===command&&a.actor_type==='STAFF'&&a.actor_user_id==='operator@atlib.jp'));
+ for(const command of ['ProposeAssessment','MarkAssessmentPending','AcceptAssessment','GenerateAssessmentHandoff','TransferAssessmentHandoff'])assert.ok(d.audit.some(a=>a.command===command&&a.actor_type==='STAFF'&&a.actor_user_id==='operator@atlib.jp'));
  const list=await h.repo.listCases({status:'CLOSED',limit:100,offset:0});assert.equal(list.items.find(x=>x.id===c.id)!.current_next_action,'完了');assert.equal((await h.repo.getSurvey(c.id,c.actor)).survey.status,'SURVEY_COMPLETED');assert.equal((await fetch(h.url+'/api/kaizen-diagnostic/questions')).status,200);assert.equal((await h.db.query('SELECT * FROM kaizen_diagnostics')).rows.length,1);
 });

@@ -12,14 +12,14 @@ export class ManagementFeedbackDecisionRepo {
  constructor(private readonly pool:Pool){}
  private async tx<T>(work:(c:PoolClient)=>Promise<T>){const c=await this.pool.connect();try{await c.query('BEGIN');const out=await work(c);await c.query('COMMIT');return out;}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}}
  private staff(actor:Actor){if(actor.kind!=='STAFF'||!actor.userId)throw new DiagnosisError(403,'スタッフによる判断が必要です。');return actor.userId;}
- private async lock(c:PoolClient,id:string,actor:Actor,expectedVersion?:number){this.staff(actor);const {rows}=await c.query<CaseRow>('SELECT id,version,diagnosis_status,feedback_report_id FROM diagnosis_cases WHERE id=$1 FOR UPDATE',[id]);const row=rows[0];if(!row)throw new DiagnosisError(404,'案件が見つかりません。');if(expectedVersion!==undefined&&row.version!==expectedVersion)throw new DiagnosisError(409,'内容が更新されています。再読み込みしてください。');if(row.diagnosis_status!=='FEEDBACK_COMPLETED')throw new DiagnosisError(409,'Management Feedback完了後に判断してください。');if(!row.feedback_report_id)throw new DiagnosisError(409,'Feedback対象Reportがありません。');return row;}
+ private async lock(c:PoolClient,id:string,actor:Actor,expectedVersion?:number){this.staff(actor);const {rows}=await c.query<CaseRow>('SELECT id,version,diagnosis_status,feedback_report_id FROM diagnosis_cases WHERE id=$1 FOR UPDATE',[id]);const row=rows[0];if(!row)throw new DiagnosisError(404,'案件が見つかりません。');if(expectedVersion!==undefined&&row.version!==expectedVersion)throw new DiagnosisError(409,'内容が更新されています。再読み込みしてください。');if(!['FEEDBACK_COMPLETED','CLOSED'].includes(row.diagnosis_status))throw new DiagnosisError(409,'経営フィードバック完了後に判断してください。');if(!row.feedback_report_id)throw new DiagnosisError(409,'Feedback対象Reportがありません。');return row;}
  private async snapshot(c:PoolClient,row:CaseRow,customerRestatementSourceId:string|null):Promise<ManagementFeedbackDecisionSnapshot>{
   if(customerRestatementSourceId){const source=(await c.query(`SELECT id FROM source_records WHERE id=$1 AND diagnosis_case_id=$2 AND source_type='FEEDBACK_STATEMENT'`,[customerRestatementSourceId,row.id])).rows[0];if(!source)throw new DiagnosisError(422,'同じ案件のFeedback顧客発言を指定してください。');}
   const report=(await c.query<any>(`SELECT id,version,content_version,content_json,context_hash,snapshot_json FROM diagnosis_reports WHERE id=$1 AND diagnosis_case_id=$2 AND status IN ('APPROVED','DELIVERED')`,[row.feedback_report_id,row.id])).rows[0];if(!report||!report.snapshot_json)throw new DiagnosisError(409,'承認済みManagement Feedback Reportがありません。');
   const context=await buildReportContext(c,row.id);
   // Do not mix a previously approved Future with newer unpresented Insight/Evidence.
   // Correction requires the existing Human report reissue/approval/feedback loop.
-  if(contentHash(context)!==report.context_hash)throw new DiagnosisError(409,'Decision Contextが更新されています。Reportを再発行・承認し、Feedbackを完了してください。');
+  if(contentHash(context)!==report.context_hash)throw new DiagnosisError(409,'判断に使う情報が更新されています。経営フィードバック資料を再発行・承認し、対話を完了してください。');
   const insights=context.insights,evidence=context.assessment_confirmation_items,future=context.future;
   return {
    snapshot_version:2,
@@ -44,7 +44,9 @@ export class ManagementFeedbackDecisionRepo {
   snapshot.decision={id:key,version,route:input.route,material_decision:input.materialDecision,next_action:input.nextAction,decided_by_user_id:decidedBy,decided_at:decidedAt,supersedes_decision_id:previous?.id??null};
   const hash=contentHash(snapshot);
   await c.query(`INSERT INTO management_feedback_decisions(id,diagnosis_case_id,version,route_code,material_decision,next_action,customer_restatement_source_id,context_snapshot_json,context_hash,supersedes_decision_id,decided_by_user_id,decided_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,[key,id,version,input.route,input.materialDecision,input.nextAction,input.customerRestatementSourceId??null,JSON.stringify(snapshot),hash,previous?.id??null,decidedBy,decidedAt]);
-  await c.query('UPDATE diagnosis_cases SET version=version+1,updated_at=now() WHERE id=$1',[id]);
+  const nextStatus=input.route==='FOCUSED_CONFIRMATION'?'DIAGNOSIS_IN_PROGRESS':'CLOSED';
+  await c.query("UPDATE diagnosis_cases SET diagnosis_status=$2,closed_at=CASE WHEN $2='CLOSED' THEN now() ELSE NULL END,closed_by_user_id=CASE WHEN $2='CLOSED' THEN $3 ELSE NULL END,completed_at=CASE WHEN $2='DIAGNOSIS_IN_PROGRESS' THEN NULL ELSE completed_at END,review_completed_at=CASE WHEN $2='DIAGNOSIS_IN_PROGRESS' THEN NULL ELSE review_completed_at END,review_completed_by_user_id=CASE WHEN $2='DIAGNOSIS_IN_PROGRESS' THEN NULL ELSE review_completed_by_user_id END,version=version+1,updated_at=now() WHERE id=$1",[id,nextStatus,decidedBy]);
+  await c.query("INSERT INTO case_transitions(id,diagnosis_case_id,from_status,to_status,command,actor_type,actor_user_id) VALUES($1,$2,$3,$4,'RecordManagementFeedbackDecision','STAFF',$5)",[randomUUID(),id,row.diagnosis_status,nextStatus,decidedBy]);
   await c.query(`INSERT INTO diagnosis_audit_logs(id,diagnosis_case_id,command,actor_type,actor_user_id,detail_json) VALUES($1,$2,'RecordManagementFeedbackDecision','STAFF',$3,$4)`,[randomUUID(),id,decidedBy,JSON.stringify({decision_id:key,decision_version:version,route:input.route,context_hash:hash,supersedes_decision_id:previous?.id??null})]);
   return {id:key,version,route:input.route,context_hash:hash};
  });}

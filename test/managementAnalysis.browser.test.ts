@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {createDiagnosisHarness} from './support/diagnosisHarness';
 import {managementAnalysisScenario} from './support/managementAnalysisScenario';
 import {feedbackCase} from './support/assessmentFixtures';
+import {focusedConfirmation} from './support/focusedConfirmation';
 import {operator} from './support/preparationFixtures';
 import {reuseSalesCase} from './support/progressiveReuseScenario';
 let h:Awaited<ReturnType<typeof createDiagnosisHarness>>;
@@ -27,5 +28,5 @@ test('SL-A5: no empty-cell penalty and Human route translation without automatic
  const empty=await reuseSalesCase(h.pool);await page.goto(h.url+'/admin/it-management-diagnosis-review.html?id='+empty.id);await expect(page.locator('#analysis-kaizen')).toContainText('該当候補なし。空欄を埋める必要はありません');await expect(page.locator('#analysis-lens > section')).toHaveCount(0);
  const c=await feedbackCase(h,{decision:false});
  const labels={DIRECT_ACT:'改善の実行へ進む',FOCUSED_CONFIRMATION:'絞り込んだ追加確認へ進む',DESIGN_ASSESSMENT:'設計Assessmentを検討する',STOP_HOLD:'今回は止める・保留する'};
- for(const route of Object.keys(labels) as (keyof typeof labels)[]){await h.feedbackDecision.decide(c.id,operator,{expectedVersion:(await h.assessment.read(c.id,operator)).version,route,materialDecision:'経営者が選んだ進め方',nextAction:'次の打ち合わせで確認する'});await page.goto(h.url+'/admin/it-management-diagnosis-review.html?id='+c.id);await expect(page.locator('#analysis-decision')).toContainText(labels[route]);expect(await page.locator('#management-analysis').innerText()).not.toMatch(/DIRECT_ACT|FOCUSED_CONFIRMATION|DESIGN_ASSESSMENT|STOP_HOLD|SourceRecord|semantic_type|\bFACT\b|\bUNKNOWN\b|[0-9a-f]{8}-[0-9a-f]{4}-/);expect((await h.assessment.read(c.id,operator)).assessment_status).toBe('NOT_PROPOSED');}
+ for(const route of Object.keys(labels) as (keyof typeof labels)[]){await h.feedbackDecision.decide(c.id,operator,{expectedVersion:(await h.assessment.read(c.id,operator)).version,route,materialDecision:'経営者が選んだ進め方',nextAction:'次の打ち合わせで確認する'});await page.goto(h.url+'/admin/it-management-diagnosis-review.html?id='+c.id);await expect(page.locator('#analysis-decision')).toContainText(labels[route]);expect(await page.locator('#management-analysis').innerText()).not.toMatch(/DIRECT_ACT|FOCUSED_CONFIRMATION|DESIGN_ASSESSMENT|STOP_HOLD|SourceRecord|semantic_type|\bFACT\b|\bUNKNOWN\b|[0-9a-f]{8}-[0-9a-f]{4}-/);expect((await h.assessment.read(c.id,operator)).assessment_status).toBe('NOT_PROPOSED');if(route==='FOCUSED_CONFIRMATION')await focusedConfirmation(h,c.id);}
 });

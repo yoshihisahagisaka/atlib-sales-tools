@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: '.', testMatch: ['itManagementDiagnosis.browser.test.ts','diagnosisPreparation.browser.test.ts','diagnosisWorkspace.browser.test.ts','diagnosisReview.browser.test.ts','diagnosisReport.browser.test.ts','diagnosisAssessment.browser.test.ts','progressiveReuse.browser.test.ts','managementAnalysis.browser.test.ts'],
+  testDir: '.', testMatch: ['itManagementDiagnosis.browser.test.ts','diagnosisPreparation.browser.test.ts','diagnosisWorkspace.browser.test.ts','diagnosisReview.browser.test.ts','diagnosisReport.browser.test.ts','diagnosisAssessment.browser.test.ts','progressiveReuse.browser.test.ts','managementAnalysis.browser.test.ts','salesLaunchE2E.browser.test.ts'],
   fullyParallel: false, workers: 1, timeout: 60000,
   reporter: 'list', outputDir: '../test-results/diagnosis',
   use: { headless: true, screenshot: 'only-on-failure' },

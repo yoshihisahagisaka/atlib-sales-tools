@@ -9,7 +9,7 @@ const insight=insightFieldsSchema.extend({id:uuid,version,review_status:z.litera
 export const handoffSnapshotSchema=z.object({
  schema_version:z.literal(1),generated_at:z.string().datetime(),
  organization:z.object({id:uuid,display_name:text}).strict(),provider_display_name:z.literal('atLIB株式会社'),
- diagnosis_case_id:uuid,entry_channel:z.enum(['WEB','SALES_VISIT']),diagnosis_status:z.literal('FEEDBACK_COMPLETED'),assessment_status:z.literal('ACCEPTED'),
+ diagnosis_case_id:uuid,entry_channel:z.enum(['WEB','SALES_VISIT']),diagnosis_status:z.enum(['FEEDBACK_COMPLETED','CLOSED']),assessment_status:z.literal('ACCEPTED'),
  future:z.object({id:uuid,version,statement:text,time_horizon:text.nullable(),intent_status:z.enum(['SURVEY_STATED','INTERVIEW_RECONFIRMED'])}).strict(),
  report:z.object({id:uuid,version,status:z.enum(['APPROVED','DELIVERED']),approval_snapshot_hash:text.regex(/^[a-f0-9]{64}$/),content_hash:text.regex(/^[a-f0-9]{64}$/)}).strict(),
  insights:z.array(insight),

@@ -37,6 +37,7 @@ jobs:
       - run: node --check scripts/readiness/rehearse-docker.cjs
       - run: npm run test:diagnosis
       - run: npm run test:sales-intake
+      - run: npm run test:sales-launch-readiness
       - run: npm run test:management-analysis
       - run: npm run test:progressive-reuse
       - run: npm run test:preparation
@@ -60,3 +61,5 @@ jobs:
           RUN_READINESS_PG: '1'
       - run: npx playwright install --with-deps chromium
       - run: npm run test:diagnosis:browser
+        env:
+          RUN_READINESS_BROWSER_PG: '1'

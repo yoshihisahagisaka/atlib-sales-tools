@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {before,after,test} from 'node:test';
 import {createDiagnosisHarness} from './support/diagnosisHarness';
 import {feedbackCase} from './support/assessmentFixtures';
+import {focusedConfirmation} from './support/focusedConfirmation';
 import {operator} from './support/preparationFixtures';
 import {contentHash} from '../src/domain/diagnosisReport';
 
@@ -17,11 +18,11 @@ async function decide(id:string,route:'DIRECT_ACT'|'FOCUSED_CONFIRMATION'|'DESIG
 
 test('MF-C: Human-only A/B/C/D decision is append-only and does not auto-start Assessment',async()=>{
  const c=await feedbackCase(h,{decision:false});
- for(const route of ['DIRECT_ACT','FOCUSED_CONFIRMATION','STOP_HOLD','DESIGN_ASSESSMENT'] as const){
+ for(const route of ['DIRECT_ACT','STOP_HOLD','DESIGN_ASSESSMENT','FOCUSED_CONFIRMATION'] as const){
   const before=await h.assessment.read(c.id,operator);const result=await decide(c.id,route);const after=await h.assessment.read(c.id,operator);
   assert.equal(after.assessment_status,'NOT_PROPOSED');assert.equal(after.version,before.version+1);assert.equal(result.route,route);
  }
- const read=await h.feedbackDecision.read(c.id,operator);assert.equal(read.history.length,4);assert.equal(read.latest!.route_code,'DESIGN_ASSESSMENT');assert.equal(read.history[0]!.supersedes_decision_id,read.history[1]!.id);
+ const read=await h.feedbackDecision.read(c.id,operator);assert.equal(read.history.length,4);assert.equal(read.latest!.route_code,'FOCUSED_CONFIRMATION');assert.equal(read.history[0]!.supersedes_decision_id,read.history[1]!.id);
  const rows=(await h.db.query('SELECT * FROM management_feedback_decisions WHERE diagnosis_case_id=$1 ORDER BY version',[c.id])).rows as any[];
  for(const row of rows)assert.equal(contentHash(row.context_snapshot_json),row.context_hash);
  await assert.rejects(h.db.query("UPDATE management_feedback_decisions SET route_code='DIRECT_ACT' WHERE id=$1",[rows[0]!.id]));

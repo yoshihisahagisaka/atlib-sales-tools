@@ -79,20 +79,16 @@ export function hasAnswer(value: RawValue | undefined): boolean {
 }
 export function futureStatement(value: RawValue): string { return Array.isArray(value) ? value.join(' / ') : value; }
 export function nextAction(status: DiagnosisStatus, assessmentStatus?:string, handoffStatus?:string): string {
-  if(status==='FEEDBACK_COMPLETED'&&assessmentStatus){
-    if(assessmentStatus==='ACCEPTED')return !handoffStatus?'Assessment Handoffを作成してください':['TRANSFERRED','ACCEPTED'].includes(handoffStatus)?'Caseを完了してください':'Assessmentへ引き渡してください';
-    return ({NOT_PROPOSED:'Assessmentを提案してください',PROPOSED:'Assessment回答を確認してください',PENDING:'Assessment回答待ちです',DECLINED:'Caseを完了してください'} as Record<string,string>)[assessmentStatus]??'Assessmentの状態を確認してください';
-  }
   return { APPLICATION_STARTED: '事前アンケートを開始してください', SURVEY_IN_PROGRESS: '事前アンケートの回答を続けてください',
-    SURVEY_COMPLETED: 'AI事前整理を実行し、診断準備を開始してください',
-    PREPARATION_IN_PROGRESS: '重点テーマと確認項目をレビューし、診断Planを確定してください',
-    READY_FOR_DIAGNOSIS: '60分診断を開始してください',
-    DIAGNOSIS_IN_PROGRESS: 'Futureに対して重要な点を確認し、診断を進めてください',
-    HUMAN_REVIEW_REQUIRED: 'AI整理結果とRaw Sourceを確認し、診断ContextをHuman Reviewしてください',
-    REPORT_REVIEW_REQUIRED: 'Human Approved Contextから無料診断レポートを作成してください',
+    SURVEY_COMPLETED: '取得済み情報を確認し、無料診断の準備を開始してください',
+    PREPARATION_IN_PROGRESS: '重点テーマと確認する内容を担当者が確定してください',
+    READY_FOR_DIAGNOSIS: '追加確認を開始してください',
+    DIAGNOSIS_IN_PROGRESS: '目指している会社の姿に対して、必要な追加確認を進めてください',
+    HUMAN_REVIEW_REQUIRED: 'もとになった回答・発言と分析候補を照らし合わせ、担当者が採用する内容を判断してください',
+    REPORT_REVIEW_REQUIRED: '担当者が確認した分析内容から経営フィードバック資料を作成してください',
     REPORT_APPROVED: '承認済みレポートをお届けし、送付済みとして記録してください',
     FEEDBACK_PENDING: '経営フィードバックを行い、顧客の発言を記録してください',
-    FEEDBACK_COMPLETED: '経営フィードバックは完了しました', CLOSED: '完了' }[status];
+    FEEDBACK_COMPLETED: '経営フィードバック後の次の進め方を人が記録してください', CLOSED: '完了' }[status];
 }
 export function surveyStatus(status: DiagnosisStatus): 'APPLICATION_STARTED' | 'SURVEY_IN_PROGRESS' | 'SURVEY_COMPLETED' {
   return status === 'APPLICATION_STARTED' || status === 'SURVEY_IN_PROGRESS' ? status : 'SURVEY_COMPLETED';

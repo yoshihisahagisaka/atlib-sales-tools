@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {focusedConfirmation} from './support/focusedConfirmation';
 import {before,after,test} from 'node:test';
 import {randomUUID} from 'node:crypto';
 import {createDiagnosisHarness} from './support/diagnosisHarness';
@@ -43,6 +44,7 @@ test('MF-E: A/B/D stay false and C alone is false; only separate Human proposal 
  for(const route of ['DIRECT_ACT','FOCUSED_CONFIRMATION','STOP_HOLD','DESIGN_ASSESSMENT'] as const){
   await h.feedbackDecision.decide(c.id,operator,{expectedVersion:(await h.assessment.read(c.id,operator)).version,route,materialDecision:'Human decision',nextAction:'Next Human action'});
   assert.equal((await repo.read(c.id,operator)).metrics.assessment_proposed_after_route_c.value,false);
+  if(route==='FOCUSED_CONFIRMATION')await focusedConfirmation(h,c.id);
  }
  await h.assessment.lifecycle(c.id,operator,'propose',(await h.assessment.read(c.id,operator)).version,'Human proposal');
  assert.equal((await repo.read(c.id,operator)).metrics.assessment_proposed_after_route_c.value,true);

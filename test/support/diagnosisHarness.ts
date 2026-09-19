@@ -6,7 +6,9 @@ import cookieParser from 'cookie-parser';
 import pino from 'pino';
 import pinoHttp from 'pino-http';
 import { PGlite } from '@electric-sql/pglite';
-import type { Pool } from 'pg';
+import { Pool } from 'pg';
+import {randomUUID} from 'node:crypto';
+import {runMigrations} from '../../src/db/migrate';
 import { ItManagementDiagnosisRepo } from '../../src/services/itManagementDiagnosisRepo';
 import { createItManagementDiagnosisRouter, DIAGNOSIS_POLICY_NOTICE_VERSION, type CompletionNotifier } from '../../src/routes/itManagementDiagnosis';
 import { createAdminItManagementDiagnosisRouter } from '../../src/routes/adminItManagementDiagnosis';
@@ -45,6 +47,8 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   const db = new PGlite();
   await db.waitReady;
   const root = path.resolve(__dirname, '../..');
+  const realPostgres=process.env.RUN_READINESS_BROWSER_PG==='1';
+  if(!realPostgres){
   await db.exec(fs.readFileSync(path.join(root, 'migrations/005_kaizen_diagnostics.sql'), 'utf8'));
   await db.query(`INSERT INTO kaizen_diagnostics (input_source,company_name,question_set_version,answers,scores,suggested_services)
     VALUES ('prospect','Legacy株式会社','legacy','[]','{}','[]')`);
@@ -58,6 +62,7 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   await db.exec(fs.readFileSync(path.join(root, 'migrations/014_it_management_diagnosis_restore_reconciliation.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/015_management_feedback_decision.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/017_sales_conversation_intake.sql'), 'utf8'));
+  }
   let tail = Promise.resolve();
   async function acquire() {
     const previous = tail;
@@ -67,10 +72,21 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
     return release;
   }
   const query = async (sql: string, params?: unknown[]) => db.query(sql, params);
-  const pool = {
+  let pool = {
     query: async (sql: string, params?: unknown[]) => { const release = await acquire(); try { return await query(sql, params); } finally { release(); } },
     connect: async () => { const release = await acquire(); return { query, release }; },
   } as unknown as Pool;
+  let cleanupPostgres:undefined|(()=>Promise<void>);
+  if(realPostgres){
+    const config={host:'127.0.0.1',port:55436,database:'readiness',user:'postgres',connectionTimeoutMillis:5000};
+    const admin=new Pool(config),schema='browser_'+randomUUID().replaceAll('-','');
+    await admin.query('CREATE SCHEMA '+schema);
+    pool=new Pool({...config,options:'-c search_path='+schema+',public'});
+    await runMigrations(pool,path.join(root,'migrations'));
+    await pool.query("INSERT INTO kaizen_diagnostics(input_source,company_name,question_set_version,answers,scores,suggested_services) VALUES('prospect','Legacy株式会社','legacy','[]','{}','[]')");
+    cleanupPostgres=async()=>{await pool.end();await admin.query('DROP SCHEMA '+schema+' CASCADE');await admin.end();};
+  }
+  const testDb=realPostgres?{query:pool.query.bind(pool),exec:async(sql:string)=>pool.query(sql)} as unknown as PGlite:db;
   const repo = new ItManagementDiagnosisRepo(pool);
   const preparation = new DiagnosisPreparationRepo(pool);
   const worker = new PreDiagnosisWorker(preparation,provider);
@@ -107,6 +123,6 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  return { db, pool, repo, url, logs, staffCookie, preparation, worker, workspace, interviewWorker, review, postWorker, report, reportWorker, assessment, feedbackDecision,
-    close: async () => { await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve())); await db.close(); } };
+  return { db:testDb, pool, repo, url, logs, staffCookie, preparation, worker, workspace, interviewWorker, review, postWorker, report, reportWorker, assessment, feedbackDecision,
+    close: async () => { await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve())); await db.close();await cleanupPostgres?.(); } };
 }
