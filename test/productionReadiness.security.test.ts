@@ -99,3 +99,23 @@ test('production config fail-fast; migration only needs DB config; Human-only co
     delete process.env.DB_NAME; await assert.rejects(loadDatabaseConfig(), /DB_NAME/);
   } finally { for (const name of Object.keys(process.env)) if (!(name in before)) delete process.env[name]; Object.assign(process.env, before); }
 });
+
+test('migration DB config is independent from runtime DB config (separate credential)', async () => {
+  const before = { ...process.env };
+  try {
+    Object.assign(process.env, { DB_NAME: 'synthetic', DB_USER: 'runtime_user', DB_PASSWORD: 'runtime_pw' });
+    delete process.env.DB_MIGRATION_USER; delete process.env.DB_MIGRATION_PASSWORD;
+    // DB_MIGRATION_USER is checked by required() before resolveSecret() is ever reached, so this
+    // rejects synchronously without an outbound Secret Manager call (matches the DB_NAME test above).
+    await assert.rejects(loadDatabaseConfig('migration'), /DB_MIGRATION_USER/);
+    process.env.DB_MIGRATION_USER = 'migration_user';
+    process.env.DB_MIGRATION_PASSWORD = 'migration_pw';
+    const migrationDb = await loadDatabaseConfig('migration');
+    assert.equal(migrationDb.user, 'migration_user');
+    assert.equal(migrationDb.password, 'migration_pw');
+    const runtimeDb = await loadDatabaseConfig('runtime');
+    assert.equal(runtimeDb.user, 'runtime_user');
+    assert.equal(runtimeDb.password, 'runtime_pw');
+    assert.equal((await loadDatabaseConfig()).user, 'runtime_user');
+  } finally { for (const name of Object.keys(process.env)) if (!(name in before)) delete process.env[name]; Object.assign(process.env, before); }
+});

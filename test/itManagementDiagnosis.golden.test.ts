@@ -245,7 +245,7 @@ test('Golden: legacy migration/table/APIを維持し、新APIに旧評価を混�
   const migration = fs.readFileSync(path.join(root,'migrations/007_it_management_diagnosis.sql'),'utf8');
   assert.doesNotMatch(migration, /DROP\s|ALTER\s|kaizen_diagnostics/i);
   const server = fs.readFileSync(path.join(root,'src/server.ts'),'utf8');
-  assert.match(server, /app\.use\('\/api\/admin\/it-management-diagnosis', \.\.\.adminAuthGate/);
+  assert.match(server, /app\.use\('\/api\/admin\/it-management-diagnosis',\s*\.\.\.adminAuthGate/);
   assert.ok(server.indexOf("app.use('/admin', ...adminAuthGate") < server.indexOf("app.use(express.static"));
   for (const file of ['public/it-management-diagnosis.html','public/admin/it-management-diagnosis.html',
     'public/admin/it-management-diagnosis-new.html','public/admin/it-management-diagnosis-detail.html']) {

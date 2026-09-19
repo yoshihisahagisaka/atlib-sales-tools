@@ -9,7 +9,7 @@ test.beforeEach(async({context})=>{provider.run=async ctx=>interviewOutput(ctx);
 test('Workspace: Human Start → 原文記録 → AI候補のAsk/Later/Unnecessary → 未確認を残してFinish',async({page},info)=>{
  const c=await readyCase(h),errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));const calls=provider.calls;
  await page.goto(`${h.url}/admin/it-management-diagnosis-detail.html?id=${c.id}`);
- await page.getByRole('link',{name:'60分診断Workspaceへ'}).click();
+ await page.getByRole('link',{name:'確認内容を記録する'}).click();
  await expect(page.locator('#company')).toHaveText('ABC株式会社様');await expect(page.getByText('無料 IT経営診断 / 提供：atLIB株式会社')).toBeVisible();
  await expect(page.locator('#run-ai')).toBeDisabled();await page.locator('#start').click();await expect(page.locator('#case-status')).toHaveText('DIAGNOSIS_IN_PROGRESS');
  expect(provider.calls).toBe(calls);

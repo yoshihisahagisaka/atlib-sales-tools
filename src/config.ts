@@ -35,6 +35,13 @@ export interface Config {
     // 本番はSecret Manager (sales-tools-anthropic-api-key) をCloud Runの--set-secretsで環境変数に注入する運用とする。
     anthropicApiKey?: string;
   };
+  scheduler: {
+    // F5 durable execution (internal worker endpoints)用。任意項目、値はSecretではなくService Accountの
+    // emailアドレス（識別子）であり、Secret Managerを経由しない。undefinedならinternal workerルートは
+    // server.tsでマウントされない。
+    aiInvokerServiceAccountEmail?: string;
+    deletionInvokerServiceAccountEmail?: string;
+  };
 }
 
 /**
@@ -51,10 +58,13 @@ async function resolveSecret(
   return getSecret(projectId, secretId);
 }
 
-export async function loadDatabaseConfig(): Promise<Config['db']> {
+export async function loadDatabaseConfig(role: 'runtime' | 'migration' = 'runtime'): Promise<Config['db']> {
   const required=(name:string,value:string|undefined)=>{if(!value?.trim())throw new Error(`Missing required config value: ${name}`);return value;};
-  const name=required('DB_NAME',process.env.DB_NAME),user=required('DB_USER',process.env.DB_USER);
-  const password=required('DB_PASSWORD',await resolveSecret(process.env.GCP_PROJECT_ID??'msp-zabbix',process.env.DB_PASSWORD,'sales-tools-db-password'));
+  const userVar=role==='migration'?'DB_MIGRATION_USER':'DB_USER';
+  const passwordVar=role==='migration'?'DB_MIGRATION_PASSWORD':'DB_PASSWORD';
+  const secretId=role==='migration'?'sales-tools-migration-db-password':'sales-tools-db-password';
+  const name=required('DB_NAME',process.env.DB_NAME),user=required(userVar,process.env[userVar]);
+  const password=required(passwordVar,await resolveSecret(process.env.GCP_PROJECT_ID??'msp-zabbix',process.env[passwordVar],secretId));
   return {name,user,password,host:process.env.DB_HOST??'127.0.0.1',port:Number(process.env.DB_PORT??5432),socketPath:process.env.DB_SOCKET_PATH||undefined};
 }
 
@@ -106,6 +116,13 @@ export async function loadConfig(): Promise<Config> {
     },
     aiAssist: {
       anthropicApiKey: process.env.ANTHROPIC_API_KEY || undefined,
+    },
+    scheduler: {
+      // Optional: only set in environments where the F5 durable-execution internal worker
+      // endpoints are wired up (Temporary Staging). Undefined in Production leaves those
+      // routes unmounted entirely (see server.ts); no behavior change for existing deployments.
+      aiInvokerServiceAccountEmail: process.env.SCHEDULER_AI_INVOKER_SA || undefined,
+      deletionInvokerServiceAccountEmail: process.env.SCHEDULER_DELETION_INVOKER_SA || undefined,
     },
   };
 }

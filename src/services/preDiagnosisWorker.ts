@@ -7,12 +7,13 @@ import { ProviderFailure, type AIProvider } from './preDiagnosisProvider';
 export class PreDiagnosisWorker {
   private running = false;
   constructor(private readonly repo: DiagnosisPreparationRepo, private readonly provider: AIProvider, private readonly timeoutMs = 65000) {}
-  async tick(): Promise<void> {
-    if (this.running) return;
+  /** Returns true if a pending job was claimed and processed (success or failure), false if none was available or a tick was already in flight. */
+  async tick(): Promise<boolean> {
+    if (this.running) return false;
     this.running = true;
     try {
       const execution = await this.repo.claimExecution();
-      if (!execution) return;
+      if (!execution) return false;
       const controller = new AbortController();
       let timer: ReturnType<typeof setTimeout> | undefined;
       let raw: unknown = null;
@@ -27,6 +28,7 @@ export class PreDiagnosisWorker {
         const code = error instanceof ProviderFailure ? error.code : error instanceof DiagnosisError ? error.message : 'AI_PROCESSING_FAILED';
         await this.repo.failExecution(execution,code,raw);
       } finally { if (timer) clearTimeout(timer); }
+      return true;
     } finally { this.running = false; }
   }
 }
