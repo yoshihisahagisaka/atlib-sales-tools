@@ -16,6 +16,7 @@ CREATE TABLE customer_fit_checks (
   checked_on              DATE NOT NULL,                  -- 確認日
   decision_maker_context  TEXT,                           -- 経営者／決裁者の状況
   engagement_context      TEXT,                           -- 接点・商談状況
+  source_context          TEXT,                           -- 情報源・確認状況（例: 経営者1on1で本人確認）
   overall_facts           TEXT,                           -- 全体整理: 確認できたFACT
   overall_unknowns        TEXT,                           -- 全体整理: UNKNOWN
   overall_hypotheses      TEXT,                           -- 全体整理: 営業仮説（FACTと混ぜない）
