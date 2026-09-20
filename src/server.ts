@@ -184,6 +184,7 @@ async function main(): Promise<void> {
     createAdminEstimateAiAssistRouter(aiAssistService),
   );
   app.use('/api/admin/estimates', ...adminAuthGate, createAdminEstimatesRouter(estimateRepo));
+  app.use('/api/admin/infravision-partner-leads', ...adminAuthGate, createAdminInfraVisionPartnerLeadRouter(infraVisionPartnerLeadRepo));
   // 静的HTML側もスタッフ認証で保護する。この行は下の一般static配信より前に置くこと
   // （逆順だと未認証で/admin/*.htmlが一般static経由で読めてしまう）。
   app.use('/admin', ...adminAuthGate, express.static(path.join(__dirname, '../public/admin')));
