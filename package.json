@@ -35,6 +35,8 @@
     "test:retention-deletion": "node -r ts-node/register --test test/retentionDeletionWorker.golden.test.ts",
     "test:pilot-evidence": "node -r ts-node/register --test test/pilotEvidence.golden.test.ts",
     "test:external-manifest": "node -r ts-node/register --test test/externalDeletionManifestStore.golden.test.ts",
+    "test:internal-workers": "node -r ts-node/register --test test/internalWorkers.golden.test.ts",
+    "test:scheduler-auth": "node -r ts-node/register --test test/schedulerAuth.golden.test.ts",
     "migrate:artifact": "node dist/db/migrateCli.js"
   },
   "engines": {"node": ">=22"},

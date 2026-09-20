@@ -14,7 +14,7 @@ test.beforeEach(async({context})=>{
 test('AI提案→担当者が準備開始→編集採用・質問採用・却下→順序変更→Plan確定',async({page},info)=>{
   const c=await completedCase(h); const errors:string[]=[]; page.on('pageerror',e=>errors.push(e.message));
   await page.goto(`${h.url}/admin/it-management-diagnosis-detail.html?id=${c.id}`);
-  await page.getByRole('link',{name:'診断準備・AI事前整理へ'}).click();
+  await page.getByRole('link',{name:'無料診断の準備'}).click();
   await expect(page.locator('#company')).toHaveText('ABC株式会社様'); await expect(page.locator('#future-status')).toContainText('SURVEY_STATED');
   await page.locator('#run-ai').click();
   await expect(page.locator('#executions')).toContainText('SUCCEEDED');
