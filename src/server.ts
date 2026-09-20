@@ -53,6 +53,7 @@ import { PreDiagnosisWorker } from './services/preDiagnosisWorker';
 import { InfraVisionPartnerLeadRepo } from './services/infravisionPartnerLeadRepo';
 import { createInfraVisionPartnerLeadRouter } from './routes/infravisionPartnerLead';
 import { createTimeRexWebhookRouter } from './routes/timerexWebhook';
+import { createAdminInfraVisionPartnerLeadRouter } from './routes/adminInfraVisionPartnerLead';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
