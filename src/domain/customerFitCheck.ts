@@ -93,6 +93,7 @@ export const customerFitCheckInputSchema = z.object({
   checkedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD 形式で指定してください'),
   decisionMakerContext: z.string().max(2000).nullable().optional(),
   engagementContext: z.string().max(2000).nullable().optional(),
+  sourceContext: z.string().max(2000).nullable().optional(),
   items: z.array(itemInputSchema).length(7),
   overallFacts: z.string().max(4000).nullable().optional(),
   overallUnknowns: z.string().max(4000).nullable().optional(),
