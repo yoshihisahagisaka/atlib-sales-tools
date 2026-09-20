@@ -1049,4 +1049,174 @@ migration-owned tables: 40（全件説明可能）
 
 `sales_tools_staging_f4`データベース・`sales_tools_migration`／`sales_tools_runtime`ロールは、Human Decisionにより**現時点では削除せず保持**する。データはF4検証用のsynthetic test data 1件のみ（実顧客データは投入していない）。Rollback手順（`DROP DATABASE`/`DROP ROLE`）は§32.5に記載済みで、いつでも実行可能な状態を維持する。
 
-F5にはまだ着手しない。
+## 34. Update — 2026-09-19/20（F5 Durable Execution 実装・実行、F4再監査・是正、Minimal Scheduler Authorization Logging — Human Decisionにより最終確定）
+
+本Updateは以下すべてをHuman Decision（2026-09-19〜2026-09-20、複数回）に基づき実行した結果を記録する。**Production（`msp-customer-portal-db`、Production Cloud Run、Production IAM、Production Secret、Production Scheduler）へは本Update全体を通じて一切接続・変更していない。** 対象はすべて`sales-tools-staging`名前空間（Cloud Run service, Cloud SQL instance `sales-tools-staging-db`, Scheduler jobs, Service Accounts）に限定される。
+
+以下、記録は次の4区分を明示して行う。
+- **FACT** — Temporary Staging実環境で直接確認した事実
+- **LOCAL TEST EVIDENCE** — ローカル（`node --test`、PGlite）でのみ確認した事実
+- **RESIDUAL UNKNOWN** — 実環境で直接確認できていない事項（削除せず記録する）
+- **HUMAN DECISION** — Humanが下した決定そのもの
+
+### 34.1 HUMAN DECISION サマリ（今回確定分）
+
+- **F4 Runtime Authority / GRANT Matrix = PASS / RECLOSED**
+- **F5 Durable Execution Architecture = PASS / CLOSED for Staging Readiness**（Production Readiness全体としては引き続きNO-GO。個別のResidual UNKNOWNは§34.9のとおり残置）
+- **Public Service Architecture = Option C採用**（§34.6）
+- **Minimal Scheduler Authorization Logging = GO**、実装・ローカルテスト・build/回帰・Temporary Stagingデプロイ・Cloud Logging Evidence確認まで完了
+- **Production Connection Capacity Gate = OPEN のまま**（変更なし。Controlled Pilot Production GO前にHuman Decisionが必要な未解決ゲート）
+- F6（外部Anthropic API統合）には着手していない
+
+### 34.2 F5 Durable Execution Design（確定・実装済み）
+
+Fire-and-forget（`void worker.tick()`、instance-local polling）はProduction durabilityのEvidenceとして採用しない、というHuman Decisionに基づき、**Cloud Scheduler → 認証付きCloud Run internal endpoint → 既存DBキュー/lease機構**（Option A）を採用した。
+
+| 項目 | 確定内容 |
+|---|---|
+| AI queue trigger | Cloud Scheduler `sales-tools-staging-ai-tick`、`* * * * *`（1分間隔） |
+| Deletion queue trigger | Cloud Scheduler `sales-tools-staging-deletion-tick`、`*/10 * * * *`（10分間隔） |
+| Endpoint分離 | `/internal/workers/ai/tick`と`/internal/workers/deletion/tick`を完全に別endpoint・別Scheduler job・別Service Accountで分離 |
+| AI bounded drain | 最大3ジョブ／200s soft deadline（deadline超過後は新規claimしない。実行中ジョブの強制killではない） |
+| Deletion bounded drain | 最大20リクエスト／200s soft deadline／`approved_at ASC`／1件の失敗が残りをブロックしない |
+| Deletion失敗時の状態 | 既存schema（migration 013）の`FAILED`/`failure_code`のみ使用。新規state発明なし |
+| SIGTERM | Controlled Pilotではハンドラ未実装。lease失効＋Scheduler再tickによる回収に依存 |
+| fire-and-forgetの位置づけ | 高速パスとしてのみ残置。耐久性のEvidenceとしては一切扱わない |
+
+実装ファイル: `src/middleware/schedulerAuth.ts`（新規）、`src/routes/internalWorkers.ts`（新規）、`src/server.ts`（配線追加、Production側env var未設定のため無変更維持）、`src/services/retentionDeletionWorker.ts`（`listApprovedRequests`/`markFailed`追加、既存`executeApprovedRequest`は無変更）、4つのAIワーカー`tick()`の戻り値を`Promise<void>`→`Promise<boolean>`化（既存呼び出し元は戻り値未使用のためbackward compatible、grepで確認済み）。
+
+### 34.3 Connection Budget — Temporary Staging Capacity Envelope（既存Decisionの記録、変更なし）
+
+**FACT**: Temporary Staging（Production同等tier `db-f1-micro`）で`SHOW max_connections;`を実行し、**25**であることを実測確認した。
+
+**HUMAN DECISION（Capacity Envelope、Temporary Staging限定）**:
+
+| 項目 | 値 |
+|---|---|
+| Cloud Run `max instances` | 2 |
+| DB pool `max`（アプリ側、変更なし） | 5 |
+| 理論上限（2×5） | 10 |
+| Production `max instances`（sales-tools） | 20（変更なし） |
+
+**RESIDUAL UNKNOWN（Production Connection Capacity Gate、OPENのまま）**: Production側の理論上限（sales-tools 100 + msp-customer-portal 25 = 125）に対し実`max_connections`が25であるという構造的リスクは、本Updateでも未解決。プール/インスタンス数/tierの変更、Risk Acceptance判断はいずれも実施していない。Controlled Pilot Production GO前にHuman Decisionが必要。
+
+### 34.4 F4再監査ときっかけ・是正・RECLOSED
+
+**FACT（発覚の経緯）**: F5実環境実行中、`RetentionDeletionWorker.executeApprovedRequest()`が`permission denied for table diagnosis_retention_holds`で失敗した。F4当初の分類は`diagnosis_retention_holds`をSELECT-onlyとしていたが、実際のコード（`src/services/retentionDeletionWorker.ts`該当箇所）は`SELECT ... FOR UPDATE`を発行しており、PostgreSQLは行ロック（`FOR UPDATE`）に対してSELECT権限だけでなくUPDATE権限を要求する。
+
+**FACT（Locking Query Inventory、read-only再監査）**: `FOR UPDATE`/`FOR NO KEY UPDATE`/`FOR SHARE`/`FOR KEY SHARE`をコードベース全体で検索し、30箇所・9テーブルすべてが`FOR UPDATE`であり、動的SQL構築によるものは0件であることを確認した。
+
+**FACT（40テーブル再突合）**: 全40テーブルの実DML（INSERT/UPDATE/DELETE）とF4 GRANTマトリクスを再突合し、不足0件・過剰権限0件を確認した（`diagnosis_retention_holds`のみが唯一のギャップだった）。
+
+**是正実行**（`sales_tools_migration`権限、テーブルオーナーとして実行。`postgres`admin権限では非オーナーテーブルへのGRANTは実行不可であることを別途確認済み）:
+```sql
+GRANT UPDATE ON diagnosis_retention_holds TO sales_tools_runtime;
+```
+他のGRANT/REVOKEは一切実行していない。
+
+**FACT（是正後の検証）**:
+
+| 項目 | 結果 |
+|---|---|
+| `diagnosis_retention_holds`の`sales_tools_runtime`権限 | `SELECT, UPDATE` |
+| 他39テーブルの権限 | F4原本マトリクスと完全一致、無変更 |
+| `schema_migrations`の権限 | 0件のまま |
+| `sales_tools_migration`所有テーブル数 | 40（無変更） |
+| `sales_tools_runtime`所有テーブル数 | 0（無変更） |
+
+**原因の記録（Human Decision指定の文言）**: 「SQL verb-based review classification gap that missed the `SELECT ... FOR UPDATE` locking-privilege requirement」
+
+**→ F4 Runtime Authority / GRANT Matrix = PASS / RECLOSED（Human Decision 2026-09-20）**
+
+### 34.5 Deletion失敗/トランザクション整合性 — FACT
+
+- `executeApprovedRequest()`の失敗時、当該トランザクションはロールバックされる（PostgreSQLの標準トランザクション境界）
+- `markFailed()`は`executeApprovedRequest()`とは独立した別トランザクションとして実行される（呼び出し元`internalWorkers.ts`のtry/catchで、失敗後に別途`await`される設計）
+- `FAILED`/`failure_code`はmigration 013で既に定義済みのschema stateであり、本実装で新規発明したものではない
+- 部分削除の副作用（一部データのみ削除されて残りが未削除のまま宙に浮く状態）が生じるリスクは、上記のトランザクション境界により回避される設計であることをコードレベルで確認した
+
+### 34.6 Public Service / Internal Endpoint Security Boundary — FACT確定・Option C採用（HUMAN DECISION）
+
+**FACT**:
+- `sales-tools-staging`（および現行Productionの`sales-tools`）は`allUsers → roles/run.invoker`を持つ公開Cloud Runサービスである
+- Cloud Run IAMはサービス全体への公開/非公開の二択であり、パス（endpoint）単位の認可境界としては機能しない
+- 各internal endpointはアプリケーションコード内でGoogle署名OIDCトークンを検証し、自身に紐づく許可Service Accountのみを照合する
+- AI endpointは既存のPENDING状態の作業のみを処理し、新規状態を作らない
+- Deletion endpointは新規APPROVED状態を作成できず、既にAPPROVED済みのリクエストのみを実行する
+
+**実際の認可境界（Human Decision指定の正確な表現）**:
+
+> Public Cloud Run → application-level Google OIDC verification / endpoint-specific SA authorization → worker → DB authority/state guard
+
+（「Cloud Run IAM + application authの二層」という表現は採用しない。Cloud Run IAM自体はendpoint固有の認可境界を構成しないため。）
+
+**HUMAN DECISION**: Controlled PilotにおいてOption C（既存の公開Cloud Runサービス＋application-level OIDC認可＋監査/監視）を正式採用する。ワーカーを非公開Cloud Runサービスへ分離する対応は現時点では行わない。
+
+### 34.7 Cross-SA認可 — 実トークンによるFACT
+
+Human指定の安全な手順（追加IAM権限付与なし）で実施: 既存Scheduler jobの元設定をキャプチャ→一時的に別endpointへ再ターゲット（SAは変更しない）→実行→結果観測→元設定へ復元→復元後の設定を再検証。
+
+| 方向 | 結果 | Evidence |
+|---|---|---|
+| AI SA → Deletion endpoint | **HTTP 403**（Cloud Scheduler側`status.code: 7` = PERMISSION_DENIED） | platform request log: `2026-09-19T23:57:30.646257Z 403 .../internal/workers/deletion/tick`／application log: `authorizationResult: REJECTED, rejectedIdentity: st-ai-scheduler@..., rejectionReason: IDENTITY_NOT_ALLOWED` |
+| Deletion SA → AI endpoint | **HTTP 403** | 先行のF5検証ラウンドで同一手順により確認済み（本Updateでは再検証していないが、§34.8で導入したlogging強化後の再現手順として同一の安全な方法が再利用可能であることを確認） |
+
+再ターゲット後、両ジョブとも`gcloud scheduler jobs describe`で元の`uri`/`oidc-token-audience`/`oidc-service-account-email`/`schedule`/`state`が完全に一致することを確認し、復元済みである。
+
+### 34.8 Minimal Scheduler Authorization Logging — 実装・Evidence（Human Decision 2026-09-20実行）
+
+**実装**: `src/middleware/schedulerAuth.ts`の`requireSchedulerIdentity`に、既存のrequest-scoped pinoロガー（`req.log`、`server.ts`の`pinoHttp`により注入）を用いた構造化ログを追加した。ログ対象フィールドは`event`（`scheduler_auth`固定）／`endpoint`／`authorizationResult`（`AUTHORIZED`/`REJECTED`）／`verifiedIdentity`（認可成功時）／`rejectedIdentity`（拒否時、トークンから取得できた場合のみ）／`rejectionReason`（`MISSING_TOKEN`/`NO_EMAIL_IN_TOKEN`/`EMAIL_NOT_VERIFIED`/`IDENTITY_NOT_ALLOWED`/`TOKEN_VERIFICATION_FAILED`）。**token、Authorization headerの値、credential、Secretはいかなるフィールドにも含めていない。** 新規logging基盤・新規Secret・新規DBスキーマ・新規IAMはいずれも追加していない（既存pinoロガーへの呼び出し追加のみ）。
+
+**LOCAL TEST EVIDENCE**: `test/schedulerAuth.golden.test.ts`（新規5件）で以下を確認した（すべてPASS）。
+1. トークン欠如 → `REJECTED`/`MISSING_TOKEN`をログし、平文トークン文字列がログ中のどこにも含まれない
+2. 誤ID → `REJECTED`/`rejectedIdentity`/`IDENTITY_NOT_ALLOWED`をログし、`authorization`ヘッダ値や`token`フィールドがログオブジェクトに存在しない
+3. 正しいID → `AUTHORIZED`/`verifiedIdentity`をログし、トークン文字列は含まれない
+4. トークン検証失敗（署名不正等） → `REJECTED`/`TOKEN_VERIFICATION_FAILED`をログ
+5. `req.log`が存在しない環境（pino-http未マウント）でもクラッシュしない（`?.`によるoptional呼び出し）
+
+既存回帰: `npm run build`クリーン、`test:internal-workers`（7件）・`test:readiness`（4件）全PASS、変更による既存挙動への影響なしを確認した。
+
+**FACT（Temporary Stagingデプロイ）**: `gcloud run deploy sales-tools-staging --source .`により再デプロイし、revision`sales-tools-staging-00004-vjv`が100%トラフィックで稼働中であることを確認した（環境変数・Secret・IAM・スケーリング設定は無変更）。
+
+**FACT（Cloud Logging Evidence — 認可成功）**: 実Scheduler tick（AI/Deletionとも）実行後、`run.googleapis.com%2Fstdout`ログに以下相当のエントリが記録されることを確認した。
+```json
+{"event":"scheduler_auth","endpoint":"/internal/workers/ai/tick","authorizationResult":"AUTHORIZED","verifiedIdentity":"st-ai-scheduler@msp-zabbix.iam.gserviceaccount.com", ...}
+{"event":"scheduler_auth","endpoint":"/internal/workers/deletion/tick","authorizationResult":"AUTHORIZED","verifiedIdentity":"st-del-scheduler@msp-zabbix.iam.gserviceaccount.com", ...}
+```
+
+**FACT（Cloud Logging Evidence — 認可拒否、cross-SA再ターゲットによる実測）**: 2026-09-19T23:57:30Z、AI SAでDeletion endpointへアクセスした際、
+```json
+{"event":"scheduler_auth","endpoint":"/internal/workers/deletion/tick","authorizationResult":"REJECTED","rejectedIdentity":"st-ai-scheduler@msp-zabbix.iam.gserviceaccount.com","rejectionReason":"IDENTITY_NOT_ALLOWED", ...}
+```
+が記録され、同時刻の`run.googleapis.com%2Frequests`（プラットフォームリクエストログ）側でも`status: 403`が同タイムスタンプ（4ミリ秒差）で記録されていることをクロスリファレンスで確認した。**すべてのログエントリを目視確認し、token・Authorizationヘッダ値・credential・Secretのいずれも含まれていないことを確認した。**
+
+**→ 監査/ログの識別可能性ギャップ（F4/F5再監査時に発見）はTemporary Stagingで解消済み。**
+
+### 34.9 RESIDUAL EVIDENCE GAPS（削除せず記録。実環境PASSとは記載しない）
+
+以下は実環境で直接観測できていない事項であり、**「実環境でPASSした」とは記載しない**（Human Decision指示どおり）。
+
+| 項目 | 状況 | 理由 |
+|---|---|---|
+| **true concurrent HTTP invocation**（真の同時/重複HTTPリクエスト） | RESIDUAL UNKNOWN | Cloud Scheduler管理API自体が同一jobへの並行`jobs.run`呼び出しをシリアライズすることを実測確認した（2件目の呼び出しが`ERROR: ABORTED: sync mutate calls cannot be queued`で拒否される）。追加のimpersonation権限（`serviceAccountTokenCreator`等）を付与せずに真のHTTPレベル同時実行を作り出す方法が見つからなかった。間接的緩和根拠: 既存の`SKIP LOCKED`（AI queue）・`FOR UPDATE`行ロック（Deletion queue）はF5で新設したものではなく既存実装であり、コードレベルでは二重処理を防ぐ設計になっている |
+| **actual two-instance concurrent processing**（`max instances=2`での実マルチインスタンス同時処理） | RESIDUAL UNKNOWN | `autoscaling.knative.dev/maxScale=2`という設定自体はFACTとして確認済みだが、2つの実インスタンスが同時に内部endpointへの認証済みリクエストを処理する状態を安全に（追加IAMなしに）作り出す方法が見つからなかった（上記と同じ制約） |
+| **actual 200s soft-deadline behavior**（実環境での200s soft deadline超過時の挙動） | LOCAL TEST EVIDENCEのみ | ローカルテスト（fake worker、制御可能なタイマー）では確認済み。実環境で200sを超えるキュー滞留を意図的に作る（＝3件を超える大量のPENDING AIジョブを保持し続ける）操作は、実際の顧客導線に影響しうるため実施していない |
+| **actual >20 deletion batch behavior**（実環境での20件超Deletionバッチの挙動） | LOCAL TEST EVIDENCEのみ | 同上。実環境で21件以上のAPPROVED状態を同時に保持する状況を意図的に作らなかった |
+| `pg_stat_activity`の非クライアント接続がConnection Budget上限にカウントされるか | RESIDUAL UNKNOWN | §34.3から持ち越し。未確認のまま |
+
+### 34.10 Productionとの差分
+
+- Production側の変更: **ゼロ**（DB GRANT、Cloud Run設定、IAM、Secret、Scheduler、いずれも無変更）
+- 今回のコード変更（`schedulerAuth.ts`のlogging追加を含む）はリポジトリにはcommit・pushするが、Production Cloud Runへはデプロイしていない
+- Production Connection Capacity Gateは引き続きOPEN
+
+### 34.11 HUMAN DECISION（本Update確定事項の総括）
+
+- F4 Runtime Authority / GRANT Matrix = **PASS / RECLOSED**
+- F5 Durable Execution Architecture = **PASS / CLOSED for Staging Readiness**（§34.9のResidual Evidence Gapsは削除せず残置）
+- Public Service Architecture = **Option C採用**（§34.6の正確な表現で記録）
+- Minimal Scheduler Authorization Logging = **GO・実装・Evidence確認完了**
+- Production Connection Capacity Gate = **OPEN**（変更なし）
+- **F6（外部Anthropic API統合）には着手しない。STOP。**
+
+F5にはこれ以上着手しない。F6は未着手。
