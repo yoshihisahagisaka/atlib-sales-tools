@@ -80,6 +80,15 @@
       </div>
     </div>
 
+    <div class="card">
+      <h2>情報源・確認状況</h2>
+      <div class="form-row">
+        <label for="source-context">情報源・確認状況</label>
+        <textarea id="source-context" rows="2" placeholder="例：9/18 代表取締役との1on1で本人確認／情シス担当者へのヒアリング／営業担当による観察"></textarea>
+        <p class="info-message">FACTの出どころや確認状況を簡潔に記録します。確認日は上の「確認日」を使用します。</p>
+      </div>
+    </div>
+
     <div id="items-container"><p class="info-message">項目を読み込んでいます...</p></div>
 
     <div class="card">
@@ -201,6 +210,7 @@ function fillForm(detail) {
   document.getElementById('sales-rep-display').textContent = `${detail.salesRepEmail}（作成時に記録）`;
   document.getElementById('decision-maker-context').value = detail.decisionMakerContext || '';
   document.getElementById('engagement-context').value = detail.engagementContext || '';
+  document.getElementById('source-context').value = detail.sourceContext || '';
   document.getElementById('overall-facts').value = detail.overallFacts || '';
   document.getElementById('overall-unknowns').value = detail.overallUnknowns || '';
   document.getElementById('overall-hypotheses').value = detail.overallHypotheses || '';
@@ -266,6 +276,7 @@ form.addEventListener('submit', async (e) => {
     checkedOn: document.getElementById('checked-on').value,
     decisionMakerContext: document.getElementById('decision-maker-context').value || undefined,
     engagementContext: document.getElementById('engagement-context').value || undefined,
+    sourceContext: document.getElementById('source-context').value || undefined,
     items,
     overallFacts: document.getElementById('overall-facts').value || undefined,
     overallUnknowns: document.getElementById('overall-unknowns').value || undefined,
