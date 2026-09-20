@@ -37,9 +37,12 @@
     "test:external-manifest": "node -r ts-node/register --test test/externalDeletionManifestStore.golden.test.ts",
     "test:internal-workers": "node -r ts-node/register --test test/internalWorkers.golden.test.ts",
     "test:scheduler-auth": "node -r ts-node/register --test test/schedulerAuth.golden.test.ts",
-    "migrate:artifact": "node dist/db/migrateCli.js"
+    "migrate:artifact": "node dist/db/migrateCli.js",
+    "test:customer-fit-check": "node -r ts-node/register --test test/customerFitCheck.golden.test.ts"
   },
-  "engines": {"node": ">=22"},
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
     "@google-cloud/secret-manager": "^5.6.0",
