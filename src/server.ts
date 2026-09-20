@@ -140,7 +140,7 @@ async function main(): Promise<void> {
   // /request-link のみ LP からのクロスオリジンPOSTを受けるためルーター内でCORSを個別付与している。
   app.use('/api/kaizen-diagnostic', createKaizenDiagnosticRouter(kaizenDiagnosticRepo, mailer, config));
   app.use('/api/infravision-partner-leads', createInfraVisionPartnerLeadRouter(infraVisionPartnerLeadRepo, mailer, config));
-  app.use('/api/webhooks/timerex/infravision-partner', createTimeRexWebhookRouter(infraVisionPartnerLeadRepo));
+  // TimeRex Standard運用中は予約状態を管理画面で手動更新する。\n  // Premiumへアップグレードし、任意URLパラメータ(lead_id)のWebhook受信を実機検証した後に有効化する。\n  // app.use('/api/webhooks/timerex/infravision-partner', createTimeRexWebhookRouter(infraVisionPartnerLeadRepo));
 
   // 情シスKAIZEN｜60分無料診断（V5）: LP→事前アンケート→担当者主導の60分診断→PDF/PPTXレポート。
   // 事前アンケートは sales.atlib.jp 自ドメインの kaizen-assessment-intake.html から呼ばれる（CORS不要）。
