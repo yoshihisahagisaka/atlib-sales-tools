@@ -4,26 +4,27 @@ This contract is limited to deploy identity. It does not deploy, migrate, change
 
 ## Required chain
 
-`Git SHA → Cloud Build ID → OCI image digest → Cloud Run revision`
+`reviewed Git SHA -> Cloud Build ID -> runtime/migration OCI digest -> migration execution -> Cloud Run revision`
 
-1. A Cloud Build trigger resolves a Git commit and supplies its 40-character `COMMIT_SHA`.
-2. `cloudbuild.provenance.yaml` rejects an absent/invalid predefined `COMMIT_SHA` and supplies it as `SOURCE_REVISION` to the Docker build. Cloud Build source archives do not necessarily contain `.git`; therefore the deploy gate must compare Cloud Build `sourceProvenance.resolvedRepoSource.commitSha` to this same SHA before deployment.
-3. The runtime image carries `org.opencontainers.image.revision=<Git SHA>`.
-4. Artifact Registry resolves the image to an immutable `@sha256:` digest.
-5. The deploy command must use that digest, not an image tag, and set the same SHA as the Cloud Run revision label.
-6. Before traffic changes, `scripts/deploy/provenance.cjs record` validates all three SHA values and emits the sanitized deployment record.
+1. An operator runs `reviewed-source` from a clean checkout. It rejects local modifications and untracked files, requires `HEAD == _GIT_SHA`, then creates a `git archive` containing tracked content of that exact 40-character SHA.
+2. `gcloud builds submit` receives that archive and the same `_GIT_SHA`. `cloudbuild.provenance.yaml` builds and publishes runtime and migration images to the existing `asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy` repository. No trigger is required.
+3. Both images carry `org.opencontainers.image.revision=<Git SHA>`. Artifact Registry resolves each image to an immutable `@sha256:` digest; image tags are human-readable aliases only.
+4. The migration Job must use `<migration-image>@sha256:...`, with `sales_tools_staging_f4` and the externally configured `sales_tools_migration` identity. Credentials and role authority are never embedded in this repository.
+5. A migration execution record must validate the matching SHA and record only the allowlisted execution metadata. A `FAIL` record blocks runtime deployment.
+6. Only after migration `PASS`, the runtime deploy command may use `<runtime-image>@sha256:...`, the externally configured `sales_tools_runtime` identity, and the same Git SHA as a Cloud Run revision label. `record` validates the runtime chain before traffic changes.
 
-The Cloud Build trigger must use Git-connected source and its resolved source provenance must equal `COMMIT_SHA`. A source archive without resolved repository/commit evidence does not meet this contract.
+The local archive creation result plus Cloud Build ID are required Evidence for source provenance. A submitted directory, a dirty checkout, or a tag-only deploy does not meet this contract.
 
 ## Local validation
 
 ```text
-node scripts/deploy/provenance.cjs build-contract --repository=yoshihisahagisaka/atlib-sales-tools --git-sha=<40-char-sha> --source-commit=<same-sha>
-node scripts/deploy/provenance.cjs record --repository=yoshihisahagisaka/atlib-sales-tools --git-sha=<sha> --cloud-build-id=<build-id> --oci-revision-label=<sha> --image-digest=<image@sha256:...> --cloud-run-revision=<revision> --cloud-run-revision-label=<sha> --timestamp=<ISO-8601> --deploy-actor=<actor>
+node scripts/deploy/provenance.cjs reviewed-source --git-sha=<40-char-sha> --output=<tracked-source.tar.gz>
+gcloud builds submit <tracked-source.tar.gz> --config=cloudbuild.provenance.yaml --substitutions=_GIT_SHA=<same-sha>
+node scripts/deploy/provenance.cjs record --repository=yoshihisahagisaka/atlib-sales-tools --git-sha=<sha> --cloud-build-id=<build-id> --oci-revision-label=<sha> --image-digest=<runtime-image@sha256:...> --cloud-run-revision=<revision> --cloud-run-revision-label=<sha> --timestamp=<ISO-8601> --deploy-actor=<actor>
 ```
 
-The record contains only repository, Git SHA, Cloud Build ID, OCI revision label, image digest, Cloud Run revision, timestamp, and deploy actor. It rejects Secret, password, customer, token, OAuth, and environment fields.
+The runtime record contains only repository, Git SHA, Cloud Build ID, OCI revision label, image digest, Cloud Run revision, timestamp, and deploy actor. The migration record contains only repository, Git SHA, Cloud Build ID, migration OCI revision, migration image digest, Job name, execution name, started/completed timestamps, actor, and result. Both reject Secret, password, customer, token, OAuth, and environment fields.
 
 ## External verification still required
 
-After a future staging deploy, an authorized operator must verify the Cloud Build source provenance, OCI label, Artifact Registry digest, Cloud Run revision label, and the sanitized record agree. This repository change does not establish any current deployment identity.
+After a future staging deploy, an authorized operator must verify the local archive result, Cloud Build ID, both OCI labels, both Artifact Registry digests, migration execution result, Cloud Run revision label, and sanitized records agree. This repository change does not establish any current deployment identity.

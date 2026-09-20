@@ -33,6 +33,20 @@ function assertNoForbidden(value, key = '') {
 function currentHead() {
   return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 }
+function assertCleanReviewedSource({ gitSha, cwd = process.cwd(), execFile = execFileSync }) {
+  requireSha(gitSha);
+  const status = execFile('git', ['status', '--porcelain', '--untracked-files=all'], { cwd, encoding: 'utf8' });
+  if (status.trim()) fail('DIRTY_WORKTREE');
+  const head = execFile('git', ['rev-parse', 'HEAD'], { cwd, encoding: 'utf8' }).trim();
+  if (head !== gitSha) fail('BUILD_SOURCE_SHA_MISMATCH');
+  return Object.freeze({ git_sha: gitSha, local_head: head, tracked_content_only: true });
+}
+function createReviewedSource({ gitSha, output, cwd = process.cwd(), execFile = execFileSync }) {
+  const source = assertCleanReviewedSource({ gitSha, cwd, execFile });
+  requireText(output, 'ARCHIVE_OUTPUT_REQUIRED');
+  execFile('git', ['archive', '--format=tar.gz', `--output=${output}`, gitSha], { cwd, encoding: 'utf8' });
+  return Object.freeze({ ...source, archive: output });
+}
 function buildContract({ repository, gitSha, sourceCommit, localHead = currentHead() }) {
   requireText(repository, 'REPOSITORY_REQUIRED');
   requireSha(gitSha);
@@ -66,6 +80,35 @@ function deploymentRecord(input) {
     deploy_actor: requireText(input.deploy_actor, 'DEPLOY_ACTOR_REQUIRED'),
   });
 }
+function migrationExecutionRecord(input) {
+  const allowed = new Set(['repository', 'git_sha', 'cloud_build_id', 'migration_oci_revision', 'migration_image_digest', 'job_name', 'execution_name', 'started_at', 'completed_at', 'actor', 'result']);
+  for (const key of Object.keys(input)) if (!allowed.has(key)) fail('SANITIZED_RECORD_FORBIDDEN_FIELD');
+  assertNoForbidden(input);
+  const gitSha = requireSha(input.git_sha);
+  if (requireSha(input.migration_oci_revision, 'MIGRATION_OCI_REVISION_INVALID') !== gitSha) fail('MIGRATION_OCI_SHA_MISMATCH');
+  const result = requireText(input.result, 'MIGRATION_RESULT_REQUIRED');
+  if (!['PASS', 'FAIL'].includes(result)) fail('MIGRATION_RESULT_INVALID');
+  return Object.freeze({
+    repository: requireText(input.repository, 'REPOSITORY_REQUIRED'), git_sha: gitSha,
+    cloud_build_id: requireText(input.cloud_build_id, 'CLOUD_BUILD_ID_REQUIRED'),
+    migration_oci_revision: input.migration_oci_revision,
+    migration_image_digest: requireDigest(input.migration_image_digest),
+    job_name: requireText(input.job_name, 'MIGRATION_JOB_REQUIRED'),
+    execution_name: requireText(input.execution_name, 'MIGRATION_EXECUTION_REQUIRED'),
+    started_at: requireTimestamp(input.started_at), completed_at: requireTimestamp(input.completed_at),
+    actor: requireText(input.actor, 'MIGRATION_ACTOR_REQUIRED'), result,
+  });
+}
+function imageArtifactContract({ gitSha, runtimeOciRevision, runtimeImageDigest, migrationOciRevision, migrationImageDigest }) {
+  const sha = requireSha(gitSha);
+  if (requireSha(runtimeOciRevision, 'RUNTIME_OCI_REVISION_INVALID') !== sha) fail('RUNTIME_OCI_SHA_MISMATCH');
+  if (requireSha(migrationOciRevision, 'MIGRATION_OCI_REVISION_INVALID') !== sha) fail('MIGRATION_OCI_SHA_MISMATCH');
+  return Object.freeze({ git_sha: sha, runtime_image_digest: requireDigest(runtimeImageDigest), migration_image_digest: requireDigest(migrationImageDigest) });
+}
+function requireMigrationPass(migrationRecord) {
+  if (!migrationRecord || migrationRecord.result !== 'PASS') fail('MIGRATION_PASS_REQUIRED_BEFORE_RUNTIME_DEPLOY');
+  return true;
+}
 function argsToObject(args) {
   const result = {};
   for (const arg of args) {
@@ -83,8 +126,16 @@ function main(args) {
     console.log(JSON.stringify(record));
     return;
   }
+  if (command === 'reviewed-source') {
+    console.log(JSON.stringify(createReviewedSource({ gitSha: input.gitSha, output: input.output })));
+    return;
+  }
   if (command === 'record') {
     console.log(JSON.stringify(deploymentRecord(input)));
+    return;
+  }
+  if (command === 'migration-record') {
+    console.log(JSON.stringify(migrationExecutionRecord(input)));
     return;
   }
   fail('COMMAND_INVALID');
@@ -95,4 +146,4 @@ if (require.main === module) {
   catch (error) { console.error(error instanceof Error ? error.message : 'PROVENANCE_FAILED'); process.exitCode = 1; }
 }
 
-module.exports = { buildContract, deploymentRecord, requireSha, requireDigest };
+module.exports = { assertCleanReviewedSource, createReviewedSource, buildContract, deploymentRecord, migrationExecutionRecord, imageArtifactContract, requireMigrationPass, requireSha, requireDigest };

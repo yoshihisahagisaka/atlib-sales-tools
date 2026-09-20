@@ -1,8 +1,11 @@
-# Deployment provenance contract.  This file prepares an immutable image; it does not deploy.
-# A Cloud Build trigger must supply COMMIT_SHA from the resolved Git source.
+# Deployment provenance contract. This file builds and publishes immutable images;
+# it never deploys or runs a migration. Submit only the archive created by
+# `provenance.cjs reviewed-source` from a clean checkout at ${_GIT_SHA}.
 substitutions:
   _REPOSITORY: yoshihisahagisaka/atlib-sales-tools
-  _IMAGE: ''
+  _GIT_SHA: ''
+  _RUNTIME_IMAGE: asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/sales-tools-staging-runtime
+  _MIGRATION_IMAGE: asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/sales-tools-staging-migration
 
 steps:
   - name: node:22-alpine
@@ -12,20 +15,33 @@ steps:
       - scripts/deploy/provenance.cjs
       - build-contract
       - --repository=${_REPOSITORY}
-      - --git-sha=$COMMIT_SHA
-      - --source-commit=$COMMIT_SHA
-      # Cloud Build source archives do not necessarily include .git.  The
-      # deploy gate must additionally compare sourceProvenance to COMMIT_SHA.
-      - --local-head=$COMMIT_SHA
+      - --git-sha=${_GIT_SHA}
+      - --source-commit=${_GIT_SHA}
+      # The submit helper checks its clean local HEAD before creating the
+      # tracked-content archive. Source archives do not include .git.
+      - --local-head=${_GIT_SHA}
   - name: gcr.io/cloud-builders/docker
     id: build-runtime-image
     args:
       - build
       - --target=runtime
-      - --build-arg=SOURCE_REVISION=$COMMIT_SHA
-      - --label=org.opencontainers.image.revision=$COMMIT_SHA
-      - --tag=${_IMAGE}:$COMMIT_SHA
+      - --build-arg=SOURCE_REVISION=${_GIT_SHA}
+      - --label=org.opencontainers.image.revision=${_GIT_SHA}
+      - --tag=${_RUNTIME_IMAGE}:${_GIT_SHA}
+      - .
+  - name: gcr.io/cloud-builders/docker
+    id: build-migration-image
+    args:
+      - build
+      - --target=migration
+      - --build-arg=SOURCE_REVISION=${_GIT_SHA}
+      - --label=org.opencontainers.image.revision=${_GIT_SHA}
+      - --tag=${_MIGRATION_IMAGE}:${_GIT_SHA}
       - .
 
-# Do not add a deploy step here.  Deployment must use the resolved @sha256 digest,
-# then pass that digest, the OCI label and the revision label to provenance.cjs record.
+images:
+  - ${_RUNTIME_IMAGE}:${_GIT_SHA}
+  - ${_MIGRATION_IMAGE}:${_GIT_SHA}
+
+# Do not add deploy or migration execution steps here. After Artifact Registry resolves
+# both digests, a separate authorized procedure must use each @sha256 identity.
