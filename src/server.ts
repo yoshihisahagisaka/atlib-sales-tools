@@ -50,6 +50,9 @@ import { DiagnosisReportRepo } from './services/diagnosisReportRepo';
 import { AnthropicReportDraftProvider } from './services/reportDraftProvider';
 import { ReportDraftWorker } from './services/reportDraftWorker';
 import { PreDiagnosisWorker } from './services/preDiagnosisWorker';
+import { InfraVisionPartnerLeadRepo } from './services/infravisionPartnerLeadRepo';
+import { createInfraVisionPartnerLeadRouter } from './routes/infravisionPartnerLead';
+import { createTimeRexWebhookRouter } from './routes/timerexWebhook';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -61,6 +64,7 @@ async function main(): Promise<void> {
   const ismsDiagnosticRepo = new IsmsDiagnosticRepo(pool);
   const freeHearingAssessmentRepo = new FreeHearingAssessmentRepo(pool);
   const kaizenDiagnosticRepo = new KaizenDiagnosticRepo(pool);
+  const infraVisionPartnerLeadRepo = new InfraVisionPartnerLeadRepo(pool);
   const kaizenAssessmentRepo = new KaizenAssessmentRepo(pool);
   const kaizenAssessmentAiService = new KaizenAssessmentAiService(config.aiAssist.anthropicApiKey);
   const marketRateRepo = new MarketRateRepo(pool);
@@ -134,6 +138,8 @@ async function main(): Promise<void> {
   // 情シスKAIZEN診断: corporate-site LP（www.atlib.jp/joshisu-kaizen/）向けの姉妹版。
   // /request-link のみ LP からのクロスオリジンPOSTを受けるためルーター内でCORSを個別付与している。
   app.use('/api/kaizen-diagnostic', createKaizenDiagnosticRouter(kaizenDiagnosticRepo, mailer, config));
+  app.use('/api/infravision-partner-leads', createInfraVisionPartnerLeadRouter(infraVisionPartnerLeadRepo));
+  app.use('/api/webhooks/timerex/infravision-partner', createTimeRexWebhookRouter(infraVisionPartnerLeadRepo));
 
   // 情シスKAIZEN｜60分無料診断（V5）: LP→事前アンケート→担当者主導の60分診断→PDF/PPTXレポート。
   // 事前アンケートは sales.atlib.jp 自ドメインの kaizen-assessment-intake.html から呼ばれる（CORS不要）。
