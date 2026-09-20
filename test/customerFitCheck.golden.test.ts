@@ -106,6 +106,7 @@ test('customer fit check: create -> save -> list -> reload -> edit -> change Hum
     checkedOn: '2026-09-18',
     decisionMakerContext: '代表とは未対話、窓口担当のみ',
     engagementContext: '既存MSP顧客からの紹介',
+    sourceContext: '2026-09-18 窓口担当者へのヒアリング',
     items: sevenItems({ 3: { answer: 'UNKNOWN' }, 6: { answer: 'NO' } }),
     overallFacts: '既存システムの老朽化を認識している',
     overallUnknowns: '経営者の意向は未確認',
@@ -145,6 +146,7 @@ test('customer fit check: create -> save -> list -> reload -> edit -> change Hum
   const detailRes1 = await fetch(`${h.url}/api/admin/customer-fit-check/${id}`, { headers: { Cookie: h.staffCookie } });
   assert.equal(detailRes1.status, 200);
   const detail1 = (await detailRes1.json()) as any;
+  assert.equal(detail1.sourceContext, '2026-09-18 窓口担当者へのヒアリング');
   assert.equal(detail1.overallHypotheses, '将来的な事業拡大を見据えている可能性');
   assert.equal(detail1.overallFacts, '既存システムの老朽化を認識している');
   assert.notEqual(detail1.overallFacts, detail1.overallHypotheses);
