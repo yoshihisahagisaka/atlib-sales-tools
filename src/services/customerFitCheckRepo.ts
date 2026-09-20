@@ -22,6 +22,7 @@ export interface CustomerFitCheckListItem {
 export interface CustomerFitCheckDetail extends CustomerFitCheckListItem {
   decisionMakerContext: string | null;
   engagementContext: string | null;
+  sourceContext: string | null;
   overallFacts: string | null;
   overallUnknowns: string | null;
   overallHypotheses: string | null;
@@ -37,6 +38,7 @@ interface HeaderRow {
   checked_on: string;
   decision_maker_context: string | null;
   engagement_context: string | null;
+  source_context: string | null;
   overall_facts: string | null;
   overall_unknowns: string | null;
   overall_hypotheses: string | null;
@@ -70,9 +72,9 @@ export class CustomerFitCheckRepo {
       await client.query('BEGIN');
       const { rows } = await client.query<{ id: string }>(
         `INSERT INTO customer_fit_checks
-           (customer_name, sales_rep_email, checked_on, decision_maker_context, engagement_context,
+           (customer_name, sales_rep_email, checked_on, decision_maker_context, engagement_context, source_context,
             overall_facts, overall_unknowns, overall_hypotheses, next_actions, human_decision, decision_reason)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          RETURNING id`,
         [
           input.customerName,
@@ -80,6 +82,7 @@ export class CustomerFitCheckRepo {
           input.checkedOn,
           input.decisionMakerContext ?? null,
           input.engagementContext ?? null,
+          input.sourceContext ?? null,
           input.overallFacts ?? null,
           input.overallUnknowns ?? null,
           input.overallHypotheses ?? null,
@@ -110,15 +113,16 @@ export class CustomerFitCheckRepo {
       await client.query('BEGIN');
       const { rowCount } = await client.query(
         `UPDATE customer_fit_checks
-         SET customer_name = $1, checked_on = $2, decision_maker_context = $3, engagement_context = $4,
-             overall_facts = $5, overall_unknowns = $6, overall_hypotheses = $7, next_actions = $8,
-             human_decision = $9, decision_reason = $10, updated_at = now()
-         WHERE id = $11`,
+         SET customer_name = $1, checked_on = $2, decision_maker_context = $3, engagement_context = $4, source_context = $5,
+             overall_facts = $6, overall_unknowns = $7, overall_hypotheses = $8, next_actions = $9,
+             human_decision = $10, decision_reason = $11, updated_at = now()
+         WHERE id = $12`,
         [
           input.customerName,
           input.checkedOn,
           input.decisionMakerContext ?? null,
           input.engagementContext ?? null,
+          input.sourceContext ?? null,
           input.overallFacts ?? null,
           input.overallUnknowns ?? null,
           input.overallHypotheses ?? null,
@@ -167,7 +171,7 @@ export class CustomerFitCheckRepo {
     params.push(opts.limit, opts.offset);
     const { rows } = await this.pool.query<HeaderRow>(
       `SELECT id, customer_name, sales_rep_email, checked_on::text AS checked_on, decision_maker_context,
-              engagement_context, overall_facts, overall_unknowns, overall_hypotheses, next_actions,
+              engagement_context, source_context, overall_facts, overall_unknowns, overall_hypotheses, next_actions,
               human_decision, decision_reason, created_at, updated_at
        FROM customer_fit_checks
        ${where}
@@ -182,7 +186,7 @@ export class CustomerFitCheckRepo {
   async findById(id: string): Promise<CustomerFitCheckDetail | null> {
     const { rows } = await this.pool.query<HeaderRow>(
       `SELECT id, customer_name, sales_rep_email, checked_on::text AS checked_on, decision_maker_context,
-              engagement_context, overall_facts, overall_unknowns, overall_hypotheses, next_actions,
+              engagement_context, source_context, overall_facts, overall_unknowns, overall_hypotheses, next_actions,
               human_decision, decision_reason, created_at, updated_at
        FROM customer_fit_checks WHERE id = $1`,
       [id],
@@ -200,6 +204,7 @@ export class CustomerFitCheckRepo {
       ...mapListRow(row),
       decisionMakerContext: row.decision_maker_context,
       engagementContext: row.engagement_context,
+      sourceContext: row.source_context,
       overallFacts: row.overall_facts,
       overallUnknowns: row.overall_unknowns,
       overallHypotheses: row.overall_hypotheses,
