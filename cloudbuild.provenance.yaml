@@ -1,0 +1,31 @@
+# Deployment provenance contract.  This file prepares an immutable image; it does not deploy.
+# A Cloud Build trigger must supply COMMIT_SHA from the resolved Git source.
+substitutions:
+  _REPOSITORY: yoshihisahagisaka/atlib-sales-tools
+  _IMAGE: ''
+
+steps:
+  - name: node:22-alpine
+    id: validate-provenance-input
+    entrypoint: node
+    args:
+      - scripts/deploy/provenance.cjs
+      - build-contract
+      - --repository=${_REPOSITORY}
+      - --git-sha=$COMMIT_SHA
+      - --source-commit=$COMMIT_SHA
+      # Cloud Build source archives do not necessarily include .git.  The
+      # deploy gate must additionally compare sourceProvenance to COMMIT_SHA.
+      - --local-head=$COMMIT_SHA
+  - name: gcr.io/cloud-builders/docker
+    id: build-runtime-image
+    args:
+      - build
+      - --target=runtime
+      - --build-arg=SOURCE_REVISION=$COMMIT_SHA
+      - --label=org.opencontainers.image.revision=$COMMIT_SHA
+      - --tag=${_IMAGE}:$COMMIT_SHA
+      - .
+
+# Do not add a deploy step here.  Deployment must use the resolved @sha256 digest,
+# then pass that digest, the OCI label and the revision label to provenance.cjs record.

@@ -24,6 +24,8 @@ CMD ["node", "dist/db/migrateCli.js"]
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY public ./public
