@@ -243,3 +243,99 @@ The Free Diagnosis Development Lane may reuse this deployment pattern. It must s
 - keep its own Product/Readiness gates separate from Customer Fit Business Acceptance.
 
 This runbook records deployment mechanics and evidence boundaries; it does not change Free Diagnosis Product decisions or close any Free Diagnosis readiness gate by itself.
+
+
+## 13. 2026-09-21〜22 Staging credential rotation / secret hardening evidence
+
+Customer Fit V1 staging acceptance後、作業中にstaging credentialが端末・会話上へ露出した可能性を前提として、Productionへ影響を与えずstaging credentialのrotation / Secret Manager参照化を実施した。
+
+**重要:** credential値そのものはこのRunbookへ記録しない。Secret名、参照方式、実施結果のみを証跡とする。
+
+### STAFF_JWT_SECRET
+
+- Before: Cloud Run plain environment variable
+- Existing Secret: `sales-tools-staging-staff-jwt-secret`
+- After: Cloud Run `STAFF_JWT_SECRET` = Secret Manager reference (`latest`)
+- revision `sales-tools-staging-00010-qkh` でSecret参照化
+- final configuration check: `STAFF_JWT_SECRET=SECRET_REF`
+
+### Google OAuth Client Secret
+
+Staging OAuth Client IDは既存のstaging専用Clientを継続使用し、Client Secretのみrotationした。
+
+- Secret Manager: `sales-tools-staging-google-oauth-client-secret`
+- Version 3: current valid rotated Secret
+- Version 2: registration procedure issueにより正しいOAuth Secretではない可能性が確認され、破棄
+- Version 1: old Secret; 無効化
+- Cloud Run reference: `GOOGLE_OAUTH_CLIENT_SECRET=...:latest`
+- revision `sales-tools-staging-00012-wxn`: 100% traffic
+- fresh Google Workspace authentication → Customer Fit Check list: PASS
+- Google Auth Platform側の旧Client Secretも破棄
+- final configuration check: `GOOGLE_OAUTH_CLIENT_SECRET=SECRET_REF`
+
+Version 2の誤登録原因は、OAuth Secretをclipboardへコピーした後、clipboard経由のCLI登録用command自体をコピーしたことでclipboard内容が上書きされた可能性が高いこと。以後、credentialをclipboardからCLIへ渡す手順と、そのcommandを同じclipboardでコピーする手順を組み合わせない。
+
+### Runtime DB password
+
+Target:
+- Cloud SQL instance: `sales-tools-staging-db`
+- DB: `sales_tools_staging_f4`
+- runtime role: `sales_tools_runtime`
+- migration role `sales_tools_migration` は変更していない
+
+Actions:
+- new staging-only Secret created: `sales-tools-staging-db-password`
+- `sales_tools_runtime` password rotated in Cloud SQL
+- staging service account received Secret-level `roles/secretmanager.secretAccessor`
+- Cloud Run plain `DB_PASSWORD` removed
+- Cloud Run `DB_PASSWORD` replaced by Secret Manager reference (`latest`)
+- failed revision caused by missing Secret Accessor authority was not routed; authority was added before successful redeploy
+- final configuration check: `DB_PASSWORD=SECRET_REF`
+- Customer Fit list/detail/save after rotation: PASS
+
+No Production DB credential was changed.
+
+### SMTP_PASSWORD
+
+Staging SMTP configuration was confirmed as synthetic:
+- `SMTP_HOST=smtp.example.test`
+- `SMTP_USER=synthetic-smtp-user`
+
+Therefore no external SMTP credential rotation was required. Plaintext staging configuration was nevertheless removed.
+
+Actions:
+- staging-only Secret created: `sales-tools-staging-smtp-password`
+- staging service account received Secret-level `roles/secretmanager.secretAccessor`
+- Cloud Run plain `SMTP_PASSWORD` removed
+- Cloud Run `SMTP_PASSWORD` replaced by Secret Manager reference (`latest`)
+- final configuration check: `SMTP_PASSWORD=SECRET_REF`
+
+### Final Secret reference verification
+
+Final staging configuration check returned:
+
+- `DB_PASSWORD=SECRET_REF`
+- `SMTP_PASSWORD=SECRET_REF`
+- `GOOGLE_OAUTH_CLIENT_SECRET=SECRET_REF`
+- `STAFF_JWT_SECRET=SECRET_REF`
+
+### Local cleanup
+
+Potentially sensitive temporary files were deleted:
+
+- `%TEMP%\sales-tools-migration-password.txt`
+- `%TEMP%\sales-tools-staging.yaml`
+- `%TEMP%\sales-tools-staging-rotate.yaml`
+- `%TEMP%\oauth-error-log.json`
+
+Temporary untracked deployment file `cloudbuild.customer-fit-migration.yaml` was also deleted rather than committed.
+
+Final `git status --short`: no output (clean worktree).
+
+### Boundary / result
+
+- Customer Fit staging remained the only runtime target.
+- Production service / Production DB / Production credential were not changed.
+- Credential values are intentionally not retained in Git documentation.
+- Customer Fit Check V1 remains Business Acceptance: PASS.
+- Staging credential rotation and plaintext-secret hardening: COMPLETE.
