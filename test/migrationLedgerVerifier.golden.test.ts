@@ -48,7 +48,7 @@ test('migration ledger verifier rejects unexpected result shapes', async () => {
 });
 
 test('migration ledger CLI writes only ledger JSON and never DB credentials', async () => {
-  const db = fixture([undefined, { rows: [{ filename: '017_sales_conversation_intake.sql', applied_at: new Date('2026-09-20T00:00:00.000Z') }] }, undefined]);
+  const db = fixture([undefined, { rows: [{ filename: '018_sales_conversation_intake.sql', applied_at: new Date('2026-09-20T00:00:00.000Z') }] }, undefined]);
   let ended = false;
   const output: string[] = [];
   await runMigrationLedgerVerifierCli({
@@ -56,7 +56,7 @@ test('migration ledger CLI writes only ledger JSON and never DB credentials', as
     createPool: () => ({ ...db.pool, end: async () => { ended = true; } }),
     stdout: { write: (chunk: string) => { output.push(chunk); return true; } },
   });
-  assert.equal(output.join(''), '[{"filename":"017_sales_conversation_intake.sql","applied_at":"2026-09-20T00:00:00.000Z"}]\n');
+  assert.equal(output.join(''), '[{"filename":"018_sales_conversation_intake.sql","applied_at":"2026-09-20T00:00:00.000Z"}]\n');
   assert.doesNotMatch(output.join(''), /credential|password|127\.0\.0\.1/i);
   assert.equal(ended, true);
 });

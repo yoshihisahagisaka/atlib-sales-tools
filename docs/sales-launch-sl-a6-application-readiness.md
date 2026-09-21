@@ -81,6 +81,8 @@ Translation goldenは意味・原文・block同一性・編集round tripを確�
 ## PostgreSQL / migration
 
 専用の破棄可能なPostgreSQL 17（loopback 55436、readiness DB）を使用。fresh schemaへmigration **001〜017を順次適用**し、全browserも実PG上で実行した。既存レコードを持つ001〜012からの追加upgrade、migration ledger、同時runner、失敗rollback/再実行、制約、immutable snapshot、row lock、version、Decision履歴、audit rollbackも検証。
+
+> Historical evidence note (2026-09-21): this report records the then-current `001〜017` sequence. After a staging-ledger collision was observed, the unchanged Free Diagnosis intake SQL was renamed from `017_sales_conversation_intake.sql` to `018_sales_conversation_intake.sql`; this does not alter the reported application validation evidence.
 新migration・DB object・Core objectの追加なし。既存Application契約のBD-SL-01による遷移変更のみ。旧Intakeの同意を遡及捏造しない。
 
 ## 全テスト結果

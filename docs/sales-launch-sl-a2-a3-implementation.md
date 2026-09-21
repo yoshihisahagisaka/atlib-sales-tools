@@ -17,6 +17,8 @@ The validation counts below describe commit `63c84bd`. Subsequent failure classi
 
 `017_sales_conversation_intake.sql` adds `sales_conversation_intakes`, metadata-only `sales_intake_audit_logs`, the Case origin link and three Survey answer origin columns. Intake stores customer information, original/last staff actor and timestamps, optional conversation timestamp, separated supplements, existing-question answers, consent customer reference, recording staff actor, System timestamp and wording version, and linked Case ID.
 
+> Historical filename note (2026-09-21): this implementation record retains the original `017_sales_conversation_intake.sql` name. The unchanged SQL body was subsequently renamed to `018_sales_conversation_intake.sql` because the staging ledger already contains `017_customer_fit_checks.sql`.
+
 Saving never creates a Case. The separate consent command locks the record, checks its version and explicit agreement, records consent, reuses Case creation, imports answers and commits the audit in one transaction. Unique links, row locking and returning the existing Case on retry prevent duplicate creation across connections. An audit failure rolls everything back. A DB insertion trigger rejects new SALES_VISIT Cases without a consented origin. Legacy Cases are not backfilled with invented consent.
 
 The linked original record is read-only through the API. Imported answers retain their original staff, recording time and intake version; later Survey edits clear current-answer intake origin, while the original linked record remains available. Missing answers remain missing; explicit unknown answers and unknown supplements remain explicit. Previously recorded information is not asserted to be current.
@@ -74,7 +76,7 @@ The starting HEAD has existing type-check failures in `assessmentScopeClarificat
 
 ## Changed-file inventory
 
-- Migration/domain/API: `migrations/017_sales_conversation_intake.sql`, `src/domain/salesIntake.ts`, `src/routes/salesIntake.ts`, `src/services/salesIntakeRepo.ts`, `src/services/itManagementDiagnosisRepo.ts`, `src/server.ts`.
+- Migration/domain/API: originally `migrations/017_sales_conversation_intake.sql` (subsequently renamed unchanged to `migrations/018_sales_conversation_intake.sql`; see historical note above), `src/domain/salesIntake.ts`, `src/routes/salesIntake.ts`, `src/services/salesIntakeRepo.ts`, `src/services/itManagementDiagnosisRepo.ts`, `src/server.ts`.
 - UI: `public/admin/sales-conversation.html`, `public/js/sales-conversation.js`, `public/admin/it-management-diagnosis-new.html`, `public/js/it-management-diagnosis-survey.js`, `public/js/it-management-diagnosis-admin.js`, `public/css/it-management-diagnosis.css`.
 - Deletion continuity: `src/services/retentionDeletionWorker.ts`, `src/services/deletionReconciliation.ts`.
 - Tests: `test/salesIntake.golden.test.ts`, `test/support/salesIntakeScenario.ts`, `test/support/salesIntakeFixtures.ts`, `test/support/diagnosisHarness.ts`, `test/itManagementDiagnosis.golden.test.ts`, `test/itManagementDiagnosis.browser.test.ts`, `test/controlledPilotPolicyClosure.golden.test.ts`, `test/productionReadiness.postgres.test.ts`.
