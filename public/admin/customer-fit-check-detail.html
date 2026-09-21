@@ -121,9 +121,10 @@
     </div>
 
     <div id="form-error" class="error-message" style="display:none;"></div>
-    <div id="form-success" class="success-message" style="display:none;"></div>
     <div id="save-bar">
       <button type="submit" class="btn" id="submit-btn">保存する</button>
+      <a href="/admin/customer-fit-check.html">一覧へ戻る</a>
+      <span id="form-success" class="success-message" style="display:none; margin:0;">保存しました。</span>
       <span class="info-message" style="margin:0;">Human Decision未確定のままでも保存できます</span>
     </div>
   </form>
@@ -297,7 +298,7 @@ form.addEventListener('submit', async (e) => {
     });
     if (res.status === 201) {
       const data = await res.json();
-      location.href = `/admin/customer-fit-check-detail.html?id=${encodeURIComponent(data.id)}`;
+      location.href = `/admin/customer-fit-check-detail.html?id=${encodeURIComponent(data.id)}&saved=1`;
       return;
     }
     if (res.status === 204) {
@@ -323,6 +324,12 @@ form.addEventListener('submit', async (e) => {
     await loadItemDefinitions();
     if (checkId) {
       await loadExisting();
+      if (params.get('saved') === '1') {
+        const successEl = document.getElementById('form-success');
+        successEl.textContent = '保存しました。';
+        successEl.style.display = 'block';
+        history.replaceState(null, '', `/admin/customer-fit-check-detail.html?id=${encodeURIComponent(checkId)}`);
+      }
     }
   } catch {
     document.getElementById('items-container').innerHTML =
