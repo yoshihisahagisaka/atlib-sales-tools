@@ -41,7 +41,9 @@
     "test:retention-deletion": "node -r ts-node/register --test test/retentionDeletionWorker.golden.test.ts",
     "test:pilot-evidence": "node -r ts-node/register --test test/pilotEvidence.golden.test.ts",
     "test:external-manifest": "node -r ts-node/register --test test/externalDeletionManifestStore.golden.test.ts",
-    "migrate:artifact": "node dist/db/migrateCli.js"
+    "migrate:artifact": "node dist/db/migrateCli.js",
+    "verify:migration-ledger:artifact": "node dist/db/migrationLedgerVerifierCli.js",
+    "test:migration-ledger-verifier": "node -r ts-node/register --test test/migrationLedgerVerifier.golden.test.ts"
   },
   "engines": {"node": ">=22"},
   "dependencies": {
