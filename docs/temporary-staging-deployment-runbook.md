@@ -159,28 +159,76 @@ After runtime deployment:
 
 A successful build, migration, and deploy does not replace the browser/E2E smoke test.
 
-## 11. 2026-09-20 Customer Fit Check evidence
+## 11. 2026-09-20〜21 Customer Fit Check evidence
 
-Source integration commit used locally: `487a8ce`  
-Runtime image tag: `customer-fit-487a8ce`  
+Initial source integration commit used locally: `487a8ce`  
+Runtime authority integration commit: `4b3f863`  
+UX integration commit: `0331751`
+
+### Schema migration
+
+Initial runtime image tag: `customer-fit-487a8ce`  
 Migration image tag: `customer-fit-487a8ce-migration`
 
 Migration execution:
 - Job: `sales-tools-customer-fit-migration`
+- execution: `sales-tools-customer-fit-migration-rr7fd`
 - 001–016: all `migration_skipped`
 - `017_customer_fit_checks.sql`: `migration_applied`
 - container: `exit(0)`
 
-Runtime deployment:
-- revision: `sales-tools-staging-00005-tln`
+### OAuth / runtime
+
+Staging OAuth was corrected and browser login succeeded.
+
+OAuth-ready runtime:
+- revision: `sales-tools-staging-00007-bgh`
 - traffic: 100%
 - Production: unchanged
 
-Current smoke-test status:
-- Customer Fit UI deployment reached staging.
-- Browser login currently fails at authentication.
-- Existing staging OAuth configuration had been treated as synthetic; the actual current auth configuration still needs verification.
-- Therefore Customer Fit V1 staging Business Acceptance is **not yet CLOSED**. Do not report browser/E2E PASS.
+### Runtime authority provisioning
+
+The first real Customer Fit save reached the application but failed with PostgreSQL `42501 permission denied for table customer_fit_checks`. This was confirmed as a Runtime Authority provisioning omission, not an input-validation, OAuth, or schema-migration failure.
+
+Customer Fit authority was provisioned separately from schema migration with the migration authority:
+
+- authority image: `customer-fit-4b3f863-migration`
+- Cloud Build: `96a6e343-c87b-4405-a4d6-5404702f9a4d` — SUCCESS
+- Job: `sales-tools-customer-fit-authority`
+- execution: `sales-tools-customer-fit-authority-59khh` — SUCCESS
+- runtime role: `sales_tools_runtime`
+- `customer_fit_checks`: SELECT, INSERT, UPDATE
+- `customer_fit_check_items`: SELECT, INSERT, DELETE
+
+No table ownership, schema authority, or migration authority was granted to the runtime role.
+
+### Browser / Business Acceptance smoke test
+
+Synthetic Customer Fit case:
+- create/save: PASS
+- list display: PASS
+- detail reload: PASS
+- `sourceContext` persistence: PASS
+- seven-item persistence: PASS
+- Human Decision A persistence: PASS
+- Human Decision A → B update/save/reload: PASS
+
+UX feedback from the smoke test was implemented:
+- explicit `保存しました。` success feedback
+- bottom `一覧へ戻る` action so the operator does not need to scroll to the top
+
+Final UX runtime:
+- source integration commit: `0331751`
+- runtime image: `customer-fit-0331751`
+- Cloud Build: `9d094b82-c139-4c56-85d7-36a346bcb432` — SUCCESS
+- revision: `sales-tools-staging-00008-lwl`
+- traffic: 100%
+- browser UX re-test: PASS
+- Production: unchanged
+
+**Customer Fit Check V1 Business Acceptance: PASS (2026-09-21).**
+
+This closes Customer Fit V1 Business Acceptance only. It does not approve Production promotion and does not close any Free Diagnosis Product/Readiness gate.
 
 ## 12. Handoff to Free Diagnosis Development Lane
 
