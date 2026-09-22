@@ -150,6 +150,11 @@ export class CustomerFitCheckRepo {
     }
   }
 
+  async delete(id: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query('DELETE FROM customer_fit_checks WHERE id = $1', [id]);
+    return (rowCount ?? 0) > 0;
+  }
+
   async list(opts: { humanDecision?: HumanDecision; limit: number; offset: number }): Promise<{
     items: CustomerFitCheckListItem[];
     total: number;
