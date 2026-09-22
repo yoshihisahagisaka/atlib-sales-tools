@@ -69,5 +69,14 @@ export function createAdminCustomerFitCheckRouter(repo: CustomerFitCheckRepo): R
     res.status(204).end();
   });
 
+  router.delete('/:id', async (req, res) => {
+    const deleted = await repo.delete(req.params.id);
+    if (!deleted) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+    res.status(204).end();
+  });
+
   return router;
 }
