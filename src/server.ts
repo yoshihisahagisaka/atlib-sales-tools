@@ -50,6 +50,10 @@ import { DiagnosisReportRepo } from './services/diagnosisReportRepo';
 import { AnthropicReportDraftProvider } from './services/reportDraftProvider';
 import { ReportDraftWorker } from './services/reportDraftWorker';
 import { PreDiagnosisWorker } from './services/preDiagnosisWorker';
+import { InfraVisionPartnerLeadRepo } from './services/infravisionPartnerLeadRepo';
+import { createInfraVisionPartnerLeadRouter } from './routes/infravisionPartnerLead';
+import { createTimeRexWebhookRouter } from './routes/timerexWebhook';
+import { createAdminInfraVisionPartnerLeadRouter } from './routes/adminInfraVisionPartnerLead';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -61,6 +65,7 @@ async function main(): Promise<void> {
   const ismsDiagnosticRepo = new IsmsDiagnosticRepo(pool);
   const freeHearingAssessmentRepo = new FreeHearingAssessmentRepo(pool);
   const kaizenDiagnosticRepo = new KaizenDiagnosticRepo(pool);
+  const infraVisionPartnerLeadRepo = new InfraVisionPartnerLeadRepo(pool);
   const kaizenAssessmentRepo = new KaizenAssessmentRepo(pool);
   const kaizenAssessmentAiService = new KaizenAssessmentAiService(config.aiAssist.anthropicApiKey);
   const marketRateRepo = new MarketRateRepo(pool);
@@ -134,6 +139,8 @@ async function main(): Promise<void> {
   // 情シスKAIZEN診断: corporate-site LP（www.atlib.jp/joshisu-kaizen/）向けの姉妹版。
   // /request-link のみ LP からのクロスオリジンPOSTを受けるためルーター内でCORSを個別付与している。
   app.use('/api/kaizen-diagnostic', createKaizenDiagnosticRouter(kaizenDiagnosticRepo, mailer, config));
+  app.use('/api/infravision-partner-leads', createInfraVisionPartnerLeadRouter(infraVisionPartnerLeadRepo, mailer, config));
+  // TimeRex Standard運用中は予約状態を管理画面で手動更新する。\n  // Premiumへアップグレードし、任意URLパラメータ(lead_id)のWebhook受信を実機検証した後に有効化する。\n  // app.use('/api/webhooks/timerex/infravision-partner', createTimeRexWebhookRouter(infraVisionPartnerLeadRepo));
 
   // 情シスKAIZEN｜60分無料診断（V5）: LP→事前アンケート→担当者主導の60分診断→PDF/PPTXレポート。
   // 事前アンケートは sales.atlib.jp 自ドメインの kaizen-assessment-intake.html から呼ばれる（CORS不要）。
@@ -177,6 +184,7 @@ async function main(): Promise<void> {
     createAdminEstimateAiAssistRouter(aiAssistService),
   );
   app.use('/api/admin/estimates', ...adminAuthGate, createAdminEstimatesRouter(estimateRepo));
+  app.use('/api/admin/infravision-partner-leads', ...adminAuthGate, createAdminInfraVisionPartnerLeadRouter(infraVisionPartnerLeadRepo));
   // 静的HTML側もスタッフ認証で保護する。この行は下の一般static配信より前に置くこと
   // （逆順だと未認証で/admin/*.htmlが一般static経由で読めてしまう）。
   app.use('/admin', ...adminAuthGate, express.static(path.join(__dirname, '../public/admin')));
