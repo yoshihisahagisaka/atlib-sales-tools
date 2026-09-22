@@ -17,14 +17,14 @@ export async function grantCustomerFitRuntimeAuthority(): Promise<void> {
 
   try {
     await pool.query('BEGIN');
-    await pool.query(`GRANT SELECT, INSERT, UPDATE ON TABLE customer_fit_checks TO ${role}`);
+    await pool.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE customer_fit_checks TO ${role}`);
     await pool.query(`GRANT SELECT, INSERT, DELETE ON TABLE customer_fit_check_items TO ${role}`);
     await pool.query('COMMIT');
     console.log(JSON.stringify({
       event: 'customer_fit_runtime_authority_granted',
       role: runtimeRole,
       grants: {
-        customer_fit_checks: ['SELECT', 'INSERT', 'UPDATE'],
+        customer_fit_checks: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
         customer_fit_check_items: ['SELECT', 'INSERT', 'DELETE'],
       },
     }));
