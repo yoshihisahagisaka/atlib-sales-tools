@@ -20,18 +20,11 @@
   .answer-no:has(input:checked) { background:var(--color-danger); border-color:var(--color-danger); color:#fff; }
   .answer-unknown:has(input:checked) { background:var(--color-orange); border-color:var(--color-orange); color:#fff; }
 
-  .note-grid { display:grid; grid-template-columns:1fr; gap:0.7rem; }
-  @media (min-width: 820px) { .note-grid { grid-template-columns:1fr 1fr 1fr; } }
-  .note-field { border-radius:6px; padding:0.6rem; }
-  .note-fact { background:#eefaf5; border:1px solid #b9e6d3; }
-  .note-unknown { background:#fff7ec; border:1px solid #f3d9ab; }
-  .note-hypothesis { background:#f1f0fb; border:1px solid #d3d0f0; }
-  .note-field label { font-weight:600; font-size:0.78rem; margin-bottom:0.25rem; }
-  .note-fact label { color:#1a7a5c; }
-  .note-unknown label { color:#9c640c; }
-  .note-hypothesis label { color:#4c46a3; }
-  .note-field textarea { border:none; background:transparent; padding:0.2rem; min-height:3.2rem; resize:vertical; }
-  .note-field textarea:focus { outline:1px solid rgba(0,0,0,0.15); }
+  .fit-summary { display:grid; grid-template-columns:repeat(3,1fr); gap:0.7rem; margin:0.8rem 0 1rem; }
+  .fit-summary-box { border:1px solid var(--color-border); border-radius:8px; padding:0.75rem; text-align:center; }
+  .fit-summary-box strong { display:block; font-size:1.5rem; color:var(--color-primary); }
+  .attention-list { margin:0.5rem 0 0; padding-left:1.25rem; }
+  .attention-list li { margin:0.35rem 0; }
 
   .decision-group { display:grid; grid-template-columns:1fr; gap:0.6rem; }
   @media (min-width: 700px) { .decision-group { grid-template-columns:repeat(4, 1fr); } }
@@ -51,8 +44,8 @@
   <p><a href="/admin/customer-fit-check.html">&larr; 一覧に戻る</a></p>
   <h1 id="page-title">顧客適合性チェック（新規）</h1>
   <p class="info-message">
-    5分程度で入力できることを重視しています。途中まででも保存でき、後から続きを編集できます。
-    UNKNOWNは「わからない」まま記録してよい項目です。FACT・UNKNOWN・営業仮説は混同せず、それぞれの欄に記録してください。
+    無料診断を提案する相手として適しているかを、7項目で短時間に確認するためのチェックです。
+    YES / NO / UNKNOWNを選び、結果を確認したうえで最終判断は人が行います。自動採点・自動判定は行いません。
   </p>
 
   <form id="fit-check-form">
@@ -70,14 +63,6 @@
         <label>営業担当</label>
         <p class="sales-rep-note" id="sales-rep-display">保存時にログイン中のアカウントで自動記録されます</p>
       </div>
-      <div class="form-row">
-        <label for="decision-maker-context">経営者／決裁者の状況</label>
-        <textarea id="decision-maker-context" rows="2" placeholder="例：代表と直接話せている／窓口担当止まりで未対話　など"></textarea>
-      </div>
-      <div class="form-row">
-        <label for="engagement-context">接点・商談状況</label>
-        <textarea id="engagement-context" rows="2" placeholder="例：既存MSP顧客／紹介案件で初回商談前　など"></textarea>
-      </div>
     </div>
 
     <div class="card">
@@ -92,31 +77,22 @@
     <div id="items-container"><p class="info-message">項目を読み込んでいます...</p></div>
 
     <div class="card">
-      <h2>全体整理</h2>
-      <div class="form-row">
-        <label for="overall-facts">確認できたFACT</label>
-        <textarea id="overall-facts" rows="3"></textarea>
+      <h2>判断材料</h2>
+      <p class="info-message">点数化はしません。NO / UNKNOWNを見落とさず確認してからHuman Decisionを行います。</p>
+      <div class="fit-summary">
+        <div class="fit-summary-box"><strong id="yes-count">0</strong>YES</div>
+        <div class="fit-summary-box"><strong id="no-count">0</strong>NO</div>
+        <div class="fit-summary-box"><strong id="unknown-count">0</strong>UNKNOWN</div>
       </div>
-      <div class="form-row">
-        <label for="overall-unknowns">UNKNOWN</label>
-        <textarea id="overall-unknowns" rows="3"></textarea>
-      </div>
-      <div class="form-row">
-        <label for="overall-hypotheses">営業仮説（FACTと混ぜない）</label>
-        <textarea id="overall-hypotheses" rows="3"></textarea>
-      </div>
-      <div class="form-row">
-        <label for="next-actions">次に確認すること</label>
-        <textarea id="next-actions" rows="3"></textarea>
-      </div>
+      <div id="attention-area" class="info-message">7項目を選択すると、確認が必要な項目をここに表示します。</div>
     </div>
 
     <div class="card">
       <h2>Human Decision（最終判断は必ず人が行います）</h2>
       <div id="decision-container" class="decision-group"></div>
       <div class="form-row" style="margin-top:1rem;">
-        <label for="decision-reason">判断理由</label>
-        <textarea id="decision-reason" rows="3" placeholder="Human Decisionを選んだ理由を記録してください"></textarea>
+        <label for="decision-reason">判断メモ（任意）</label>
+        <textarea id="decision-reason" rows="2" placeholder="必要な場合だけ補足を記録"></textarea>
       </div>
     </div>
 
@@ -136,6 +112,7 @@ const checkId = params.get('id');
 const form = document.getElementById('fit-check-form');
 let ITEMS = [];
 let DECISIONS = [];
+let legacyDetail = null;
 
 function todayIso() {
   const d = new Date();
@@ -155,20 +132,7 @@ function renderItemCard(def) {
       <label class="answer-option answer-no"><input type="radio" name="answer-${def.itemNo}" value="NO"> NO</label>
       <label class="answer-option answer-unknown"><input type="radio" name="answer-${def.itemNo}" value="UNKNOWN"> UNKNOWN</label>
     </div>
-    <div class="note-grid">
-      <div class="note-field note-fact">
-        <label for="fact-${def.itemNo}">確認できたFACT</label>
-        <textarea id="fact-${def.itemNo}"></textarea>
-      </div>
-      <div class="note-field note-unknown">
-        <label for="unknown-${def.itemNo}">UNKNOWN／追加確認</label>
-        <textarea id="unknown-${def.itemNo}"></textarea>
-      </div>
-      <div class="note-field note-hypothesis">
-        <label for="hypothesis-${def.itemNo}">営業仮説・メモ</label>
-        <textarea id="hypothesis-${def.itemNo}"></textarea>
-      </div>
-    </div>
+
   `;
   return card;
 }
@@ -209,30 +173,20 @@ function fillForm(detail) {
   document.getElementById('customer-name').value = detail.customerName;
   document.getElementById('checked-on').value = detail.checkedOn;
   document.getElementById('sales-rep-display').textContent = `${detail.salesRepEmail}（作成時に記録）`;
-  document.getElementById('decision-maker-context').value = detail.decisionMakerContext || '';
-  document.getElementById('engagement-context').value = detail.engagementContext || '';
   document.getElementById('source-context').value = detail.sourceContext || '';
-  document.getElementById('overall-facts').value = detail.overallFacts || '';
-  document.getElementById('overall-unknowns').value = detail.overallUnknowns || '';
-  document.getElementById('overall-hypotheses').value = detail.overallHypotheses || '';
-  document.getElementById('next-actions').value = detail.nextActions || '';
   document.getElementById('decision-reason').value = detail.decisionReason || '';
 
   detail.items.forEach((item) => {
     const radio = form.querySelector(`input[name="answer-${item.itemNo}"][value="${item.answer}"]`);
     if (radio) radio.checked = true;
-    const fact = document.getElementById(`fact-${item.itemNo}`);
-    const unknown = document.getElementById(`unknown-${item.itemNo}`);
-    const hypothesis = document.getElementById(`hypothesis-${item.itemNo}`);
-    if (fact) fact.value = item.factNote || '';
-    if (unknown) unknown.value = item.unknownNote || '';
-    if (hypothesis) hypothesis.value = item.hypothesisNote || '';
   });
 
+  legacyDetail = detail;
   if (detail.humanDecision) {
     const radio = form.querySelector(`input[name="human-decision"][value="${detail.humanDecision}"]`);
     if (radio) radio.checked = true;
   }
+  updateSummary();
 }
 
 async function loadExisting() {
@@ -248,12 +202,45 @@ function collectItems() {
     return {
       itemNo: def.itemNo,
       answer: checked ? checked.value : undefined,
-      factNote: document.getElementById(`fact-${def.itemNo}`).value || undefined,
-      unknownNote: document.getElementById(`unknown-${def.itemNo}`).value || undefined,
-      hypothesisNote: document.getElementById(`hypothesis-${def.itemNo}`).value || undefined,
+      factNote: legacyDetail?.items?.find((item) => item.itemNo === def.itemNo)?.factNote || undefined,
+      unknownNote: legacyDetail?.items?.find((item) => item.itemNo === def.itemNo)?.unknownNote || undefined,
+      hypothesisNote: legacyDetail?.items?.find((item) => item.itemNo === def.itemNo)?.hypothesisNote || undefined,
     };
   });
 }
+
+function updateSummary() {
+  const counts = { YES: 0, NO: 0, UNKNOWN: 0 };
+  const attention = [];
+  ITEMS.forEach((def) => {
+    const checked = form.querySelector(`input[name="answer-${def.itemNo}"]:checked`);
+    if (!checked) return;
+    counts[checked.value] += 1;
+    if (checked.value === 'NO' || checked.value === 'UNKNOWN') {
+      attention.push({ def, answer: checked.value });
+    }
+  });
+  document.getElementById('yes-count').textContent = counts.YES;
+  document.getElementById('no-count').textContent = counts.NO;
+  document.getElementById('unknown-count').textContent = counts.UNKNOWN;
+
+  const area = document.getElementById('attention-area');
+  if (attention.length === 0) {
+    const answered = counts.YES + counts.NO + counts.UNKNOWN;
+    area.textContent = answered === 7
+      ? 'NO / UNKNOWNはありません。7項目の内容を確認してHuman Decisionを行ってください。'
+      : '7項目を選択すると、確認が必要な項目をここに表示します。';
+    return;
+  }
+  area.innerHTML = '<strong>確認してから判断する項目</strong><ul class="attention-list">' +
+    attention.map(({ def, answer }) =>
+      `<li><strong>${answer}</strong> — 項目${def.itemNo} ${def.axis}：${def.question}</li>`
+    ).join('') + '</ul>';
+}
+
+form.addEventListener('change', (e) => {
+  if (e.target.matches('input[name^="answer-"]')) updateSummary();
+});
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -275,14 +262,14 @@ form.addEventListener('submit', async (e) => {
   const payload = {
     customerName: document.getElementById('customer-name').value,
     checkedOn: document.getElementById('checked-on').value,
-    decisionMakerContext: document.getElementById('decision-maker-context').value || undefined,
-    engagementContext: document.getElementById('engagement-context').value || undefined,
+    decisionMakerContext: legacyDetail?.decisionMakerContext || undefined,
+    engagementContext: legacyDetail?.engagementContext || undefined,
     sourceContext: document.getElementById('source-context').value || undefined,
     items,
-    overallFacts: document.getElementById('overall-facts').value || undefined,
-    overallUnknowns: document.getElementById('overall-unknowns').value || undefined,
-    overallHypotheses: document.getElementById('overall-hypotheses').value || undefined,
-    nextActions: document.getElementById('next-actions').value || undefined,
+    overallFacts: legacyDetail?.overallFacts || undefined,
+    overallUnknowns: legacyDetail?.overallUnknowns || undefined,
+    overallHypotheses: legacyDetail?.overallHypotheses || undefined,
+    nextActions: legacyDetail?.nextActions || undefined,
     humanDecision: decisionChecked ? decisionChecked.value : undefined,
     decisionReason: document.getElementById('decision-reason').value || undefined,
   };
