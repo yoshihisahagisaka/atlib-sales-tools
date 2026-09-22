@@ -182,6 +182,42 @@ test('customer fit check: create -> save -> list -> reload -> edit -> change Hum
   assert.equal(detail2.items.length, 7); // 全置換後も7項目のまま（重複・欠落なし）
 });
 
+test('customer fit check: delete removes header and cascades seven items', async () => {
+  const payload = {
+    customerName: '削除テスト株式会社',
+    checkedOn: '2026-09-23',
+    sourceContext: '削除機能テスト',
+    items: sevenItems(),
+    humanDecision: 'B',
+    decisionReason: '削除確認用',
+  };
+  const createRes = await fetch(`${h.url}/api/admin/customer-fit-check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: h.staffCookie },
+    body: JSON.stringify(payload),
+  });
+  assert.equal(createRes.status, 201);
+  const { id } = (await createRes.json()) as { id: string };
+
+  const deleteRes = await fetch(`${h.url}/api/admin/customer-fit-check/${id}`, {
+    method: 'DELETE',
+    headers: { Cookie: h.staffCookie },
+  });
+  assert.equal(deleteRes.status, 204);
+
+  const detailRes = await fetch(`${h.url}/api/admin/customer-fit-check/${id}`, { headers: { Cookie: h.staffCookie } });
+  assert.equal(detailRes.status, 404);
+
+  const itemRows = await h.pool.query('SELECT COUNT(*)::int AS count FROM customer_fit_check_items WHERE check_id = $1', [id]);
+  assert.equal((itemRows.rows[0] as { count: number }).count, 0);
+
+  const deleteAgainRes = await fetch(`${h.url}/api/admin/customer-fit-check/${id}`, {
+    method: 'DELETE',
+    headers: { Cookie: h.staffCookie },
+  });
+  assert.equal(deleteAgainRes.status, 404);
+});
+
 test('customer fit check: A/B/C/D and 7 axes/questions are not auto-derived (static master data only)', async () => {
   const itemsRes = await fetch(`${h.url}/api/admin/customer-fit-check/items`, { headers: { Cookie: h.staffCookie } });
   const body = (await itemsRes.json()) as { items: unknown[]; humanDecisionOptions: unknown[] };
