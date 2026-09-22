@@ -339,3 +339,46 @@ Final `git status --short`: no output (clean worktree).
 - Credential values are intentionally not retained in Git documentation.
 - Customer Fit Check V1 remains Business Acceptance: PASS.
 - Staging credential rotation and plaintext-secret hardening: COMPLETE.
+
+
+## 14. 2026-09-23 Customer Fit UX simplification staging evidence
+
+Customer Fit Checkの自由記述過多を解消するUX simplificationをTemporary Stagingへ反映し、Business Acceptanceを再確認した。
+
+Source / build:
+- intended source commit: `4b1dde5`
+- initial local HEAD discovered during troubleshooting: `0331751`
+- local worktree was clean, then `git pull --ff-only` fast-forwarded `0331751..4b1dde5`
+- rebuilt runtime image: `customer-fit-ux-4b1dde5-v2`
+- Cloud Build: `52ea0e10-937d-40aa-8951-2c557ed52b98` — SUCCESS
+- deployed revision: `sales-tools-staging-00022-vhh`
+- traffic after verification: 100% to `sales-tools-staging-00022-vhh`
+
+Browser smoke test:
+- Customer Fit detail page open: PASS
+- input: PASS
+- save: PASS
+- list display: PASS
+
+### Incident / root cause
+
+Before the successful rebuild, the GitHub integration branch had already been advanced to `4b1dde5`, but the local build worktree remained at `0331751`. `gcloud builds submit .` therefore packaged the old local checkout.
+
+The resulting issue was not treated as a Customer Fit application defect. The build source and deployed artifact were corrected by synchronizing the local worktree to the intended commit and rebuilding.
+
+### Preventive build-source check
+
+Before any future `gcloud builds submit .` from a local worktree:
+
+1. require a clean or intentionally reviewed `git status --short`;
+2. verify `git rev-parse HEAD` / `git log -1 --oneline`;
+3. confirm that HEAD equals the reviewed source commit intended for the deployment;
+4. only then submit the local directory to Cloud Build.
+
+When GitHub branches are updated remotely by another operator/tool, do not assume an existing local worktree has synchronized automatically.
+
+Boundary:
+- staging only
+- Production unchanged
+- no new DB migration was required for this UX-only change
+- Customer Fit UX Simplification Business Acceptance: PASS
