@@ -65,6 +65,7 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   await db.exec(fs.readFileSync(path.join(root, 'migrations/015_management_feedback_decision.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/018_sales_conversation_intake.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/019_diagnosis_hearing_records.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/020_diagnosis_hearing_source_references.sql'), 'utf8'));
   }
   let tail = Promise.resolve();
   async function acquire() {

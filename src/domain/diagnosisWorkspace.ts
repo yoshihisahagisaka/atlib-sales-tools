@@ -21,7 +21,7 @@ export const resolutionSchema = z.object({ action: z.enum(['ASK','LATER','UNNECE
 export type RawSourceInput = z.infer<typeof rawSourceSchema>;
 export type ReconfirmInput = z.infer<typeof reconfirmFutureSchema>;
 export const SUGGESTION_TYPES = ['FOLLOW_UP','CLARIFY','CHECK_UNKNOWN','CHECK_CONTRADICTION','NEW_THEME'] as const;
-const refSchema = z.object({ source_ref_type: z.enum(['SURVEY_RESPONSE','SOURCE_RECORD']), source_ref_id: z.string().uuid(), relation: z.enum(['SUPPORTS','CONTRADICTS','RELATED']) }).strict();
+const refSchema = z.object({ source_ref_type: z.enum(['SURVEY_RESPONSE','SOURCE_RECORD','HEARING_RECORD']), source_ref_id: z.string().uuid(), source_revision_id:z.string().uuid().nullable().optional(), relation: z.enum(['SUPPORTS','CONTRADICTS','RELATED']) }).strict().superRefine((v,ctx)=>{if((v.source_ref_type==='HEARING_RECORD')!==(v.source_revision_id!=null))ctx.addIssue({code:z.ZodIssueCode.custom,message:'HEARING_RECORD_REVISION_REQUIRED'});});
 export const interviewOutputSchema = z.object({ suggestions: z.array(z.object({ suggestion_type: z.enum(SUGGESTION_TYPES), text, purpose: text,
  related_theme_id: z.string().uuid().nullable(), source_refs: z.array(refSchema).min(1).max(10) }).strict()).max(5) }).strict();
 export type InterviewOutput = z.infer<typeof interviewOutputSchema>;
@@ -29,13 +29,13 @@ const object = (properties: Record<string,unknown>) => ({type:'object',propertie
 const string = {type:'string'};
 export const INTERVIEW_JSON_SCHEMA = object({suggestions:{type:'array',items:object({
  suggestion_type:{type:'string',enum:SUGGESTION_TYPES},text:string,purpose:string,related_theme_id:{type:['string','null']},
- source_refs:{type:'array',items:object({source_ref_type:{type:'string',enum:['SURVEY_RESPONSE','SOURCE_RECORD']},source_ref_id:string,relation:{type:'string',enum:['SUPPORTS','CONTRADICTS','RELATED']}})}
+ source_refs:{type:'array',items:object({source_ref_type:{type:'string',enum:['SURVEY_RESPONSE','SOURCE_RECORD','HEARING_RECORD']},source_ref_id:string,source_revision_id:{type:['string','null']},relation:{type:'string',enum:['SUPPORTS','CONTRADICTS','RELATED']}})}
 })}});
 export function validateInterviewOutput(raw: unknown, sources: Set<string>, themes: Set<string>): InterviewOutput {
  const parsed=interviewOutputSchema.safeParse(raw);
  if (!parsed.success) throw new DiagnosisError(422,'AI_OUTPUT_SCHEMA_INVALID');
  for (const s of parsed.data.suggestions) {
-  for (const ref of s.source_refs) if (!sources.has(`${ref.source_ref_type}:${ref.source_ref_id}`)) throw new DiagnosisError(422,'AI_SOURCE_REF_INVALID');
+  for (const ref of s.source_refs) if (!sources.has(`${ref.source_ref_type}:${ref.source_ref_id}:${ref.source_revision_id??''}`) && !(ref.source_ref_type!=='HEARING_RECORD' && sources.has(`${ref.source_ref_type}:${ref.source_ref_id}`))) throw new DiagnosisError(422,'AI_SOURCE_REF_INVALID');
   if (s.related_theme_id && !themes.has(s.related_theme_id)) throw new DiagnosisError(422,'AI_THEME_REF_INVALID');
   const content=s.text+' '+s.purpose;
   if (/\b(FACT|CONFIRMED_FACT|score|maturity|rating|final_root_cause|verified|accurate|validity|currentness)\b/i.test(content)

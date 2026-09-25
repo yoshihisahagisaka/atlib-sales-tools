@@ -28,6 +28,7 @@ export async function buildInterviewAssistantContext(c: PoolClient, id: string, 
        ))
      )
    ORDER BY s.created_at DESC,s.id DESC LIMIT 20`,[id,includeTranscript]);
+ const {rows:hearing_records}=await c.query(`SELECT r.id,rv.id AS revision_id,r.question_code,r.question_version,rv.current_json->'answer' AS answer_json,rv.current_json->>'statement' AS statement,rv.current_json->>'unknownNote' AS unknown_note,rv.recorded_at FROM diagnosis_hearing_records r JOIN diagnosis_hearing_record_revisions rv ON rv.hearing_record_id=r.id AND rv.diagnosis_case_id=r.diagnosis_case_id AND rv.version=r.version WHERE r.diagnosis_case_id=$1 ORDER BY rv.recorded_at DESC,r.id DESC LIMIT 20`,[id]);
  const {rows:unknowns}=await c.query(`SELECT p.id,p.proposal_type,p.content_json FROM ai_proposals p JOIN ai_executions e ON e.id=p.ai_execution_id WHERE p.diagnosis_case_id=$1 AND e.process_type='PRE_DIAGNOSIS_ORGANIZER' AND p.proposal_type IN ('UNKNOWN','HYPOTHESIS') AND p.status IN ('GENERATED','UNDER_REVIEW','ACCEPTED','ACCEPTED_WITH_EDIT') ORDER BY p.created_at DESC LIMIT 10`,[id]);
  const {rows:recent}=await c.query(`SELECT p.id,p.status,p.content_json FROM ai_proposals p JOIN ai_executions e ON e.id=p.ai_execution_id WHERE p.diagnosis_case_id=$1 AND e.process_type='INTERVIEW_ASSISTANT' ORDER BY p.created_at DESC,p.display_order LIMIT 10`,[id]);
  // Snapshot includes only plan business fields; audit staff principals stay in DB.
@@ -36,9 +37,9 @@ export async function buildInterviewAssistantContext(c: PoolClient, id: string, 
   themes:snapshot.themes.slice(0,100).map((t: any)=>({id:t.id,title:t.title,description:t.description,future_relation:t.future_relation})),
   plan_items:snapshot.plan_items.slice(0,100).map((p: any)=>({id:p.id,diagnosis_theme_id:p.diagnosis_theme_id,item_type:p.item_type,text:p.text,purpose:p.purpose})),
  } : null;
- return { future:survey.future,questions:survey.questions,responses:survey.responses,confirmed_plan,themes,plan_items:plan,sources,preparation_unknowns_and_hypotheses:unknowns,recent_suggestions:recent };
+ return { future:survey.future,questions:survey.questions,responses:survey.responses,hearing_records,confirmed_plan,themes,plan_items:plan,sources,preparation_unknowns_and_hypotheses:unknowns,recent_suggestions:recent };
 }
 export type InterviewContext = Awaited<ReturnType<typeof buildInterviewAssistantContext>>;
 export function interviewSourceKeys(context: InterviewContext) {
- return new Set([...context.responses.map(r=>`SURVEY_RESPONSE:${r.id}`),...context.sources.map(r=>`SOURCE_RECORD:${r.id}`)]);
+ return new Set([...context.responses.map(r=>`SURVEY_RESPONSE:${r.id}:`),...context.sources.map(r=>`SOURCE_RECORD:${r.id}:`),...context.hearing_records.map(r=>`HEARING_RECORD:${r.id}:${r.revision_id}`)]);
 }

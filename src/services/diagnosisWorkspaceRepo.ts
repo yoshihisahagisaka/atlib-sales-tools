@@ -100,7 +100,7 @@ export class DiagnosisWorkspaceRepo {
     if(s.related_theme_id&&!(await c.query(`SELECT id FROM diagnosis_themes WHERE id=$1 AND diagnosis_case_id=$2 AND status='ACTIVE'`,[s.related_theme_id,execution.diagnosis_case_id])).rows.length)throw new DiagnosisError(422,'AI_THEME_REF_INVALID');
     const key=randomUUID();
     await c.query(`INSERT INTO ai_proposals(id,diagnosis_case_id,ai_execution_id,proposal_type,title,content_json,display_order) VALUES($1,$2,$3,$4,$5,$6,$7)`,[key,execution.diagnosis_case_id,execution.id,s.suggestion_type==='NEW_THEME'?'THEME':'QUESTION',s.text,JSON.stringify(s),index+1]);
-    for(const ref of s.source_refs)await c.query(`INSERT INTO ai_proposal_sources(ai_proposal_id,diagnosis_case_id,source_ref_type,source_ref_id,relation) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,[key,execution.diagnosis_case_id,ref.source_ref_type,ref.source_ref_id,ref.relation]);
+    for(const ref of s.source_refs)await c.query(`INSERT INTO ai_proposal_sources(ai_proposal_id,diagnosis_case_id,source_ref_type,source_ref_id,source_revision_id,relation) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`,[key,execution.diagnosis_case_id,ref.source_ref_type,ref.source_ref_id,ref.source_revision_id,ref.relation]);
    }
    await c.query(`UPDATE ai_executions SET status='SUCCEEDED',raw_output_json=$2,validation_status='VALID',completed_at=now(),updated_at=now() WHERE id=$1`,[execution.id,JSON.stringify(raw)]);
   });

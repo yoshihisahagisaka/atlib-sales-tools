@@ -26,6 +26,10 @@ export class DiagnosisReviewRepo {
  }
  private async theme(c:PoolClient,id:string,key:string|null){if(key&&!(await c.query(`SELECT id FROM diagnosis_themes WHERE id=$1 AND diagnosis_case_id=$2 AND status='ACTIVE'`,[key,id])).rows.length)throw new DiagnosisError(422,'同じ案件の有効なテーマを指定してください。');}
  private async validateInsight(c:PoolClient,id:string,raw:unknown):Promise<InsightInput>{
+  if(Array.isArray((raw as any)?.source_refs)&&((raw as any).source_refs as any[]).some(r=>r?.source_ref_type==='HEARING_RECORD')){
+   const p=insightInputSchema.safeParse(raw);if(!p.success)throw new DiagnosisError(422,'INSIGHT_SCHEMA_INVALID');const input=p.data;checkReviewBoundary(input.title+' '+input.content);await this.theme(c,id,input.diagnosis_theme_id);
+   for(const ref of input.source_refs){if(ref.source_ref_type==='HEARING_RECORD'){if(!(await c.query(`SELECT 1 FROM diagnosis_hearing_record_revisions WHERE id=$1 AND diagnosis_case_id=$2 AND hearing_record_id=$3`,[ref.source_revision_id,id,ref.source_ref_id])).rows.length)throw new DiagnosisError(422,'HEARING_SOURCE_REF_INVALID');}else{const table=ref.source_ref_type==='SURVEY_RESPONSE'?'survey_responses':'source_records';if(!(await c.query(`SELECT 1 FROM ${table} WHERE id=$1 AND diagnosis_case_id=$2`,[ref.source_ref_id,id])).rows.length)throw new DiagnosisError(422,'SOURCE_REF_INVALID');}}return input;
+  }
   const p=insightInputSchema.safeParse(raw);if(!p.success)throw new DiagnosisError(422,'Insightの意味区分・出典・UNKNOWN区分を確認してください。');const input=p.data;
   checkReviewBoundary(input.title+' '+input.content);await this.theme(c,id,input.diagnosis_theme_id);
   for(const ref of input.source_refs){const table=ref.source_ref_type==='SURVEY_RESPONSE'?'survey_responses':'source_records';if(!(await c.query(`SELECT id FROM ${table} WHERE id=$1 AND diagnosis_case_id=$2`,[ref.source_ref_id,id])).rows.length)throw new DiagnosisError(422,'同じ案件の実在する出典を指定してください。');}
@@ -33,7 +37,7 @@ export class DiagnosisReviewRepo {
  }
  private async insertInsight(c:PoolClient,id:string,actor:Actor,input:InsightInput,proposalId:string|null,previous?:{id:string;version:number}){
   const key=randomUUID();await c.query(`INSERT INTO diagnosis_insights(id,diagnosis_case_id,diagnosis_theme_id,semantic_type,title,content,unknown_type,area_tag,improvement_lens,review_status,source_ai_proposal_id,previous_insight_id,created_by,created_by_user_id,version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'HUMAN_APPROVED',$10,$11,$12,$13,$14)`,[key,id,input.diagnosis_theme_id,input.semantic_type,input.title,input.content,input.unknown_type,input.area_tag,input.improvement_lens,proposalId,previous?.id??null,proposalId&&!previous?'AI_ACCEPTED':'HUMAN',this.staff(actor),previous?previous.version+1:1]);
-  for(const ref of input.source_refs)await c.query('INSERT INTO insight_sources(diagnosis_insight_id,diagnosis_case_id,source_ref_type,source_ref_id,relation) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING',[key,id,ref.source_ref_type,ref.source_ref_id,ref.relation]);return key;
+  for(const ref of input.source_refs)await c.query('INSERT INTO insight_sources(diagnosis_insight_id,diagnosis_case_id,source_ref_type,source_ref_id,source_revision_id,relation) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',[key,id,ref.source_ref_type,ref.source_ref_id,ref.source_revision_id??null,ref.relation]);return key;
  }
  async enqueue(id:string,actor:Actor,provider:string,model:string){return this.tx(async c=>{
   await this.locked(c,id,actor);if((await c.query(`SELECT id FROM ai_executions WHERE diagnosis_case_id=$1 AND status IN ('PENDING','RUNNING')`,[id])).rows.length)throw new DiagnosisError(409,'AIは実行待ちまたは実行中です。');
@@ -49,7 +53,7 @@ export class DiagnosisReviewRepo {
    for(const [index,p] of output.insight_candidates.entries()){
     await this.validateInsight(c,execution.diagnosis_case_id,p);const key=randomUUID();
     await c.query('INSERT INTO ai_proposals(id,diagnosis_case_id,ai_execution_id,proposal_type,title,content_json,display_order) VALUES($1,$2,$3,$4,$5,$6,$7)',[key,execution.diagnosis_case_id,execution.id,p.semantic_type,p.title,JSON.stringify(p),index]);
-    for(const ref of p.source_refs)await c.query('INSERT INTO ai_proposal_sources(ai_proposal_id,diagnosis_case_id,source_ref_type,source_ref_id,relation) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING',[key,execution.diagnosis_case_id,ref.source_ref_type,ref.source_ref_id,ref.relation]);
+    for(const ref of p.source_refs)await c.query('INSERT INTO ai_proposal_sources(ai_proposal_id,diagnosis_case_id,source_ref_type,source_ref_id,source_revision_id,relation) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',[key,execution.diagnosis_case_id,ref.source_ref_type,ref.source_ref_id,ref.source_revision_id??null,ref.relation]);
    }
    for(const p of output.assessment_confirmation_items)await this.theme(c,execution.diagnosis_case_id,p.diagnosis_theme_id);
    // Assessment candidates remain only in validated raw output until a Human command.
@@ -96,7 +100,7 @@ export class DiagnosisReviewRepo {
   await this.review(c,id,actor,'ASSESSMENT_CONFIRMATION_ITEM',key,'APPROVE',candidate,{id:key,...p},'');await this.audit(c,id,actor,'CreateAssessmentConfirmationItem',{id:key});return {id:key};
  });}
  private async approved(c:PoolClient,id:string){
-  const {rows:insights}=await c.query(`SELECT i.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('source_ref_type',s.source_ref_type,'source_ref_id',s.source_ref_id,'relation',s.relation)) FROM insight_sources s WHERE s.diagnosis_insight_id=i.id),'[]'::jsonb) AS source_refs FROM diagnosis_insights i WHERE i.diagnosis_case_id=$1 AND i.review_status='HUMAN_APPROVED' ORDER BY i.created_at,i.id`,[id]);return insights;
+  const {rows:insights}=await c.query(`SELECT i.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('source_ref_type',s.source_ref_type,'source_ref_id',s.source_ref_id,'source_revision_id',s.source_revision_id,'relation',s.relation)) FROM insight_sources s WHERE s.diagnosis_insight_id=i.id),'[]'::jsonb) AS source_refs FROM diagnosis_insights i WHERE i.diagnosis_case_id=$1 AND i.review_status='HUMAN_APPROVED' ORDER BY i.created_at,i.id`,[id]);return insights;
  }
  async reportContext(id:string,actor:Actor){return this.tx(async c=>{
   await this.locked(c,id,actor,false);const {rows:future}=await c.query('SELECT id,statement,time_horizon,intent_status,version FROM diagnosis_futures WHERE diagnosis_case_id=$1 AND is_current',[id]);
