@@ -21,13 +21,7 @@ const staff: Actor = {
 before(async () => {
   h = await createDiagnosisHarness();
 
-  // Apply 019 only to this disposable PGlite database.
-  const migration = path.resolve(
-    __dirname,
-    '../migrations/019_diagnosis_hearing_records.sql',
-  );
-
-  await h.db.exec(fs.readFileSync(migration, 'utf8'));
+  // Migration 019 is applied by createDiagnosisHarness().
   hearing = new DiagnosisHearingRepo(h.pool);
 });
 
