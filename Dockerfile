@@ -23,12 +23,24 @@ COPY migrations/*.sql ./migrations/
 USER node
 CMD ["node", "dist/db/migrateCli.js"]
 
-FROM node:22-alpine AS runtime
+# Runtime dependencies are installed on Debian to match the Chromium runtime.
+FROM node:22-bookworm-slim AS runtime-deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ARG SOURCE_REVISION
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
-COPY --from=production-deps /app/node_modules ./node_modules
+
+COPY --from=runtime-deps /app/node_modules ./node_modules
+RUN mkdir -p /ms-playwright \
+    && node ./node_modules/playwright/cli.js install --with-deps chromium \
+    && chmod -R a+rX /ms-playwright
+
 COPY --from=build /app/dist ./dist
 COPY public ./public
 USER node
