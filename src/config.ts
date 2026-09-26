@@ -35,6 +35,7 @@ export interface Config {
     // 本番はSecret Manager (sales-tools-anthropic-api-key) をCloud Runの--set-secretsで環境変数に注入する運用とする。
     anthropicApiKey?: string;
   };
+  diagnosisReportPdfBucket?: string;
 }
 
 /**
@@ -107,5 +108,6 @@ export async function loadConfig(): Promise<Config> {
     aiAssist: {
       anthropicApiKey: process.env.ANTHROPIC_API_KEY || undefined,
     },
+    diagnosisReportPdfBucket: process.env.DIAGNOSIS_REPORT_PDF_GCS_BUCKET || undefined,
   };
 }
