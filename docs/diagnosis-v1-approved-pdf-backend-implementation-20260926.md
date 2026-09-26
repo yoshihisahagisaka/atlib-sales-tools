@@ -12,4 +12,4 @@ The approved-report PDF backend reuses migrations 021/022 and adds migration 023
 
 - Service integration tests use a mock GCS store and verify approved generation, READY reuse, source hash mismatch rejection, cross-case rejection, failure-to-FAILED handling, and verified download.
 - A READY artifact is revalidated against the current approved snapshot hash before reuse.
-- HTTP router behavior remains covered by route-level guards; end-to-end authenticated HTTP coverage is still required before production enablement.
+- Authenticated Express integration covers the three PDF endpoints, unauthenticated rejection, report/case scope rejection, status, and PDF response headers.
