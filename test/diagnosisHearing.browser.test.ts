@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { createDiagnosisHarness } from './support/diagnosisHarness';
 import { completedCase } from './support/preparationFixtures';
+import { SalesIntakeRepo } from '../src/services/salesIntakeRepo';
 
 let h: Awaited<ReturnType<typeof createDiagnosisHarness>>;
 
@@ -200,4 +201,74 @@ test('初回記録と訂正履歴を保持し元のWeb回答を変更しない',
   await expect(history).toContainText('録音内容との照合により発言を訂正');
   await expect(history).toContainText('初回ヒアリングでの発言');
   await expect(history).toContainText('訂正後の顧客発言');
+});
+
+test('事前Web回答なしでも案件概要からヒアリングを開始できる', async ({ page }) => {
+  const actor = { kind: 'STAFF' as const, userId: 'operator@atlib.jp' };
+  const intake = new SalesIntakeRepo(h.pool);
+  const draft = await intake.save(actor, {
+    customer: {
+      companyName: '事前回答なし株式会社',
+      contactName: '確認担当者',
+      email: 'no-survey@example.test',
+      phone: '',
+    },
+    customerStatements: ['訪問時に顧客から話を伺った'],
+    unknowns: ['詳細な運用状況は未確認'],
+    salespersonNotes: [],
+    surveyAnswers: {},
+  });
+  const c = await intake.consentAndStart(draft.id, actor, {
+    expectedVersion: draft.version,
+    customerAgreed: true,
+    customerReference: '確認担当者',
+  });
+
+  await page.goto(
+    `${h.url}/admin/it-management-diagnosis-detail.html?id=${c.id}`
+  );
+
+  const link = page.locator('#hearing-link');
+  await expect(link).toBeVisible();
+  await link.click();
+
+  await expect(page).toHaveURL(
+    new RegExp(`/admin/it-management-diagnosis-hearing\\.html\\?id=${c.id}$`)
+  );
+  await expect(page.locator('#hearing-questions section')).toHaveCount(10);
+  await expect(page.locator('.hearing-source')).toHaveCount(10);
+  await expect(page.locator('.hearing-source').first())
+    .toContainText('事前回答なし');
+
+  const first = page.locator('#hearing-questions section').first();
+  await first.getByLabel('顧客の発言原文')
+    .fill('訪問時に顧客から直接確認した発言');
+  await first.getByLabel('未確認事項・次回確認すること')
+    .fill('詳細な運用状況は次回確認する');
+
+  await first.getByRole('button', { name: '記録を保存' }).click();
+
+  await expect(first.getByRole('button', { name: '訂正を保存' }))
+    .toBeVisible();
+
+  const response = await page.request.get(
+    `${h.url}/api/admin/it-management-diagnosis/cases/${c.id}/hearing`,
+    {
+      headers: {
+        Cookie: h.staffCookie,
+        'X-Diagnosis-Command': '1',
+      },
+    }
+  );
+
+  expect(response.ok()).toBeTruthy();
+  const data = await response.json();
+
+  expect(data.originalResponses).toHaveLength(0);
+  expect(data.hearing).toHaveLength(1);
+  expect(data.hearing[0].version).toBe(1);
+  expect(data.hearing[0].statement)
+    .toBe('訪問時に顧客から直接確認した発言');
+  expect(data.hearing[0].unknown_note)
+    .toBe('詳細な運用状況は次回確認する');
 });
