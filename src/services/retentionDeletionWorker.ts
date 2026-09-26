@@ -139,6 +139,15 @@ async function approvedEvidenceInventory(c:PoolClient,caseId:string){
 export class RetentionDeletionWorker {
   constructor(private readonly pool:Pool){}
 
+  async listApprovedRequests(limit:number):Promise<Array<{id:string;diagnosis_case_id:string}>> {
+    const {rows}=await this.pool.query<{id:string;diagnosis_case_id:string}>('SELECT id,diagnosis_case_id FROM diagnosis_deletion_requests WHERE status=\'APPROVED\' ORDER BY approved_at ASC LIMIT $1',[limit]);
+    return rows;
+  }
+
+  async markFailed(caseId:string,requestId:string,code:string):Promise<void> {
+    await this.pool.query('UPDATE diagnosis_deletion_requests SET status=\'FAILED\',failure_code=$3,updated_at=now() WHERE id=$1 AND diagnosis_case_id=$2 AND status=\'APPROVED\'',[requestId,caseId,code]);
+  }
+
   async executeApprovedRequest(caseId:string,requestId:string,executedByUserId:string):Promise<DeletionExecutionResult>{
     assertStaffUserId(executedByUserId);
     const c=await this.pool.connect();

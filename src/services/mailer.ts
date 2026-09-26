@@ -17,6 +17,11 @@ export interface DiagnosticNotificationSummary {
 export class Mailer {
   private readonly transporter: Transporter;
 
+  async sendInfraVisionPartnerLeadNotification(to:string,params:{company:string;name:string;email:string;phone?:string;detailUrl:string}):Promise<void>{await this.transporter.sendMail({from:this.config.from,to,replyTo:params.email,subject:`【InfraVisionパートナー】新規相談: ${params.company} 様`,text:[`会社名: ${params.company}`,`担当者: ${params.name}`,`メール: ${params.email}`,params.phone?`電話番号: ${params.phone}`:null,'',`管理画面: ${params.detailUrl}`].filter((x):x is string=>x!==null).join('\n')})}
+  async sendInfraVisionPartnerLeadThanks(to:string,params:{name:string;scheduleUrl:string}):Promise<void>{await this.transporter.sendMail({from:this.config.from,to,subject:'InfraVision パートナー協業のご相談ありがとうございます - atLIB株式会社',text:[`${params.name} 様`,'','この度はInfraVisionのパートナー協業についてお問い合わせいただき、ありがとうございます。','下記よりご都合のよい日時をお選びください。','',params.scheduleUrl,'','※このメールは自動送信されています。'].join('\n')})}
+  async sendWebDevelopmentPartnerLeadNotification(to:string,params:{company:string;name:string;email:string;phone?:string;detailUrl:string}):Promise<void>{await this.transporter.sendMail({from:this.config.from,to,replyTo:params.email,subject:`【Web Development Partner】新規相談: ${params.company} 様`,text:[`会社名: ${params.company}`,`担当者: ${params.name}`,`メール: ${params.email}`,params.phone?`電話番号: ${params.phone}`:null,'',`管理画面: ${params.detailUrl}`].filter((x):x is string=>x!==null).join('\n')})}
+  async sendWebDevelopmentPartnerLeadThanks(to:string,params:{name:string;scheduleUrl:string}):Promise<void>{await this.transporter.sendMail({from:this.config.from,to,subject:'Web Development Partner のご相談ありがとうございます - atLIB株式会社',text:[`${params.name} 様`,'','この度はWeb Development Partnerについてお問い合わせいただき、ありがとうございます。','下記よりご都合のよい日時をお選びください。','',params.scheduleUrl,'','※このメールは自動送信されています。'].join('\n')})}
+
   async sendItManagementSurveyNotification(to: string, detailUrl: string): Promise<void> {
     await this.transporter.sendMail({
       from: this.config.from, to, subject: '【無料 IT経営診断】アンケート回答完了 - atLIB株式会社',
