@@ -1,0 +1,45 @@
+name: isolated-migration-allowlist-rehearsal
+
+on:
+  workflow_dispatch:
+
+jobs:
+  postgres16-rehearsal:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 55437:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node -r ts-node/register --test test/migrationAllowlistArtifact.golden.test.ts test/migrationAllowlistRehearsalFixture.golden.test.ts
+      - run: node scripts/migration/rehearseAllowlistPostgres.cjs
+        env:
+          RUN_ISOLATED_MIGRATION_REHEARSAL: '1'
+          ISOLATED_PG_REHEARSAL: p2-12
+          ISOLATED_PG_HOST: 127.0.0.1
+          ISOLATED_PG_PORT: '55437'
+          ISOLATED_PG_ADMIN_USER: postgres
+          ISOLATED_PG_ADMIN_PASSWORD: postgres
+          ISOLATED_REHEARSAL_EVIDENCE_PATH: ${{ runner.temp }}/migration-allowlist-rehearsal.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: migration-allowlist-postgres16-rehearsal
+          path: ${{ runner.temp }}/migration-allowlist-rehearsal.json
+          if-no-files-found: error

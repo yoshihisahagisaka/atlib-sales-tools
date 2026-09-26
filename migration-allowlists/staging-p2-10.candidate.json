@@ -1,0 +1,69 @@
+{
+  "status": "DRAFT_LEDGER_EVIDENCE_VERIFIED_REHEARSAL_PENDING",
+  "environment": "staging",
+  "database": "sales_tools_staging_f4",
+  "ledger_source": {
+    "execution": "sales-tools-staging-migration-018-ledger-verifier-hdjd6",
+    "entry_count": 20,
+    "snapshot_path": "migration-allowlists/evidence/staging-ledger-hdjd6.json",
+    "snapshot_size_bytes": 1839,
+    "original_json_sha256": "0d0997d1d849987d6240c3862b72d35cb8ccc30550c760841ee61db3f57f9ca3",
+    "requirement": "Set only from the byte-for-byte read-only ledger JSON original; do not hash a reconstructed filename list."
+  },
+  "source_commit": "87bc5620151cd1cc46ef5ca95cf26b2134aa37f6",
+  "artifact_generation": {
+    "permitted": false,
+    "unblock_when": [
+      "original_json_sha256 is recorded from the ledger JSON original",
+      "each SQL hash is independently rechecked",
+      "DB and release approvers approve this manifest",
+      "PostgreSQL 16 isolated rehearsal passes"
+    ]
+  },
+  "expected_unapplied_filenames": [
+    "019_diagnosis_hearing_records.sql",
+    "019_web_development_partner_leads.sql",
+    "020_diagnosis_hearing_source_references.sql",
+    "021_diagnosis_report_pdf_artifacts.sql",
+    "022_diagnosis_report_pdf_generation_lease.sql",
+    "023_diagnosis_report_pdf_source_content_hash.sql"
+  ],
+  "migrations": [
+    {
+      "filename": "019_diagnosis_hearing_records.sql",
+      "sha256": "c475f50fedc946e588cc8fba64d2674c623f77ea03ebe2c78a1ec593d863a507",
+      "depends_on_applied": ["007_it_management_diagnosis.sql"],
+      "release_scope": "diagnosis hearing records"
+    },
+    {
+      "filename": "019_web_development_partner_leads.sql",
+      "sha256": "50ccdf3664d6fb372b7493bb337257d3f3366a7481deb487037b1b82c9b05621",
+      "depends_on_applied": ["001_isms_diagnostic.sql", "018_runtime_table_privileges.sql"],
+      "release_scope": "Web Development Partner lead funnel"
+    },
+    {
+      "filename": "020_diagnosis_hearing_source_references.sql",
+      "sha256": "81963de6c2e98b13d5f478216983c5d92530f1eeb6ad618ef5fa7c55d873c133",
+      "depends_on_allowlist": ["019_diagnosis_hearing_records.sql"],
+      "release_scope": "hearing revision citations"
+    },
+    {
+      "filename": "021_diagnosis_report_pdf_artifacts.sql",
+      "sha256": "934ef483f8862eb2b1ecde56b7dee2e973e27c636dad9f35f44f889b7a890f21",
+      "depends_on_applied": ["011_it_management_diagnosis_report_feedback.sql"],
+      "release_scope": "approved report PDF artifacts"
+    },
+    {
+      "filename": "022_diagnosis_report_pdf_generation_lease.sql",
+      "sha256": "32a080800fe331b2edecf4e0795f98c3ab1d4c3cb5579ca5e4d23440337a1ace",
+      "depends_on_allowlist": ["021_diagnosis_report_pdf_artifacts.sql"],
+      "release_scope": "PDF generation lease"
+    },
+    {
+      "filename": "023_diagnosis_report_pdf_source_content_hash.sql",
+      "sha256": "8e71b2af904c209e1c9ce3a5e22d85c21971d4e620efa2a10397d24e8519a13b",
+      "depends_on_allowlist": ["021_diagnosis_report_pdf_artifacts.sql", "022_diagnosis_report_pdf_generation_lease.sql"],
+      "release_scope": "PDF approved-content binding"
+    }
+  ]
+}

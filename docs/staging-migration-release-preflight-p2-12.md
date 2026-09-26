@@ -1,0 +1,68 @@
+# P2-12 staging migration release preflight
+
+This is an approval proposal and a runbook, not an executable migration artifact. The only manifest remains `migration-allowlists/staging-p2-10.candidate.json` and is deliberately DRAFT with artifact generation forbidden.
+
+## Verified local inputs
+
+| Input | Verified value | Result |
+| --- | --- | --- |
+| Branch / HEAD | `feat/free-diagnosis-sales-launch` / `87bc5620151cd1cc46ef5ca95cf26b2134aa37f6` | HEAD matches the recorded source commit, but the working tree is not clean and therefore is not a reviewed release checkout. |
+| Staging ledger evidence | `migration-allowlists/evidence/staging-ledger-hdjd6.json`, 20 entries, 1,839 bytes | SHA-256 `0d0997d1d849987d6240c3862b72d35cb8ccc30550c760841ee61db3f57f9ca3` |
+| Unapplied set | six formal filenames below | Exact set equality with the tree's ledger-unapplied SQL files. |
+| Draft generation | `artifact_generation.permitted: false` | `buildAllowlistArtifact.cjs` rejects it before any context is created. |
+
+| Filename | SHA-256 |
+| --- | --- |
+| `019_diagnosis_hearing_records.sql` | `c475f50fedc946e588cc8fba64d2674c623f77ea03ebe2c78a1ec593d863a507` |
+| `019_web_development_partner_leads.sql` | `50ccdf3664d6fb372b7493bb337257d3f3366a7481deb487037b1b82c9b05621` |
+| `020_diagnosis_hearing_source_references.sql` | `81963de6c2e98b13d5f478216983c5d92530f1eeb6ad618ef5fa7c55d873c133` |
+| `021_diagnosis_report_pdf_artifacts.sql` | `934ef483f8862eb2b1ecde56b7dee2e973e27c636dad9f35f44f889b7a890f21` |
+| `022_diagnosis_report_pdf_generation_lease.sql` | `32a080800fe331b2edecf4e0795f98c3ab1d4c3cb5579ca5e4d23440337a1ace` |
+| `023_diagnosis_report_pdf_source_content_hash.sql` | `8e71b2af904c209e1c9ce3a5e22d85c21971d4e620efa2a10397d24e8519a13b` |
+
+`019_diagnosis_hearing_records.sql` sorts before `019_web_development_partner_leads.sql`; numeric prefix collisions are never used as an identity. Ledger-only `017_customer_fit_checks.sql` is evidence only and is neither restored nor included.
+
+## Isolated rehearsal evidence
+
+No PostgreSQL 16 rehearsal has run on this workstation: Docker Engine access is denied and no local `psql` command exists. This is **NO-GO** evidence, not a successful rehearsal.
+
+The manual GitHub Actions workflow `.github/workflows/migration-allowlist-rehearsal.yml` is the approved isolated execution path. It uses a GitHub-hosted `postgres:16-alpine` service on loopback only, starts from tree `001`–`018`, seeds the second database from the raw 20-row JSON, and proves application order, exact-filename skip, transaction rollback, 26-row final ledger, and migration/runtime-role separation. Its sole retained output is a non-sensitive result JSON artifact. It has not been dispatched.
+
+## Approval proposal
+
+Do not edit the candidate manifest until all of these are attached to the change request:
+
+1. A reviewed, committed, clean checkout SHA replacing the current provisional `source_commit` value.
+2. A successful isolated workflow artifact whose `ledger_entries` is 20 and whose allowlist exactly matches this document.
+3. DB and release-owner approval of the raw-ledger hash, six SQL hashes, target database name, and migration-role identity.
+4. A new read-only staging ledger snapshot taken immediately before execution, with the same filename set and approved hash; otherwise start a new review.
+
+Only then may an authorized release owner change the manifest to `APPROVED_FOR_ARTIFACT_GENERATION` and set `artifact_generation.permitted` to `true`. That action is outside this preparation task and must be reviewed as a distinct diff.
+
+## Dedicated image procedure after approval
+
+1. Check out the approved clean SHA and run `npm ci` and `npm run build`.
+2. Recompute the raw ledger and SQL hashes, then generate an empty output context with `buildAllowlistArtifact.cjs`, supplying the exact approved SHA.
+3. Inspect the generated `migrations/` directory: it must contain exactly the six filenames in this document and no other `*.sql` files.
+4. Build only the generated context using its copied `Dockerfile`, passing `SOURCE_REVISION` equal to the approved SHA. Record the immutable image digest and OCI revision label.
+5. Inspect the image before any Job exists: `/app/migrations` must contain exactly the six files and the image command must be `node dist/db/migrateCli.js`.
+6. Configure the migration Job with `MIGRATIONS_DIR=/app/migrations`, the staging database `sales_tools_staging_f4`, and the separately approved migration role. Do not provide a runtime role or a full migration directory.
+
+## Staging execution and post-run ledger procedure
+
+This section requires separate execution approval. Before running, compare the Job's target database, Cloud SQL target, service account, migration role, `MIGRATIONS_DIR`, image digest, and revision label with the approved record. Any mismatch is a hard stop.
+
+After a successful Job, obtain a new read-only ledger JSON and verify that the original 20 entries remain and exactly the six formal filenames were added. Verify no `006`–`016` or other diagnosis SQL was newly applied, then run the approved synthetic Partner, diagnosis, Scheduler, and PDF smoke tests. On Job failure, stop further deployments; retain logs and ledger evidence. Do not retry with a different image or broader migration directory.
+
+## GO / NO-GO matrix
+
+| Gate | Current state | Decision |
+| --- | --- | --- |
+| DRAFT artifact fail-closed | Verified | PASS |
+| Ledger and SQL hash equality | Verified | PASS |
+| Dedicated Dockerfile/context design | Verified statically | PASS |
+| Clean reviewed commit | Working tree is dirty | NO-GO |
+| PostgreSQL 16 isolated rehearsal | Workflow prepared, not run | NO-GO |
+| Immediate staging ledger confirmation | Not permitted in this task | NO-GO |
+| Staging Job DB target/role/image inspection | Not permitted in this task | NO-GO |
+| Manifest authorization | Still DRAFT | NO-GO |
