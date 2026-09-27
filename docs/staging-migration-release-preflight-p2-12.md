@@ -66,3 +66,17 @@ After a successful Job, obtain a new read-only ledger JSON and verify that the o
 | Immediate staging ledger confirmation | Not permitted in this task | NO-GO |
 | Staging Job DB target/role/image inspection | Not permitted in this task | NO-GO |
 | Manifest authorization | Still DRAFT | NO-GO |
+
+## P2-17 staging ledger revalidation (2026-09-27)
+
+The existing read-only verifier Job `sales-tools-staging-migration-018-ledger-verifier` was executed once as `sales-tools-staging-migration-018-ledger-verifier-62knr` and completed successfully. Its immutable image digest was `sha256:0c0ed3020c2ec52db00e869992dfb6ab1df4db06f0d878c8825cd04ca9787c59`; command was `node dist/db/migrationLedgerVerifierCli.js`; target database was `sales_tools_staging_f4` through Cloud SQL instance `msp-zabbix:asia-northeast1:sales-tools-staging-db`, using `sales_tools_migration` and the named Secret reference `sales-tools-migration-db-password`. The verifier begins a read-only transaction, selects only `schema_migrations`, and rolls back.
+
+The returned ledger JSON was byte-for-byte identical to `migration-allowlists/evidence/staging-ledger-hdjd6.json`: 20 entries, 1,839 bytes, SHA-256 `0d0997d1d849987d6240c3862b72d35cb8ccc30550c760841ee61db3f57f9ca3`. All filenames and `applied_at` values matched. Against Git commit `45f3b3eae4c7c520b9144fcf9a6991cf1459ec1f`, the ledger-unapplied SQL set remained exactly the six formal filenames in the draft manifest.
+
+At the completion of P2-17, this revalidation did not authorize artifact generation or migration. P2-18 records the separately reviewed artifact-only approval below; staging migration remains unapproved.
+
+## P2-18 artifact-only approval and Job proposal
+
+The manifest approval is restricted to generation and inspection of a dedicated six-SQL image. Its source commit is `45f3b3eae4c7c520b9144fcf9a6991cf1459ec1f`; release-record commit and image digest must be recorded separately. Build from a Linux clean checkout so Git blob bytes, rather than a Windows CRLF-converted working tree, are hashed. The image must expose only `/app/migrations` with the six allowlisted SQL files, use `node dist/db/migrateCli.js`, and run with `MIGRATIONS_DIR=/app/migrations`.
+
+Proposed Staging migration Job is a new immutable-digest Job, not an update to `sales-tools-staging-migration-018-ledger-verifier`. It must use database `sales_tools_staging_f4`, migration user `sales_tools_migration`, Cloud SQL socket `msp-zabbix:asia-northeast1:sales-tools-staging-db`, and the named Secret reference `sales-tools-migration-db-password`; it must not use the runtime role. Its image URI/digest, service account, command, and environment names require a separate execution approval after image inspection. No Job creation, update, execution, or migration is authorized by this record.

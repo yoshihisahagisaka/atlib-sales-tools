@@ -1,5 +1,5 @@
 {
-  "status": "DRAFT_LEDGER_EVIDENCE_VERIFIED_REHEARSAL_PENDING",
+  "status": "APPROVED_FOR_ARTIFACT_GENERATION",
   "environment": "staging",
   "database": "sales_tools_staging_f4",
   "ledger_source": {
@@ -10,15 +10,23 @@
     "original_json_sha256": "0d0997d1d849987d6240c3862b72d35cb8ccc30550c760841ee61db3f57f9ca3",
     "requirement": "Set only from the byte-for-byte read-only ledger JSON original; do not hash a reconstructed filename list."
   },
-  "source_commit": "87bc5620151cd1cc46ef5ca95cf26b2134aa37f6",
+  "source_commit": "45f3b3eae4c7c520b9144fcf9a6991cf1459ec1f",
   "artifact_generation": {
-    "permitted": false,
-    "unblock_when": [
-      "original_json_sha256 is recorded from the ledger JSON original",
-      "each SQL hash is independently rechecked",
-      "DB and release approvers approve this manifest",
-      "PostgreSQL 16 isolated rehearsal passes"
-    ]
+    "permitted": true,
+    "scope": "Build and inspect a six-SQL migration image only. It does not authorize a Cloud Run Job change, execution, or staging migration."
+  },
+  "approval_evidence": {
+    "isolated_rehearsal": {
+      "run_id": "36279786839",
+      "evidence_sha256": "5e828ccc6760fdadcbae46e07ed9618c0075c9c87e35f401a3d22d40ddcd7d3e"
+    },
+    "staging_ledger_revalidation": {
+      "execution": "sales-tools-staging-migration-018-ledger-verifier-62knr",
+      "entry_count": 20,
+      "snapshot_size_bytes": 1839,
+      "original_json_sha256": "0d0997d1d849987d6240c3862b72d35cb8ccc30550c760841ee61db3f57f9ca3",
+      "result": "byte-for-byte identical to ledger_source.snapshot_path"
+    }
   },
   "expected_unapplied_filenames": [
     "019_diagnosis_hearing_records.sql",

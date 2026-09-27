@@ -19,7 +19,7 @@ const fail = message => { throw new Error(`ISOLATED_MIGRATION_REHEARSAL_INVALID:
 function loadFixture(root) {
   const manifestPath = path.join(root, 'migration-allowlists', 'staging-p2-10.candidate.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  if (!String(manifest.status).startsWith('DRAFT') || manifest.artifact_generation?.permitted !== false) fail('MANIFEST_MUST_REMAIN_DRAFT');
+  if (!['DRAFT_LEDGER_EVIDENCE_VERIFIED_REHEARSAL_PENDING', 'APPROVED_FOR_ARTIFACT_GENERATION'].includes(manifest.status) || typeof manifest.artifact_generation?.permitted !== 'boolean') fail('MANIFEST_STATUS');
   const ledgerPath = path.resolve(root, manifest.ledger_source?.snapshot_path || '');
   if (!fs.existsSync(ledgerPath) || sha256(ledgerPath) !== manifest.ledger_source?.original_json_sha256) fail('LEDGER_HASH');
   const ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf8'));
