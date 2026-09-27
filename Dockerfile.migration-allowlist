@@ -13,6 +13,7 @@ LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY dist ./dist
+RUN test -f ./dist/db/migrateCli.js && node -e "require('./dist/db/migrateCli.js')"
 COPY migrations ./migrations
 COPY manifest.json ./migration-allowlist-manifest.json
 USER node

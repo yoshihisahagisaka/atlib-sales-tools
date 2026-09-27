@@ -8,6 +8,7 @@ import test from 'node:test';
 const root = path.resolve(__dirname, '..');
 const script = require('../scripts/migration/buildAllowlistArtifact.cjs') as {
   verify(root: string, manifestPath: string): unknown;
+  verifyRuntimeBuild(root: string): unknown;
 };
 const candidatePath = path.join(root, 'migration-allowlists', 'staging-p2-10.candidate.json');
 
@@ -47,5 +48,14 @@ test('approved manifest verifies raw ledger and all six Linux Git-blob SQL hashe
     assert.doesNotThrow(() => script.verify(fixture.root, fixture.manifestPath));
   } finally {
     fs.rmSync(fixture.root, {recursive: true, force: true});
+  }
+});
+
+test('artifact generation fails closed when the compiled migration CLI is absent', () => {
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'migration-runtime-'));
+  try {
+    assert.throws(() => script.verifyRuntimeBuild(fixture), /RUNTIME_BUILD_MISSING:dist\/db\/migrateCli\.js/);
+  } finally {
+    fs.rmSync(fixture, {recursive: true, force: true});
   }
 });

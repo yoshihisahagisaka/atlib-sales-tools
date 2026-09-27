@@ -61,11 +61,13 @@ After a successful Job, obtain a new read-only ledger JSON and verify that the o
 | DRAFT artifact fail-closed | Verified | PASS |
 | Ledger and SQL hash equality | Verified | PASS |
 | Dedicated Dockerfile/context design | Verified statically | PASS |
-| Clean reviewed commit | Working tree is dirty | NO-GO |
-| PostgreSQL 16 isolated rehearsal | Workflow prepared, not run | NO-GO |
-| Immediate staging ledger confirmation | Not permitted in this task | NO-GO |
-| Staging Job DB target/role/image inspection | Not permitted in this task | NO-GO |
-| Manifest authorization | Still DRAFT | NO-GO |
+| Reviewed release commit | `1c701923d2551012627c67d58b974f2b8ebff2a9` pushed; only protected local backup remains untracked | PASS |
+| PostgreSQL 16 isolated rehearsal | Run `36279786839` passed; evidence SHA-256 `5e828ccc6760fdadcbae46e07ed9618c0075c9c87e35f401a3d22d40ddcd7d3e` | PASS |
+| Immediate staging ledger confirmation | P2-17 verifier execution `sales-tools-staging-migration-018-ledger-verifier-62knr` returned the approved 20-entry, 1,839-byte ledger evidence | PASS |
+| Dedicated image inspection | Digest-fixed registry image contains exactly six allowlisted SQL files with matching SHA-256 values | PASS |
+| Staging Job DB target/role/image inspection | P2-19 Job configuration read back and matched this record; it has not been executed | PASS |
+| Manifest authorization | `APPROVED_FOR_ARTIFACT_GENERATION`; this is not migration-execution approval | PASS |
+| Staging migration execution | Not authorized or executed | NO-GO |
 
 ## P2-17 staging ledger revalidation (2026-09-27)
 
@@ -80,3 +82,17 @@ At the completion of P2-17, this revalidation did not authorize artifact generat
 The manifest approval is restricted to generation and inspection of a dedicated six-SQL image. Its source commit is `45f3b3eae4c7c520b9144fcf9a6991cf1459ec1f`; release-record commit and image digest must be recorded separately. Build from a Linux clean checkout so Git blob bytes, rather than a Windows CRLF-converted working tree, are hashed. The image must expose only `/app/migrations` with the six allowlisted SQL files, use `node dist/db/migrateCli.js`, and run with `MIGRATIONS_DIR=/app/migrations`.
 
 Proposed Staging migration Job is a new immutable-digest Job, not an update to `sales-tools-staging-migration-018-ledger-verifier`. It must use database `sales_tools_staging_f4`, migration user `sales_tools_migration`, Cloud SQL socket `msp-zabbix:asia-northeast1:sales-tools-staging-db`, and the named Secret reference `sales-tools-migration-db-password`; it must not use the runtime role. Its image URI/digest, service account, command, and environment names require a separate execution approval after image inspection. No Job creation, update, execution, or migration is authorized by this record.
+
+## P2-19 registry image and unexecuted Job verification (2026-09-27)
+
+The approved image was pushed to `asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/sales-tools-staging-migration-allowlist@sha256:61082b6961220afa93902fc098a38296138ae95cbded0c5e3324eac0daf6b864`. Registry re-pull confirmed OCI revision label `1c701923d2551012627c67d58b974f2b8ebff2a9`, default command `node dist/db/migrateCli.js`, and exactly the six manifest SQL files with their recorded SHA-256 values.
+
+New Job `sales-tools-staging-migration-allowlist-p2-18` was created without execution. Read-back configuration is image digest above; command `node dist/db/migrateCli.js`; `MIGRATIONS_DIR=/app/migrations`; `DB_NAME=sales_tools_staging_f4`; `DB_MIGRATION_USER=sales_tools_migration`; `DB_SOCKET_PATH=/cloudsql/msp-zabbix:asia-northeast1:sales-tools-staging-db`; `DB_MIGRATION_PASSWORD` from the named Secret reference `sales-tools-migration-db-password`; service account `sales-tools-staging-sa@msp-zabbix.iam.gserviceaccount.com`; Cloud SQL instance `msp-zabbix:asia-northeast1:sales-tools-staging-db`; retry count zero; and 600-second timeout. No Secret value was read. Existing migration and verifier Jobs were not modified.
+
+The Job's use of `DB_MIGRATION_USER` and `DB_MIGRATION_PASSWORD` is required by `loadDatabaseConfig('migration')`; `DB_USER` and `DB_PASSWORD` are not used by the migration CLI. At the end of P2-19 the Job was ready and unexecuted. A separate execution approval, immediately followed by post-run read-only ledger verification, was required before a staging migration could proceed.
+
+## P2-20 failed execution and P2-21 local remediation evidence (2026-09-27)
+
+The sole authorized execution `sales-tools-staging-migration-allowlist-p2-18-4w7vv` failed before opening a database connection with `MODULE_NOT_FOUND` for `/app/dist/db/migrateCli.js`. No retry was performed and the read-only post-run verifier was not run. The image artifact generator had copied an unchecked prebuilt `dist/` directory; its six-SQL checks did not establish that the migration CLI existed or was loadable.
+
+P2-21 adds fail-closed runtime checks to the artifact generator for `dist/db/migrateCli.js`, `dist/db/migrate.js`, `dist/db/pool.js`, and `dist/config.js`, and loads the CLI before context creation. The dedicated Dockerfile independently checks and loads `dist/db/migrateCli.js` during image build. A Docker-backed test loads the CLI from the built image and confirms that `/app/migrations` contains exactly the six approved SQL files. A Linux clean checkout built the corrected local-only image successfully, and a disposable PostgreSQL 16 rehearsal passed from the 20-entry fixture through the six-file application, 26-entry ledger, repeat skip, rollback, and runtime-role DDL denial checks. This evidence does not authorize a new registry image, Job update, Job execution, or staging retry.
