@@ -72,5 +72,9 @@ test('artifact has no migration runner or raw-data import path', () => {
   assert.doesNotMatch(cli, /loadDatabaseConfig\('migration'\)|MIGRATIONS_DIR/i);
   assert.match(dockerfile, /dist\/db\/aiExecutionQueueReadinessVerifierCli\.js/);
   assert.match(dockerfile, /CMD \["node", "dist\/db\/aiExecutionQueueReadinessVerifierCli\.js"\]/);
+  assert.match(dockerfile, /COPY src \.\/src/);
+  assert.match(dockerfile, /RUN npm run build/);
+  assert.match(dockerfile, /COPY --from=build \/app\/dist \.\/dist/);
+  assert.doesNotMatch(dockerfile, /^COPY dist \.\/dist$/m);
   assert.doesNotMatch(dockerfile, /migrations|migrateCli/i);
 });
