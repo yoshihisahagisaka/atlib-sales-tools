@@ -101,6 +101,25 @@ test('AI internal endpoint: empty queue returns processed=0 without error', asyn
   }
 });
 
+test('AI internal endpoint reports a claimed execution instead of silently returning processed=0', async () => {
+  const remaining = { count: 1 };
+  const w = fakeWorker(remaining);
+  const app = express();
+  app.use(createInternalAiWorkerRouter([w as any, w as any, w as any, w as any], ALLOWED_AI_SA, AUDIENCE_AI));
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise<void>(resolve => server.once('listening', resolve));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const original = stubToken(ALLOWED_AI_SA);
+  try {
+    const r = await fetch(base + '/internal/workers/ai/tick', { method: 'POST', headers: { authorization: 'Bearer x' } });
+    assert.equal((await r.json() as { processed: number }).processed, 1);
+    assert.equal(remaining.count, 0);
+  } finally {
+    restoreToken(original);
+    await new Promise<void>((resolve, reject) => server.close(e => e ? reject(e) : resolve()));
+  }
+});
+
 // --- Deletion worker endpoint: real DB (PGlite), real RetentionDeletionWorker, real schema state ---
 let h: Awaited<ReturnType<typeof createDiagnosisHarness>>;
 let worker: RetentionDeletionWorker;

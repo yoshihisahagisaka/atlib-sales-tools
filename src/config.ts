@@ -40,6 +40,9 @@ export interface Config {
     aiInvokerServiceAccountEmail?: string;
     deletionInvokerServiceAccountEmail?: string;
   };
+  runtimeWorkers: {
+    inProcessAiEnabled: boolean;
+  };
 }
 
 /**
@@ -120,5 +123,8 @@ export async function loadConfig(): Promise<Config> {
       aiInvokerServiceAccountEmail: process.env.SCHEDULER_AI_INVOKER_SA || undefined,
       deletionInvokerServiceAccountEmail: process.env.SCHEDULER_DELETION_INVOKER_SA || undefined,
     },
+    // Fail closed: a runtime instance must be explicitly authorized to claim AI work.
+    // This does not affect the separately authenticated Scheduler HTTP routes.
+    runtimeWorkers: { inProcessAiEnabled: process.env.ENABLE_IN_PROCESS_AI_WORKERS === 'true' },
   };
 }

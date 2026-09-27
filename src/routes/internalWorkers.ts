@@ -5,6 +5,7 @@ import type { InterviewAssistantWorker } from '../services/interviewAssistantWor
 import type { PostDiagnosisWorker } from '../services/postDiagnosisWorker';
 import type { ReportDraftWorker } from '../services/reportDraftWorker';
 import type { RetentionDeletionWorker } from '../services/retentionDeletionWorker';
+import type { AiWorkerTick } from '../services/inProcessAiWorkerPolling';
 
 /** Identifies deletion executions triggered by the durable Scheduler worker, distinct from a named staff operator. */
 export const SCHEDULER_DELETION_ACTOR = 'system:scheduler-deletion-worker';
@@ -14,7 +15,7 @@ const DELETION_MAX_REQUESTS_PER_INVOCATION = 20;
 const SOFT_DEADLINE_MS = 200_000;
 
 export function createInternalAiWorkerRouter(
-  workers: [PreDiagnosisWorker, InterviewAssistantWorker, PostDiagnosisWorker, ReportDraftWorker],
+  workers: [PreDiagnosisWorker & AiWorkerTick, InterviewAssistantWorker & AiWorkerTick, PostDiagnosisWorker & AiWorkerTick, ReportDraftWorker & AiWorkerTick],
   allowedServiceAccountEmail: string,
   audience: string,
 ): Router {
@@ -27,7 +28,7 @@ export function createInternalAiWorkerRouter(
       for (const worker of workers) {
         if (processed >= AI_MAX_JOBS_PER_INVOCATION || Date.now() >= deadline) break outer;
         // eslint-disable-next-line no-await-in-loop
-        const did = await (worker as unknown as {tick:()=>Promise<boolean>}).tick();
+        const did = await worker.tick();
         if (did) { processed++; anyWork = true; }
       }
       if (!anyWork) break;

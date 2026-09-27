@@ -70,6 +70,7 @@ import {createInfraVisionPartnerLeadRouter} from './routes/infravisionPartnerLea
 import {createWebDevelopmentPartnerLeadRouter} from './routes/webDevelopmentPartnerLead';
 import {createAdminInfraVisionPartnerLeadRouter} from './routes/adminInfraVisionPartnerLead';
 import {createAdminWebDevelopmentPartnerLeadRouter} from './routes/adminWebDevelopmentPartnerLead';
+import {startInProcessAiWorkerPolling} from './services/inProcessAiWorkerPolling';
 
 import { ManagementFeedbackDecisionRepo } from './services/managementFeedbackDecisionRepo';
 import { createManagementFeedbackDecisionRouter } from './routes/managementFeedbackDecision';
@@ -100,6 +101,9 @@ async function main(): Promise<void> {
   if(config.scheduler.aiInvokerServiceAccountEmail){app.use(createInternalAiWorkerRouter([preparationWorker,interviewWorker,postDiagnosisWorker,reportWorker],config.scheduler.aiInvokerServiceAccountEmail,`${config.portalBaseUrl}/internal/workers/ai/tick`));}
   if(config.scheduler.deletionInvokerServiceAccountEmail){app.use(createInternalDeletionWorkerRouter(retentionDeletionWorker,config.scheduler.deletionInvokerServiceAccountEmail,`${config.portalBaseUrl}/internal/workers/deletion/tick`));}
   app.use(safeRequestError);app.listen(config.port,()=>{logger.info(`sales-tools listening on :${config.port}`);});
-  const pollReport=()=>{void reportWorker.tick().catch(()=>logger.warn({event:'report_worker_failed'},'Report worker failed'));};pollReport();setInterval(pollReport,5000).unref();const pollPostDiagnosis=()=>{void postDiagnosisWorker.tick().catch(()=>logger.warn({event:'post_diagnosis_worker_failed'},'Post diagnosis worker failed'));};pollPostDiagnosis();setInterval(pollPostDiagnosis,5000).unref();const pollInterview=()=>{void interviewWorker.tick().catch(()=>logger.warn({event:'interview_worker_failed'},'Interview worker failed'));};pollInterview();setInterval(pollInterview,5000).unref();const pollPreparation=()=>{void preparationWorker.tick().catch(()=>logger.warn({event:'preparation_worker_failed'},'Pre diagnosis worker failed'));};pollPreparation();setInterval(pollPreparation,5000).unref();
+  startInProcessAiWorkerPolling({enabled:config.runtimeWorkers.inProcessAiEnabled,logger,workers:[
+    {name:'report',worker:reportWorker},{name:'post_diagnosis',worker:postDiagnosisWorker},
+    {name:'interview',worker:interviewWorker},{name:'preparation',worker:preparationWorker},
+  ]});
 }
 main().catch(()=>{console.error(JSON.stringify({event:'fatal_startup_error'}));process.exit(1);});
