@@ -95,15 +95,32 @@ function privileges(result: unknown): DeletionPostTickReconciliationEvidence['ru
   if (typeof row.runtime_role !== 'string' || typeof row.can_select_deletion_requests !== 'boolean' || typeof row.can_select_audit_logs !== 'boolean' || typeof row.can_select_tombstones !== 'boolean') fail();
   return Object.freeze({ runtime_role:row.runtime_role, can_select_deletion_requests:row.can_select_deletion_requests, can_select_audit_logs:row.can_select_audit_logs, can_select_tombstones:row.can_select_tombstones });
 }
-function windowValues(window: ReconciliationWindow): readonly string[] {
-  const start=Date.parse(window.start_utc), end=Date.parse(window.end_utc);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) fail();
-  return [new Date(start).toISOString(), new Date(end).toISOString(), SCHEDULER_ACTOR];
+const STRICT_UTC = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?Z$/;
+type StrictInstant = Readonly<{ raw:string; ordering_key:string }>;
+function strictUtc(value: string): StrictInstant {
+  const match=STRICT_UTC.exec(value); if(!match) fail();
+  const [year,month,day,hour,minute,second]=match.slice(1,7).map(Number);
+  const fraction=(match[7]??'').padEnd(9,'0');
+  const instant=new Date(`${value.slice(0,19)}.${fraction.slice(0,3)}Z`);
+  if(!Number.isFinite(instant.getTime()) || instant.getUTCFullYear()!==year || instant.getUTCMonth()+1!==month || instant.getUTCDate()!==day || instant.getUTCHours()!==hour || instant.getUTCMinutes()!==minute || instant.getUTCSeconds()!==second) fail();
+  return Object.freeze({raw:value,ordering_key:`${value.slice(0,19)}.${fraction}Z`});
+}
+/** Strict RFC3339 UTC only. Values remain verbatim so valid sub-millisecond bounds are never silently truncated. */
+export function validateDeletionPostTickWindow(window: ReconciliationWindow, now: Date = new Date()): ReconciliationWindow {
+  if(typeof window.start_utc!=='string' || typeof window.end_utc!=='string' || !Number.isFinite(now.getTime())) fail();
+  const start=strictUtc(window.start_utc), end=strictUtc(window.end_utc);
+  const current=strictUtc(now.toISOString());
+  if(start.ordering_key>=end.ordering_key || end.ordering_key>current.ordering_key) fail();
+  return Object.freeze({start_utc:start.raw,end_utc:end.raw});
+}
+function windowValues(window: ReconciliationWindow, now: Date): readonly string[] {
+  const validated=validateDeletionPostTickWindow(window,now);
+  return [validated.start_utc, validated.end_utc, SCHEDULER_ACTOR];
 }
 
 /** Aggregate-only post-window snapshot. A caller must retain the pre-resume snapshot separately; no request identifier leaves the database. */
-export async function verifyDeletionPostTickReconciliation(pool: Pool, window: ReconciliationWindow): Promise<DeletionPostTickReconciliationEvidence> {
-  const values=windowValues(window); const client=await pool.connect(); let started=false;
+export async function verifyDeletionPostTickReconciliation(pool: Pool, window: ReconciliationWindow, now: Date = new Date()): Promise<DeletionPostTickReconciliationEvidence> {
+  const values=windowValues(window,now); const client=await pool.connect(); let started=false;
   try {
     await client.query(BEGIN_READ_ONLY); started=true; await client.query(SET_STATEMENT_TIMEOUT);
     const status_counts=keyed(await client.query(STATUS_COUNTS),'status') as DeletionPostTickReconciliationEvidence['status_counts'];
