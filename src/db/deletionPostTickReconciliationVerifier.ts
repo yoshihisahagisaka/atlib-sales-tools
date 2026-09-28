@@ -126,7 +126,7 @@ export async function verifyDeletionPostTickReconciliation(pool: Pool, window: R
     const status_counts=keyed(await client.query(STATUS_COUNTS),'status') as DeletionPostTickReconciliationEvidence['status_counts'];
     const observed_at_utc=observed(await client.query(OBSERVED_AT));
     const window_outcome_counts=keyed(await client.query(WINDOW_OUTCOME_COUNTS,values),'status') as DeletionPostTickReconciliationEvidence['window_outcome_counts'];
-    const window_failure_counts=keyed(await client.query(WINDOW_FAILURE_COUNTS,values),'failure_code') as DeletionPostTickReconciliationEvidence['window_failure_counts'];
+    const window_failure_counts=keyed(await client.query(WINDOW_FAILURE_COUNTS,values.slice(0,2)),'failure_code') as DeletionPostTickReconciliationEvidence['window_failure_counts'];
     const processed_scope_class_counts=keyed(await client.query(PROCESSED_SCOPE_CLASS_COUNTS,values),'data_class') as DeletionPostTickReconciliationEvidence['processed_scope_class_counts'];
     const restricted_retain_tombstone_counts=keyed(await client.query(RESTRICTED_RETAIN_TOMBSTONE_COUNTS,values),'data_class') as DeletionPostTickReconciliationEvidence['restricted_retain_tombstone_counts'];
     const request_audit_tombstone_integrity=one(await client.query(INTEGRITY,values),['processed_request_count','processed_without_single_audit_count','audit_without_processed_request_count','tombstone_audit_count_mismatch_count']) as DeletionPostTickReconciliationEvidence['request_audit_tombstone_integrity'];

@@ -27,7 +27,9 @@ test('post-tick verifier uses a bounded UTC window and joins request/audit/tombs
   assert.deepEqual(result.request_audit_tombstone_integrity,{processed_request_count:'2',processed_without_single_audit_count:'0',audit_without_processed_request_count:'0',tombstone_audit_count_mismatch_count:'0'});
   assert.equal(result.shared_organization_failure_attribution_supported,false);assert.equal(db.released(),true);
   assert.deepEqual(db.queries.map(q=>q.sql),Object.values(deletionPostTickReconciliationSql));
-  for(const query of db.queries.slice(4,9))assert.deepEqual(query.values,['2026-09-28T03:00:00Z','2026-09-28T03:10:00Z','system:scheduler-deletion-worker']);
+  assert.deepEqual(db.queries[4]?.values,['2026-09-28T03:00:00Z','2026-09-28T03:10:00Z','system:scheduler-deletion-worker']);
+  assert.deepEqual(db.queries[5]?.values,['2026-09-28T03:00:00Z','2026-09-28T03:10:00Z']);
+  for(const query of db.queries.slice(6,9))assert.deepEqual(query.values,['2026-09-28T03:00:00Z','2026-09-28T03:10:00Z','system:scheduler-deletion-worker']);
   const sql=db.queries.map(q=>q.sql).join('\n');
   assert.match(sql,/detail_json->>'deletion_request_id'/);assert.match(sql,/tombstones_written/);assert.match(sql,/DELETION_WORKER_INTERRUPTED/);
   assert.doesNotMatch(sql,/^\s*(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|COMMIT)\b/im);
