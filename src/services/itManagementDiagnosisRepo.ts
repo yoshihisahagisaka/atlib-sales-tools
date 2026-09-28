@@ -82,6 +82,33 @@ export class ItManagementDiagnosisRepo {
     return this.transaction(client=>this.createCaseInTransaction(client,input,entryChannel,actor,policyAcknowledgement));
   }
 
+  /**
+   * Public-LP retries are serialized by the database, but the one-time resume
+   * token is deliberately never persisted in the idempotency record.  A later
+   * same-key request can prove acceptance only; it cannot recover that token.
+   */
+  async createWebCaseIdempotently(input: unknown, idempotencyKey: string, payloadHash: string, policyAcknowledgement: { noticeVersion: string }) {
+    return this.transaction(async client => {
+      // Reuse after the bounded retry window is a new application, not a token replay.
+      await client.query('DELETE FROM diagnosis_public_application_idempotency WHERE idempotency_key=$1 AND expires_at<=now()', [idempotencyKey]);
+      const claimed = await client.query(`INSERT INTO diagnosis_public_application_idempotency
+        (idempotency_key,payload_hash,expires_at) VALUES ($1,$2,now()+interval '24 hours')
+        ON CONFLICT (idempotency_key) DO NOTHING`, [idempotencyKey, payloadHash]);
+      if (!claimed.rowCount) {
+        const existing = await client.query<{ payload_hash: string; expires_at: Date; diagnosis_case_id: string | null }>(
+          'SELECT payload_hash,expires_at,diagnosis_case_id FROM diagnosis_public_application_idempotency WHERE idempotency_key=$1 FOR UPDATE', [idempotencyKey]);
+        const row = existing.rows[0];
+        if (!row || row.expires_at.getTime() <= Date.now()) throw new DiagnosisError(409, 'IDEMPOTENCY_KEY_EXPIRED');
+        if (row.payload_hash !== payloadHash) throw new DiagnosisError(409, 'IDEMPOTENCY_KEY_PAYLOAD_CONFLICT');
+        if (!row.diagnosis_case_id) throw new DiagnosisError(409, 'APPLICATION_ACCEPTANCE_UNKNOWN');
+        return { kind: 'accepted_without_resume_url' as const };
+      }
+      const created = await this.createCaseInTransaction(client, input, 'WEB', { kind: 'CUSTOMER', token: '' }, policyAcknowledgement);
+      await client.query('UPDATE diagnosis_public_application_idempotency SET diagnosis_case_id=$2 WHERE idempotency_key=$1', [idempotencyKey, created.id]);
+      return { kind: 'created' as const, created };
+    });
+  }
+
   /** Used by the explicit sales-consent command so creation and handoff commit atomically. */
   async createCaseInTransaction(client:PoolClient,input: unknown, entryChannel: EntryChannel, actor: Actor, policyAcknowledgement?: { noticeVersion: string },salesIntakeId?:string) {
     const parsed = applicationSchema.safeParse(input);
