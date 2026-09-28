@@ -1,0 +1,25 @@
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build \
+ && test -f ./dist/db/deletionReadinessVerifierCli.js \
+ && node -e "require('./dist/db/deletionReadinessVerifierCli.js')"
+
+FROM node:22-alpine AS runtime-deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+FROM node:22-alpine
+WORKDIR /app
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+ENV NODE_ENV=production
+COPY --from=runtime-deps /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+RUN test -f ./dist/db/deletionReadinessVerifierCli.js && node -e "require('./dist/db/deletionReadinessVerifierCli.js')"
+USER node
+CMD ["node", "dist/db/deletionReadinessVerifierCli.js"]
