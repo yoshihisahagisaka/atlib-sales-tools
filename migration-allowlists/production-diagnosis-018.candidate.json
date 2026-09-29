@@ -44,119 +44,119 @@
   "migrations": [
     {
       "filename": "006_kaizen_assessments.sql",
-      "sha256": "43d68870eb51f90d3145721bfbd817d12c2b7d9c8fdeb5783aa4539f5201634b",
+      "sha256": "eea4cd96be7026321d475fc3e0b772f15c4637fcc4275d214a5cc28254907856",
       "depends_on_applied": [],
       "depends_on_allowlist": [],
       "release_scope": "kaizen_assessments / kaizen_assessment_facts (standalone tables)"
     },
     {
       "filename": "007_it_management_diagnosis.sql",
-      "sha256": "f581a740892bb7457e517852a4d390f624cd977b92cfc7c5a85e596368b47aab",
+      "sha256": "632e9d156681ad9ec4fb86f671d7e431b340a018a17fea1b3b44f631119dbc6c",
       "depends_on_applied": [],
       "depends_on_allowlist": [],
       "release_scope": "foundational: organizations, diagnosis_cases, participants, survey_questions/responses, diagnosis_futures, case_transitions, diagnosis_audit_logs"
     },
     {
       "filename": "008_it_management_diagnosis_preparation.sql",
-      "sha256": "a0e35f087b4f9b0d589c12c71a2a8daf818dba1657c50ebb3977c7b704445fe1",
+      "sha256": "9ba87a5c64b95340ec67c80e692f846502205b073c2d0a3d498d278e09c46813",
       "depends_on_applied": [],
       "depends_on_allowlist": ["007_it_management_diagnosis.sql"],
       "release_scope": "ai_executions, ai_proposals, ai_proposal_sources, diagnosis_themes, diagnosis_plan_items; widens diagnosis_cases status CHECK"
     },
     {
       "filename": "009_it_management_diagnosis_workspace.sql",
-      "sha256": "86505666550da5726c4dbb157788a1cea8261d43afc888be6965b874f361bac9",
+      "sha256": "293b2658a91548074b8cc91549aeb15fedc441bcd527c354cd787666cdb31d57",
       "depends_on_applied": [],
       "depends_on_allowlist": ["007_it_management_diagnosis.sql", "008_it_management_diagnosis_preparation.sql"],
       "release_scope": "source_records; reshapes ai_proposal_sources/diagnosis_futures source-reference columns and keys; widens status CHECKs again"
     },
     {
       "filename": "010_it_management_diagnosis_human_review.sql",
-      "sha256": "c7ddfe2ba08330891aadd719324375bc71f7039f59cd54ee91b6fd424632217c",
+      "sha256": "eb567d0d01380a1b7aa7bb538f619febc2f4d76b784c2de61e271567873b9c80",
       "depends_on_applied": [],
       "depends_on_allowlist": ["007_it_management_diagnosis.sql", "008_it_management_diagnosis_preparation.sql", "009_it_management_diagnosis_workspace.sql"],
       "release_scope": "diagnosis_insights, insight_sources, assessment_confirmation_items, human_reviews; widens status/process_type/proposal_type CHECKs again"
     },
     {
       "filename": "011_it_management_diagnosis_report_feedback.sql",
-      "sha256": "053d67ccc6b7b9d2a34c0c23ed30afce66204b5499fa116905ef5aa94fb2556f",
+      "sha256": "9506a9452c87c76042d9acd959c3532335e27ae82f02e98512fce264a94d42a2",
       "depends_on_applied": [],
       "depends_on_allowlist": ["007_it_management_diagnosis.sql", "008_it_management_diagnosis_preparation.sql", "009_it_management_diagnosis_workspace.sql"],
       "release_scope": "diagnosis_reports; adds feedback columns to diagnosis_cases/source_records; widens status/process_type CHECKs again"
     },
     {
       "filename": "012_it_management_diagnosis_assessment_handoff.sql",
-      "sha256": "06500439a1aa47b6e26c9205cee30d4d21f4a69c3e153b0e1bc29d2630494132",
+      "sha256": "27aa72d7642b1340545e126001396256b6c5e910da9105575c8c2d180175c2d3",
       "depends_on_applied": [],
       "depends_on_allowlist": ["007_it_management_diagnosis.sql", "011_it_management_diagnosis_report_feedback.sql"],
       "release_scope": "assessment_handoffs; adds closed_at/closed_by columns to diagnosis_cases; widens status CHECK to include CLOSED"
     },
     {
       "filename": "013_it_management_diagnosis_policy_closure.sql",
-      "sha256": "e0763f58d118cb9711f6f4ce48476c99fdb31ae2e59a240a8faf4505f1cae22e",
+      "sha256": "846b7dd7d5d298a41073b6eec74acdae825fe3b53e4cbdb87647ad0646b809dd",
       "depends_on_applied": [],
       "depends_on_allowlist": ["007_it_management_diagnosis.sql", "009_it_management_diagnosis_workspace.sql"],
       "release_scope": "diagnosis_policy_acknowledgements, diagnosis_transcript_consents, diagnosis_deletion_requests, diagnosis_retention_holds, diagnosis_deletion_tombstones"
     },
     {
       "filename": "014_it_management_diagnosis_restore_reconciliation.sql",
-      "sha256": "e1b93cedb69d2e013862cdcca1473e257df8ab9741b40757e0e84bb1cba1010b",
+      "sha256": "b8e781c65324ab6ee8a5fafe01cc8f8c065854166e2dfde0b44a0f286a6421c7",
       "depends_on_applied": [],
       "depends_on_allowlist": [],
       "release_scope": "diagnosis_restore_reconciliation_runs (standalone table)"
     },
     {
       "filename": "015_management_feedback_decision.sql",
-      "sha256": "2ad704d9a2daf7a9aab771b0a6b79174c5cd921d1f0af51c139c6ed21f15b067",
+      "sha256": "4ea5b0275433399a8ad46801e42ef0ed097b825332fba3460ffa689496e09055",
       "depends_on_applied": [],
       "depends_on_allowlist": ["007_it_management_diagnosis.sql", "009_it_management_diagnosis_workspace.sql"],
       "release_scope": "management_feedback_decisions"
     },
     {
       "filename": "016_assessment_scope_clarifications.sql",
-      "sha256": "b735386873f46e2cd1cc149531a5acea457bfc5c4cb5993ae567bf921c60deb6",
+      "sha256": "42f0291eca5555ea03a72ef432c72c1084ac99fd4aa74f464aa96e976b3468a9",
       "depends_on_applied": [],
       "depends_on_allowlist": ["007_it_management_diagnosis.sql", "009_it_management_diagnosis_workspace.sql"],
       "release_scope": "assessment_scope_clarifications"
     },
     {
       "filename": "018_sales_conversation_intake.sql",
-      "sha256": "7f40a57d135596835ca804c618940aa664eee028a5ff109d5727ef38f3a98456",
+      "sha256": "86dd8e8e5c02b679b3fab9a2e861ee7fbbf71892cabbea41f865cfefd2ad7d29",
       "depends_on_applied": [],
       "depends_on_allowlist": ["007_it_management_diagnosis.sql"],
       "release_scope": "sales_conversation_intakes, sales_intake_audit_logs; adds sales_intake_id to diagnosis_cases and intake_origin_* columns to survey_responses. Numeric prefix 018 is unrelated to the already-applied 018_runtime_table_privileges.sql."
     },
     {
       "filename": "019_diagnosis_hearing_records.sql",
-      "sha256": "466e4f95b9217592c02aa00ceed4fb9e5fd31d8b6db481a60fa162391115e046",
+      "sha256": "c475f50fedc946e588cc8fba64d2674c623f77ea03ebe2c78a1ec593d863a507",
       "depends_on_applied": [],
       "depends_on_allowlist": ["007_it_management_diagnosis.sql"],
       "release_scope": "diagnosis_hearing_records, diagnosis_hearing_record_revisions. Numeric prefix 019 is unrelated to the already-applied 019_web_development_partner_leads.sql."
     },
     {
       "filename": "020_diagnosis_hearing_source_references.sql",
-      "sha256": "abaf7738fe5e33f421647cdf3ae48f25a7c82268a468ac2a66c3c1b7a0a7ee39",
+      "sha256": "81963de6c2e98b13d5f478216983c5d92530f1eeb6ad618ef5fa7c55d873c133",
       "depends_on_applied": [],
       "depends_on_allowlist": ["008_it_management_diagnosis_preparation.sql", "010_it_management_diagnosis_human_review.sql", "019_diagnosis_hearing_records.sql"],
       "release_scope": "adds HEARING_RECORD as a valid source reference on ai_proposal_sources/insight_sources; rebuilds their primary keys"
     },
     {
       "filename": "021_diagnosis_report_pdf_artifacts.sql",
-      "sha256": "c7ac5fc26a968f130679608760a1c95653a43e959981e20b6be4fb1bca075648",
+      "sha256": "934ef483f8862eb2b1ecde56b7dee2e973e27c636dad9f35f44f889b7a890f21",
       "depends_on_applied": [],
       "depends_on_allowlist": ["011_it_management_diagnosis_report_feedback.sql"],
       "release_scope": "diagnosis_report_pdf_artifacts"
     },
     {
       "filename": "022_diagnosis_report_pdf_generation_lease.sql",
-      "sha256": "11abbc4ecd621cc2f9052c490d8774009840413d5a0498e16bee32f2a7f67fb6",
+      "sha256": "32a080800fe331b2edecf4e0795f98c3ab1d4c3cb5579ca5e4d23440337a1ace",
       "depends_on_applied": [],
       "depends_on_allowlist": ["021_diagnosis_report_pdf_artifacts.sql"],
       "release_scope": "adds generation_token/lease_expires_at to diagnosis_report_pdf_artifacts"
     },
     {
       "filename": "023_diagnosis_report_pdf_source_content_hash.sql",
-      "sha256": "190b8aaf31e5f24149d9dd47f62c5ce86136224334398e2e45afba8081bd3511",
+      "sha256": "8e71b2af904c209e1c9ce3a5e22d85c21971d4e620efa2a10397d24e8519a13b",
       "depends_on_applied": [],
       "depends_on_allowlist": ["021_diagnosis_report_pdf_artifacts.sql", "022_diagnosis_report_pdf_generation_lease.sql"],
       "release_scope": "adds source content-hash binding to diagnosis_report_pdf_artifacts"

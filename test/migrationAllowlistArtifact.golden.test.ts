@@ -51,6 +51,20 @@ test('approved manifest verifies raw ledger and all six Linux Git-blob SQL hashe
   }
 });
 
+test('a CRLF-converted SQL file fails closed instead of silently hash-matching or silently hash-mismatching', () => {
+  const fixture = fixtureRoot();
+  try {
+    const target = '019_diagnosis_hearing_records.sql';
+    const lf = fs.readFileSync(path.join(fixture.root, 'migrations', target));
+    assert.ok(!lf.includes(13), 'fixture precondition: Git-blob source must be LF, not already CRLF');
+    const crlf = Buffer.from(lf.toString('utf8').replace(/\n/g, '\r\n'));
+    fs.writeFileSync(path.join(fixture.root, 'migrations', target), crlf);
+    assert.throws(() => script.verify(fixture.root, fixture.manifestPath), new RegExp(`SQL_FILE_CONTAINS_CRLF:${target}`));
+  } finally {
+    fs.rmSync(fixture.root, {recursive: true, force: true});
+  }
+});
+
 test('artifact generation fails closed when the compiled migration CLI is absent', () => {
   const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'migration-runtime-'));
   try {

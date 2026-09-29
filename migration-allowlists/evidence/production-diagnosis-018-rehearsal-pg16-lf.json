@@ -1,0 +1,28 @@
+{
+  "event": "isolated_postgres16_allowlist_rehearsal_pass",
+  "executed_at": "2026-09-29T07:43:17.502Z",
+  "database_kind": "disposable",
+  "postgres_major": 16,
+  "ledger_entries": 8,
+  "allowlist": [
+    "006_kaizen_assessments.sql",
+    "007_it_management_diagnosis.sql",
+    "008_it_management_diagnosis_preparation.sql",
+    "009_it_management_diagnosis_workspace.sql",
+    "010_it_management_diagnosis_human_review.sql",
+    "011_it_management_diagnosis_report_feedback.sql",
+    "012_it_management_diagnosis_assessment_handoff.sql",
+    "013_it_management_diagnosis_policy_closure.sql",
+    "014_it_management_diagnosis_restore_reconciliation.sql",
+    "015_management_feedback_decision.sql",
+    "016_assessment_scope_clarifications.sql",
+    "018_sales_conversation_intake.sql",
+    "019_diagnosis_hearing_records.sql",
+    "020_diagnosis_hearing_source_references.sql",
+    "021_diagnosis_report_pdf_artifacts.sql",
+    "022_diagnosis_report_pdf_generation_lease.sql",
+    "023_diagnosis_report_pdf_source_content_hash.sql",
+    "024_diagnosis_public_application_idempotency.sql"
+  ],
+  "customer_data": false
+}

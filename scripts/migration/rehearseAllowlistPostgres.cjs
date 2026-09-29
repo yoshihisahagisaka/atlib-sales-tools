@@ -13,6 +13,12 @@ const SQL_NAME = /^\d+_[a-z0-9_]+\.sql$/;
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 const ISOLATED_PORT = 55437;
 const sha256 = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+// A Windows working tree can silently hold CRLF-converted copies of files git stores as
+// LF; hashing that copy records/reproduces a value that never matches the reviewed Git
+// blob a clean checkout produces (observed 2026-09-29: 17 of 18 production-diagnosis-018
+// SQL files). Fail closed on any CR byte in an allowlisted SQL file being rehearsed,
+// rather than let a same-content-different-EOL file silently hash-match.
+const sha256SqlStrict = (file, label) => { const buf = fs.readFileSync(file); if (buf.includes(13)) fail(`SQL_FILE_CONTAINS_CRLF:${label}`); return crypto.createHash('sha256').update(buf).digest('hex'); };
 const quoteIdent = value => `"${value.replaceAll('"', '""')}"`;
 const fail = message => { throw new Error(`ISOLATED_MIGRATION_REHEARSAL_INVALID:${message}`); };
 // Defaults reproduce the original P2-10/019-023 rehearsal exactly when unset. Set these
@@ -41,7 +47,8 @@ function loadFixture(root) {
   const allSql = fs.readdirSync(path.join(root, 'migrations')).filter(file => SQL_NAME.test(file)).sort();
   const allowlist = manifest.migrations.map(entry => {
     const file = path.join(root, 'migrations', entry.filename);
-    if (!SQL_NAME.test(entry.filename) || !fs.existsSync(file) || sha256(file) !== entry.sha256) fail(`SQL_HASH:${entry.filename}`);
+    if (!SQL_NAME.test(entry.filename) || !fs.existsSync(file)) fail(`SQL_HASH:${entry.filename}`);
+    if (sha256SqlStrict(file, entry.filename) !== entry.sha256) fail(`SQL_HASH:${entry.filename}`);
     return entry.filename;
   }).sort();
   if (new Set(allowlist).size !== allowlist.length || allowlist.join('\n') !== [...manifest.expected_unapplied_filenames].sort().join('\n')) fail('ALLOWLIST_FILENAMES');
