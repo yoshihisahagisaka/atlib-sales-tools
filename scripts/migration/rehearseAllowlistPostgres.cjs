@@ -21,6 +21,14 @@ const fail = message => { throw new Error(`ISOLATED_MIGRATION_REHEARSAL_INVALID:
 const MANIFEST_FILENAME = process.env.ISOLATED_ALLOWLIST_MANIFEST || 'staging-p2-10.candidate.json';
 const BASE_CUTOFF = Number(process.env.ISOLATED_ALLOWLIST_BASE_CUTOFF || 18);
 const EXPECTED_LEDGER_COUNT = Number(process.env.ISOLATED_ALLOWLIST_EXPECTED_LEDGER_COUNT || 26);
+// The P2-10 ledger is a contiguous 001-018 prefix run, so a numeric cutoff correctly
+// reproduces "everything already applied" as the base schema fixture. A later ledger
+// can be sparse (e.g. production: 001-005 applied, 006-016 not, then 017-019 applied),
+// where no single cutoff is correct. Setting this to '1' derives the base fixture from
+// the manifest's own recorded ledger filenames instead (restricted to files that still
+// exist in this checkout, the same defensive filter the P2-10 cutoff already relies on
+// to skip a ledger-only, no-longer-restored filename). Default unset: unchanged P2-10 behavior.
+const BASE_FROM_LEDGER = process.env.ISOLATED_ALLOWLIST_BASE_FROM_LEDGER === '1';
 
 function loadFixture(root) {
   const manifestPath = path.join(root, 'migration-allowlists', MANIFEST_FILENAME);
@@ -37,8 +45,11 @@ function loadFixture(root) {
     return entry.filename;
   }).sort();
   if (new Set(allowlist).size !== allowlist.length || allowlist.join('\n') !== [...manifest.expected_unapplied_filenames].sort().join('\n')) fail('ALLOWLIST_FILENAMES');
-  const base = allSql.filter(filename => Number(filename.slice(0, filename.indexOf('_'))) <= BASE_CUTOFF);
+  const base = BASE_FROM_LEDGER
+    ? ledger.map(row => row.filename).filter(filename => allSql.includes(filename)).sort()
+    : allSql.filter(filename => Number(filename.slice(0, filename.indexOf('_'))) <= BASE_CUTOFF);
   if (base.length === 0 || base.some(filename => !SQL_NAME.test(filename))) fail('BASE_SQL');
+  if (new Set([...base, ...allowlist]).size !== base.length + allowlist.length) fail('BASE_ALLOWLIST_OVERLAP');
   return { manifest, ledger, allowlist, base };
 }
 
@@ -118,7 +129,13 @@ async function run(root) {
     assert.equal(Number((await seededMigration.query('SELECT count(*)::int AS count FROM schema_migrations')).rows[0].count), EXPECTED_LEDGER_COUNT);
     const actualLedger = (await seededMigration.query('SELECT filename FROM schema_migrations ORDER BY filename')).rows.map(row => row.filename);
     assert.deepEqual(actualLedger, [...new Set([...fixture.ledger.map(row => row.filename), ...fixture.allowlist])].sort());
-    assert.equal(Number((await seededMigration.query("SELECT count(*)::int AS count FROM schema_migrations WHERE filename='017_customer_fit_checks.sql'")).rows[0].count), 1);
+    // Ledger rows that name a file no longer present in this checkout (e.g. the P2-10
+    // fixture's cross-lane '017_customer_fit_checks.sql') must survive seeding+migration
+    // untouched, since the runner only ever inserts/matches by filenames it can read
+    // from disk. A ledger with no such row (e.g. production's) has nothing to check here.
+    for (const ledgerOnlyFilename of fixture.ledger.map(row => row.filename).filter(filename => !fixture.base.includes(filename) && !fixture.allowlist.includes(filename))) {
+      assert.equal(Number((await seededMigration.query('SELECT count(*)::int AS count FROM schema_migrations WHERE filename=$1', [ledgerOnlyFilename])).rows[0].count), 1);
+    }
     const skippedEvents = await migrate(seededMigration, allowlistDir);
     assert.deepEqual(skippedEvents.filter(event => event.event === 'migration_skipped').map(event => event.filename), fixture.allowlist);
     await assert.rejects(migrate(seededMigration, failureDir));
