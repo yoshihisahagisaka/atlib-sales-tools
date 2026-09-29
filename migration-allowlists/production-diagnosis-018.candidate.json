@@ -1,0 +1,172 @@
+{
+  "status": "DRAFT_LEDGER_EVIDENCE_VERIFIED_REHEARSAL_PENDING",
+  "environment": "production",
+  "database": "sales_tools (Cloud SQL instance msp-zabbix:asia-northeast1:msp-customer-portal-db, shared with msp-customer-portal)",
+  "ledger_source": {
+    "execution": "sales-tools-web-partner-ledger-inspect-ro-4v8bd",
+    "retrieved_at": "2026-09-29T03:37:44.800371Z",
+    "entry_count": 8,
+    "snapshot_path": "migration-allowlists/evidence/production-diagnosis-018-ledger-4v8bd.json",
+    "snapshot_size_bytes": 687,
+    "original_json_sha256": "76196f3a94db4a79eb77f4ee2d153181f2d0b5014ae9368c5b70473dab6283ad",
+    "requirement": "Set only from the byte-for-byte read-only ledger JSON original (the `ledger` field of the existing sales-tools-web-partner-ledger-inspect-ro job's stdout); do not hash a reconstructed filename list. Re-run that job for a fresh snapshot immediately before generation/execution and re-verify this hash; if it differs, this manifest must be re-evaluated before proceeding."
+  },
+  "source_commit": "f3c7992b5edbab3966f5429408e965bd51d12a68",
+  "source_commit_status": "NOT YET PUSHED to origin/feat/free-diagnosis-sales-launch as of manifest creation. buildAllowlistArtifact.cjs requires a clean checkout AT this exact SHA; a Linux clean-checkout build (per readiness-runbook.md) additionally requires this SHA to be reachable from a pushed ref. Do not treat this manifest as generation-ready until push is separately approved and completed.",
+  "artifact_generation": {
+    "permitted": false,
+    "scope": "Not yet approved. When approved, scope is limited to building and inspecting an 18-SQL migration image only (this manifest's `migrations` list). It does not authorize a Cloud Run Job change, execution, or production migration."
+  },
+  "approval_evidence": {
+    "isolated_rehearsal": "NOT YET PERFORMED. Requires the isolated-migration-allowlist-rehearsal GitHub Actions workflow (or an operator-created local disposable PostgreSQL 16 container per docs/staging-migration-allowlist-rehearsal.md) dispatched with manifest=production-diagnosis-018.candidate.json, baseCutoff=16 (the highest already-applied numeric prefix strictly below this batch; see note below on 017/018/019 numeric collisions), expectedLedgerCount=26 (8 existing + 18 in this manifest). This requires push first."
+  },
+  "expected_unapplied_filenames": [
+    "006_kaizen_assessments.sql",
+    "007_it_management_diagnosis.sql",
+    "008_it_management_diagnosis_preparation.sql",
+    "009_it_management_diagnosis_workspace.sql",
+    "010_it_management_diagnosis_human_review.sql",
+    "011_it_management_diagnosis_report_feedback.sql",
+    "012_it_management_diagnosis_assessment_handoff.sql",
+    "013_it_management_diagnosis_policy_closure.sql",
+    "014_it_management_diagnosis_restore_reconciliation.sql",
+    "015_management_feedback_decision.sql",
+    "016_assessment_scope_clarifications.sql",
+    "018_sales_conversation_intake.sql",
+    "019_diagnosis_hearing_records.sql",
+    "020_diagnosis_hearing_source_references.sql",
+    "021_diagnosis_report_pdf_artifacts.sql",
+    "022_diagnosis_report_pdf_generation_lease.sql",
+    "023_diagnosis_report_pdf_source_content_hash.sql",
+    "024_diagnosis_public_application_idempotency.sql"
+  ],
+  "numeric_prefix_collision_note": "017/018/019 each identify two distinct filenames in this repository; the runtime migration order key is the exact filename, never the numeric prefix. '017_infravision_partner_leads.sql' and '018_runtime_table_privileges.sql' and '019_web_development_partner_leads.sql' are already applied (in ledger_source). '018_sales_conversation_intake.sql' and '019_diagnosis_hearing_records.sql' are in this manifest and are unrelated in content to the already-applied same-numbered files.",
+  "migrations": [
+    {
+      "filename": "006_kaizen_assessments.sql",
+      "sha256": "43d68870eb51f90d3145721bfbd817d12c2b7d9c8fdeb5783aa4539f5201634b",
+      "depends_on_applied": [],
+      "depends_on_allowlist": [],
+      "release_scope": "kaizen_assessments / kaizen_assessment_facts (standalone tables)"
+    },
+    {
+      "filename": "007_it_management_diagnosis.sql",
+      "sha256": "f581a740892bb7457e517852a4d390f624cd977b92cfc7c5a85e596368b47aab",
+      "depends_on_applied": [],
+      "depends_on_allowlist": [],
+      "release_scope": "foundational: organizations, diagnosis_cases, participants, survey_questions/responses, diagnosis_futures, case_transitions, diagnosis_audit_logs"
+    },
+    {
+      "filename": "008_it_management_diagnosis_preparation.sql",
+      "sha256": "a0e35f087b4f9b0d589c12c71a2a8daf818dba1657c50ebb3977c7b704445fe1",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["007_it_management_diagnosis.sql"],
+      "release_scope": "ai_executions, ai_proposals, ai_proposal_sources, diagnosis_themes, diagnosis_plan_items; widens diagnosis_cases status CHECK"
+    },
+    {
+      "filename": "009_it_management_diagnosis_workspace.sql",
+      "sha256": "86505666550da5726c4dbb157788a1cea8261d43afc888be6965b874f361bac9",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["007_it_management_diagnosis.sql", "008_it_management_diagnosis_preparation.sql"],
+      "release_scope": "source_records; reshapes ai_proposal_sources/diagnosis_futures source-reference columns and keys; widens status CHECKs again"
+    },
+    {
+      "filename": "010_it_management_diagnosis_human_review.sql",
+      "sha256": "c7ddfe2ba08330891aadd719324375bc71f7039f59cd54ee91b6fd424632217c",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["007_it_management_diagnosis.sql", "008_it_management_diagnosis_preparation.sql", "009_it_management_diagnosis_workspace.sql"],
+      "release_scope": "diagnosis_insights, insight_sources, assessment_confirmation_items, human_reviews; widens status/process_type/proposal_type CHECKs again"
+    },
+    {
+      "filename": "011_it_management_diagnosis_report_feedback.sql",
+      "sha256": "053d67ccc6b7b9d2a34c0c23ed30afce66204b5499fa116905ef5aa94fb2556f",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["007_it_management_diagnosis.sql", "008_it_management_diagnosis_preparation.sql", "009_it_management_diagnosis_workspace.sql"],
+      "release_scope": "diagnosis_reports; adds feedback columns to diagnosis_cases/source_records; widens status/process_type CHECKs again"
+    },
+    {
+      "filename": "012_it_management_diagnosis_assessment_handoff.sql",
+      "sha256": "06500439a1aa47b6e26c9205cee30d4d21f4a69c3e153b0e1bc29d2630494132",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["007_it_management_diagnosis.sql", "011_it_management_diagnosis_report_feedback.sql"],
+      "release_scope": "assessment_handoffs; adds closed_at/closed_by columns to diagnosis_cases; widens status CHECK to include CLOSED"
+    },
+    {
+      "filename": "013_it_management_diagnosis_policy_closure.sql",
+      "sha256": "e0763f58d118cb9711f6f4ce48476c99fdb31ae2e59a240a8faf4505f1cae22e",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["007_it_management_diagnosis.sql", "009_it_management_diagnosis_workspace.sql"],
+      "release_scope": "diagnosis_policy_acknowledgements, diagnosis_transcript_consents, diagnosis_deletion_requests, diagnosis_retention_holds, diagnosis_deletion_tombstones"
+    },
+    {
+      "filename": "014_it_management_diagnosis_restore_reconciliation.sql",
+      "sha256": "e1b93cedb69d2e013862cdcca1473e257df8ab9741b40757e0e84bb1cba1010b",
+      "depends_on_applied": [],
+      "depends_on_allowlist": [],
+      "release_scope": "diagnosis_restore_reconciliation_runs (standalone table)"
+    },
+    {
+      "filename": "015_management_feedback_decision.sql",
+      "sha256": "2ad704d9a2daf7a9aab771b0a6b79174c5cd921d1f0af51c139c6ed21f15b067",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["007_it_management_diagnosis.sql", "009_it_management_diagnosis_workspace.sql"],
+      "release_scope": "management_feedback_decisions"
+    },
+    {
+      "filename": "016_assessment_scope_clarifications.sql",
+      "sha256": "b735386873f46e2cd1cc149531a5acea457bfc5c4cb5993ae567bf921c60deb6",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["007_it_management_diagnosis.sql", "009_it_management_diagnosis_workspace.sql"],
+      "release_scope": "assessment_scope_clarifications"
+    },
+    {
+      "filename": "018_sales_conversation_intake.sql",
+      "sha256": "7f40a57d135596835ca804c618940aa664eee028a5ff109d5727ef38f3a98456",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["007_it_management_diagnosis.sql"],
+      "release_scope": "sales_conversation_intakes, sales_intake_audit_logs; adds sales_intake_id to diagnosis_cases and intake_origin_* columns to survey_responses. Numeric prefix 018 is unrelated to the already-applied 018_runtime_table_privileges.sql."
+    },
+    {
+      "filename": "019_diagnosis_hearing_records.sql",
+      "sha256": "466e4f95b9217592c02aa00ceed4fb9e5fd31d8b6db481a60fa162391115e046",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["007_it_management_diagnosis.sql"],
+      "release_scope": "diagnosis_hearing_records, diagnosis_hearing_record_revisions. Numeric prefix 019 is unrelated to the already-applied 019_web_development_partner_leads.sql."
+    },
+    {
+      "filename": "020_diagnosis_hearing_source_references.sql",
+      "sha256": "abaf7738fe5e33f421647cdf3ae48f25a7c82268a468ac2a66c3c1b7a0a7ee39",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["008_it_management_diagnosis_preparation.sql", "010_it_management_diagnosis_human_review.sql", "019_diagnosis_hearing_records.sql"],
+      "release_scope": "adds HEARING_RECORD as a valid source reference on ai_proposal_sources/insight_sources; rebuilds their primary keys"
+    },
+    {
+      "filename": "021_diagnosis_report_pdf_artifacts.sql",
+      "sha256": "c7ac5fc26a968f130679608760a1c95653a43e959981e20b6be4fb1bca075648",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["011_it_management_diagnosis_report_feedback.sql"],
+      "release_scope": "diagnosis_report_pdf_artifacts"
+    },
+    {
+      "filename": "022_diagnosis_report_pdf_generation_lease.sql",
+      "sha256": "11abbc4ecd621cc2f9052c490d8774009840413d5a0498e16bee32f2a7f67fb6",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["021_diagnosis_report_pdf_artifacts.sql"],
+      "release_scope": "adds generation_token/lease_expires_at to diagnosis_report_pdf_artifacts"
+    },
+    {
+      "filename": "023_diagnosis_report_pdf_source_content_hash.sql",
+      "sha256": "190b8aaf31e5f24149d9dd47f62c5ce86136224334398e2e45afba8081bd3511",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["021_diagnosis_report_pdf_artifacts.sql", "022_diagnosis_report_pdf_generation_lease.sql"],
+      "release_scope": "adds source content-hash binding to diagnosis_report_pdf_artifacts"
+    },
+    {
+      "filename": "024_diagnosis_public_application_idempotency.sql",
+      "sha256": "cf8f9c1210c6c5aae3e8bb78408e133f65f7a94cdcce67172752e201800fa726",
+      "depends_on_applied": [],
+      "depends_on_allowlist": ["007_it_management_diagnosis.sql"],
+      "release_scope": "diagnosis_public_application_idempotency"
+    }
+  ]
+}
