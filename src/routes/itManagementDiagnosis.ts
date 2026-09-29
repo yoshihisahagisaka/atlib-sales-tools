@@ -15,9 +15,14 @@ const webApplicationSchema = z.object({
 }).passthrough();
 const idempotencyKeySchema = z.string().regex(/^[A-Za-z0-9_-]{16,128}$/);
 const LP_ORIGIN = 'https://www.atlib.jp';
-function allowPublicLpOrigin(req: Request, res: Response): boolean {
-  if (req.get('origin') !== LP_ORIGIN) return false;
-  res.setHeader('Access-Control-Allow-Origin', LP_ORIGIN); res.setHeader('Vary', 'Origin');
+// allowedOrigins lets a test harness add its own real (ephemeral-port) origin
+// alongside the fixed production LP origin, since a real browser's Origin header
+// cannot be spoofed to match a hardcoded string. Production never overrides this,
+// so it always resolves to exactly [LP_ORIGIN] there.
+function allowPublicLpOrigin(req: Request, res: Response, allowedOrigins: readonly string[]): boolean {
+  const origin = req.get('origin');
+  if (!origin || !allowedOrigins.includes(origin)) return false;
+  res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS'); res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Idempotency-Key');
   return true;
 }
@@ -98,11 +103,11 @@ export function mountSurveyCommands(router: Router, repo: ItManagementDiagnosisR
 export function createItManagementDiagnosisRouter(
   repo: ItManagementDiagnosisRepo,
   notify?: CompletionNotifier,
-  publicIntake?: { enabled: boolean; staffAuthService?: StaffAuthService },
+  publicIntake?: { enabled: boolean; staffAuthService?: StaffAuthService; allowedOrigins?: readonly string[] },
 ): Router {
   const router = Router();
   router.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
-  router.options('/cases', (req, res) => { if (!allowPublicLpOrigin(req, res)) { res.status(403).end(); return; } res.status(204).end(); });
+  router.options('/cases', (req, res) => { if (!allowPublicLpOrigin(req, res, publicIntake?.allowedOrigins ?? [LP_ORIGIN])) { res.status(403).end(); return; } res.status(204).end(); });
   router.post('/cases', (req, res, next) => {
     // A recognized atLIB staff session may exercise this exact public-intake code
     // path for internal test data, independent of the LP-origin check below and of
@@ -111,7 +116,7 @@ export function createItManagementDiagnosisRouter(
     if (req.staffEmail) { next(); return; }
     // Origin/CORS is a browser-response convention, not an access boundary: it must
     // not be the only thing standing between an anonymous direct POST and a real Case.
-    if (!allowPublicLpOrigin(req, res)) { res.status(403).json({ error: 'ORIGIN_NOT_ALLOWED' }); return; }
+    if (!allowPublicLpOrigin(req, res, publicIntake?.allowedOrigins ?? [LP_ORIGIN])) { res.status(403).json({ error: 'ORIGIN_NOT_ALLOWED' }); return; }
     if (!publicIntake?.enabled) { res.status(403).json({ error: 'PUBLIC_INTAKE_DISABLED' }); return; }
     next();
   }, createIpRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 5 }), diagnosisHandler(async (req, res) => {

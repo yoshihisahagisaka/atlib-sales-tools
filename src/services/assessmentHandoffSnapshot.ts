@@ -10,7 +10,7 @@ export async function buildAssessmentHandoffSnapshot(c:PoolClient,id:string,gene
  if(!futures[0]||!report||!['APPROVED','DELIVERED'].includes(report.status)||!report.snapshot_json)throw new DiagnosisError(409,'Current Futureと承認済みReportが必要です。');
  if(contentHash(report.content_json)!==report.snapshot_json.content_hash)throw new DiagnosisError(409,'Reportのhashが一致しません。');
  const {rows:insights}=await c.query(`SELECT i.id,i.version,i.semantic_type,i.title,i.content,i.unknown_type,i.area_tag,i.improvement_lens,i.diagnosis_theme_id,i.review_status,
- COALESCE((SELECT jsonb_agg(jsonb_build_object('source_ref_type',s.source_ref_type,'source_ref_id',s.source_ref_id,'relation',s.relation) ORDER BY s.source_ref_type,s.source_ref_id,s.relation) FROM insight_sources s WHERE s.diagnosis_insight_id=i.id AND s.diagnosis_case_id=i.diagnosis_case_id),'[]'::jsonb) AS source_refs
+ COALESCE((SELECT jsonb_agg(jsonb_build_object('source_ref_type',s.source_ref_type,'source_ref_id',s.source_ref_id,'source_revision_id',s.source_revision_id,'relation',s.relation) ORDER BY s.source_ref_type,s.source_ref_id,s.relation) FROM insight_sources s WHERE s.diagnosis_insight_id=i.id AND s.diagnosis_case_id=i.diagnosis_case_id),'[]'::jsonb) AS source_refs
  FROM diagnosis_insights i WHERE i.diagnosis_case_id=$1 AND i.review_status='HUMAN_APPROVED' ORDER BY i.id`,[id]);
  const {rows:items}=await c.query(`SELECT id,title,purpose,priority,status,diagnosis_theme_id,related_insight_id,related_evidence_candidate_id FROM assessment_confirmation_items WHERE diagnosis_case_id=$1 AND status='OPEN' ORDER BY priority,id`,[id]);
  const {rows:themes}=await c.query('SELECT id,title,future_relation FROM diagnosis_themes WHERE diagnosis_case_id=$1 ORDER BY id',[id]);

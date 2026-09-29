@@ -36,6 +36,7 @@ test('Phase 1: hearing revisions remain separate from original survey responses'
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Origin: 'https://www.atlib.jp',
         'X-Forwarded-For': '192.0.2.91',
       },
       body: JSON.stringify({
@@ -230,6 +231,7 @@ test('Phase 1 HTTP: staff authentication, command guard, validation and read', a
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Origin: 'https://www.atlib.jp',
           'X-Forwarded-For': '192.0.2.92',
         },
         body: JSON.stringify({

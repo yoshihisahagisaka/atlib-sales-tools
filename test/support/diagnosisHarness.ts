@@ -119,7 +119,8 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
     }
     next();
   });
-  app.use('/api/it-management-diagnosis', createItManagementDiagnosisRouter(repo, notify, { enabled: publicIntakeEnabled, staffAuthService: staffAuth }));
+  const intakeConfig = { enabled: publicIntakeEnabled, staffAuthService: staffAuth, allowedOrigins: ['https://www.atlib.jp'] as string[] };
+  app.use('/api/it-management-diagnosis', createItManagementDiagnosisRouter(repo, notify, intakeConfig));
   app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createAdminItManagementDiagnosisRouter(repo, notify,{ repo: preparation,provider,worker },{repo:workspace,provider:interviewProvider,worker:interviewWorker},{repo:review,provider:postProvider,worker:postWorker},{repo:report,provider:reportProvider,worker:reportWorker},assessment));
   app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createManagementFeedbackDecisionRouter(feedbackDecision));
   app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createSalesIntakeRouter(new SalesIntakeRepo(pool)));
@@ -132,6 +133,10 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  // A real browser (Playwright) navigating to this harness sends this exact origin,
+  // which can never be spoofed to the fixed production LP_ORIGIN; add it alongside,
+  // never in place of, the production origin used by direct-fetch golden tests.
+  intakeConfig.allowedOrigins.push(url);
   return { db:testDb, pool, repo, url, logs, staffCookie, preparation, worker, workspace, interviewWorker, review, postWorker, report, reportWorker, assessment, feedbackDecision,
     close: async () => { await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve())); await db.close();await cleanupPostgres?.(); } };
 }

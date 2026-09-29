@@ -16,6 +16,7 @@ async function request(path: string, method = 'GET', body?: unknown, admin = fal
     method,
     headers: {
       'Content-Type': 'application/json',
+      Origin: 'https://www.atlib.jp',
       ...(admin ? { Cookie: h.staffCookie, 'X-Diagnosis-Command': '1' } : {}),
       ...extra,
     },
