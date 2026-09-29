@@ -1,5 +1,5 @@
 {
-  "status": "DRAFT_LEDGER_EVIDENCE_VERIFIED_REHEARSAL_PENDING",
+  "status": "APPROVED_FOR_ARTIFACT_GENERATION",
   "environment": "production",
   "database": "sales_tools (Cloud SQL instance msp-zabbix:asia-northeast1:msp-customer-portal-db, shared with msp-customer-portal)",
   "ledger_source": {
@@ -11,14 +11,16 @@
     "original_json_sha256": "76196f3a94db4a79eb77f4ee2d153181f2d0b5014ae9368c5b70473dab6283ad",
     "requirement": "Set only from the byte-for-byte read-only ledger JSON original (the `ledger` field of the existing sales-tools-web-partner-ledger-inspect-ro job's stdout); do not hash a reconstructed filename list. Re-run that job for a fresh snapshot immediately before generation/execution and re-verify this hash; if it differs, this manifest must be re-evaluated before proceeding."
   },
-  "source_commit": "f3c7992b5edbab3966f5429408e965bd51d12a68",
-  "source_commit_status": "NOT YET PUSHED to origin/feat/free-diagnosis-sales-launch as of manifest creation. buildAllowlistArtifact.cjs requires a clean checkout AT this exact SHA; a Linux clean-checkout build (per readiness-runbook.md) additionally requires this SHA to be reachable from a pushed ref. Do not treat this manifest as generation-ready until push is separately approved and completed.",
+  "source_commit": "14b4f518e6efd13f392f28ad25530314d978701c",
+  "source_commit_status": "Pushed to origin/feat/free-diagnosis-sales-launch; confirmed origin HEAD equals this SHA. All 18 migrations[].sha256 values in this manifest were independently re-verified against `git show 14b4f51...:migrations/<filename>` (the canonical Git blob) at this exact commit and confirmed to contain zero CR bytes. See P2-83/P2-84 in docs/staging-migration-release-preflight-p2-12.md.",
   "artifact_generation": {
-    "permitted": false,
-    "scope": "Not yet approved. When approved, scope is limited to building and inspecting an 18-SQL migration image only (this manifest's `migrations` list). It does not authorize a Cloud Run Job change, execution, or production migration."
+    "permitted": true,
+    "scope": "Approved by the release/business owner (2026-09-29, P2-84). Limited to building and inspecting an 18-SQL migration image only (this manifest's `migrations` list). It does not by itself authorize a Cloud Run Job change, execution, or production migration; those remain separate approvals per docs/staging-migration-release-preflight-p2-12.md."
   },
   "approval_evidence": {
-    "isolated_rehearsal": "NOT YET PERFORMED. Requires the isolated-migration-allowlist-rehearsal GitHub Actions workflow (or an operator-created local disposable PostgreSQL 16 container per docs/staging-migration-allowlist-rehearsal.md) dispatched with manifest=production-diagnosis-018.candidate.json, baseCutoff=16 (the highest already-applied numeric prefix strictly below this batch; see note below on 017/018/019 numeric collisions), expectedLedgerCount=26 (8 existing + 18 in this manifest). This requires push first."
+    "isolated_rehearsal": "PERFORMED. Local disposable PostgreSQL 16 (postgres:16-alpine, 127.0.0.1:55437) via scripts/migration/rehearseAllowlistPostgres.cjs against a fixture built entirely from `git show HEAD:migrations/<file>` (canonical LF bytes, zero CR, byte-checked) with this exact corrected manifest, ISOLATED_ALLOWLIST_BASE_FROM_LEDGER=1, ISOLATED_ALLOWLIST_EXPECTED_LEDGER_COUNT=26. Passed 2026-09-29T07:43:17Z: 8-row ledger seeds, all 18 files apply in order to empty and seeded DBs, ledger reaches 26, idempotent re-run skips all 26, injected mid-batch failure rolls back cleanly, runtime-role separation holds. Evidence: migration-allowlists/evidence/production-diagnosis-018-rehearsal-pg16-lf.json. Superseded prior evidence (pre-hash-correction, CRLF-tainted input) retained as historical record: production-diagnosis-018-rehearsal-pg16.json.",
+    "clone_rehearsal": "PERFORMED (P2-82). Temporary isolated Cloud SQL clone of msp-customer-portal-db, migrated with the real runner and this manifest against real cloned production data, verified (8->26, idempotent, unchanged Partner table counts, default-privilege inheritance), then deleted. See docs/staging-migration-release-preflight-p2-12.md P2-82.",
+    "production_ledger_reconfirmation": "Fresh execution of sales-tools-web-partner-ledger-inspect-ro (2026-09-29T07:50Z, execution sales-tools-web-partner-ledger-inspect-ro-294f6) reproduced the identical 8-row, 687-byte ledger JSON, SHA-256 76196f3a94db4a79eb77f4ee2d153181f2d0b5014ae9368c5b70473dab6283ad, matching ledger_source exactly. Computed pending set (all tracked *.sql minus these 8) equals expected_unapplied_filenames exactly (18)."
   },
   "expected_unapplied_filenames": [
     "006_kaizen_assessments.sql",
