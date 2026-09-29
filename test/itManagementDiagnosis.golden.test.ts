@@ -23,7 +23,7 @@ async function request(path: string, method = 'GET', body?: unknown, token?: str
   return response as Omit<Response, 'json'> & { json(): Promise<any> };
 }
 async function webCase() {
-  const response = await request(`${publicBase}/cases`, 'POST', application);
+  const response = await request(`${publicBase}/cases`, 'POST', application, undefined, false, { Origin: 'https://www.atlib.jp' });
   assert.equal(response.status, 201);
   const result = await response.json() as { id: string; access_token: string; diagnosis_status: string };
   return { ...result, actor: { kind: 'CUSTOMER', token: result.access_token } as Actor };
@@ -134,7 +134,7 @@ test('Golden: SALES_VISITは既存staff認証、同一Surveyとactor記録、顧
   assert.match(redirect.headers.get('location')!, /^\/auth\/login/);
   assert.equal((await request(`${adminBase}/cases`, 'POST', application, undefined, false, { Cookie: h.staffCookie })).status, 403);
   assert.equal((await request(`${adminBase}/cases`, 'POST', application, undefined, true, { 'Sec-Fetch-Site': 'cross-site' })).status, 403);
-  assert.equal((await request(`${publicBase}/cases`, 'POST', { ...application, entry_channel: 'SALES_VISIT', owner_user_id: 'forged' })).status, 422);
+  assert.equal((await request(`${publicBase}/cases`, 'POST', { ...application, entry_channel: 'SALES_VISIT', owner_user_id: 'forged' }, undefined, false, { Origin: 'https://www.atlib.jp' })).status, 422);
   assert.equal((await request(`${adminBase}/cases`, 'POST', application, undefined, true)).status,409);
   const draft=await (await request(`${adminBase}/sales-intakes`,'POST',{customer:application,customerStatements:[],unknowns:[],salespersonNotes:[],surveyAnswers:{}},undefined,true)).json();
   const response = await request(`${adminBase}/sales-intakes/${draft.id}/consent-and-start`, 'POST', {expectedVersion:draft.version,customerAgreed:true,customerReference:'Synthetic customer'}, undefined, true);
@@ -260,7 +260,7 @@ test('Golden: legacy migration/table/APIを維持し、新APIに旧評価を混�
 
 test('公開Case作成の既存IP Rate Limitを適用', async () => {
   for (let i = 0; i < 6; i++) {
-    const response = await request(`${publicBase}/cases`, 'POST', application, undefined, false, { 'X-Forwarded-For': '198.51.100.200' });
+    const response = await request(`${publicBase}/cases`, 'POST', application, undefined, false, { 'X-Forwarded-For': '198.51.100.200', Origin: 'https://www.atlib.jp' });
     assert.equal(response.status, i < 5 ? 201 : 429);
   }
 });

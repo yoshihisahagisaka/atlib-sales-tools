@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-const COOKIE_NAME = 'staff_session';
+export const COOKIE_NAME = 'staff_session';
 
 /**
  * JWTをHttpOnly CookieからのみFrom検証する（msp-customer-portalのmiddleware/staffAuth.tsと同じ構成）。

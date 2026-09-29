@@ -52,6 +52,6 @@ test('honeypot allocates no case and keyless legacy WEB creation remains availab
   const before = await h.db.query<{ count: number }>('SELECT count(*)::int AS count FROM diagnosis_cases');
   const bot = await post({ ...body, hp: 'filled' }, 'lp-idempotency-key-0002'); assert.equal(bot.status, 204);
   const afterBot = await h.db.query<{ count: number }>('SELECT count(*)::int AS count FROM diagnosis_cases'); assert.equal(afterBot.rows[0]!.count, before.rows[0]!.count);
-  const legacy = await fetch(`${h.url}/api/it-management-diagnosis/cases`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': '198.51.100.11' }, body: JSON.stringify(body) });
+  const legacy = await fetch(`${h.url}/api/it-management-diagnosis/cases`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': '198.51.100.11', origin: 'https://www.atlib.jp' }, body: JSON.stringify(body) });
   assert.equal(legacy.status, 201);
 });

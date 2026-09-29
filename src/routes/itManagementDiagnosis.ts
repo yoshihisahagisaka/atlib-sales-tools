@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { applicationSchema, DiagnosisError, responseSchema, type Actor } from '../domain/itManagementDiagnosis';
 import { createIpRateLimiter } from '../middleware/rateLimit';
 import type { ItManagementDiagnosisRepo } from '../services/itManagementDiagnosisRepo';
+import type { StaffAuthService } from '../services/staffAuthService';
+import { COOKIE_NAME as STAFF_SESSION_COOKIE_NAME } from '../middleware/staffAuth';
 
 export const DIAGNOSIS_POLICY_NOTICE_VERSION = 'ITMGMT-DIAGNOSIS-NOTICE-2026-09-13-v1';
 const webApplicationSchema = z.object({
@@ -24,6 +26,18 @@ function publicApplicationPayloadHash(input: unknown): string {
   if (!parsed.success) throw new DiagnosisError(422, 'INVALID_APPLICATION');
   const value = parsed.data;
   return createHash('sha256').update(JSON.stringify({ companyName: value.companyName, contactName: value.contactName, email: value.email, phone: value.phone ?? null, jobTitle: value.jobTitle ?? null })).digest('hex');
+}
+/**
+ * Never throws and never redirects: this only sets req.staffEmail when an existing,
+ * valid staff_session cookie is present, so the public /cases route can recognize an
+ * atLIB staff-driven internal test request without requiring staff auth from every
+ * customer caller. It must not become a substitute for a real customer-facing gate.
+ */
+function markOptionalStaffEmail(req: Request, staffAuthService: StaffAuthService | undefined): void {
+  if (!staffAuthService) return;
+  const token = req.cookies?.[STAFF_SESSION_COOKIE_NAME];
+  if (!token) return;
+  try { req.staffEmail = staffAuthService.verifySessionToken(token).email; } catch { /* not staff; proceed as a public caller */ }
 }
 
 export type CompletionNotifier = (caseId: string) => Promise<void>;
@@ -81,11 +95,26 @@ export function mountSurveyCommands(router: Router, repo: ItManagementDiagnosisR
   }));
 }
 
-export function createItManagementDiagnosisRouter(repo: ItManagementDiagnosisRepo, notify?: CompletionNotifier): Router {
+export function createItManagementDiagnosisRouter(
+  repo: ItManagementDiagnosisRepo,
+  notify?: CompletionNotifier,
+  publicIntake?: { enabled: boolean; staffAuthService?: StaffAuthService },
+): Router {
   const router = Router();
   router.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
   router.options('/cases', (req, res) => { if (!allowPublicLpOrigin(req, res)) { res.status(403).end(); return; } res.status(204).end(); });
-  router.post('/cases', (req, res, next) => { allowPublicLpOrigin(req, res); next(); }, createIpRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 5 }), diagnosisHandler(async (req, res) => {
+  router.post('/cases', (req, res, next) => {
+    // A recognized atLIB staff session may exercise this exact public-intake code
+    // path for internal test data, independent of the LP-origin check below and of
+    // publicIntake.enabled. This is a bypass for staff, never a public relaxation.
+    markOptionalStaffEmail(req, publicIntake?.staffAuthService);
+    if (req.staffEmail) { next(); return; }
+    // Origin/CORS is a browser-response convention, not an access boundary: it must
+    // not be the only thing standing between an anonymous direct POST and a real Case.
+    if (!allowPublicLpOrigin(req, res)) { res.status(403).json({ error: 'ORIGIN_NOT_ALLOWED' }); return; }
+    if (!publicIntake?.enabled) { res.status(403).json({ error: 'PUBLIC_INTAKE_DISABLED' }); return; }
+    next();
+  }, createIpRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 5 }), diagnosisHandler(async (req, res) => {
     // Public callers cannot choose SALES_VISIT or provide a staff identity.
     const parsed = webApplicationSchema.safeParse(req.body);
     if (!parsed.success) throw new DiagnosisError(422, 'サービス内容とデータ利用について確認してからお申し込みください。');

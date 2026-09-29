@@ -45,7 +45,7 @@ import {createSalesIntakeRouter} from '../../src/routes/salesIntake';
  * A single connection adapter serializes transactions, matching pg Pool checkout.
  * No production config, secret manager, SMTP, Slack or AI is loaded.
  */
-export async function createDiagnosisHarness(notify?: CompletionNotifier, provider: AIProvider = new AnthropicPreDiagnosisProvider(), interviewProvider: InterviewProvider = new AnthropicInterviewProvider(), postProvider: PostDiagnosisProvider = new AnthropicPostDiagnosisProvider(), reportProvider: ReportDraftProvider = new AnthropicReportDraftProvider()) {
+export async function createDiagnosisHarness(notify?: CompletionNotifier, provider: AIProvider = new AnthropicPreDiagnosisProvider(), interviewProvider: InterviewProvider = new AnthropicInterviewProvider(), postProvider: PostDiagnosisProvider = new AnthropicPostDiagnosisProvider(), reportProvider: ReportDraftProvider = new AnthropicReportDraftProvider(), publicIntakeEnabled = true) {
   const db = new PGlite();
   await db.waitReady;
   const root = path.resolve(__dirname, '../..');
@@ -119,7 +119,7 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
     }
     next();
   });
-  app.use('/api/it-management-diagnosis', createItManagementDiagnosisRouter(repo, notify));
+  app.use('/api/it-management-diagnosis', createItManagementDiagnosisRouter(repo, notify, { enabled: publicIntakeEnabled, staffAuthService: staffAuth }));
   app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createAdminItManagementDiagnosisRouter(repo, notify,{ repo: preparation,provider,worker },{repo:workspace,provider:interviewProvider,worker:interviewWorker},{repo:review,provider:postProvider,worker:postWorker},{repo:report,provider:reportProvider,worker:reportWorker},assessment));
   app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createManagementFeedbackDecisionRouter(feedbackDecision));
   app.use('/api/admin/it-management-diagnosis', requireStaffAuth(staffAuth), createSalesIntakeRouter(new SalesIntakeRepo(pool)));

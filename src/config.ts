@@ -43,6 +43,13 @@ export interface Config {
   runtimeWorkers: {
     inProcessAiEnabled: boolean;
   };
+  diagnosisPublicIntake: {
+    // Fail closed: unauthenticated WEB /cases creation is refused until explicitly
+    // enabled for Phase 3 general availability. A staff-authenticated caller may
+    // still create a WEB-channel test case through the same route regardless of
+    // this flag (see requireOptionalStaffEmail in routes/itManagementDiagnosis.ts).
+    enabled: boolean;
+  };
 }
 
 /**
@@ -126,5 +133,9 @@ export async function loadConfig(): Promise<Config> {
     // Fail closed: a runtime instance must be explicitly authorized to claim AI work.
     // This does not affect the separately authenticated Scheduler HTTP routes.
     runtimeWorkers: { inProcessAiEnabled: process.env.ENABLE_IN_PROCESS_AI_WORKERS === 'true' },
+    // Fail closed: Phase 1/2 keep public WEB intake refused; only an explicit
+    // Phase-3 GA config change sets this true. Staff-authenticated test creation
+    // is unaffected by this flag.
+    diagnosisPublicIntake: { enabled: process.env.DIAGNOSIS_PUBLIC_INTAKE_ENABLED === 'true' },
   };
 }
