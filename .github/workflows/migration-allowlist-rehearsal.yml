@@ -2,6 +2,19 @@ name: isolated-migration-allowlist-rehearsal
 
 on:
   workflow_dispatch:
+    inputs:
+      manifest:
+        description: 'Allowlist manifest filename under migration-allowlists/ (default: the already-approved P2-10 six-file manifest; do not overwrite it for a new candidate)'
+        required: false
+        default: 'staging-p2-10.candidate.json'
+      baseCutoff:
+        description: 'Highest migration numeric prefix treated as pre-applied base schema before this rehearsal (default: 18, matching the P2-10 manifest)'
+        required: false
+        default: '18'
+      expectedLedgerCount:
+        description: 'Expected schema_migrations row count in the seeded database after this manifest applies (default: 26, matching the P2-10 manifest)'
+        required: false
+        default: '26'
 
 jobs:
   postgres16-rehearsal:
@@ -38,6 +51,9 @@ jobs:
           ISOLATED_PG_ADMIN_USER: postgres
           ISOLATED_PG_ADMIN_PASSWORD: postgres
           ISOLATED_REHEARSAL_EVIDENCE_PATH: ${{ runner.temp }}/migration-allowlist-rehearsal.json
+          ISOLATED_ALLOWLIST_MANIFEST: ${{ inputs.manifest }}
+          ISOLATED_ALLOWLIST_BASE_CUTOFF: ${{ inputs.baseCutoff }}
+          ISOLATED_ALLOWLIST_EXPECTED_LEDGER_COUNT: ${{ inputs.expectedLedgerCount }}
       - uses: actions/upload-artifact@v4
         with:
           name: migration-allowlist-postgres16-rehearsal

@@ -15,9 +15,15 @@ const ISOLATED_PORT = 55437;
 const sha256 = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 const quoteIdent = value => `"${value.replaceAll('"', '""')}"`;
 const fail = message => { throw new Error(`ISOLATED_MIGRATION_REHEARSAL_INVALID:${message}`); };
+// Defaults reproduce the original P2-10/019-023 rehearsal exactly when unset. Set these
+// three to rehearse a different manifest (e.g. a future 024-only candidate) without
+// touching the P2-10 manifest, its evidence, or this file's default behavior.
+const MANIFEST_FILENAME = process.env.ISOLATED_ALLOWLIST_MANIFEST || 'staging-p2-10.candidate.json';
+const BASE_CUTOFF = Number(process.env.ISOLATED_ALLOWLIST_BASE_CUTOFF || 18);
+const EXPECTED_LEDGER_COUNT = Number(process.env.ISOLATED_ALLOWLIST_EXPECTED_LEDGER_COUNT || 26);
 
 function loadFixture(root) {
-  const manifestPath = path.join(root, 'migration-allowlists', 'staging-p2-10.candidate.json');
+  const manifestPath = path.join(root, 'migration-allowlists', MANIFEST_FILENAME);
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   if (!['DRAFT_LEDGER_EVIDENCE_VERIFIED_REHEARSAL_PENDING', 'APPROVED_FOR_ARTIFACT_GENERATION'].includes(manifest.status) || typeof manifest.artifact_generation?.permitted !== 'boolean') fail('MANIFEST_STATUS');
   const ledgerPath = path.resolve(root, manifest.ledger_source?.snapshot_path || '');
@@ -31,7 +37,7 @@ function loadFixture(root) {
     return entry.filename;
   }).sort();
   if (new Set(allowlist).size !== allowlist.length || allowlist.join('\n') !== [...manifest.expected_unapplied_filenames].sort().join('\n')) fail('ALLOWLIST_FILENAMES');
-  const base = allSql.filter(filename => Number(filename.slice(0, filename.indexOf('_'))) <= 18);
+  const base = allSql.filter(filename => Number(filename.slice(0, filename.indexOf('_'))) <= BASE_CUTOFF);
   if (base.length === 0 || base.some(filename => !SQL_NAME.test(filename))) fail('BASE_SQL');
   return { manifest, ledger, allowlist, base };
 }
@@ -109,7 +115,7 @@ async function run(root) {
     await seedLedger(seededMigration, fixture.ledger);
     const seededEvents = await migrate(seededMigration, allowlistDir);
     assert.deepEqual(seededEvents.filter(event => event.event === 'migration_applied').map(event => event.filename), fixture.allowlist);
-    assert.equal(Number((await seededMigration.query('SELECT count(*)::int AS count FROM schema_migrations')).rows[0].count), 26);
+    assert.equal(Number((await seededMigration.query('SELECT count(*)::int AS count FROM schema_migrations')).rows[0].count), EXPECTED_LEDGER_COUNT);
     const actualLedger = (await seededMigration.query('SELECT filename FROM schema_migrations ORDER BY filename')).rows.map(row => row.filename);
     assert.deepEqual(actualLedger, [...new Set([...fixture.ledger.map(row => row.filename), ...fixture.allowlist])].sort());
     assert.equal(Number((await seededMigration.query("SELECT count(*)::int AS count FROM schema_migrations WHERE filename='017_customer_fit_checks.sql'")).rows[0].count), 1);
