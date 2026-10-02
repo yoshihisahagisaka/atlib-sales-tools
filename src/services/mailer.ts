@@ -36,6 +36,9 @@ export class Mailer {
     });
   }
 
+  async sendBusinessWebConsultationNotification(to:string, params:{company:string;name:string;email:string;detailUrl:string}):Promise<void>{await this.transporter.sendMail({from:this.config.from,to,subject:`【Business Web 無料相談】新規申込: ${params.company} 様`,text:`Business Web無料相談の申込がありました。\n\n会社名: ${params.company}\nお名前: ${params.name}\nメール: ${params.email}\n\n詳細: ${params.detailUrl}`});}
+  async sendBusinessWebConsultationThanks(to:string,name:string):Promise<void>{await this.transporter.sendMail({from:this.config.from,to,subject:'無料相談のお申し込みを受け付けました - atLIB株式会社',text:`${name} 様\n\n無料相談のお申し込みを受け付けました。\n今回のセルフチェックの回答・診断結果を確認したうえで、相談時にお話を伺います。\n担当者よりご連絡します。\n\n提供：atLIB株式会社`});}
+
   /** toはカンマ区切りで複数宛先可（nodemailerがそのまま複数宛先として解釈する）。 */
   async sendDiagnosticSubmissionNotification(to: string, summary: DiagnosticNotificationSummary): Promise<void> {
     const scoreLines = Object.entries(summary.categoryScores).map(([categoryId, score]) => `  ${categoryId}: ${score}点`);

@@ -57,6 +57,9 @@ import { createWebDevelopmentPartnerLeadRouter } from './routes/webDevelopmentPa
 import { createTimeRexWebhookRouter } from './routes/timerexWebhook';
 import { createAdminInfraVisionPartnerLeadRouter } from './routes/adminInfraVisionPartnerLead';
 import { createAdminWebDevelopmentPartnerLeadRouter } from './routes/adminWebDevelopmentPartnerLead';
+import { BusinessWebConsultationLeadRepo } from './services/businessWebConsultationLeadRepo';
+import { createBusinessWebConsultationLeadRouter } from './routes/businessWebConsultationLead';
+import { createAdminBusinessWebConsultationLeadRouter } from './routes/adminBusinessWebConsultationLead';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -70,6 +73,7 @@ async function main(): Promise<void> {
   const kaizenDiagnosticRepo = new KaizenDiagnosticRepo(pool);
   const infraVisionPartnerLeadRepo = new InfraVisionPartnerLeadRepo(pool);
   const webDevelopmentPartnerLeadRepo = new WebDevelopmentPartnerLeadRepo(pool);
+  const businessWebConsultationLeadRepo = new BusinessWebConsultationLeadRepo(pool);
   const kaizenAssessmentRepo = new KaizenAssessmentRepo(pool);
   const kaizenAssessmentAiService = new KaizenAssessmentAiService(config.aiAssist.anthropicApiKey);
   const marketRateRepo = new MarketRateRepo(pool);
@@ -145,6 +149,10 @@ async function main(): Promise<void> {
   app.use('/api/kaizen-diagnostic', createKaizenDiagnosticRouter(kaizenDiagnosticRepo, mailer, config));
   app.use('/api/infravision-partner-leads', createInfraVisionPartnerLeadRouter(infraVisionPartnerLeadRepo, mailer, config));
   app.use('/api/web-development-partner-leads', createWebDevelopmentPartnerLeadRouter(webDevelopmentPartnerLeadRepo, mailer, config));
+  app.use(
+    '/api/business-web-consultation-leads',
+    createBusinessWebConsultationLeadRouter(businessWebConsultationLeadRepo, mailer, config),
+  );
   // TimeRex Standard運用中は予約状態を管理画面で手動更新する。\n  // Premiumへアップグレードし、任意URLパラメータ(lead_id)のWebhook受信を実機検証した後に有効化する。\n  // app.use('/api/webhooks/timerex/infravision-partner', createTimeRexWebhookRouter(infraVisionPartnerLeadRepo));
 
   // 情シスKAIZEN｜60分無料診断（V5）: LP→事前アンケート→担当者主導の60分診断→PDF/PPTXレポート。
@@ -191,6 +199,11 @@ async function main(): Promise<void> {
   app.use('/api/admin/estimates', ...adminAuthGate, createAdminEstimatesRouter(estimateRepo));
   app.use('/api/admin/infravision-partner-leads', ...adminAuthGate, createAdminInfraVisionPartnerLeadRouter(infraVisionPartnerLeadRepo));
   app.use('/api/admin/web-development-partner-leads', ...adminAuthGate, createAdminWebDevelopmentPartnerLeadRouter(webDevelopmentPartnerLeadRepo));
+  app.use(
+    '/api/admin/business-web-consultation-leads',
+    ...adminAuthGate,
+    createAdminBusinessWebConsultationLeadRouter(businessWebConsultationLeadRepo),
+  );
   // 静的HTML側もスタッフ認証で保護する。この行は下の一般static配信より前に置くこと
   // （逆順だと未認証で/admin/*.htmlが一般static経由で読めてしまう）。
   app.use('/admin', ...adminAuthGate, express.static(path.join(__dirname, '../public/admin')));
