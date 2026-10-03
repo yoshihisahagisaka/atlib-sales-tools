@@ -60,6 +60,9 @@ import { createAdminWebDevelopmentPartnerLeadRouter } from './routes/adminWebDev
 import { BusinessWebConsultationLeadRepo } from './services/businessWebConsultationLeadRepo';
 import { createBusinessWebConsultationLeadRouter } from './routes/businessWebConsultationLead';
 import { createAdminBusinessWebConsultationLeadRouter } from './routes/adminBusinessWebConsultationLead';
+import { FreeDiagnosisSalesLauncherRepo } from './services/freeDiagnosisSalesLauncherRepo';
+import { FreeDiagnosisRuleBasedCaseRepo } from './services/freeDiagnosisRuleBasedCaseRepo';
+import { createAdminFreeDiagnosisRuleBasedV1Router } from './routes/adminFreeDiagnosisRuleBasedV1';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -74,6 +77,8 @@ async function main(): Promise<void> {
   const infraVisionPartnerLeadRepo = new InfraVisionPartnerLeadRepo(pool);
   const webDevelopmentPartnerLeadRepo = new WebDevelopmentPartnerLeadRepo(pool);
   const businessWebConsultationLeadRepo = new BusinessWebConsultationLeadRepo(pool);
+  const freeDiagnosisSalesLauncherRepo = new FreeDiagnosisSalesLauncherRepo(pool);
+  const freeDiagnosisRuleBasedCaseRepo = new FreeDiagnosisRuleBasedCaseRepo(pool);
   const kaizenAssessmentRepo = new KaizenAssessmentRepo(pool);
   const kaizenAssessmentAiService = new KaizenAssessmentAiService(config.aiAssist.anthropicApiKey);
   const marketRateRepo = new MarketRateRepo(pool);
@@ -203,6 +208,13 @@ async function main(): Promise<void> {
     '/api/admin/business-web-consultation-leads',
     ...adminAuthGate,
     createAdminBusinessWebConsultationLeadRouter(businessWebConsultationLeadRepo),
+  );
+  // IT経営KAIZEN 無料診断 Rule-Based v1, Production Vertical Slice 1 (Internal Dogfooding
+  // only -- no public intake lane links here). Deterministic, no AI provider.
+  app.use(
+    '/api/admin/free-diagnosis-v1',
+    ...adminAuthGate,
+    createAdminFreeDiagnosisRuleBasedV1Router(freeDiagnosisSalesLauncherRepo, freeDiagnosisRuleBasedCaseRepo),
   );
   // 静的HTML側もスタッフ認証で保護する。この行は下の一般static配信より前に置くこと
   // （逆順だと未認証で/admin/*.htmlが一般static経由で読めてしまう）。

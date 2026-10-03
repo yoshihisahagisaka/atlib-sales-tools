@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IT経営KAIZEN 無料診断 Rule-Based v1（Internal Dogfooding） | atLIB Admin</title>
+<link rel="stylesheet" href="/admin/partner-leads.css">
+<style>
+/* Hearing/Analysis固有UXはPartner Funnelのtable UIへ無理に合わせない。
+   admin-shell/admin-header/cardのレイアウト基盤のみ再利用し、内容は独自構成とする。 */
+.step{margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid #e5e7eb}
+.step:last-child{border-bottom:none}
+.step h3{margin:0 0 .5rem}
+.step .hint{color:#6b7280;font-size:.875rem;margin:0 0 .75rem}
+.row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem;align-items:center}
+.row label{min-width:9rem;font-size:.875rem}
+input[type=text],input[type=email],select,textarea{padding:.4rem .6rem;border:1px solid #d1d5db;border-radius:.375rem;font-size:.9rem}
+textarea{width:100%;min-height:3rem}
+button{padding:.5rem 1rem;border-radius:.375rem;border:1px solid #2563eb;background:#2563eb;color:#fff;cursor:pointer;font-size:.9rem}
+button.secondary{background:#fff;color:#2563eb}
+button:disabled{opacity:.5;cursor:not-allowed}
+.statement-list{list-style:none;padding:0;margin:.5rem 0}
+.statement-list li{padding:.5rem;background:#f9fafb;border-radius:.375rem;margin-bottom:.4rem;font-size:.9rem}
+.badge{display:inline-block;padding:.1rem .5rem;border-radius:999px;font-size:.75rem;background:#e5e7eb}
+.badge.known{background:#dcfce7}.badge.unknown{background:#fee2e2}.badge.partial{background:#fef9c3}.badge.available{background:#dbeafe}
+#statusLine{font-weight:600}
+#errorMsg{color:#b91c1c;margin:.5rem 0}
+#resultPanel{white-space:pre-wrap;background:#f9fafb;padding:.75rem;border-radius:.375rem;font-size:.85rem}
+</style></head>
+<body><main class="admin-shell">
+<header class="admin-header"><div><p class="eyebrow">atLIB Sales Tools</p><h1>IT経営KAIZEN 無料診断（Rule-Based v1）</h1>
+<p class="subtitle">Production Vertical Slice 1 — Internal Dogfooding専用。社内Staffが模擬顧客で一連のフローを操作します。</p></div></header>
+
+<section class="card">
+<div class="step"><h3>1. 顧客登録（Sales Launcher）</h3>
+<p class="hint">Company / Contact / Service Selectionを登録し、Caseを開始します。</p>
+<div class="row"><label for="companyName">会社名</label><input id="companyName" type="text" placeholder="サンプル株式会社"></div>
+<div class="row"><label for="contactName">担当者名</label><input id="contactName" type="text" placeholder="山田太郎"></div>
+<div class="row"><label for="contactEmail">メール（任意）</label><input id="contactEmail" type="email"></div>
+<div class="row"><button id="btnCreateCase">顧客登録してCase開始</button></div>
+</div>
+
+<div class="step" id="stepIntake" style="display:none"><h3>2. 7問 Hearing Intake</h3>
+<div id="intakeForm"></div>
+<div class="row"><button id="btnCompleteIntake">Intake完了</button></div>
+</div>
+
+<div class="step" id="stepFocus" style="display:none"><h3>3. Focus Selection</h3>
+<div class="row"><label for="primaryFocus">Primary Focus（必須）</label><select id="primaryFocus"></select></div>
+<div class="row"><label for="secondaryFocus">Secondary Focus（任意）</label><select id="secondaryFocus"><option value="">（なし）</option></select></div>
+<div class="row"><button id="btnSelectFocus">Focus確定</button></div>
+</div>
+
+<div class="step" id="stepPreparation" style="display:none"><h3>4. Preparation</h3>
+<p class="hint">AI呼び出しはありません。選択したFocusに対応する確認項目（Plan Item）です。</p>
+<ul id="planItemList" class="statement-list"></ul>
+<div class="row"><button id="btnStartHearing">Hearing開始</button></div>
+</div>
+
+<div class="step" id="stepHearing" style="display:none"><h3>5. Live Hearing / 6. 整理モード</h3>
+<div class="row"><label for="planItemRef">Plan Item</label><select id="planItemRef"></select></div>
+<div class="row"><label for="statementText">発言・メモ</label><textarea id="statementText"></textarea></div>
+<div class="row"><label for="knowledgeState">Knowledge State</label>
+<select id="knowledgeState"><option value="KNOWN">今回確認できた</option><option value="AVAILABLE">追加確認すれば分かる</option><option value="PARTIAL">一部、追加確認が必要</option><option value="UNKNOWN" selected>今回まだ確認できていない</option></select></div>
+<div class="row"><label for="requiresIndividual">対象ごとに個別確認が必要</label><input id="requiresIndividual" type="checkbox"></div>
+<div class="row"><button id="btnRecordStatement" class="secondary">記録を追加</button></div>
+<ul id="statementList" class="statement-list"></ul>
+<div class="row"><button id="btnOrganize" class="secondary">整理モードへ</button><button id="btnCompleteHearing">Hearing完了</button></div>
+</div>
+
+<div class="step" id="stepAnalysis" style="display:none"><h3>7. Rule Analysis / 8. Human Review</h3>
+<div class="row"><button id="btnRunAnalysis">Rule Analysis実行（即時・AI不使用）</button></div>
+<div id="analysisResult" style="display:none">
+<div id="resultPanel"></div>
+<div class="row"><button id="btnApprove">採用してAnalysis Approved</button><button id="btnReject" class="secondary">却下</button></div>
+</div>
+</div>
+
+<div class="step" id="stepScope" style="display:none"><h3>9. Preliminary Assessment Structure / Suggested Scope</h3>
+<div class="row"><button id="btnGenerateScope">Preliminary Scopeを生成</button></div>
+<div id="scopeResult" style="display:none"><div id="scopePanel"></div></div>
+</div>
+
+<p id="statusLine"></p>
+<p id="errorMsg"></p>
+</section>
+</main>
+<script>
+const api = '/api/admin/free-diagnosis-v1';
+const FOCUS_LABELS = {
+  H00_MANAGEMENT_DISCOVERY: 'H00 経営課題の発見', M01_IT_MANAGEMENT_JUDGMENT: 'M01 IT経営判断',
+  M02_IT_OPERATION_CONTINUITY: 'M02 IT運営の継続性', M03_BUSINESS_DEFENSE_CONTINUITY: 'M03 企業防衛・事業継続',
+  M04_BUSINESS_PRODUCTIVITY: 'M04 業務生産性', M05_GROWTH_CHANGE_ADAPTATION: 'M05 成長・変化への対応',
+  M06_IT_STRATEGIC_USE: 'M06 ITの戦略活用',
+};
+const KS_LABEL = { KNOWN: '今回確認できた', AVAILABLE: '追加確認すれば分かる', PARTIAL: '一部、追加確認が必要', UNKNOWN: '今回まだ確認できていない' };
+const GATE_LABEL = {
+  structure_determinable: '調査構造を今回の情報だけで判定できるか',
+  single_management_scope: '単一の代表的な確認経路でFactを成立させられるか',
+  requires_individual_confirmation_per_target: '対象ごとに個別の確認が必要か',
+  cross_theme_dependency: '複数テーマを横断して確認する必要があるか',
+};
+const el = id => document.getElementById(id);
+let state = { caseId: null, version: null, primaryFocus: null, secondaryFocus: null, lastExecutionId: null };
+
+function show(id) { el(id).style.display = ''; }
+function setError(msg) { el('errorMsg').textContent = msg || ''; }
+
+async function call(path, method, body) {
+  const res = await fetch(api + path, { method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || ('HTTP ' + res.status)); }
+  return res.status === 204 ? null : res.json();
+}
+
+for (const [code, label] of Object.entries(FOCUS_LABELS)) {
+  el('primaryFocus').add(new Option(label, code));
+  el('secondaryFocus').add(new Option(label, code));
+}
+
+el('btnCreateCase').onclick = async () => {
+  setError('');
+  try {
+    const activity = await call('/sales-activities', 'POST', {
+      name: el('companyName').value, contact: { name: el('contactName').value, email: el('contactEmail').value || null }, selectedService: 'IT_KAIZEN',
+    });
+    const kase = await call(`/sales-activities/${activity.salesActivityId}/cases`, 'POST', {});
+    state.caseId = kase.id; state.version = kase.version;
+    el('statusLine').textContent = 'Case ' + kase.id + ' / status=' + kase.status;
+    renderIntakeForm();
+    show('stepIntake');
+  } catch (e) { setError(String(e.message || e)); }
+};
+
+function renderIntakeForm() {
+  const questions = [
+    ['Q1', '会社規模・主な拠点数'], ['Q2', '今後1〜3年の会社の変化'], ['Q3', '今後ITについて実現したい状態'],
+    ['Q4', '現在ITについて気になっていること'], ['Q5', '会社で使っているIT全体像の見え方'],
+    ['Q6', 'ITの経営判断に必要な情報'], ['Q7', '60分で特に相談したいこと（任意）'],
+  ];
+  const form = el('intakeForm'); form.replaceChildren();
+  for (const [code, label] of questions) {
+    const row = document.createElement('div'); row.className = 'row';
+    const l = document.createElement('label'); l.textContent = code + '. ' + label;
+    const input = document.createElement('textarea'); input.id = 'intake_' + code; input.style.minHeight = '2rem';
+    row.append(l, input); form.append(row);
+  }
+}
+
+el('btnCompleteIntake').onclick = async () => {
+  setError('');
+  try {
+    for (const q of ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']) {
+      const value = el('intake_' + q).value.trim();
+      if (!value) continue;
+      await call(`/cases/${state.caseId}/intake`, 'POST', { questionCode: q, channel: 'PROXY', value });
+    }
+    const kase = await call(`/cases/${state.caseId}/intake/complete`, 'POST', { expectedVersion: state.version });
+    state.version = kase.version;
+    el('statusLine').textContent = 'status=' + kase.status;
+    show('stepFocus');
+  } catch (e) { setError(String(e.message || e)); }
+};
+
+el('btnSelectFocus').onclick = async () => {
+  setError('');
+  try {
+    const kase = await call(`/cases/${state.caseId}/focus`, 'POST', {
+      primaryFocus: el('primaryFocus').value, secondaryFocus: el('secondaryFocus').value || null, expectedVersion: state.version,
+    });
+    state.version = kase.version; state.primaryFocus = kase.primaryFocus; state.secondaryFocus = kase.secondaryFocus;
+    el('statusLine').textContent = 'status=' + kase.status;
+    renderPlanItems();
+    show('stepPreparation');
+  } catch (e) { setError(String(e.message || e)); }
+};
+
+function planItemCodes() {
+  const focuses = [state.primaryFocus].concat(state.secondaryFocus ? [state.secondaryFocus] : []);
+  return focuses.flatMap(f => [[f + '_CORE', FOCUS_LABELS[f] + ' / 現状の把握'], [f + '_DECISION', FOCUS_LABELS[f] + ' / 経営判断の確認']]);
+}
+function renderPlanItems() {
+  const list = el('planItemList'); list.replaceChildren();
+  for (const [code, label] of planItemCodes()) { const li = document.createElement('li'); li.textContent = code + ' — ' + label; list.append(li); }
+  const sel = el('planItemRef'); sel.replaceChildren();
+  for (const [code, label] of planItemCodes()) sel.add(new Option(label, code));
+}
+
+el('btnStartHearing').onclick = async () => {
+  setError('');
+  try {
+    const kase = await call(`/cases/${state.caseId}/hearing/start`, 'POST', { expectedVersion: state.version });
+    state.version = kase.version;
+    el('statusLine').textContent = 'status=' + kase.status;
+    show('stepHearing');
+  } catch (e) { setError(String(e.message || e)); }
+};
+
+async function refreshStatements() {
+  const { items } = await call(`/cases/${state.caseId}/hearing/statements`, 'GET');
+  const list = el('statementList'); list.replaceChildren();
+  for (const s of items) {
+    const li = document.createElement('li');
+    const badge = document.createElement('span'); badge.className = 'badge ' + s.knowledgeState.toLowerCase(); badge.textContent = KS_LABEL[s.knowledgeState];
+    li.append(document.createTextNode((s.planItemRef || '-') + ': '), badge);
+    list.append(li);
+  }
+}
+
+el('btnRecordStatement').onclick = async () => {
+  setError('');
+  try {
+    await call(`/cases/${state.caseId}/hearing/statements`, 'POST', {
+      planItemRef: el('planItemRef').value, statementText: el('statementText').value || '(メモなし)',
+      knowledgeState: el('knowledgeState').value, requiresIndividualConfirmation: el('requiresIndividual').checked,
+    });
+    el('statementText').value = '';
+    await refreshStatements();
+  } catch (e) { setError(String(e.message || e)); }
+};
+
+el('btnOrganize').onclick = async () => {
+  setError('');
+  try {
+    const kase = await call(`/cases/${state.caseId}/hearing/organize`, 'POST', { expectedVersion: state.version });
+    state.version = kase.version;
+    el('statusLine').textContent = 'status=' + kase.status + '（整理モード：顧客との認識合わせ。再確認は新しい記録として追加してください）';
+  } catch (e) { setError(String(e.message || e)); }
+};
+
+el('btnCompleteHearing').onclick = async () => {
+  setError('');
+  try {
+    const kase = await call(`/cases/${state.caseId}/hearing/complete`, 'POST', { expectedVersion: state.version });
+    state.version = kase.version;
+    el('statusLine').textContent = 'status=' + kase.status;
+    show('stepAnalysis');
+  } catch (e) { setError(String(e.message || e)); }
+};
+
+el('btnRunAnalysis').onclick = async () => {
+  setError('');
+  try {
+    const outcome = await call(`/cases/${state.caseId}/rule-analysis/run`, 'POST', { expectedVersion: state.version });
+    state.lastExecutionId = outcome.executionId;
+    const current = await call(`/cases/${state.caseId}`, 'GET');
+    state.version = current.case.version;
+    const r = outcome.result;
+    const lines = [];
+    lines.push('Investigation Need（全体）: ' + r.overallInvestigationNeed);
+    lines.push('Broad Unknown Collapse: ' + (r.broadUnknownCollapse ? '発火（確認できた項目が無いため単一findingへ畳みました）' : 'なし'));
+    lines.push('');
+    lines.push('--- Investigation Output ---');
+    for (const f of r.findings) lines.push(`[${f.triggerType}] ${FOCUS_LABELS[f.grounds.focus]} / ${f.grounds.planItemRef} / ${KS_LABEL[f.grounds.knowledgeState]} -> ${f.investigationNeed}`);
+    if (r.findings.length === 0) lines.push('（トリガーなし）');
+    lines.push('');
+    lines.push('--- Assessment Structure Gates（Suggested Scopeの根拠） ---');
+    for (const [k, v] of Object.entries(r.assessmentStructureGates)) lines.push(GATE_LABEL[k] + ': ' + (v ? 'はい' : 'いいえ'));
+    el('resultPanel').textContent = lines.join('\n');
+    el('analysisResult').style.display = '';
+    el('statusLine').textContent = 'status=' + current.case.status;
+  } catch (e) { setError(String(e.message || e)); }
+};
+
+el('btnApprove').onclick = async () => reviewDecision('APPROVED');
+el('btnReject').onclick = async () => reviewDecision('REJECTED');
+async function reviewDecision(decision) {
+  setError('');
+  try {
+    const kase = await call(`/cases/${state.caseId}/review`, 'POST', { executionId: state.lastExecutionId, decision, expectedVersion: state.version });
+    state.version = kase.version;
+    el('statusLine').textContent = 'status=' + kase.status;
+    if (kase.status === 'ANALYSIS_APPROVED') show('stepScope');
+  } catch (e) { setError(String(e.message || e)); }
+}
+
+el('btnGenerateScope').onclick = async () => {
+  setError('');
+  try {
+    const suggestion = await call(`/cases/${state.caseId}/preliminary-scope`, 'POST', { expectedVersion: state.version });
+    const current = await call(`/cases/${state.caseId}`, 'GET');
+    state.version = current.case.version;
+    el('statusLine').textContent = 'status=' + current.case.status + '（System Suggestion ≠ Customer Quote。PPTXへは未反映）';
+    const lines = [];
+    lines.push('Assessment Structure: ' + suggestion.structure);
+    lines.push('Suggested Scope: ' + suggestion.suggestedScope);
+    lines.push('Suggested Base Price: ' + (suggestion.suggestedBasePriceYen != null ? suggestion.suggestedBasePriceYen.toLocaleString('ja-JP') + '円（税別）' : '価格確定なし'));
+    if (suggestion.requiresIndividualQuote) lines.push('※ 個別見積が別途必要です。');
+    el('scopePanel').textContent = lines.join('\n');
+    el('scopeResult').style.display = '';
+  } catch (e) { setError(String(e.message || e)); }
+};
+</script>
+</body></html>
