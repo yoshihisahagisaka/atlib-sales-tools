@@ -98,7 +98,7 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
   }));
 
   r.get('/cases/:id/hearing/statements', (req, res) => handle(res, async () => {
-    res.json({ items: await cases.listStatements(req.params.id) });
+    res.json({ items: await cases.listStatementsForDisplay(req.params.id) });
   }));
 
   // Step 6: 整理モード.
@@ -121,16 +121,26 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
   r.post('/cases/:id/rule-analysis/run', (req, res) => handle(res, async () => {
     const parsed = expectedVersionSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
-    const { executionId, result } = await cases.runAndPersistRuleAnalysis(req.params.id, parsed.data.expectedVersion);
-    res.status(201).json({ executionId, result });
+    const { executionId, result, findings } = await cases.runAndPersistRuleAnalysis(req.params.id, parsed.data.expectedVersion);
+    res.status(201).json({ executionId, result, findings });
   }));
 
-  // Step 9/10: Human Review -> Analysis Approved (or Rejected).
-  const reviewSchema = z.object({ executionId: z.string().uuid(), decision: z.enum(['APPROVED', 'REJECTED']) }).extend(expectedVersionSchema.shape).strict();
+  r.get('/cases/:id/rule-analysis/:executionId/findings', (req, res) => handle(res, async () => {
+    res.json({ items: await cases.listInvestigationOutputs(req.params.executionId) });
+  }));
+
+  // Step 9/10: Human Review -> Analysis Approved (or Rejected). 編集して採用(wordingOverrides)
+  // ／却下(omittedFindingIds)はgrounds_json/Gatesを書き換えない -- 提示方法・採否のみ。
+  const reviewSchema = z.object({
+    executionId: z.string().uuid(), decision: z.enum(['APPROVED', 'REJECTED']),
+    omittedFindingIds: z.array(z.string().uuid()).default([]),
+    wordingOverrides: z.record(z.string().uuid(), z.string().trim().min(1).max(500)).default({}),
+  }).extend(expectedVersionSchema.shape).strict();
   r.post('/cases/:id/review', (req, res) => handle(res, async () => {
     const parsed = reviewSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
-    const kase = await cases.humanReview(req.params.id, parsed.data.executionId, parsed.data.decision, staffEmail(req), parsed.data.expectedVersion);
+    const kase = await cases.humanReview(req.params.id, parsed.data.executionId, parsed.data.decision, staffEmail(req), parsed.data.expectedVersion,
+      { omittedFindingIds: parsed.data.omittedFindingIds, wordingOverrides: parsed.data.wordingOverrides });
     res.json(kase);
   }));
 

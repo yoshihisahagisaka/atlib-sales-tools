@@ -44,6 +44,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness() {
   app.set('trust proxy', 'loopback');
   app.use(express.json()); app.use(cookieParser());
   app.use('/api/admin/free-diagnosis-v1', requireStaffAuth(staffAuth), createAdminFreeDiagnosisRuleBasedV1Router(launcher, cases));
+  app.use('/admin', requireStaffAuth(staffAuth), express.static(path.join(root, 'public/admin')));
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;

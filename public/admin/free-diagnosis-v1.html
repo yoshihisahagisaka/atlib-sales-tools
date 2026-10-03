@@ -4,32 +4,78 @@
 <link rel="stylesheet" href="/admin/partner-leads.css">
 <style>
 /* Hearing/Analysis固有UXはPartner Funnelのtable UIへ無理に合わせない。
-   admin-shell/admin-header/cardのレイアウト基盤のみ再利用し、内容は独自構成とする。 */
-.step{margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid #e5e7eb}
-.step:last-child{border-bottom:none}
-.step h3{margin:0 0 .5rem}
-.step .hint{color:#6b7280;font-size:.875rem;margin:0 0 .75rem}
-.row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem;align-items:center}
-.row label{min-width:9rem;font-size:.875rem}
-input[type=text],input[type=email],select,textarea{padding:.4rem .6rem;border:1px solid #d1d5db;border-radius:.375rem;font-size:.9rem}
+   admin-shell/admin-header/cardのレイアウト基盤のみ再利用し、内容は
+   docs/free-diagnosis-rule-based-v1-ui-wireframe-screen-state-20261003.md の
+   画面構成をそのまま実装する。 */
+.view{display:none}
+.view.active{display:block}
+.step-nav{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:1rem;font-size:.8rem}
+.step-nav span{padding:.2rem .6rem;border-radius:999px;background:#f3f4f6;color:#9ca3af}
+.step-nav span.done{background:#dbeafe;color:#1d4ed8}
+.step-nav span.current{background:#2563eb;color:#fff}
+.row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem;align-items:flex-start}
+.row label{min-width:9rem;font-size:.875rem;padding-top:.35rem}
+input[type=text],input[type=email],select,textarea{padding:.4rem .6rem;border:1px solid #d1d5db;border-radius:.375rem;font-size:.9rem;font-family:inherit}
 textarea{width:100%;min-height:3rem}
 button{padding:.5rem 1rem;border-radius:.375rem;border:1px solid #2563eb;background:#2563eb;color:#fff;cursor:pointer;font-size:.9rem}
 button.secondary{background:#fff;color:#2563eb}
+button.ghost{background:#fff;color:#374151;border-color:#d1d5db}
 button:disabled{opacity:.5;cursor:not-allowed}
-.statement-list{list-style:none;padding:0;margin:.5rem 0}
-.statement-list li{padding:.5rem;background:#f9fafb;border-radius:.375rem;margin-bottom:.4rem;font-size:.9rem}
-.badge{display:inline-block;padding:.1rem .5rem;border-radius:999px;font-size:.75rem;background:#e5e7eb}
-.badge.known{background:#dcfce7}.badge.unknown{background:#fee2e2}.badge.partial{background:#fef9c3}.badge.available{background:#dbeafe}
-#statusLine{font-weight:600}
-#errorMsg{color:#b91c1c;margin:.5rem 0}
-#resultPanel{white-space:pre-wrap;background:#f9fafb;padding:.75rem;border-radius:.375rem;font-size:.85rem}
+#errorMsg{color:#b91c1c;margin:.5rem 0;min-height:1.2rem}
+.badge{display:inline-block;padding:.15rem .6rem;border-radius:999px;font-size:.8rem;font-weight:600}
+.badge.known{background:#dcfce7;color:#166534}
+.badge.ng{background:#f3e8ff;color:#6b21a8} /* 「ない（確認済み）」-- NOT a warning color, same status as known */
+.badge.available{background:#dbeafe;color:#1e40af}
+.badge.partial{background:#fef9c3;color:#854d0e}
+.badge.unknown{background:#f3f4f6;color:#4b5563} /* UNKNOWNは中立表現。赤・警告色にしない */
+
+/* --- Preparation --- */
+.prep-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.prep-item{background:#f9fafb;border-radius:.5rem;padding:.75rem}
+.prep-item h4{margin:0 0 .3rem;font-size:.8rem;color:#6b7280;font-weight:600}
+.prep-item p{margin:0;font-size:.95rem}
+.why-box{margin-top:1rem;padding:1rem;background:#eff6ff;border-radius:.5rem;border:1px solid #bfdbfe}
+
+/* --- Live Hearing: 3-column + bottom story navigator --- */
+.hearing-layout{display:grid;grid-template-columns:220px 1fr 260px;gap:1rem}
+.hearing-col{background:#f9fafb;border-radius:.5rem;padding:.75rem;min-height:280px}
+.hearing-col h4{margin:0 0 .5rem;font-size:.8rem;color:#6b7280;font-weight:600;text-transform:uppercase}
+.hearing-col.left p{font-size:.85rem;margin:.3rem 0}
+.hearing-col.center textarea{min-height:5rem}
+.observable-list{list-style:none;padding:0;margin:0}
+.observable-list li{padding:.4rem;border-radius:.375rem;margin-bottom:.4rem;background:#fff;font-size:.8rem;display:flex;justify-content:space-between;gap:.4rem;align-items:center}
+.story-nav{display:flex;align-items:center;gap:.4rem;margin-top:1rem;padding:.6rem;background:#f3f4f6;border-radius:.5rem;font-size:.85rem;flex-wrap:wrap}
+.story-nav .crumb{padding:.2rem .6rem;border-radius:999px;background:#fff;border:1px solid #d1d5db}
+.story-nav .crumb.active{background:#2563eb;color:#fff;border-color:#2563eb}
+.story-nav .sep{color:#9ca3af}
+
+/* --- 整理モード: 3 buckets --- */
+.organize-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
+.organize-bucket{border-radius:.5rem;padding:.75rem;min-height:140px}
+.organize-bucket.known{background:#dcfce7}
+.organize-bucket.available{background:#dbeafe}
+.organize-bucket.unknown{background:#f3f4f6}
+.organize-bucket h4{margin:0 0 .5rem;font-size:.85rem}
+.organize-bucket ul{list-style:none;padding:0;margin:0;font-size:.8rem}
+.organize-bucket li{margin-bottom:.4rem}
+
+/* --- Human Review --- */
+.finding-card{background:#f9fafb;border-radius:.5rem;padding:.75rem;margin-bottom:.6rem}
+.finding-card.omitted{opacity:.45}
+.finding-card .grounds{font-size:.75rem;color:#6b7280;margin-top:.4rem}
+.finding-actions{display:flex;gap:.4rem;margin-top:.5rem;flex-wrap:wrap}
+.finding-actions button{font-size:.75rem;padding:.3rem .6rem}
+
+#resultPanel,.gates-panel{white-space:pre-wrap;background:#f9fafb;padding:.75rem;border-radius:.375rem;font-size:.85rem}
 </style></head>
 <body><main class="admin-shell">
 <header class="admin-header"><div><p class="eyebrow">atLIB Sales Tools</p><h1>IT経営KAIZEN 無料診断（Rule-Based v1）</h1>
-<p class="subtitle">Production Vertical Slice 1 — Internal Dogfooding専用。社内Staffが模擬顧客で一連のフローを操作します。</p></div></header>
+<p class="subtitle">Production Vertical Slice 1 — Internal Dogfooding専用。社内Staffが模擬顧客で60分診断を一連で実施します。</p></div></header>
 
 <section class="card">
-<div class="step"><h3>1. 顧客登録（Sales Launcher）</h3>
+<div class="step-nav" id="stepNav"></div>
+
+<div class="view active" id="view-entry"><h3>Customer / Case entry</h3>
 <p class="hint">Company / Contact / Service Selectionを登録し、Caseを開始します。</p>
 <div class="row"><label for="companyName">会社名</label><input id="companyName" type="text" placeholder="サンプル株式会社"></div>
 <div class="row"><label for="contactName">担当者名</label><input id="contactName" type="text" placeholder="山田太郎"></div>
@@ -37,48 +83,95 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><button id="btnCreateCase">顧客登録してCase開始</button></div>
 </div>
 
-<div class="step" id="stepIntake" style="display:none"><h3>2. 7問 Hearing Intake</h3>
+<div class="view" id="view-intake"><h3>7-question Hearing Intake</h3>
+<p class="hint">内部dogfooding用のStaff操作導線です（質問の内容・意味はCanonicalのまま変更していません）。</p>
 <div id="intakeForm"></div>
 <div class="row"><button id="btnCompleteIntake">Intake完了</button></div>
 </div>
 
-<div class="step" id="stepFocus" style="display:none"><h3>3. Focus Selection</h3>
-<div class="row"><label for="primaryFocus">Primary Focus（必須）</label><select id="primaryFocus"></select></div>
-<div class="row"><label for="secondaryFocus">Secondary Focus（任意）</label><select id="secondaryFocus"><option value="">（なし）</option></select></div>
+<div class="view" id="view-focus"><h3>Focus Selection</h3>
+<div class="row"><label for="primaryFocus">Primary Focus（必須・1件）</label><select id="primaryFocus"></select></div>
+<div class="row"><label for="secondaryFocus">Secondary Focus（任意・0〜1件）</label><select id="secondaryFocus"><option value="">（なし）</option></select></div>
 <div class="row"><button id="btnSelectFocus">Focus確定</button></div>
 </div>
 
-<div class="step" id="stepPreparation" style="display:none"><h3>4. Preparation</h3>
-<p class="hint">AI呼び出しはありません。選択したFocusに対応する確認項目（Plan Item）です。</p>
-<ul id="planItemList" class="statement-list"></ul>
-<div class="row"><button id="btnStartHearing">Hearing開始</button></div>
+<div class="view" id="view-preparation"><h3>Preparation</h3>
+<p class="hint">会話を始める前に、ここまでの情報を確認します。</p>
+<div class="prep-grid">
+<div class="prep-item"><h4>Company</h4><p id="prepCompany"></p></div>
+<div class="prep-item"><h4>Change（今後1〜3年の変化）</h4><p id="prepChange"></p></div>
+<div class="prep-item"><h4>Intent（実現したい状態）</h4><p id="prepIntent"></p></div>
+<div class="prep-item"><h4>Concern（気になっていること）</h4><p id="prepConcern"></p></div>
+<div class="prep-item"><h4>Q7（60分で特に相談したいこと）</h4><p id="prepQ7"></p></div>
+<div class="prep-item"><h4>Primary / Secondary Focus</h4><p id="prepFocus"></p></div>
+</div>
+<div class="why-box"><h4>Why（本日この順で伺う理由）</h4><p id="prepWhy"></p></div>
+<div class="row" style="margin-top:1rem"><button id="btnStartHearing">Hearing開始</button></div>
 </div>
 
-<div class="step" id="stepHearing" style="display:none"><h3>5. Live Hearing / 6. 整理モード</h3>
-<div class="row"><label for="planItemRef">Plan Item</label><select id="planItemRef"></select></div>
-<div class="row"><label for="statementText">発言・メモ</label><textarea id="statementText"></textarea></div>
-<div class="row"><label for="knowledgeState">Knowledge State</label>
+<div class="view" id="view-hearing"><h3>Live Hearing</h3>
+<div class="hearing-layout">
+<div class="hearing-col left"><h4>Intent / Context / Concern</h4>
+<p><strong>Intent:</strong> <span id="hearingIntent"></span></p>
+<p><strong>Change:</strong> <span id="hearingChange"></span></p>
+<p><strong>Concern:</strong> <span id="hearingConcern"></span></p>
+</div>
+<div class="hearing-col center"><h4 id="hearingTopicTitle">Current Topic</h4>
+<p id="hearingWhy" style="font-size:.85rem;color:#4b5563"></p>
+<p id="hearingStarter" style="font-weight:600"></p>
+<div class="row"><label for="planItemRef">話題</label><select id="planItemRef"></select></div>
+<div class="row"><label for="knowledgeState">確認結果</label>
 <select id="knowledgeState"><option value="KNOWN">今回確認できた</option><option value="AVAILABLE">追加確認すれば分かる</option><option value="PARTIAL">一部、追加確認が必要</option><option value="UNKNOWN" selected>今回まだ確認できていない</option></select></div>
-<div class="row"><label for="requiresIndividual">対象ごとに個別確認が必要</label><input id="requiresIndividual" type="checkbox"></div>
+<div class="row"><label for="naFlag">「ない（存在しない）」という回答</label><input id="naFlag" type="checkbox"></div>
+<div class="row"><label for="requiresIndividual">対象ごとに個別確認が必要（optional branch）</label><input id="requiresIndividual" type="checkbox"></div>
+<div class="row"><label for="statementText">Note（発言・メモ）</label><textarea id="statementText"></textarea></div>
 <div class="row"><button id="btnRecordStatement" class="secondary">記録を追加</button></div>
-<ul id="statementList" class="statement-list"></ul>
-<div class="row"><button id="btnOrganize" class="secondary">整理モードへ</button><button id="btnCompleteHearing">Hearing完了</button></div>
+</div>
+<div class="hearing-col right"><h4>今回の確認状況</h4><ul class="observable-list" id="statementList"></ul></div>
+</div>
+<div class="story-nav" id="storyNav"></div>
+<div class="row" style="margin-top:1rem"><button id="btnOrganize" class="secondary">整理モードへ</button><button id="btnCompleteHearing">Hearing完了</button></div>
 </div>
 
-<div class="step" id="stepAnalysis" style="display:none"><h3>7. Rule Analysis / 8. Human Review</h3>
-<div class="row"><button id="btnRunAnalysis">Rule Analysis実行（即時・AI不使用）</button></div>
-<div id="analysisResult" style="display:none">
-<div id="resultPanel"></div>
+<div class="view" id="view-organize"><h3>整理モード</h3>
+<p class="hint">顧客との認識合わせ。「ない（確認済み）」と「分からない」は別バッジで区別します。再確認は新しい記録として追加してください（元の記録は書き換えません）。</p>
+<div class="organize-grid">
+<div class="organize-bucket known"><h4>今回確認できたこと</h4><ul id="bucketKnown"></ul></div>
+<div class="organize-bucket available"><h4>追加確認すれば分かること</h4><ul id="bucketAvailable"></ul></div>
+<div class="organize-bucket unknown"><h4>今回まだ確認していないこと</h4><ul id="bucketUnknown"></ul></div>
+</div>
+<div class="row" style="margin-top:1rem"><label for="planItemRefOrganize">再確認する話題</label><select id="planItemRefOrganize"></select></div>
+<div class="row"><label for="knowledgeStateOrganize">確認結果</label>
+<select id="knowledgeStateOrganize"><option value="KNOWN">今回確認できた</option><option value="AVAILABLE">追加確認すれば分かる</option><option value="PARTIAL">一部、追加確認が必要</option><option value="UNKNOWN">今回まだ確認できていない</option></select></div>
+<div class="row"><label for="statementTextOrganize">Note</label><textarea id="statementTextOrganize"></textarea></div>
+<div class="row"><button id="btnReconfirm" class="secondary">再確認を記録</button></div>
+<div class="row" style="margin-top:1rem"><button id="btnCompleteHearingFromOrganize">Hearing完了</button></div>
+</div>
+
+<div class="view" id="view-analysis"><h3>Rule Analysis result</h3>
+<p class="hint">deterministicルールのみ。AI判定・スコア・traffic lightは一切表示しません。</p>
+<div class="row"><button id="btnRunAnalysis">Rule Analysis実行（即時）</button></div>
+<div id="analysisResult" style="display:none"><div id="resultPanel"></div>
+<div class="row" style="margin-top:1rem"><button id="btnGoToReview">Human Reviewへ</button></div></div>
+</div>
+
+<div class="view" id="view-review"><h3>Human Review</h3>
+<p class="hint">採用・編集して採用・却下・grounds確認ができます。Gates/grounds自体は書き換えません。</p>
+<div id="findingsList"></div>
 <div class="row"><button id="btnApprove">採用してAnalysis Approved</button><button id="btnReject" class="secondary">却下</button></div>
 </div>
+
+<div class="view" id="view-approved"><h3>Analysis Approved</h3>
+<p>Rule Analysis結果が承認されました。以降、Findingsの内容は変更できません。</p>
+<div class="row"><button id="btnGoToScope">Preliminary Assessment Structureへ</button></div>
 </div>
 
-<div class="step" id="stepScope" style="display:none"><h3>9. Preliminary Assessment Structure / Suggested Scope</h3>
+<div class="view" id="view-scope"><h3>Preliminary Assessment Structure / Suggested Scope</h3>
 <div class="row"><button id="btnGenerateScope">Preliminary Scopeを生成</button></div>
-<div id="scopeResult" style="display:none"><div id="scopePanel"></div></div>
+<div id="scopeResult" style="display:none"><div class="gates-panel" id="gatesPanel"></div><div id="scopePanel" style="margin-top:1rem;font-weight:600"></div>
+<p style="font-size:.8rem;color:#6b7280;margin-top:.5rem">System Suggestion ≠ Customer Quote。PPTXへは未反映です。</p></div>
 </div>
 
-<p id="statusLine"></p>
 <p id="errorMsg"></p>
 </section>
 </main>
@@ -97,10 +190,30 @@ const GATE_LABEL = {
   requires_individual_confirmation_per_target: '対象ごとに個別の確認が必要か',
   cross_theme_dependency: '複数テーマを横断して確認する必要があるか',
 };
+const PLAN_ITEM_PROMPT = {
+  CORE: { why: '経営判断の前提となる現状を確認します。', starter: '今、この点についてどこまで把握されていますか？' },
+  DECISION: { why: '意思決定の有無と確定度合いを確認します。', starter: 'この点について、すでに決まっていることはありますか？' },
+};
+const STEPS = ['entry', 'intake', 'focus', 'preparation', 'hearing', 'organize', 'analysis', 'review', 'approved', 'scope'];
+const STEP_LABEL = { entry: '顧客登録', intake: 'Intake', focus: 'Focus', preparation: 'Preparation', hearing: 'Hearing', organize: '整理', analysis: 'Analysis', review: 'Review', approved: 'Approved', scope: 'Scope' };
 const el = id => document.getElementById(id);
-let state = { caseId: null, version: null, primaryFocus: null, secondaryFocus: null, lastExecutionId: null };
+let state = { caseId: null, version: null, primaryFocus: null, secondaryFocus: null, lastExecutionId: null, intake: {}, findings: [], omitted: new Set(), overrides: {} };
 
-function show(id) { el(id).style.display = ''; }
+function renderStepNav(current) {
+  const nav = el('stepNav'); nav.replaceChildren();
+  const idx = STEPS.indexOf(current);
+  STEPS.forEach((s, i) => {
+    const span = document.createElement('span');
+    span.textContent = STEP_LABEL[s];
+    span.className = i < idx ? 'done' : i === idx ? 'current' : '';
+    nav.append(span);
+  });
+}
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  el('view-' + id).classList.add('active');
+  renderStepNav(id);
+}
 function setError(msg) { el('errorMsg').textContent = msg || ''; }
 
 async function call(path, method, body) {
@@ -121,10 +234,9 @@ el('btnCreateCase').onclick = async () => {
       name: el('companyName').value, contact: { name: el('contactName').value, email: el('contactEmail').value || null }, selectedService: 'IT_KAIZEN',
     });
     const kase = await call(`/sales-activities/${activity.salesActivityId}/cases`, 'POST', {});
-    state.caseId = kase.id; state.version = kase.version;
-    el('statusLine').textContent = 'Case ' + kase.id + ' / status=' + kase.status;
+    state.caseId = kase.id; state.version = kase.version; state.companyName = el('companyName').value;
     renderIntakeForm();
-    show('stepIntake');
+    showView('intake');
   } catch (e) { setError(String(e.message || e)); }
 };
 
@@ -148,13 +260,13 @@ el('btnCompleteIntake').onclick = async () => {
   try {
     for (const q of ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']) {
       const value = el('intake_' + q).value.trim();
+      state.intake[q] = value;
       if (!value) continue;
       await call(`/cases/${state.caseId}/intake`, 'POST', { questionCode: q, channel: 'PROXY', value });
     }
     const kase = await call(`/cases/${state.caseId}/intake/complete`, 'POST', { expectedVersion: state.version });
     state.version = kase.version;
-    el('statusLine').textContent = 'status=' + kase.status;
-    show('stepFocus');
+    showView('focus');
   } catch (e) { setError(String(e.message || e)); }
 };
 
@@ -164,22 +276,27 @@ el('btnSelectFocus').onclick = async () => {
     const kase = await call(`/cases/${state.caseId}/focus`, 'POST', {
       primaryFocus: el('primaryFocus').value, secondaryFocus: el('secondaryFocus').value || null, expectedVersion: state.version,
     });
-    state.version = kase.version; state.primaryFocus = kase.primaryFocus; state.secondaryFocus = kase.secondaryFocus;
-    el('statusLine').textContent = 'status=' + kase.status;
-    renderPlanItems();
-    show('stepPreparation');
+    state.primaryFocus = kase.primaryFocus; state.secondaryFocus = kase.secondaryFocus;
+    // Preparationへの遷移はAI呼び出しを伴わない状態遷移のみ。顧客の操作を待たせず自動で進める。
+    const prepared = await call(`/cases/${state.caseId}/preparation/start`, 'POST', { expectedVersion: kase.version });
+    state.version = prepared.version;
+    renderPreparation();
+    showView('preparation');
   } catch (e) { setError(String(e.message || e)); }
 };
 
-function planItemCodes() {
-  const focuses = [state.primaryFocus].concat(state.secondaryFocus ? [state.secondaryFocus] : []);
-  return focuses.flatMap(f => [[f + '_CORE', FOCUS_LABELS[f] + ' / 現状の把握'], [f + '_DECISION', FOCUS_LABELS[f] + ' / 経営判断の確認']]);
-}
-function renderPlanItems() {
-  const list = el('planItemList'); list.replaceChildren();
-  for (const [code, label] of planItemCodes()) { const li = document.createElement('li'); li.textContent = code + ' — ' + label; list.append(li); }
-  const sel = el('planItemRef'); sel.replaceChildren();
-  for (const [code, label] of planItemCodes()) sel.add(new Option(label, code));
+function renderPreparation() {
+  el('prepCompany').textContent = state.companyName || '-';
+  el('prepChange').textContent = state.intake.Q2 || '（未回答）';
+  el('prepIntent').textContent = state.intake.Q3 || '（未回答）';
+  el('prepConcern').textContent = state.intake.Q4 || '（未回答）';
+  el('prepQ7').textContent = state.intake.Q7 || '（任意・未回答）';
+  const focusText = FOCUS_LABELS[state.primaryFocus] + (state.secondaryFocus ? ' / ' + FOCUS_LABELS[state.secondaryFocus] : '');
+  el('prepFocus').textContent = focusText;
+  const why = state.intake.Q3
+    ? `お客様から「${state.intake.Q3}」という今後実現したい状態が語られたため、本日は「${FOCUS_LABELS[state.primaryFocus]}」を中心に伺います。`
+    : `選択されたテーマ「${FOCUS_LABELS[state.primaryFocus]}」を中心に、現状の把握から始めます。`;
+  el('prepWhy').textContent = why;
 }
 
 el('btnStartHearing').onclick = async () => {
@@ -187,32 +304,82 @@ el('btnStartHearing').onclick = async () => {
   try {
     const kase = await call(`/cases/${state.caseId}/hearing/start`, 'POST', { expectedVersion: state.version });
     state.version = kase.version;
-    el('statusLine').textContent = 'status=' + kase.status;
-    show('stepHearing');
+    renderHearingColumns();
+    renderPlanItemSelectors();
+    renderStoryNav('主テーマ');
+    await refreshStatements();
+    showView('hearing');
   } catch (e) { setError(String(e.message || e)); }
 };
 
+function renderHearingColumns() {
+  el('hearingIntent').textContent = state.intake.Q3 || '-';
+  el('hearingChange').textContent = state.intake.Q2 || '-';
+  el('hearingConcern').textContent = state.intake.Q4 || '-';
+}
+function renderStoryNav(active) {
+  const crumbs = ['Context', 'IT全体', '主テーマ', '副テーマ', '整理'];
+  const nav = el('storyNav'); nav.replaceChildren();
+  crumbs.forEach((c, i) => {
+    if (i > 0) { const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = '→'; nav.append(sep); }
+    const span = document.createElement('span'); span.className = 'crumb' + (c === active ? ' active' : ''); span.textContent = c; nav.append(span);
+  });
+}
+function planItemCodes() {
+  const focuses = [state.primaryFocus].concat(state.secondaryFocus ? [state.secondaryFocus] : []);
+  return focuses.flatMap(f => [[f + '_CORE', FOCUS_LABELS[f] + ' / 現状の把握', 'CORE'], [f + '_DECISION', FOCUS_LABELS[f] + ' / 経営判断の確認', 'DECISION']]);
+}
+function renderPlanItemSelectors() {
+  for (const selId of ['planItemRef', 'planItemRefOrganize']) {
+    const sel = el(selId); sel.replaceChildren();
+    for (const [code, label] of planItemCodes()) sel.add(new Option(label, code));
+    sel.onchange = selId === 'planItemRef' ? updateHearingTopic : null;
+  }
+  updateHearingTopic();
+}
+function updateHearingTopic() {
+  const code = el('planItemRef').value;
+  const kind = code.endsWith('_CORE') ? 'CORE' : 'DECISION';
+  const [, label] = planItemCodes().find(([c]) => c === code) || [null, code];
+  el('hearingTopicTitle').textContent = label || 'Current Topic';
+  el('hearingWhy').textContent = 'Why: ' + PLAN_ITEM_PROMPT[kind].why;
+  el('hearingStarter').textContent = PLAN_ITEM_PROMPT[kind].starter;
+}
+
+function statementBadge(s) {
+  if (s.knowledgeState === 'KNOWN' && s.isNegativeAnswer) return { cls: 'ng', label: 'ない（確認済み）' };
+  return { cls: s.knowledgeState.toLowerCase(), label: KS_LABEL[s.knowledgeState] };
+}
 async function refreshStatements() {
   const { items } = await call(`/cases/${state.caseId}/hearing/statements`, 'GET');
+  state.statements = items;
   const list = el('statementList'); list.replaceChildren();
-  for (const s of items) {
+  for (const s of state.statements) {
     const li = document.createElement('li');
-    const badge = document.createElement('span'); badge.className = 'badge ' + s.knowledgeState.toLowerCase(); badge.textContent = KS_LABEL[s.knowledgeState];
-    li.append(document.createTextNode((s.planItemRef || '-') + ': '), badge);
+    const badge = statementBadge(s);
+    const span = document.createElement('span'); span.className = 'badge ' + badge.cls; span.textContent = badge.label;
+    li.append(document.createTextNode(s.planItemRef || '-'), span);
     list.append(li);
   }
 }
 
+async function recordStatement(planItemSelId, ksSelId, textId, naCheckId, individualCheckId) {
+  const na = naCheckId ? el(naCheckId).checked : false;
+  const statementText = el(textId).value || '(メモなし)';
+  await call(`/cases/${state.caseId}/hearing/statements`, 'POST', {
+    planItemRef: el(planItemSelId).value, statementText,
+    knowledgeState: el(ksSelId).value, requiresIndividualConfirmation: individualCheckId ? el(individualCheckId).checked : false,
+    isNegativeAnswer: na,
+  });
+  el(textId).value = '';
+  if (naCheckId) el(naCheckId).checked = false;
+  await refreshStatements();
+}
+
 el('btnRecordStatement').onclick = async () => {
   setError('');
-  try {
-    await call(`/cases/${state.caseId}/hearing/statements`, 'POST', {
-      planItemRef: el('planItemRef').value, statementText: el('statementText').value || '(メモなし)',
-      knowledgeState: el('knowledgeState').value, requiresIndividualConfirmation: el('requiresIndividual').checked,
-    });
-    el('statementText').value = '';
-    await refreshStatements();
-  } catch (e) { setError(String(e.message || e)); }
+  try { await recordStatement('planItemRef', 'knowledgeState', 'statementText', 'naFlag', 'requiresIndividual'); }
+  catch (e) { setError(String(e.message || e)); }
 };
 
 el('btnOrganize').onclick = async () => {
@@ -220,55 +387,104 @@ el('btnOrganize').onclick = async () => {
   try {
     const kase = await call(`/cases/${state.caseId}/hearing/organize`, 'POST', { expectedVersion: state.version });
     state.version = kase.version;
-    el('statusLine').textContent = 'status=' + kase.status + '（整理モード：顧客との認識合わせ。再確認は新しい記録として追加してください）';
+    await renderOrganizeBuckets();
+    showView('organize');
   } catch (e) { setError(String(e.message || e)); }
 };
 
-el('btnCompleteHearing').onclick = async () => {
+async function renderOrganizeBuckets() {
+  await refreshStatements();
+  const latest = new Map();
+  for (const s of state.statements) if (s.planItemRef) latest.set(s.planItemRef, s); // append-only: last wins
+  const buckets = { known: [], available: [], unknown: [] };
+  for (const s of latest.values()) {
+    const badge = statementBadge(s);
+    const entry = `${s.planItemRef}: ${badge.label}`;
+    if (s.knowledgeState === 'KNOWN') buckets.known.push(entry);
+    else if (s.knowledgeState === 'AVAILABLE') buckets.available.push(entry);
+    else buckets.unknown.push(entry); // PARTIAL/UNKNOWN まとめて「まだ確認していない」側
+  }
+  for (const [id, arr] of [['bucketKnown', buckets.known], ['bucketAvailable', buckets.available], ['bucketUnknown', buckets.unknown]]) {
+    const ul = el(id); ul.replaceChildren();
+    for (const t of arr) { const li = document.createElement('li'); li.textContent = t; ul.append(li); }
+    if (arr.length === 0) { const li = document.createElement('li'); li.textContent = '（なし）'; ul.append(li); }
+  }
+}
+
+el('btnReconfirm').onclick = async () => {
+  setError('');
+  try { await recordStatement('planItemRefOrganize', 'knowledgeStateOrganize', 'statementTextOrganize', null, null); await renderOrganizeBuckets(); }
+  catch (e) { setError(String(e.message || e)); }
+};
+
+el('btnCompleteHearing').onclick = () => completeHearing();
+el('btnCompleteHearingFromOrganize').onclick = () => completeHearing();
+async function completeHearing() {
   setError('');
   try {
     const kase = await call(`/cases/${state.caseId}/hearing/complete`, 'POST', { expectedVersion: state.version });
     state.version = kase.version;
-    el('statusLine').textContent = 'status=' + kase.status;
-    show('stepAnalysis');
+    showView('analysis');
   } catch (e) { setError(String(e.message || e)); }
-};
+}
 
 el('btnRunAnalysis').onclick = async () => {
   setError('');
   try {
     const outcome = await call(`/cases/${state.caseId}/rule-analysis/run`, 'POST', { expectedVersion: state.version });
     state.lastExecutionId = outcome.executionId;
+    state.findings = outcome.findings; state.omitted = new Set(); state.overrides = {};
     const current = await call(`/cases/${state.caseId}`, 'GET');
     state.version = current.case.version;
     const r = outcome.result;
     const lines = [];
     lines.push('Investigation Need（全体）: ' + r.overallInvestigationNeed);
     lines.push('Broad Unknown Collapse: ' + (r.broadUnknownCollapse ? '発火（確認できた項目が無いため単一findingへ畳みました）' : 'なし'));
-    lines.push('');
-    lines.push('--- Investigation Output ---');
-    for (const f of r.findings) lines.push(`[${f.triggerType}] ${FOCUS_LABELS[f.grounds.focus]} / ${f.grounds.planItemRef} / ${KS_LABEL[f.grounds.knowledgeState]} -> ${f.investigationNeed}`);
-    if (r.findings.length === 0) lines.push('（トリガーなし）');
-    lines.push('');
-    lines.push('--- Assessment Structure Gates（Suggested Scopeの根拠） ---');
-    for (const [k, v] of Object.entries(r.assessmentStructureGates)) lines.push(GATE_LABEL[k] + ': ' + (v ? 'はい' : 'いいえ'));
     el('resultPanel').textContent = lines.join('\n');
     el('analysisResult').style.display = '';
-    el('statusLine').textContent = 'status=' + current.case.status;
   } catch (e) { setError(String(e.message || e)); }
 };
+
+el('btnGoToReview').onclick = () => { renderFindings(); showView('review'); };
+
+function renderFindings() {
+  const container = el('findingsList'); container.replaceChildren();
+  if (state.findings.length === 0) {
+    const p = document.createElement('p'); p.textContent = '今回はトリガーされたFindingがありません。'; container.append(p); return;
+  }
+  for (const f of state.findings) {
+    const card = document.createElement('div'); card.className = 'finding-card' + (state.omitted.has(f.id) ? ' omitted' : '');
+    const title = document.createElement('div'); title.innerHTML = '<strong>[' + f.triggerType + ']</strong> ' + FOCUS_LABELS[f.grounds.focus] + ' / ' + f.grounds.planItemRef;
+    const need = document.createElement('div'); need.textContent = 'Investigation Need: ' + f.investigationNeed;
+    const grounds = document.createElement('div'); grounds.className = 'grounds'; grounds.textContent = 'grounds: ' + KS_LABEL[f.grounds.knowledgeState] + '（grounds自体は変更できません）';
+    const wordingInput = document.createElement('textarea'); wordingInput.placeholder = '編集して採用する場合の表示文言（任意）';
+    wordingInput.value = state.overrides[f.id] || '';
+    wordingInput.oninput = () => { state.overrides[f.id] = wordingInput.value; };
+    const actions = document.createElement('div'); actions.className = 'finding-actions';
+    const omitBtn = document.createElement('button'); omitBtn.className = 'ghost'; omitBtn.textContent = state.omitted.has(f.id) ? '却下を取り消す' : 'この findingを却下(omit)';
+    omitBtn.onclick = () => { if (state.omitted.has(f.id)) state.omitted.delete(f.id); else state.omitted.add(f.id); renderFindings(); };
+    actions.append(omitBtn);
+    card.append(title, need, grounds, wordingInput, actions);
+    container.append(card);
+  }
+}
 
 el('btnApprove').onclick = async () => reviewDecision('APPROVED');
 el('btnReject').onclick = async () => reviewDecision('REJECTED');
 async function reviewDecision(decision) {
   setError('');
   try {
-    const kase = await call(`/cases/${state.caseId}/review`, 'POST', { executionId: state.lastExecutionId, decision, expectedVersion: state.version });
+    const kase = await call(`/cases/${state.caseId}/review`, 'POST', {
+      executionId: state.lastExecutionId, decision, expectedVersion: state.version,
+      omittedFindingIds: Array.from(state.omitted), wordingOverrides: state.overrides,
+    });
     state.version = kase.version;
-    el('statusLine').textContent = 'status=' + kase.status;
-    if (kase.status === 'ANALYSIS_APPROVED') show('stepScope');
+    if (kase.status === 'ANALYSIS_APPROVED') showView('approved');
+    else { setError('却下されました（status=' + kase.status + '）。Preliminary Scopeには進めません。'); }
   } catch (e) { setError(String(e.message || e)); }
 }
+
+el('btnGoToScope').onclick = () => showView('scope');
 
 el('btnGenerateScope').onclick = async () => {
   setError('');
@@ -276,15 +492,14 @@ el('btnGenerateScope').onclick = async () => {
     const suggestion = await call(`/cases/${state.caseId}/preliminary-scope`, 'POST', { expectedVersion: state.version });
     const current = await call(`/cases/${state.caseId}`, 'GET');
     state.version = current.case.version;
-    el('statusLine').textContent = 'status=' + current.case.status + '（System Suggestion ≠ Customer Quote。PPTXへは未反映）';
-    const lines = [];
-    lines.push('Assessment Structure: ' + suggestion.structure);
-    lines.push('Suggested Scope: ' + suggestion.suggestedScope);
-    lines.push('Suggested Base Price: ' + (suggestion.suggestedBasePriceYen != null ? suggestion.suggestedBasePriceYen.toLocaleString('ja-JP') + '円（税別）' : '価格確定なし'));
-    if (suggestion.requiresIndividualQuote) lines.push('※ 個別見積が別途必要です。');
-    el('scopePanel').textContent = lines.join('\n');
+    const gateLines = Object.entries(suggestion.grounds).map(([k, v]) => GATE_LABEL[k] + ': ' + (v ? 'はい' : 'いいえ'));
+    el('gatesPanel').textContent = gateLines.join('\n');
+    const priceText = suggestion.suggestedBasePriceYen != null ? suggestion.suggestedBasePriceYen.toLocaleString('ja-JP') + '円（税別）' : '価格確定なし';
+    el('scopePanel').textContent = `Assessment Structure: ${suggestion.structure}\nSuggested Scope: ${suggestion.suggestedScope}\nSuggested Base Price: ${priceText}` + (suggestion.requiresIndividualQuote ? '\n※ 個別見積が別途必要です。' : '');
     el('scopeResult').style.display = '';
   } catch (e) { setError(String(e.message || e)); }
 };
+
+showView('entry');
 </script>
 </body></html>

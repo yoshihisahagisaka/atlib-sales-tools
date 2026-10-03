@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { RuleBasedV1Error, type CaseStatus, type FocusSelectionInput, type IntakeAnswerInput, type ManagementFocus, type RecordStatementInput, REQUIRED_INTAKE_QUESTION_CODES } from '../domain/freeDiagnosisRuleBasedV1';
-import { runRuleAnalysis, type HearingStatementInput, type RuleAnalysisResult } from '../domain/ruleAnalysisEngine';
+import { runRuleAnalysis, type HearingStatementInput, type RuleAnalysisResult, type TriggerFinding } from '../domain/ruleAnalysisEngine';
 import { suggestAssessmentScope, type AssessmentStructureSuggestion } from '../domain/assessmentStructureRule';
 
 export interface CaseRow {
@@ -101,9 +101,9 @@ export class FreeDiagnosisRuleBasedCaseRepo {
     }
     const id = randomUUID();
     await this.pool.query(
-      `INSERT INTO hearing_statement_v2 (id,case_id,plan_item_ref,statement_text,operator_note_text,knowledge_state,requires_individual_confirmation,recorded_by_user_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [id, caseId, input.planItemRef ?? null, input.statementText, input.operatorNoteText ?? null, input.knowledgeState, input.requiresIndividualConfirmation, staffEmail],
+      `INSERT INTO hearing_statement_v2 (id,case_id,plan_item_ref,statement_text,operator_note_text,knowledge_state,requires_individual_confirmation,is_negative_answer,recorded_by_user_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [id, caseId, input.planItemRef ?? null, input.statementText, input.operatorNoteText ?? null, input.knowledgeState, input.requiresIndividualConfirmation, input.isNegativeAnswer, staffEmail],
     );
     return id;
   }
@@ -120,6 +120,15 @@ export class FreeDiagnosisRuleBasedCaseRepo {
     }));
   }
 
+  /** UI表示用（Rule Engineには渡さない）。statementText/isNegativeAnswerを含む。 */
+  async listStatementsForDisplay(caseId: string): Promise<{ planItemRef: string | null; statementText: string; knowledgeState: string; isNegativeAnswer: boolean; recordedAt: string }[]> {
+    const { rows } = await this.pool.query<{ plan_item_ref: string | null; statement_text: string; knowledge_state: string; is_negative_answer: boolean; recorded_at: string }>(
+      `SELECT plan_item_ref, statement_text, knowledge_state, is_negative_answer, recorded_at FROM hearing_statement_v2 WHERE case_id = $1 ORDER BY recorded_at ASC`,
+      [caseId],
+    );
+    return rows.map(r => ({ planItemRef: r.plan_item_ref, statementText: r.statement_text, knowledgeState: r.knowledge_state, isNegativeAnswer: r.is_negative_answer, recordedAt: r.recorded_at }));
+  }
+
   async completeHearing(caseId: string, expectedVersion: number): Promise<CaseRow> {
     return this.transition(caseId, ['HEARING_IN_PROGRESS', 'HEARING_ORGANIZING'], 'HEARING_COMPLETED', expectedVersion);
   }
@@ -130,7 +139,7 @@ export class FreeDiagnosisRuleBasedCaseRepo {
     return true;
   }
 
-  async runAndPersistRuleAnalysis(caseId: string, expectedVersion: number): Promise<{ executionId: string; result: RuleAnalysisResult }> {
+  async runAndPersistRuleAnalysis(caseId: string, expectedVersion: number): Promise<{ executionId: string; result: RuleAnalysisResult; findings: (TriggerFinding & { id: string })[] }> {
     const kase = await this.getCase(caseId);
     if (!kase || kase.status !== 'HEARING_COMPLETED') throw new RuleBasedV1Error(409, 'HEARING_NOT_COMPLETED');
     if (!kase.primaryFocus) throw new RuleBasedV1Error(409, 'FOCUS_NOT_SELECTED');
@@ -149,21 +158,39 @@ export class FreeDiagnosisRuleBasedCaseRepo {
       `INSERT INTO rule_analysis_execution (id,case_id,status,rule_version,started_at,completed_at) VALUES ($1,$2,'SUCCEEDED',$3,now(),now())`,
       [executionId, caseId, result.ruleVersion],
     );
+    const findings: (TriggerFinding & { id: string })[] = [];
     for (const f of result.findings) {
+      const id = randomUUID();
       await this.pool.query(
         `INSERT INTO investigation_output (id,rule_analysis_execution_id,trigger_type,investigation_need,grounds_json) VALUES ($1,$2,$3,$4,$5)`,
-        [randomUUID(), executionId, f.triggerType, f.investigationNeed, JSON.stringify(f.grounds)],
+        [id, executionId, f.triggerType, f.investigationNeed, JSON.stringify(f.grounds)],
       );
+      findings.push({ ...f, id });
     }
     await this.transition(caseId, ['HEARING_COMPLETED'], 'HUMAN_REVIEW_REQUIRED', expectedVersion);
-    return { executionId, result };
+    return { executionId, result, findings };
   }
 
-  async humanReview(caseId: string, executionId: string, decision: 'APPROVED' | 'REJECTED', staffEmail: string, expectedVersion: number): Promise<CaseRow> {
+  async listInvestigationOutputs(executionId: string): Promise<(TriggerFinding & { id: string })[]> {
+    const { rows } = await this.pool.query<{ id: string; trigger_type: string; investigation_need: string; grounds_json: unknown }>(
+      `SELECT id, trigger_type, investigation_need, grounds_json FROM investigation_output WHERE rule_analysis_execution_id = $1 ORDER BY created_at ASC`,
+      [executionId],
+    );
+    return rows.map(r => ({ id: r.id, triggerType: r.trigger_type as TriggerFinding['triggerType'], investigationNeed: r.investigation_need as TriggerFinding['investigationNeed'], grounds: r.grounds_json as TriggerFinding['grounds'] }));
+  }
+
+  /**
+   * reviewNotes: Doc E #9 Human Review -- 編集して採用(wordingOverrides)／却下(omittedFindingIds)。
+   * これらは既存のgrounds_json/Gatesを書き換えず、提示方法・採否のみをHuman決定として別途記録する。
+   */
+  async humanReview(
+    caseId: string, executionId: string, decision: 'APPROVED' | 'REJECTED', staffEmail: string, expectedVersion: number,
+    reviewNotes: { omittedFindingIds: string[]; wordingOverrides: Record<string, string> } = { omittedFindingIds: [], wordingOverrides: {} },
+  ): Promise<CaseRow> {
     const { rowCount } = await this.pool.query(
-      `UPDATE rule_analysis_execution SET review_status=$1, reviewed_by_user_id=$2, reviewed_at=now()
+      `UPDATE rule_analysis_execution SET review_status=$1, reviewed_by_user_id=$2, reviewed_at=now(), review_notes_json=$5
        WHERE id=$3 AND case_id=$4 AND review_status IS NULL`,
-      [decision, staffEmail, executionId, caseId],
+      [decision, staffEmail, executionId, caseId, JSON.stringify(reviewNotes)],
     );
     if (!rowCount) throw new RuleBasedV1Error(409, 'RULE_ANALYSIS_EXECUTION_ALREADY_REVIEWED_OR_NOT_FOUND');
     const toStatus: CaseStatus = decision === 'APPROVED' ? 'ANALYSIS_APPROVED' : 'ANALYSIS_REJECTED';

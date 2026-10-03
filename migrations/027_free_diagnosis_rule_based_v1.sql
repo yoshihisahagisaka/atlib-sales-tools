@@ -105,6 +105,9 @@ CREATE TABLE hearing_statement_v2 (
   -- This is the sole source for the requires_individual_confirmation_per_target Gate -- never
   -- a count of targets (Rule doc §6/§11 Guardrails: no scope-up from headcount/site-count alone).
   requires_individual_confirmation BOOLEAN NOT NULL DEFAULT false,
+  -- UI上で「ない（存在しない、確認済み）」と「分からない（UNKNOWN）」を区別するための表示フラグ。
+  -- knowledge_state='KNOWN'の時のみ意味を持つ（「確認できた内容が『ない』という回答だった」）。
+  is_negative_answer BOOLEAN NOT NULL DEFAULT false,
   recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   recorded_by_user_id TEXT NOT NULL
 );
@@ -132,6 +135,10 @@ CREATE TABLE rule_analysis_execution (
   review_status TEXT CHECK (review_status IN ('APPROVED','REJECTED')),
   reviewed_by_user_id TEXT,
   reviewed_at TIMESTAMPTZ,
+  -- Doc E #9 Human Review: 編集して採用 (wording edit) / 却下 (omit) per finding, within the
+  -- existing Rule output -- never changes the underlying grounds/Gates, only how a specific
+  -- finding is presented or whether it is carried forward. Never free-form score/judgment.
+  review_notes_json JSONB,
   CHECK ((review_status IS NULL AND reviewed_by_user_id IS NULL AND reviewed_at IS NULL)
       OR (review_status IS NOT NULL AND reviewed_by_user_id IS NOT NULL AND reviewed_at IS NOT NULL)),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()

@@ -77,5 +77,6 @@ export const recordStatementSchema = z.object({
   operatorNoteText: z.string().trim().min(1).max(4000).nullish(),
   knowledgeState: z.enum(KNOWLEDGE_STATE),
   requiresIndividualConfirmation: z.boolean().default(false),
+  isNegativeAnswer: z.boolean().default(false),
 }).strict();
 export type RecordStatementInput = z.infer<typeof recordStatementSchema>;
