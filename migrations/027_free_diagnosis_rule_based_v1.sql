@@ -182,3 +182,35 @@ END $$;
 CREATE TRIGGER trg_assessment_structure_suggestion_immutable
 BEFORE UPDATE OR DELETE ON assessment_structure_suggestion
 FOR EACH ROW EXECUTE FUNCTION prevent_assessment_structure_suggestion_mutation();
+
+-- Runtime privileges for the 9 tables above. 018_runtime_table_privileges.sql's
+-- ALTER DEFAULT PRIVILEGES only covers sales_tools_runtime, not the current Production
+-- application role sales_tools_app (confirmed via pre-apply Production ledger/role review,
+-- same gap 019/026 already grant around for web_development_partner_leads and
+-- business_web_consultation_leads). Same role-exists-safe DO block pattern as those two.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sales_tools_runtime') THEN
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE company TO sales_tools_runtime;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE contact TO sales_tools_runtime;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE sales_activity TO sales_tools_runtime;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE it_management_diagnosis_case_v2 TO sales_tools_runtime;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE hearing_intake_response_v2 TO sales_tools_runtime;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE hearing_statement_v2 TO sales_tools_runtime;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE rule_analysis_execution TO sales_tools_runtime;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE investigation_output TO sales_tools_runtime;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE assessment_structure_suggestion TO sales_tools_runtime;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sales_tools_app') THEN
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE company TO sales_tools_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE contact TO sales_tools_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE sales_activity TO sales_tools_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE it_management_diagnosis_case_v2 TO sales_tools_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE hearing_intake_response_v2 TO sales_tools_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE hearing_statement_v2 TO sales_tools_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE rule_analysis_execution TO sales_tools_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE investigation_output TO sales_tools_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE assessment_structure_suggestion TO sales_tools_app;
+  END IF;
+END
+$$;
