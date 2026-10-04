@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { STRUCTURER_JSON_SCHEMA } from '../domain/diagnosisReview';
-import { ProviderFailure } from './preDiagnosisProvider';
+import { ProviderFailure, logProviderFailure, isAnthropicTimeoutError, logStopReasonAnomaly } from './preDiagnosisProvider';
 import type { PostDiagnosisContext } from './postDiagnosisContext';
 export interface PostDiagnosisProvider {readonly provider:string;readonly model:string;structure(context:PostDiagnosisContext,signal:AbortSignal):Promise<unknown>}
 export const POST_DIAGNOSIS_POLICY=`無料 IT経営診断の診断後整理を提案してください。FACT FIRST. AI Suggests. Human Decides. System Records.
@@ -15,11 +15,19 @@ area_tagは技術/運用/管理、improvement_lensはなくす/自動化する/�
 構造化JSONのみ返す。System metadataを含めない。`;
 export class AnthropicPostDiagnosisProvider implements PostDiagnosisProvider {
  readonly provider='anthropic';readonly model='claude-sonnet-5';private readonly client:Anthropic|null;
- constructor(key?:string){this.client=key?new Anthropic({apiKey:key,timeout:60000,maxRetries:0}):null;}
+ // 2026-10-01: raised from 60000ms after a real Production POST_DIAGNOSIS_STRUCTURER call hit
+ // the SDK's own client-side timeout at ~60.4s (APIConnectionTimeoutError, confirmed via
+ // safe observability). Not a confirmed permanent value -- the next operational data point to
+ // measure actual completion time against. See PostDiagnosisWorker's matching outer timeoutMs.
+ // Recovered 2026-10-03 (Production Canonical Normalization) from atlib-sales-launch
+ // commits 39b78874 (P2-86), e602ff2a (P2-90), 7cb6ea77 (P2-91), c429bf0f (P2-92).
+ constructor(key?:string){this.client=key?new Anthropic({apiKey:key,timeout:120000,maxRetries:0}):null;}
  async structure(context:PostDiagnosisContext,signal:AbortSignal):Promise<unknown>{
   if(!this.client)throw new ProviderFailure('AI_NOT_CONFIGURED');
+  const startedAt=Date.now();
   try{const response=await this.client.messages.create({model:this.model,max_tokens:12000,system:POST_DIAGNOSIS_POLICY,messages:[{role:'user',content:JSON.stringify({untrusted_diagnosis_context:context})}],output_config:{format:{type:'json_schema',schema:STRUCTURER_JSON_SCHEMA}}},{signal});
-   if(response.stop_reason!=='end_turn')throw new ProviderFailure('AI_PROVIDER_FAILED');const text=response.content.filter((b):b is Anthropic.TextBlock=>b.type==='text').map(b=>b.text).join('');try{return JSON.parse(text);}catch{throw new ProviderFailure('AI_OUTPUT_NOT_JSON');}
-  }catch(e){if(e instanceof ProviderFailure)throw e;throw new ProviderFailure(signal.aborted?'AI_TIMEOUT':'AI_PROVIDER_FAILED');}
+   if(response.stop_reason!=='end_turn'){logStopReasonAnomaly('POST_DIAGNOSIS_STRUCTURER',this.provider,this.model,Date.now()-startedAt,response.stop_reason,response.usage);throw new ProviderFailure('AI_PROVIDER_FAILED');}
+   const text=response.content.filter((b):b is Anthropic.TextBlock=>b.type==='text').map(b=>b.text).join('');try{return JSON.parse(text);}catch{throw new ProviderFailure('AI_OUTPUT_NOT_JSON');}
+  }catch(e){if(e instanceof ProviderFailure)throw e;logProviderFailure('POST_DIAGNOSIS_STRUCTURER',this.provider,this.model,Date.now()-startedAt,e);throw new ProviderFailure(signal.aborted||isAnthropicTimeoutError(e)?'AI_TIMEOUT':'AI_PROVIDER_FAILED');}
  }
 }

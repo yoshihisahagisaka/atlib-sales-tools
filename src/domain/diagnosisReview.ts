@@ -22,7 +22,17 @@ export const convertUnknownSchema=z.object({unknown_type:z.enum(UNKNOWN_TYPES),r
 export const completeReviewSchema=z.object({expectedVersion:z.number().int().positive(),leave_unreviewed:z.boolean().default(false)}).strict();
 const object=(properties:Record<string,unknown>)=>({type:'object',properties,required:Object.keys(properties),additionalProperties:false});
 const string={type:'string'},nullable={type:['string','null']};
-export const STRUCTURER_JSON_SCHEMA=object({insight_candidates:{type:'array',items:object({semantic_type:{type:'string',enum:INSIGHT_TYPES},title:string,content:string,unknown_type:{...nullable,enum:[...UNKNOWN_TYPES,null]},diagnosis_theme_id:nullable,area_tag:{...nullable,enum:[...AREAS,null]},improvement_lens:{...nullable,enum:[...LENSES,null]},source_refs:{type:'array',items:object({source_ref_type:{type:'string',enum:['SURVEY_RESPONSE','SOURCE_RECORD']},source_ref_id:string,relation:{type:'string',enum:['SUPPORTS','CONTRADICTS','RELATED']}})}})},assessment_confirmation_items:{type:'array',items:object({title:string,purpose:string,priority:{type:'integer'},diagnosis_theme_id:nullable,related_candidate_index:{type:['integer','null']}})}});
+// Anthropic structured outputs (output_config.format.type='json_schema') rejects a node that
+// combines an array `type` (nullable union) with `enum` on the same node -- confirmed via a
+// local, synthetic-data-only reproduction (docs-free-diagnosis-v2 POST_DIAGNOSIS_STRUCTURER
+// 400 incident, 2026-10-01): Anthropic returns 400 invalid_request_error, "Invalid schema:
+// Enum value '...' does not match declared type ['string','null']". The equivalent, accepted
+// representation separates the two type branches via `anyOf`; it allows the exact same string
+// values or null, just not via a combined type array + enum on one node.
+// Recovered 2026-10-03 (Production Canonical Normalization) from atlib-sales-launch commit
+// e602ff2af86799218535081bce4309a7a822f0c1.
+const nullableEnum=(values:readonly string[])=>({anyOf:[{type:'string',enum:values},{type:'null'}]});
+export const STRUCTURER_JSON_SCHEMA=object({insight_candidates:{type:'array',items:object({semantic_type:{type:'string',enum:INSIGHT_TYPES},title:string,content:string,unknown_type:nullableEnum(UNKNOWN_TYPES),diagnosis_theme_id:nullable,area_tag:nullableEnum(AREAS),improvement_lens:nullableEnum(LENSES),source_refs:{type:'array',items:object({source_ref_type:{type:'string',enum:['SURVEY_RESPONSE','SOURCE_RECORD']},source_ref_id:string,relation:{type:'string',enum:['SUPPORTS','CONTRADICTS','RELATED']}})}})},assessment_confirmation_items:{type:'array',items:object({title:string,purpose:string,priority:{type:'integer'},diagnosis_theme_id:nullable,related_candidate_index:{type:['integer','null']}})}});
 /** Rejection guard, not a rule-based diagnosis. Human approval never grants FACT authority. */
 export function checkReviewBoundary(content:string) {
  if(/\b(FACT|CONFIRMED_FACT|DECISION|score|maturity|rating|final_root_cause)\b/i.test(content)||/(原因は[^。?？]{1,100}です|を導入すべき|を導入してください|導入を決定|最新である|最新です|正確である|正確です|妥当である|妥当です|実態と一致|適切に運用されている|十分である|十分です|検証済み)/.test(content))throw new DiagnosisError(422,'REVIEW_BOUNDARY_VIOLATION');

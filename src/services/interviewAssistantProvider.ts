@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { INTERVIEW_JSON_SCHEMA } from '../domain/diagnosisWorkspace';
-import { ProviderFailure } from './preDiagnosisProvider';
+import { ProviderFailure, logProviderFailure, isAnthropicTimeoutError } from './preDiagnosisProvider';
 import type { InterviewContext } from './interviewAssistantContext';
 
 export interface InterviewProvider {
@@ -23,12 +23,13 @@ export class AnthropicInterviewProvider implements InterviewProvider {
  constructor(key?:string) { this.client=key?new Anthropic({apiKey:key,timeout:60000,maxRetries:0}):null; }
  async suggest(context:InterviewContext,signal:AbortSignal):Promise<unknown> {
   if (!this.client) throw new ProviderFailure('AI_NOT_CONFIGURED');
+  const startedAt=Date.now();
   try {
    const response=await this.client.messages.create({model:this.model,max_tokens:5000,system:INTERVIEW_POLICY,
     messages:[{role:'user',content:JSON.stringify({untrusted_interview_context:context})}],output_config:{format:{type:'json_schema',schema:INTERVIEW_JSON_SCHEMA}}},{signal});
    if (response.stop_reason!=='end_turn') throw new ProviderFailure('AI_PROVIDER_FAILED');
    const text=response.content.filter((b):b is Anthropic.TextBlock=>b.type==='text').map(b=>b.text).join('');
    try {return JSON.parse(text);} catch {throw new ProviderFailure('AI_OUTPUT_NOT_JSON');}
-  } catch(e) { if(e instanceof ProviderFailure) throw e; throw new ProviderFailure(signal.aborted?'AI_TIMEOUT':'AI_PROVIDER_FAILED'); }
+  } catch(e) { if(e instanceof ProviderFailure) throw e; logProviderFailure('INTERVIEW_ASSISTANT',this.provider,this.model,Date.now()-startedAt,e); throw new ProviderFailure(signal.aborted||isAnthropicTimeoutError(e)?'AI_TIMEOUT':'AI_PROVIDER_FAILED'); }
  }
 }
