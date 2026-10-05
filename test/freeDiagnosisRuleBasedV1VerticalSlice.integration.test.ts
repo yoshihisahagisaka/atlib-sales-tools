@@ -15,6 +15,14 @@ async function req(path: string, method = 'GET', body?: unknown, withAuth = true
   return response as Omit<Response, 'json'> & { json(): Promise<any> };
 }
 
+const intakeValues: Record<string, unknown> = {
+  Q1: { employeeSize: 'EMP_21_50', locations: 'SITE_1' }, Q2: ['NO_MAJOR_CHANGE'], Q3: ['UNDECIDED'],
+  Q4: 'NO_MAJOR_CONCERN', Q5: 'VISIBLE_ENOUGH', Q6: 'REGULAR_AND_USABLE',
+};
+function intake(questionCode: string, channel: 'SELF' | 'PROXY') {
+  return { questionCode, channel, value: { schemaVersion: 1, questionCode, answerValue: intakeValues[questionCode], responseState: 'ANSWERED', respondent: { role: 'MANAGEMENT' }, provenance: { channel, source: channel === 'SELF' ? 'CUSTOMER_SELF' : 'SALES_PROXY' } } };
+}
+
 test('Production guard: every route requires Staff auth (401 without cookie)', async () => {
   const res = await req('/sales-activities', 'POST', { name: 'x' }, false);
   assert.equal(res.status, 401);
@@ -35,7 +43,7 @@ test('12-step Vertical Slice 1: Internal Customer entry -> Intake -> Focus -> Pr
 
   // Step 2: 7-question Hearing Intake (Q7 optional, Q1-Q6 required)
   for (const q of ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6']) {
-    const r = await req(`/cases/${kase.id}/intake`, 'POST', { questionCode: q, channel: 'PROXY', value: `${q}の回答` });
+    const r = await req(`/cases/${kase.id}/intake`, 'POST', intake(q, 'PROXY'));
     assert.equal(r.status, 204);
   }
   const incompleteComplete = await req(`/cases/${kase.id}/intake/complete`, 'POST', { expectedVersion: kase.version });
@@ -119,7 +127,7 @@ test('12-step Vertical Slice 1: Internal Customer entry -> Intake -> Focus -> Pr
   const case2Res = await req(`/sales-activities/${activity2.salesActivityId}/cases`, 'POST', {});
   let kase2 = await case2Res.json() as { id: string; status: string; version: number };
   for (const q of ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6']) {
-    await req(`/cases/${kase2.id}/intake`, 'POST', { questionCode: q, channel: 'SELF', value: `${q}` });
+    await req(`/cases/${kase2.id}/intake`, 'POST', intake(q, 'SELF'));
   }
   kase2 = await (await req(`/cases/${kase2.id}/intake/complete`, 'POST', { expectedVersion: kase2.version })).json();
   kase2 = await (await req(`/cases/${kase2.id}/focus`, 'POST', { primaryFocus: 'M02_IT_OPERATION_CONTINUITY', expectedVersion: kase2.version })).json();
@@ -161,7 +169,7 @@ test('Intake必須項目が不足している場合、completeは422で拒否さ
   const activity = await activityRes.json() as { salesActivityId: string };
   const caseRes = await req(`/sales-activities/${activity.salesActivityId}/cases`, 'POST', {});
   const kase = await caseRes.json() as { id: string; version: number };
-  await req(`/cases/${kase.id}/intake`, 'POST', { questionCode: 'Q1', channel: 'SELF', value: '回答' });
+  await req(`/cases/${kase.id}/intake`, 'POST', intake('Q1', 'SELF'));
   const res = await req(`/cases/${kase.id}/intake/complete`, 'POST', { expectedVersion: kase.version });
   assert.equal(res.status, 422);
 });
@@ -171,7 +179,7 @@ test('楽観的ロック: 古いexpectedVersionでの遷移は409になる', asy
   const activity = await activityRes.json() as { salesActivityId: string };
   const caseRes = await req(`/sales-activities/${activity.salesActivityId}/cases`, 'POST', {});
   const kase = await caseRes.json() as { id: string; version: number };
-  for (const q of ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6']) await req(`/cases/${kase.id}/intake`, 'POST', { questionCode: q, channel: 'SELF', value: q });
+  for (const q of ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6']) await req(`/cases/${kase.id}/intake`, 'POST', intake(q, 'SELF'));
   await req(`/cases/${kase.id}/intake/complete`, 'POST', { expectedVersion: kase.version });
   const staleRes = await req(`/cases/${kase.id}/focus`, 'POST', { primaryFocus: 'M01_IT_MANAGEMENT_JUDGMENT', expectedVersion: kase.version });
   assert.equal(staleRes.status, 409);

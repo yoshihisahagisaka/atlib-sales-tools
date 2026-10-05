@@ -4,13 +4,13 @@ import type { AssessmentStructureGates } from './assessmentStructureRule';
 // Rule Analysis Engine. Deterministic, AI-free (旧AI Processing Contractの決定論版).
 // Processing order per docs/free-diagnosis-rule-based-v1-business-design-canonical-20261003.md §6:
 //   Statement + Source preserve -> Knowledge normalization -> Clarification resolution ->
-//   Management Relevance -> T1-T4 -> Broad Unknown Collapse -> Investigation Value ->
+//   Management Relevance -> T1-T4 -> Investigation Value ->
 //   Scope Specificity Gate -> 6-point Investigation Output -> Investigation Need
 //
 // Statement + Source preserve / Knowledge normalization / Clarification resolution happen at
 // the Hearing recording layer itself (hearing_statement_v2 is append-only; knowledge_state is
 // recorded directly by Staff, never inferred from free text here). This module implements the
-// remaining steps: Management Relevance -> T1-T4 -> Broad Unknown Collapse -> Investigation Need,
+// remaining steps: Management Relevance -> T1-T4 -> Investigation Need,
 // plus deriving the Assessment Structure Gates from the same structured output.
 
 export const RULE_ENGINE_VERSION = 'rule-based-v1.0.0';
@@ -50,6 +50,9 @@ export interface RuleAnalysisInput {
   hasStatedChangeIntent: boolean;
   /** Q3 (今後ITについて実現したい状態) に実質的な回答があるか。 */
   hasStatedOpportunityIntent: boolean;
+  /** Phase 1: Initial Rule has already selected these confirmation purposes. Without an
+   * explicit purpose, PARTIAL/UNKNOWN alone must never create Investigation Need. */
+  verificationPurposes?: readonly { focus: ManagementFocus; triggerType: TriggerType }[];
 }
 
 export interface TriggerFinding {
@@ -60,15 +63,13 @@ export interface TriggerFinding {
 
 export interface RuleAnalysisResult {
   ruleVersion: string;
-  /** Broad Unknown Collapseが発火した場合、他のfindingsは作らず単一のfindingに畳む。 */
+  /** Historical compatibility field. Current Design v1 retires Broad Unknown Collapse. */
   broadUnknownCollapse: boolean;
   findings: TriggerFinding[];
   overallInvestigationNeed: InvestigationNeed;
   /** Assessment Structure Ruleへの入力。Investigation Needはここに一切含まれない。 */
   assessmentStructureGates: AssessmentStructureGates;
 }
-
-const UNRESOLVED_STATES: readonly KnowledgeState[] = ['PARTIAL', 'UNKNOWN'];
 
 function latestByPlanItem(statements: HearingStatementInput[]): Map<string, HearingStatementInput> {
   // 配列は記録順(古い->新しい)で渡される前提。append-onlyのため、同じplan_item_refの
@@ -89,29 +90,12 @@ export function runRuleAnalysis(input: RuleAnalysisInput): RuleAnalysisResult {
     .map(item => ({ item, statement: latest.get(item.code) }))
     .filter((x): x is { item: PlanItemTemplate; statement: HearingStatementInput } => x.statement !== undefined);
 
-  // Broad Unknown Collapse: 検討対象アイテムが1件以上あり、かつ「確認できた(KNOWN/AVAILABLE)」
-  // ものが一つもない場合（件数比較ではなく「一つもない」という構造的事実）、個別T1-T4を
-  // 作らず単一のBroad Unknown findingへ畳む。
-  const anyEstablished = consideredItems.some(x => x.statement.knowledgeState === 'KNOWN' || x.statement.knowledgeState === 'AVAILABLE');
-  if (consideredItems.length > 0 && !anyEstablished) {
-    const grounds = consideredItems[0]!;
-    const finding: TriggerFinding = {
-      triggerType: 'T1_KNOWLEDGE',
-      investigationNeed: 'RECOMMENDED',
-      grounds: { planItemRef: grounds.item.code, focus: grounds.item.focus, knowledgeState: grounds.statement.knowledgeState },
-    };
-    return {
-      ruleVersion: RULE_ENGINE_VERSION,
-      broadUnknownCollapse: true,
-      findings: [finding],
-      overallInvestigationNeed: 'RECOMMENDED',
-      assessmentStructureGates: deriveAssessmentStructureGates(input, consideredItems),
-    };
-  }
-
   const findings: TriggerFinding[] = [];
   for (const { item, statement } of consideredItems) {
-    if (!UNRESOLVED_STATES.includes(statement.knowledgeState)) continue;
+    const explicitlySelected = input.verificationPurposes?.some(x => x.focus === item.focus && x.triggerType === item.triggerType) ?? false;
+    // UNKNOWN/PARTIAL is preserved as knowledge state. It becomes a finding only where the
+    // Initial Rule selected a management-relevant confirmation purpose.
+    if (!explicitlySelected || !['PARTIAL', 'UNKNOWN'].includes(statement.knowledgeState)) continue;
     if (item.triggerType === 'T1_KNOWLEDGE') {
       findings.push({ triggerType: 'T1_KNOWLEDGE', investigationNeed: 'RECOMMENDED',
         grounds: { planItemRef: item.code, focus: item.focus, knowledgeState: statement.knowledgeState } });
@@ -132,7 +116,7 @@ export function runRuleAnalysis(input: RuleAnalysisInput): RuleAnalysisResult {
     }
   }
 
-  // Investigation Need（全体）：トリガー「種類」の有無のみで決める（件数は見ない）。
+  // Investigation Need（全体）：明示済みVerification Purposeに対するトリガー種類のみで決める。
   const hasCoreTrigger = findings.some(f => f.triggerType === 'T1_KNOWLEDGE' || f.triggerType === 'T2_DECISION');
   const hasAnyTrigger = findings.length > 0;
   const overallInvestigationNeed: InvestigationNeed = hasCoreTrigger ? 'RECOMMENDED' : hasAnyTrigger ? 'OPTIONAL' : 'NO_IMMEDIATE_INVESTIGATION_NEED';

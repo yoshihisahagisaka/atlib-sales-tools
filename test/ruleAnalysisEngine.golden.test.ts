@@ -59,7 +59,7 @@ test('Changeだけで問題判定しない: Q2に回答があるだけでは何�
   assert.equal(result.findings.length, 0);
 });
 
-test('T3 Change Trigger: 未解決の経営判断項目 + Change意図の両方がある場合のみ発火', () => {
+test('T3 Change Trigger: Initial Ruleが明示したVerification Purpose + 未解決の経営判断項目 + Change意図がある場合のみ発火', () => {
   const result = runRuleAnalysis({
     primaryFocus: 'M05_GROWTH_CHANGE_ADAPTATION', secondaryFocus: null,
     statements: [
@@ -67,6 +67,7 @@ test('T3 Change Trigger: 未解決の経営判断項目 + Change意図の両方�
       stmt('M05_GROWTH_CHANGE_ADAPTATION_DECISION', 'PARTIAL'),
     ],
     hasStatedChangeIntent: true, hasStatedOpportunityIntent: false,
+    verificationPurposes: [{ focus: 'M05_GROWTH_CHANGE_ADAPTATION', triggerType: 'T2_DECISION' }],
   });
   assert.ok(result.findings.some(f => f.triggerType === 'T2_DECISION'));
   assert.ok(result.findings.some(f => f.triggerType === 'T3_CHANGE'));
@@ -86,14 +87,14 @@ test('Security concernだけでScope upしない: Assessment Structure Gatesは�
   assert.equal(resultWithoutFlag.assessmentStructureGates.single_management_scope, true);
 });
 
-test('Investigation NeedからScopeを直接決めない: 同一のgatesでもfindingsの有無に関わらずgatesだけでStructureが決まる', () => {
-  // Case A: high investigation need (RECOMMENDED overall) but gates are LIMITED-shaped.
+test('Investigation NeedからScopeを直接決めない: Purposeが無いUNKNOWNはNeedを作らず、gatesは独立して決まる', () => {
+  // Case A: Purpose未選択のUNKNOWNはNeedを作らないが、gatesはLIMITED-shaped.
   const caseA = runRuleAnalysis({
     primaryFocus: 'M01_IT_MANAGEMENT_JUDGMENT', secondaryFocus: null,
     statements: [stmt('M01_IT_MANAGEMENT_JUDGMENT_CORE', 'UNKNOWN', false), stmt('M01_IT_MANAGEMENT_JUDGMENT_DECISION', 'KNOWN', false)],
     hasStatedChangeIntent: false, hasStatedOpportunityIntent: false,
   });
-  assert.equal(caseA.overallInvestigationNeed, 'RECOMMENDED');
+  assert.equal(caseA.overallInvestigationNeed, 'NO_IMMEDIATE_INVESTIGATION_NEED');
   assert.equal(caseA.assessmentStructureGates.single_management_scope, true);
   assert.equal(caseA.assessmentStructureGates.requires_individual_confirmation_per_target, false);
   // Case B: no investigation need at all, but requires_individual_confirmation flag is set --
@@ -116,15 +117,15 @@ test('数量閾値でCOMPACT/STANDARD/EXPANDEDを決めない: 未解決項目�
   assert.equal(manyUnresolved.assessmentStructureGates.requires_individual_confirmation_per_target, false);
 });
 
-test('Broad Unknown Collapseが機能する: 確認できた項目が一つもない場合、個別T1/T2を量産せず単一findingへ畳む', () => {
+test('Broad Unknown Collapseはretire: UNKNOWNだけではfindingもInvestigation Needも作らない', () => {
   const result = runRuleAnalysis({
     primaryFocus: 'M06_IT_STRATEGIC_USE', secondaryFocus: null,
     statements: [stmt('M06_IT_STRATEGIC_USE_CORE', 'UNKNOWN'), stmt('M06_IT_STRATEGIC_USE_DECISION', 'PARTIAL')],
     hasStatedChangeIntent: true, hasStatedOpportunityIntent: true,
   });
-  assert.equal(result.broadUnknownCollapse, true);
-  assert.equal(result.findings.length, 1);
-  assert.equal(result.overallInvestigationNeed, 'RECOMMENDED');
+  assert.equal(result.broadUnknownCollapse, false);
+  assert.equal(result.findings.length, 0);
+  assert.equal(result.overallInvestigationNeed, 'NO_IMMEDIATE_INVESTIGATION_NEED');
 });
 
 test('Broad Unknown Collapseは一つでもKNOWN/AVAILABLEがあれば発火しない', () => {

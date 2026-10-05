@@ -19,8 +19,20 @@ export type ManagementFocus = typeof MANAGEMENT_FOCUS[number];
 export const SELECTED_SERVICE = ['IT_KAIZEN', 'BUSINESS_WEB'] as const;
 export const INTAKE_QUESTION_CODE = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7'] as const;
 export const INTAKE_CHANNEL = ['SELF', 'PROXY'] as const;
+export const RESPONSE_STATE = ['ANSWERED', 'UNKNOWN', 'NOT_IN_POSITION_TO_ANSWER'] as const;
+export const RESPONDENT_ROLE = ['MANAGEMENT', 'IT_DECISION_OWNER', 'IT_OR_BUSINESS_STAFF'] as const;
 export const KNOWLEDGE_STATE = ['KNOWN', 'AVAILABLE', 'PARTIAL', 'UNKNOWN'] as const;
 export type KnowledgeState = typeof KNOWLEDGE_STATE[number];
+export type ResponseState = typeof RESPONSE_STATE[number];
+export type RespondentRole = typeof RESPONDENT_ROLE[number];
+
+export const Q1_EMPLOYEE_SIZE = ['EMP_1_20', 'EMP_21_50', 'EMP_51_100', 'EMP_101_300', 'EMP_301_PLUS', 'EMP_UNKNOWN'] as const;
+export const Q1_LOCATIONS = ['SITE_1', 'SITE_2_3', 'SITE_4_PLUS', 'SITE_NOT_APPLICABLE', 'SITE_UNKNOWN'] as const;
+export const Q2_FUTURE_CONTEXT = ['HEADCOUNT_GROWTH', 'SITE_CHANGE', 'NEW_BUSINESS', 'ORG_CHANGE', 'IPO_PREPARATION', 'WORKSTYLE_CHANGE', 'BUSINESS_EXPANSION', 'LEAN_SCALING', 'STABILITY_EFFICIENCY', 'NO_MAJOR_CHANGE', 'OTHER'] as const;
+export const Q3_DESIRED_IT_STATE = ['SUPPORT_CHANGE', 'IMPROVE_PRODUCTIVITY', 'PROTECT_BUSINESS', 'ENABLE_MANAGEMENT_DECISION', 'STRATEGIC_IT_USE', 'STABILIZE_IT_OPERATION', 'OPTIMIZE_IT_INVESTMENT', 'UNDECIDED', 'OTHER'] as const;
+export const Q4_CURRENT_CONCERN = ['MANAGEMENT_DECISION_CONCERN', 'IT_OPERATION_CONCERN', 'BUSINESS_PROTECTION_CONCERN', 'PRODUCTIVITY_OPPORTUNITY', 'CHANGE_READINESS_CONCERN', 'STRATEGIC_USE_OPPORTUNITY', 'NO_MAJOR_CONCERN', 'OTHER'] as const;
+export const Q5_VISIBILITY = ['VISIBLE_ENOUGH', 'MOSTLY_VISIBLE', 'PARTIALLY_VISIBLE', 'VISIBLE_ON_REQUEST', 'LARGELY_UNKNOWN'] as const;
+export const Q6_MANAGEMENT_INFORMATION = ['REGULAR_AND_USABLE', 'DELIVERED_NOT_USABLE', 'ON_REQUEST_USABLE', 'NOT_SUFFICIENTLY_DELIVERED', 'INFORMATION_NEED_UNCLEAR'] as const;
 
 // 顧客向け表示名（内部enumをそのまま露出しない。Doc UI Wireframe §Screen State設計方針）。
 export const KNOWLEDGE_STATE_LABEL_JA: Record<KnowledgeState, string> = {
@@ -51,11 +63,47 @@ export const createCompanySchema = z.object({
 }).strict();
 export type CreateCompanyInput = z.infer<typeof createCompanySchema>;
 
+const intakeAnswerValueSchema = z.union([
+  z.object({ employeeSize: z.enum(Q1_EMPLOYEE_SIZE), locations: z.enum(Q1_LOCATIONS) }).strict(),
+  z.array(z.enum(Q2_FUTURE_CONTEXT)).min(1).max(Q2_FUTURE_CONTEXT.length),
+  z.array(z.enum(Q3_DESIRED_IT_STATE)).min(1).max(Q3_DESIRED_IT_STATE.length),
+  z.enum(Q4_CURRENT_CONCERN), z.enum(Q5_VISIBILITY), z.enum(Q6_MANAGEMENT_INFORMATION),
+  z.string().trim().min(1).max(4000), z.null(),
+]);
+
+export const intakeAnswerEnvelopeSchema = z.object({
+  schemaVersion: z.literal(1),
+  questionCode: z.enum(INTAKE_QUESTION_CODE),
+  answerValue: intakeAnswerValueSchema,
+  responseState: z.enum(RESPONSE_STATE),
+  respondent: z.object({ contactId: z.string().uuid().optional(), role: z.enum(RESPONDENT_ROLE).optional() }).strict(),
+  provenance: z.object({ channel: z.enum(INTAKE_CHANNEL), source: z.enum(['CUSTOMER_SELF', 'SALES_PROXY']) }).strict(),
+}).strict().superRefine((value, ctx) => {
+  const validAnswered = ((): boolean => {
+    if (value.responseState !== 'ANSWERED') return value.answerValue === null;
+    switch (value.questionCode) {
+      case 'Q1': return typeof value.answerValue === 'object' && value.answerValue !== null && !Array.isArray(value.answerValue) && 'employeeSize' in value.answerValue && 'locations' in value.answerValue;
+      case 'Q2': return Array.isArray(value.answerValue) && value.answerValue.every(x => Q2_FUTURE_CONTEXT.includes(x as typeof Q2_FUTURE_CONTEXT[number]));
+      case 'Q3': return Array.isArray(value.answerValue) && value.answerValue.every(x => Q3_DESIRED_IT_STATE.includes(x as typeof Q3_DESIRED_IT_STATE[number]));
+      case 'Q4': return typeof value.answerValue === 'string' && Q4_CURRENT_CONCERN.includes(value.answerValue as typeof Q4_CURRENT_CONCERN[number]);
+      case 'Q5': return typeof value.answerValue === 'string' && Q5_VISIBILITY.includes(value.answerValue as typeof Q5_VISIBILITY[number]);
+      case 'Q6': return typeof value.answerValue === 'string' && Q6_MANAGEMENT_INFORMATION.includes(value.answerValue as typeof Q6_MANAGEMENT_INFORMATION[number]);
+      case 'Q7': return typeof value.answerValue === 'string';
+    }
+  })();
+  if (!validAnswered) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'INTAKE_ANSWER_VALUE_INVALID_FOR_QUESTION_OR_RESPONSE_STATE' });
+  if ((value.provenance.channel === 'SELF') !== (value.provenance.source === 'CUSTOMER_SELF')) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'INTAKE_PROVENANCE_CHANNEL_MISMATCH' });
+});
+export type IntakeAnswerEnvelopeV1 = z.infer<typeof intakeAnswerEnvelopeSchema>;
+
 export const intakeAnswerSchema = z.object({
   questionCode: z.enum(INTAKE_QUESTION_CODE),
   channel: z.enum(INTAKE_CHANNEL),
-  value: z.unknown(),
-}).strict();
+  value: intakeAnswerEnvelopeSchema,
+}).strict().superRefine((value, ctx) => {
+  if (value.questionCode !== value.value.questionCode) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'INTAKE_QUESTION_CODE_MISMATCH' });
+  if (value.channel !== value.value.provenance.channel) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'INTAKE_CHANNEL_MISMATCH' });
+});
 export type IntakeAnswerInput = z.infer<typeof intakeAnswerSchema>;
 
 export const REQUIRED_INTAKE_QUESTION_CODES: readonly string[] = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'];
