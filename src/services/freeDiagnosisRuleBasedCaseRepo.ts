@@ -3,6 +3,8 @@ import type { Pool } from 'pg';
 import { RuleBasedV1Error, intakeAnswerEnvelopeSchema, type CaseStatus, type FocusSelectionInput, type IntakeAnswerInput, type IntakeAnswerEnvelopeV1, type ManagementFocus, type RecordStatementInput, REQUIRED_INTAKE_QUESTION_CODES } from '../domain/freeDiagnosisRuleBasedV1';
 import { projectIntakeSemantics } from '../domain/intakeSemanticProjection';
 import { runInitialRule, type InitialRuleResult } from '../domain/initialRuleEngine';
+import { runFinalRule, type FinalRuleResult } from '../domain/finalRuleEngine';
+import { hearingUnitForFocus, type StructuredHearingAnswer } from '../domain/structuredHearing';
 import { runRuleAnalysis, type HearingStatementInput, type RuleAnalysisResult, type TriggerFinding } from '../domain/ruleAnalysisEngine';
 import { suggestAssessmentScope, type AssessmentStructureSuggestion } from '../domain/assessmentStructureRule';
 
@@ -79,6 +81,11 @@ export class FreeDiagnosisRuleBasedCaseRepo {
     return { result: runInitialRule(projectIntakeSemantics(envelopes)), q7: typeof q7?.answerValue === 'string' ? q7.answerValue : null };
   }
 
+  async hearingUnits(caseId: string) {
+    const initial = await this.initialRule(caseId);
+    return initial.result.focusItems.map(x => hearingUnitForFocus(x.focus));
+  }
+
   async completeIntake(caseId: string, expectedVersion: number): Promise<CaseRow> {
     const answered = new Set((await this.listIntakeAnswers(caseId)).map(a => a.questionCode));
     const missing = REQUIRED_INTAKE_QUESTION_CODES.filter(q => !answered.has(q));
@@ -95,6 +102,9 @@ export class FreeDiagnosisRuleBasedCaseRepo {
     const initial = await this.initialRule(caseId);
     const primary = initial.result.focusItems.find(x => x.role === 'PRIMARY')?.focus ?? null;
     const secondary = initial.result.focusItems.find(x => x.role === 'RELATED')?.focus ?? null;
+    const answers = await this.listIntakeAnswers(caseId);
+    await this.pool.query(`INSERT INTO rule_analysis_execution (id,case_id,status,rule_version,analysis_stage,input_snapshot_json,started_at,completed_at) VALUES ($1,$2,'SUCCEEDED',$3,'INITIAL',$4,now(),now())`,
+      [randomUUID(), caseId, 'current-design-v1-initial-rule-1.0.0', JSON.stringify({ intake: answers.map(a => a.value) })]);
     return this.transition(caseId, ['INTAKE_COMPLETED', 'FOCUS_SELECTED', 'BOOKING_PENDING'], 'PREPARATION_IN_PROGRESS', expectedVersion,
       ', primary_focus=$5, secondary_focus=$6', [primary, secondary]);
   }
@@ -114,9 +124,9 @@ export class FreeDiagnosisRuleBasedCaseRepo {
     }
     const id = randomUUID();
     await this.pool.query(
-      `INSERT INTO hearing_statement_v2 (id,case_id,plan_item_ref,statement_text,operator_note_text,knowledge_state,requires_individual_confirmation,is_negative_answer,recorded_by_user_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [id, caseId, input.planItemRef ?? null, input.statementText, input.operatorNoteText ?? null, input.knowledgeState, input.requiresIndividualConfirmation, input.isNegativeAnswer, staffEmail],
+      `INSERT INTO hearing_statement_v2 (id,case_id,plan_item_ref,statement_text,operator_note_text,knowledge_state,requires_individual_confirmation,is_negative_answer,structured_answer_json,recorded_by_user_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [id, caseId, input.planItemRef ?? null, input.statementText, input.operatorNoteText ?? null, input.knowledgeState, input.requiresIndividualConfirmation, input.isNegativeAnswer, input.structuredAnswer ? JSON.stringify(input.structuredAnswer) : null, staffEmail],
     );
     return id;
   }
@@ -142,6 +152,11 @@ export class FreeDiagnosisRuleBasedCaseRepo {
     return rows.map(r => ({ planItemRef: r.plan_item_ref, statementText: r.statement_text, knowledgeState: r.knowledge_state, isNegativeAnswer: r.is_negative_answer, recordedAt: r.recorded_at }));
   }
 
+  async listStructuredAnswers(caseId: string): Promise<StructuredHearingAnswer[]> {
+    const { rows } = await this.pool.query<{ structured_answer_json: unknown }>(`SELECT structured_answer_json FROM hearing_statement_v2 WHERE case_id=$1 AND structured_answer_json IS NOT NULL ORDER BY recorded_at ASC`, [caseId]);
+    return rows.map(r => r.structured_answer_json as StructuredHearingAnswer);
+  }
+
   async completeHearing(caseId: string, expectedVersion: number): Promise<CaseRow> {
     return this.transition(caseId, ['HEARING_IN_PROGRESS', 'HEARING_ORGANIZING'], 'HEARING_COMPLETED', expectedVersion);
   }
@@ -152,27 +167,30 @@ export class FreeDiagnosisRuleBasedCaseRepo {
     return true;
   }
 
-  async runAndPersistRuleAnalysis(caseId: string, expectedVersion: number): Promise<{ executionId: string; result: RuleAnalysisResult; findings: (TriggerFinding & { id: string })[] }> {
+  async runAndPersistRuleAnalysis(caseId: string, expectedVersion: number): Promise<{ executionId: string; result: RuleAnalysisResult & { final: FinalRuleResult }; findings: (TriggerFinding & { id: string })[] }> {
     const kase = await this.getCase(caseId);
     if (!kase || kase.status !== 'HEARING_COMPLETED') throw new RuleBasedV1Error(409, 'HEARING_NOT_COMPLETED');
     if (!kase.primaryFocus) throw new RuleBasedV1Error(409, 'FOCUS_NOT_SELECTED');
-    const [statements, answers] = await Promise.all([this.listStatements(caseId), this.listIntakeAnswers(caseId)]);
+    const [statements, answers, structuredAnswers] = await Promise.all([this.listStatements(caseId), this.listIntakeAnswers(caseId), this.listStructuredAnswers(caseId)]);
     const q2 = answers.find(a => a.questionCode === 'Q2');
     const q3 = answers.find(a => a.questionCode === 'Q3');
-    const result = runRuleAnalysis({
+    const initial = await this.initialRule(caseId);
+    const legacyResult = runRuleAnalysis({
       primaryFocus: kase.primaryFocus,
       secondaryFocus: kase.secondaryFocus,
       statements,
       hasStatedChangeIntent: this.isAnswerPresent(q2?.value),
-      hasStatedOpportunityIntent: this.isAnswerPresent(q3?.value),
+      hasStatedOpportunityIntent: this.isAnswerPresent(q3?.value), verificationPurposes: initial.result.focusItems.filter(x => x.role !== 'OPPORTUNITY').flatMap(x => [{ focus: x.focus, triggerType: 'T1_KNOWLEDGE' as const }, { focus: x.focus, triggerType: 'T2_DECISION' as const }]),
     });
+    const envelopes = answers.map(a => intakeAnswerEnvelopeSchema.parse(a.value));
+    const finalResult = runFinalRule({ intake: projectIntakeSemantics(envelopes), answers: structuredAnswers });
     const executionId = randomUUID();
     await this.pool.query(
-      `INSERT INTO rule_analysis_execution (id,case_id,status,rule_version,started_at,completed_at) VALUES ($1,$2,'SUCCEEDED',$3,now(),now())`,
-      [executionId, caseId, result.ruleVersion],
+      `INSERT INTO rule_analysis_execution (id,case_id,status,rule_version,analysis_stage,input_snapshot_json,started_at,completed_at) VALUES ($1,$2,'SUCCEEDED',$3,'FINAL',$4,now(),now())`,
+      [executionId, caseId, finalResult.ruleVersion, JSON.stringify({ intake: envelopes, hearing: structuredAnswers })],
     );
     const findings: (TriggerFinding & { id: string })[] = [];
-    for (const f of result.findings) {
+    for (const f of legacyResult.findings) {
       const id = randomUUID();
       await this.pool.query(
         `INSERT INTO investigation_output (id,rule_analysis_execution_id,trigger_type,investigation_need,grounds_json) VALUES ($1,$2,$3,$4,$5)`,
@@ -181,7 +199,7 @@ export class FreeDiagnosisRuleBasedCaseRepo {
       findings.push({ ...f, id });
     }
     await this.transition(caseId, ['HEARING_COMPLETED'], 'HUMAN_REVIEW_REQUIRED', expectedVersion);
-    return { executionId, result, findings };
+    return { executionId, result: { ...legacyResult, final: finalResult }, findings };
   }
 
   async listInvestigationOutputs(executionId: string): Promise<(TriggerFinding & { id: string })[]> {

@@ -65,6 +65,26 @@ test('Current Design v1 path: Envelopeを保持し、Manual FocusなしでInitia
   assert.deepEqual(q4.provenance, { channel: 'PROXY', source: 'SALES_PROXY' });
 });
 
+test('Initial/Final execution snapshotは別に保存され、Structured Hearingはappend-onlyで保持される', async () => {
+  const activity = await (await req('/sales-activities', 'POST', { name: 'Snapshot株式会社', contact: { name: '担当' }, selectedService: 'IT_KAIZEN' })).json() as { salesActivityId: string };
+  let kase = await (await req(`/sales-activities/${activity.salesActivityId}/cases`, 'POST', {})).json() as { id: string; version: number };
+  for (const q of ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6']) await req(`/cases/${kase.id}/intake`, 'POST', intake(q, 'PROXY'));
+  kase = await (await req(`/cases/${kase.id}/intake/complete`, 'POST', { expectedVersion: kase.version })).json();
+  kase = (await (await req(`/cases/${kase.id}/preparation/start`, 'POST', { expectedVersion: kase.version })).json()).case;
+  kase = await (await req(`/cases/${kase.id}/hearing/start`, 'POST', { expectedVersion: kase.version })).json();
+  const unit = (await (await req(`/cases/${kase.id}/hearing/units`)).json()).items[0];
+  const structured = { schemaVersion: 1, hearingUnitCode: unit.unitCode, semanticKey: unit.semanticKey, answerValue: 'CANNOT_JUDGE', responseState: 'ANSWERED', respondent: { role: 'MANAGEMENT' }, provenance: { channel: 'PROXY', source: 'SALES_PROXY' }, completionStatus: 'COMPLETE' };
+  assert.equal((await req(`/cases/${kase.id}/hearing/statements`, 'POST', { planItemRef: unit.unitCode, statementText: '判断が難しいとの発言', operatorNoteText: '担当者メモ', knowledgeState: 'PARTIAL', structuredAnswer: structured })).status, 201);
+  kase = await (await req(`/cases/${kase.id}/hearing/complete`, 'POST', { expectedVersion: kase.version })).json();
+  const final = await (await req(`/cases/${kase.id}/rule-analysis/run`, 'POST', { expectedVersion: kase.version })).json();
+  assert.equal(final.result.final.gapPossibilities.length, 1);
+  const { rows } = await h.pool.query<any>('SELECT analysis_stage,input_snapshot_json FROM rule_analysis_execution WHERE case_id=$1 ORDER BY created_at', [kase.id]);
+  assert.deepEqual(rows.map(r => r.analysis_stage), ['INITIAL', 'FINAL']);
+  assert.equal(rows[0].input_snapshot_json.hearing, undefined); assert.equal(rows[1].input_snapshot_json.hearing[0].answerValue, 'CANNOT_JUDGE');
+  const persisted = await (await req(`/cases/${kase.id}/hearing/statements`)).json();
+  assert.equal(persisted.items.length, 1);
+});
+
 test('12-step Vertical Slice 1: Internal Customer entry -> Intake -> Initial Rule -> Preparation -> Hearing -> 整理 -> Complete -> Rule Analysis -> Human Review -> Analysis Approved -> Preliminary Structure/Scope', async () => {
   // Step 1: Internal Customer / Case entry
   const activityRes = await req('/sales-activities', 'POST', {

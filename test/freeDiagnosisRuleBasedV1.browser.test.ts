@@ -72,3 +72,19 @@ test('回答者の立場により質問文は変わるが、同じStructured Int
   await expect(page.locator('#intake_Q2')).toBeVisible();
   await expect(page.locator('#intake_Q6')).toBeVisible();
 });
+
+test('PreparationからStructured Hearingを記録し、Final Rule Previewへ進める', async ({ page }) => {
+  await createCase(page, 'Hearing確認株式会社');
+  await completeIntake(page, { q2: ['NO_MAJOR_CHANGE'], q3: ['ENABLE_MANAGEMENT_DECISION'], q4: 'MANAGEMENT_DECISION_CONCERN', q5: 'VISIBLE_ENOUGH', q6: 'REGULAR_AND_USABLE' });
+  await page.click('#btnStartHearing');
+  await expect(page.locator('#hearingStarter')).toContainText('経営判断に必要なIT情報');
+  await page.selectOption('#structuredAnswer', 'CANNOT_JUDGE');
+  await page.selectOption('#knowledgeState', 'PARTIAL');
+  await page.fill('#statementText', '予算判断に必要な情報がそろわない');
+  await page.click('#btnRecordStatement');
+  await expect(page.locator('#statementList')).toContainText('一部、追加確認が必要');
+  await page.click('#btnCompleteHearing');
+  await expect(page.locator('#view-analysis')).toBeVisible();
+  await page.click('#btnRunAnalysis');
+  await expect(page.locator('#analysisResult')).toBeVisible();
+});

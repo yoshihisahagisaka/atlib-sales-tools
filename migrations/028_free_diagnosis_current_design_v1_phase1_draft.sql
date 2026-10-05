@@ -1,5 +1,5 @@
--- DRAFT ONLY — IT経営KAIZEN 無料診断 Current Design v1 Phase 1.
--- This forward-only migration is intentionally NOT executed by this task.
+-- IT経営KAIZEN 無料診断 Current Design v1 Phase 1/2B.
+-- Forward-only; Phase 2B applies this only to the disposable local test database.
 -- It does not modify migration 027, legacy diagnosis_cases, Report, Feedback, or Handoff tables.
 -- Nullable additions preserve existing internal-dogfood records without backfill.
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { structuredHearingAnswerSchema } from './structuredHearing';
 
 // IT経営KAIZEN 無料診断 Rule-Based v1. See
 // docs/free-diagnosis-rule-based-v1-business-design-canonical-20261003.md and
@@ -126,5 +127,6 @@ export const recordStatementSchema = z.object({
   knowledgeState: z.enum(KNOWLEDGE_STATE),
   requiresIndividualConfirmation: z.boolean().default(false),
   isNegativeAnswer: z.boolean().default(false),
+  structuredAnswer: structuredHearingAnswerSchema.optional(),
 }).strict();
 export type RecordStatementInput = z.infer<typeof recordStatementSchema>;

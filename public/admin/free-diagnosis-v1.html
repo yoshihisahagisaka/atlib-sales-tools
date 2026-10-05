@@ -122,6 +122,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><label for="planItemRef">話題</label><select id="planItemRef"></select></div>
 <div class="row"><label for="knowledgeState">確認結果</label>
 <select id="knowledgeState"><option value="KNOWN">今回確認できた</option><option value="AVAILABLE">追加確認すれば分かる</option><option value="PARTIAL">一部、追加確認が必要</option><option value="UNKNOWN" selected>今回まだ確認できていない</option></select></div>
+<div class="row"><label for="structuredAnswer">確認した状況</label><select id="structuredAnswer"><option value="CAN_JUDGE">判断できている</option><option value="PARTIALLY_JUDGE">一部は判断できる</option><option value="CANNOT_JUDGE">判断が難しい</option><option value="UNKNOWN">まだ分からない</option><option value="OPPORTUNITY_IDENTIFIED">改善の余地がありそう</option><option value="NO_OPPORTUNITY">現時点では特にない</option></select></div>
 <div class="row"><label for="naFlag">「ない（存在しない）」という回答</label><input id="naFlag" type="checkbox"></div>
 <div class="row"><label for="requiresIndividual">対象ごとに個別確認が必要（optional branch）</label><input id="requiresIndividual" type="checkbox"></div>
 <div class="row"><label for="statementText">Note（発言・メモ）</label><textarea id="statementText"></textarea></div>
@@ -329,6 +330,7 @@ el('btnStartHearing').onclick = async () => {
   try {
     const kase = await call(`/cases/${state.caseId}/hearing/start`, 'POST', { expectedVersion: state.version });
     state.version = kase.version;
+    state.units = (await call(`/cases/${state.caseId}/hearing/units`, 'GET')).items;
     renderHearingColumns();
     renderPlanItemSelectors();
     renderStoryNav('主テーマ');
@@ -351,6 +353,7 @@ function renderStoryNav(active) {
   });
 }
 function planItemCodes() {
+  if (state.units) return state.units.map(u => [u.unitCode, FOCUS_LABELS[u.focus].replace(/^M\d+ /, ''), 'CORE']);
   const focuses = [state.primaryFocus].concat(state.secondaryFocus ? [state.secondaryFocus] : []);
   return focuses.flatMap(f => [[f + '_CORE', FOCUS_LABELS[f] + ' / 現状の把握', 'CORE'], [f + '_DECISION', FOCUS_LABELS[f] + ' / 経営判断の確認', 'DECISION']]);
 }
@@ -367,8 +370,9 @@ function updateHearingTopic() {
   const kind = code.endsWith('_CORE') ? 'CORE' : 'DECISION';
   const [, label] = planItemCodes().find(([c]) => c === code) || [null, code];
   el('hearingTopicTitle').textContent = label || 'Current Topic';
-  el('hearingWhy').textContent = 'Why: ' + PLAN_ITEM_PROMPT[kind].why;
-  el('hearingStarter').textContent = PLAN_ITEM_PROMPT[kind].starter;
+  const unit = (state.units || []).find(u => u.unitCode === code);
+  el('hearingWhy').textContent = unit ? '確認する理由：経営判断に必要な状況を確かめるためです。' : '確認する理由：' + PLAN_ITEM_PROMPT[kind].why;
+  el('hearingStarter').textContent = unit ? unit.standardQuestion : PLAN_ITEM_PROMPT[kind].starter;
 }
 
 function statementBadge(s) {
@@ -383,7 +387,8 @@ async function refreshStatements() {
     const li = document.createElement('li');
     const badge = statementBadge(s);
     const span = document.createElement('span'); span.className = 'badge ' + badge.cls; span.textContent = badge.label;
-    li.append(document.createTextNode(s.planItemRef || '-'), span);
+    const unit = (state.units || []).find(u => u.unitCode === s.planItemRef);
+    li.append(document.createTextNode(unit ? FOCUS_LABELS[unit.focus].replace(/^M\d+ /, '') : '確認項目'), span);
     list.append(li);
   }
 }
@@ -391,10 +396,14 @@ async function refreshStatements() {
 async function recordStatement(planItemSelId, ksSelId, textId, naCheckId, individualCheckId) {
   const na = naCheckId ? el(naCheckId).checked : false;
   const statementText = el(textId).value || '(メモなし)';
+  const unit = (state.units || []).find(u => u.unitCode === el(planItemSelId).value);
+  const knowledgeState = el(ksSelId).value;
+  const structuredAnswer = unit ? { schemaVersion: 1, hearingUnitCode: unit.unitCode, semanticKey: unit.semanticKey, answerValue: el('structuredAnswer').value, responseState: knowledgeState === 'UNKNOWN' ? 'UNKNOWN' : 'ANSWERED', respondent: { role: el('respondentRole')?.value || 'MANAGEMENT' }, provenance: { channel: 'PROXY', source: 'SALES_PROXY' }, completionStatus: 'COMPLETE', deepDive: { asked: knowledgeState === 'PARTIAL' || knowledgeState === 'UNKNOWN', result: statementText } } : undefined;
   await call(`/cases/${state.caseId}/hearing/statements`, 'POST', {
     planItemRef: el(planItemSelId).value, statementText,
-    knowledgeState: el(ksSelId).value, requiresIndividualConfirmation: individualCheckId ? el(individualCheckId).checked : false,
+    knowledgeState, requiresIndividualConfirmation: individualCheckId ? el(individualCheckId).checked : false,
     isNegativeAnswer: na,
+    structuredAnswer,
   });
   el(textId).value = '';
   if (naCheckId) el(naCheckId).checked = false;
@@ -424,7 +433,8 @@ async function renderOrganizeBuckets() {
   const buckets = { known: [], available: [], unknown: [] };
   for (const s of latest.values()) {
     const badge = statementBadge(s);
-    const entry = `${s.planItemRef}: ${badge.label}`;
+    const unit = (state.units || []).find(u => u.unitCode === s.planItemRef);
+    const entry = `${unit ? FOCUS_LABELS[unit.focus].replace(/^M\d+ /, '') : '確認項目'}: ${badge.label}`;
     if (s.knowledgeState === 'KNOWN') buckets.known.push(entry);
     else if (s.knowledgeState === 'AVAILABLE') buckets.available.push(entry);
     else buckets.unknown.push(entry); // PARTIAL/UNKNOWN まとめて「まだ確認していない」側
@@ -463,8 +473,13 @@ el('btnRunAnalysis').onclick = async () => {
     state.version = current.case.version;
     const r = outcome.result;
     const lines = [];
-    lines.push('Investigation Need（全体）: ' + r.overallInvestigationNeed);
-    lines.push('Broad Unknown Collapse: ' + (r.broadUnknownCollapse ? '発火（確認できた項目が無いため単一findingへ畳みました）' : 'なし'));
+    state.finalRule = r.final;
+    if (r.final.noImportantGapIdentified) lines.push('現時点では、優先して確認すべき大きな隔たりは特定されていません。');
+    if (r.final.gapPossibilities.length) lines.push('追加で状況を確認する価値がある可能性: ' + r.final.gapPossibilities.length + '件');
+    if (r.final.remainingUnknown.length) lines.push('今回まだ確認できていない事項: ' + r.final.remainingUnknown.length + '件');
+    if (r.final.authorityConfirmation.length) lines.push('適切な担当者への確認が必要な事項: ' + r.final.authorityConfirmation.length + '件');
+    if (r.final.improvementOpportunities.length) lines.push('改善可能性を確認する価値がある領域: ' + r.final.improvementOpportunities.length + '件');
+    lines.push('この内容を人が確認して次の判断につなげます。');
     el('resultPanel').textContent = lines.join('\n');
     el('analysisResult').style.display = '';
   } catch (e) { setError(String(e.message || e)); }

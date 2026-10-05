@@ -94,6 +94,10 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
     res.json(kase);
   }));
 
+  r.get('/cases/:id/hearing/units', (req, res) => handle(res, async () => {
+    res.json({ items: await cases.hearingUnits(req.params.id) });
+  }));
+
   r.post('/cases/:id/hearing/statements', (req, res) => handle(res, async () => {
     const parsed = recordStatementSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
