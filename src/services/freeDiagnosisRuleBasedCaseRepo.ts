@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
-import { RuleBasedV1Error, type CaseStatus, type FocusSelectionInput, type IntakeAnswerInput, type ManagementFocus, type RecordStatementInput, REQUIRED_INTAKE_QUESTION_CODES } from '../domain/freeDiagnosisRuleBasedV1';
+import { RuleBasedV1Error, intakeAnswerEnvelopeSchema, type CaseStatus, type FocusSelectionInput, type IntakeAnswerInput, type IntakeAnswerEnvelopeV1, type ManagementFocus, type RecordStatementInput, REQUIRED_INTAKE_QUESTION_CODES } from '../domain/freeDiagnosisRuleBasedV1';
+import { projectIntakeSemantics } from '../domain/intakeSemanticProjection';
+import { runInitialRule, type InitialRuleResult } from '../domain/initialRuleEngine';
 import { runRuleAnalysis, type HearingStatementInput, type RuleAnalysisResult, type TriggerFinding } from '../domain/ruleAnalysisEngine';
 import { suggestAssessmentScope, type AssessmentStructureSuggestion } from '../domain/assessmentStructureRule';
 
@@ -70,6 +72,13 @@ export class FreeDiagnosisRuleBasedCaseRepo {
     return rows.map(r => ({ questionCode: r.question_code, value: r.raw_value_json }));
   }
 
+  async initialRule(caseId: string): Promise<{ result: InitialRuleResult; q7: string | null }> {
+    const answers = await this.listIntakeAnswers(caseId);
+    const envelopes: IntakeAnswerEnvelopeV1[] = answers.map(x => intakeAnswerEnvelopeSchema.parse(x.value));
+    const q7 = envelopes.find(x => x.questionCode === 'Q7');
+    return { result: runInitialRule(projectIntakeSemantics(envelopes)), q7: typeof q7?.answerValue === 'string' ? q7.answerValue : null };
+  }
+
   async completeIntake(caseId: string, expectedVersion: number): Promise<CaseRow> {
     const answered = new Set((await this.listIntakeAnswers(caseId)).map(a => a.questionCode));
     const missing = REQUIRED_INTAKE_QUESTION_CODES.filter(q => !answered.has(q));
@@ -83,7 +92,11 @@ export class FreeDiagnosisRuleBasedCaseRepo {
   }
 
   async startPreparation(caseId: string, expectedVersion: number): Promise<CaseRow> {
-    return this.transition(caseId, ['FOCUS_SELECTED', 'BOOKING_PENDING'], 'PREPARATION_IN_PROGRESS', expectedVersion);
+    const initial = await this.initialRule(caseId);
+    const primary = initial.result.focusItems.find(x => x.role === 'PRIMARY')?.focus ?? null;
+    const secondary = initial.result.focusItems.find(x => x.role === 'RELATED')?.focus ?? null;
+    return this.transition(caseId, ['INTAKE_COMPLETED', 'FOCUS_SELECTED', 'BOOKING_PENDING'], 'PREPARATION_IN_PROGRESS', expectedVersion,
+      ', primary_focus=$5, secondary_focus=$6', [primary, secondary]);
   }
 
   async startHearing(caseId: string, expectedVersion: number): Promise<CaseRow> {

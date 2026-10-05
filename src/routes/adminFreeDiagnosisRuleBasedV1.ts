@@ -79,7 +79,11 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
     const parsed = expectedVersionSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
     const kase = await cases.startPreparation(req.params.id, parsed.data.expectedVersion);
-    res.json(kase);
+    res.json({ case: kase, preparation: await cases.initialRule(req.params.id) });
+  }));
+
+  r.get('/cases/:id/preparation', (req, res) => handle(res, async () => {
+    res.json(await cases.initialRule(req.params.id));
   }));
 
   // Step 5: Live Hearing start.

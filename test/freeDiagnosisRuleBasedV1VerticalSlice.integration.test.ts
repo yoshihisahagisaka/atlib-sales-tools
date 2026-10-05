@@ -17,7 +17,7 @@ async function req(path: string, method = 'GET', body?: unknown, withAuth = true
 
 const intakeValues: Record<string, unknown> = {
   Q1: { employeeSize: 'EMP_21_50', locations: 'SITE_1' }, Q2: ['NO_MAJOR_CHANGE'], Q3: ['UNDECIDED'],
-  Q4: 'NO_MAJOR_CONCERN', Q5: 'VISIBLE_ENOUGH', Q6: 'REGULAR_AND_USABLE',
+  Q4: 'MANAGEMENT_DECISION_CONCERN', Q5: 'VISIBLE_ENOUGH', Q6: 'REGULAR_AND_USABLE',
 };
 function intake(questionCode: string, channel: 'SELF' | 'PROXY') {
   return { questionCode, channel, value: { schemaVersion: 1, questionCode, answerValue: intakeValues[questionCode], responseState: 'ANSWERED', respondent: { role: 'MANAGEMENT' }, provenance: { channel, source: channel === 'SELF' ? 'CUSTOMER_SELF' : 'SALES_PROXY' } } };
@@ -28,7 +28,44 @@ test('Production guard: every route requires Staff auth (401 without cookie)', a
   assert.equal(res.status, 401);
 });
 
-test('12-step Vertical Slice 1: Internal Customer entry -> Intake -> Focus -> Preparation -> Hearing -> 整理 -> Complete -> Rule Analysis -> Human Review -> Analysis Approved -> Preliminary Structure/Scope', async () => {
+test('Current Design v1 path: Envelopeを保持し、Manual FocusなしでInitial RuleからPreparationへ進む', async () => {
+  const activity = await (await req('/sales-activities', 'POST', {
+    name: '初期ルール確認株式会社', contact: { name: '営業代理入力' }, selectedService: 'IT_KAIZEN',
+  })).json() as { salesActivityId: string };
+  let kase = await (await req(`/sales-activities/${activity.salesActivityId}/cases`, 'POST', {})).json() as { id: string; version: number };
+  const values: Record<string, unknown> = {
+    Q1: { employeeSize: 'EMP_21_50', locations: 'SITE_1' }, Q2: ['HEADCOUNT_GROWTH'], Q3: ['SUPPORT_CHANGE'],
+    Q4: 'CHANGE_READINESS_CONCERN', Q5: 'MOSTLY_VISIBLE', Q6: 'REGULAR_AND_USABLE', Q7: '拠点追加時の運営を相談したい',
+  };
+  for (const questionCode of ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']) {
+    const response = await req(`/cases/${kase.id}/intake`, 'POST', {
+      questionCode, channel: 'PROXY', value: {
+        schemaVersion: 1, questionCode, answerValue: values[questionCode], responseState: 'ANSWERED',
+        respondent: { role: 'MANAGEMENT' }, provenance: { channel: 'PROXY', source: 'SALES_PROXY' },
+      },
+    });
+    assert.equal(response.status, 204);
+  }
+  kase = await (await req(`/cases/${kase.id}/intake/complete`, 'POST', { expectedVersion: kase.version })).json();
+  const started = await (await req(`/cases/${kase.id}/preparation/start`, 'POST', { expectedVersion: kase.version })).json() as {
+    case: { status: string; primaryFocus: string; secondaryFocus: string | null }; preparation: { q7: string; result: { focusItems: { focus: string; role: string }[] } };
+  };
+  assert.equal(started.case.status, 'PREPARATION_IN_PROGRESS');
+  assert.equal(started.case.primaryFocus, 'M05_GROWTH_CHANGE_ADAPTATION');
+  assert.equal(started.case.secondaryFocus, 'M02_IT_OPERATION_CONTINUITY');
+  assert.deepEqual(started.preparation.result.focusItems.map(x => [x.focus, x.role]), [
+    ['M05_GROWTH_CHANGE_ADAPTATION', 'PRIMARY'], ['M02_IT_OPERATION_CONTINUITY', 'RELATED'],
+  ]);
+  assert.equal(started.preparation.q7, values.Q7);
+  const persisted = await (await req(`/cases/${kase.id}`)).json() as { intake: { questionCode: string; value: any }[] };
+  const q7 = persisted.intake.find(item => item.questionCode === 'Q7')!.value;
+  const q4 = persisted.intake.find(item => item.questionCode === 'Q4')!.value;
+  assert.deepEqual(q7, { schemaVersion: 1, questionCode: 'Q7', answerValue: values.Q7, responseState: 'ANSWERED', respondent: { role: 'MANAGEMENT' }, provenance: { channel: 'PROXY', source: 'SALES_PROXY' } });
+  assert.equal(q4.respondent.role, 'MANAGEMENT');
+  assert.deepEqual(q4.provenance, { channel: 'PROXY', source: 'SALES_PROXY' });
+});
+
+test('12-step Vertical Slice 1: Internal Customer entry -> Intake -> Initial Rule -> Preparation -> Hearing -> 整理 -> Complete -> Rule Analysis -> Human Review -> Analysis Approved -> Preliminary Structure/Scope', async () => {
   // Step 1: Internal Customer / Case entry
   const activityRes = await req('/sales-activities', 'POST', {
     name: 'サンプル株式会社', contact: { name: '山田太郎', email: 'yamada@example.test' }, selectedService: 'IT_KAIZEN',
@@ -38,7 +75,7 @@ test('12-step Vertical Slice 1: Internal Customer entry -> Intake -> Focus -> Pr
 
   const caseRes = await req(`/sales-activities/${activity.salesActivityId}/cases`, 'POST', {});
   assert.equal(caseRes.status, 201);
-  let kase = await caseRes.json() as { id: string; status: string; version: number };
+  let kase = await caseRes.json() as { id: string; status: string; version: number; primaryFocus?: string | null };
   assert.equal(kase.status, 'INTAKE_IN_PROGRESS');
 
   // Step 2: 7-question Hearing Intake (Q7 optional, Q1-Q6 required)
@@ -51,17 +88,12 @@ test('12-step Vertical Slice 1: Internal Customer entry -> Intake -> Focus -> Pr
   kase = await incompleteComplete.json();
   assert.equal(kase.status, 'INTAKE_COMPLETED');
 
-  // Step 3: Focus Selection (Primary必須、Secondaryは任意)
-  const focusRes = await req(`/cases/${kase.id}/focus`, 'POST', { primaryFocus: 'M01_IT_MANAGEMENT_JUDGMENT', expectedVersion: kase.version });
-  assert.equal(focusRes.status, 200);
-  kase = await focusRes.json();
-  assert.equal(kase.status, 'FOCUS_SELECTED');
-
-  // Step 4: Preparation (no AI call)
+  // Step 3/4: Initial Rule -> Preparation (no AI call, no manual focus)
   const prepRes = await req(`/cases/${kase.id}/preparation/start`, 'POST', { expectedVersion: kase.version });
   assert.equal(prepRes.status, 200);
-  kase = await prepRes.json();
+  kase = (await prepRes.json()).case;
   assert.equal(kase.status, 'PREPARATION_IN_PROGRESS');
+  assert.equal(kase.primaryFocus, 'M01_IT_MANAGEMENT_JUDGMENT');
 
   // Step 5: Live Hearing
   const hearingStart = await req(`/cases/${kase.id}/hearing/start`, 'POST', { expectedVersion: kase.version });
@@ -127,11 +159,12 @@ test('12-step Vertical Slice 1: Internal Customer entry -> Intake -> Focus -> Pr
   const case2Res = await req(`/sales-activities/${activity2.salesActivityId}/cases`, 'POST', {});
   let kase2 = await case2Res.json() as { id: string; status: string; version: number };
   for (const q of ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6']) {
-    await req(`/cases/${kase2.id}/intake`, 'POST', intake(q, 'SELF'));
+    const answer = intake(q, 'SELF');
+    if (q === 'Q4') answer.value.answerValue = 'IT_OPERATION_CONCERN';
+    await req(`/cases/${kase2.id}/intake`, 'POST', answer);
   }
   kase2 = await (await req(`/cases/${kase2.id}/intake/complete`, 'POST', { expectedVersion: kase2.version })).json();
-  kase2 = await (await req(`/cases/${kase2.id}/focus`, 'POST', { primaryFocus: 'M02_IT_OPERATION_CONTINUITY', expectedVersion: kase2.version })).json();
-  kase2 = await (await req(`/cases/${kase2.id}/preparation/start`, 'POST', { expectedVersion: kase2.version })).json();
+  kase2 = (await (await req(`/cases/${kase2.id}/preparation/start`, 'POST', { expectedVersion: kase2.version })).json()).case;
   kase2 = await (await req(`/cases/${kase2.id}/hearing/start`, 'POST', { expectedVersion: kase2.version })).json();
   await req(`/cases/${kase2.id}/hearing/statements`, 'POST', { planItemRef: 'M02_IT_OPERATION_CONTINUITY_CORE', statementText: 'IT担当は1名が兼任している', knowledgeState: 'KNOWN' });
   await req(`/cases/${kase2.id}/hearing/statements`, 'POST', { planItemRef: 'M02_IT_OPERATION_CONTINUITY_DECISION', statementText: '退職時の引継ぎ方針は未確認', knowledgeState: 'PARTIAL', requiresIndividualConfirmation: false });

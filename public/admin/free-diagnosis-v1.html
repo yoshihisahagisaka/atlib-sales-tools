@@ -241,32 +241,47 @@ el('btnCreateCase').onclick = async () => {
 };
 
 function renderIntakeForm() {
-  const questions = [
-    ['Q1', '会社規模・主な拠点数'], ['Q2', '今後1〜3年の会社の変化'], ['Q3', '今後ITについて実現したい状態'],
-    ['Q4', '現在ITについて気になっていること'], ['Q5', '会社で使っているIT全体像の見え方'],
-    ['Q6', 'ITの経営判断に必要な情報'], ['Q7', '60分で特に相談したいこと（任意）'],
-  ];
+  const role = el('respondentRole')?.value || 'MANAGEMENT';
+  const wording = {
+    MANAGEMENT: { Q2: '今後1〜3年で、会社として予定している変化はありますか？', Q3: 'その変化に向けて、ITにどのような役割を期待しますか？', Q5: '経営として、会社で使うITの状況はどの程度見えていますか？', Q6: '経営判断に必要なIT情報は、判断に使える形で届いていますか？' },
+    IT_DECISION_OWNER: { Q2: '今後1〜3年で、会社として予定している変化はありますか？', Q3: 'その変化に向けて、ITで実現したい状態はありますか？', Q5: 'ITの状況は、判断に必要な範囲まで見えていますか？', Q6: '経営判断に必要なIT情報は、判断に使える形で共有されていますか？' },
+    IT_OR_BUSINESS_STAFF: { Q2: '今後1〜3年で、業務や会社に予定されている変化はありますか？', Q3: 'その変化に向けて、ITで実現したいことはありますか？', Q5: '日々の業務で使うITの状況は、どの程度見えていますか？', Q6: '経営判断に必要なIT情報は、判断に使える形で共有されていると思いますか？' },
+  }[role];
+  const questions = [['Q1', '会社規模・主な拠点数'], ['Q2', wording.Q2], ['Q3', wording.Q3], ['Q4', '現在ITについて気になっていること'], ['Q5', wording.Q5], ['Q6', wording.Q6], ['Q7', '60分で特に相談したいこと（任意）']];
   const form = el('intakeForm'); form.replaceChildren();
+  const roleRow = document.createElement('div'); roleRow.className = 'row'; roleRow.innerHTML = '<label>今回の回答者の立場</label><select id="respondentRole"><option value="MANAGEMENT">経営を担う立場</option><option value="IT_DECISION_OWNER">ITの判断を担う立場</option><option value="IT_OR_BUSINESS_STAFF">IT・業務の担当者</option></select>';
+  form.append(roleRow); el('respondentRole').value = role; el('respondentRole').onchange = renderIntakeForm;
+  const stateOptions = [['ANSWERED','回答する'], ['UNKNOWN','分からない'], ['NOT_IN_POSITION_TO_ANSWER','この立場では分からない']];
+  const options = { Q2:[['HEADCOUNT_GROWTH','人員を増やす'],['SITE_CHANGE','拠点を変える・増やす'],['NEW_BUSINESS','新しい事業を始める'],['ORG_CHANGE','組織を変える'],['IPO_PREPARATION','上場準備を進める'],['WORKSTYLE_CHANGE','働き方を変える'],['BUSINESS_EXPANSION','事業を広げる'],['LEAN_SCALING','少人数で成長・運営する'],['STABILITY_EFFICIENCY','安定・効率を高める'],['NO_MAJOR_CHANGE','大きな変化は予定していない'],['OTHER','その他']], Q3:[['SUPPORT_CHANGE','変化を支えたい'],['IMPROVE_PRODUCTIVITY','生産性を高めたい'],['PROTECT_BUSINESS','事業を守りたい'],['ENABLE_MANAGEMENT_DECISION','経営判断を支えたい'],['STRATEGIC_IT_USE','ITを戦略的に活かしたい'],['STABILIZE_IT_OPERATION','IT運営を安定させたい'],['OPTIMIZE_IT_INVESTMENT','IT投資を見直したい'],['UNDECIDED','まだ決めていない'],['OTHER','その他']], Q4:[['MANAGEMENT_DECISION_CONCERN','経営判断に関すること'],['IT_OPERATION_CONCERN','IT運営に関すること'],['BUSINESS_PROTECTION_CONCERN','事業を守ること'],['PRODUCTIVITY_OPPORTUNITY','生産性を高めること'],['CHANGE_READINESS_CONCERN','成長や変化への対応'],['STRATEGIC_USE_OPPORTUNITY','ITの戦略活用'],['NO_MAJOR_CONCERN','大きく気になることはない'],['OTHER','その他']], Q5:[['VISIBLE_ENOUGH','十分に見えている'],['MOSTLY_VISIBLE','おおむね見えている'],['PARTIALLY_VISIBLE','一部は見えている'],['VISIBLE_ON_REQUEST','必要な時に確認している'],['LARGELY_UNKNOWN','よく分からない']], Q6:[['REGULAR_AND_USABLE','定期的に届き、判断に使える'],['DELIVERED_NOT_USABLE','届くが判断には使いにくい'],['ON_REQUEST_USABLE','必要な時に確認すれば使える'],['NOT_SUFFICIENTLY_DELIVERED','十分には届いていない'],['INFORMATION_NEED_UNCLEAR','何が必要かまだ定まっていない']] };
   for (const [code, label] of questions) {
     const row = document.createElement('div'); row.className = 'row';
     const l = document.createElement('label'); l.textContent = code + '. ' + label;
-    const input = document.createElement('textarea'); input.id = 'intake_' + code; input.style.minHeight = '2rem';
-    row.append(l, input); form.append(row);
+    row.append(l);
+    if (code === 'Q1') row.innerHTML += '<select id="intake_Q1_employee"><option value="EMP_1_20">20人以下</option><option value="EMP_21_50">21〜50人</option><option value="EMP_51_100">51〜100人</option><option value="EMP_101_300">101〜300人</option><option value="EMP_301_PLUS">301人以上</option><option value="EMP_UNKNOWN">分からない</option></select><select id="intake_Q1_locations"><option value="SITE_1">主な拠点は1か所</option><option value="SITE_2_3">主な拠点は2〜3か所</option><option value="SITE_4_PLUS">主な拠点は4か所以上</option><option value="SITE_NOT_APPLICABLE">該当しない</option><option value="SITE_UNKNOWN">分からない</option></select>';
+    else if (code === 'Q7') row.innerHTML += '<textarea id="intake_Q7" placeholder="任意の補足"></textarea>';
+    else { const multiple = code === 'Q2' || code === 'Q3'; const select = document.createElement('select'); select.id = 'intake_' + code; select.multiple = multiple; for (const [v,t] of options[code]) select.add(new Option(t,v)); row.append(select); }
+    if (code !== 'Q7') { const stateSelect = document.createElement('select'); stateSelect.id = 'state_' + code; for (const [v,t] of stateOptions) stateSelect.add(new Option(t,v)); row.append(stateSelect); }
+    form.append(row);
   }
 }
 
 el('btnCompleteIntake').onclick = async () => {
   setError('');
   try {
+    const role = el('respondentRole').value;
     for (const q of ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']) {
-      const value = el('intake_' + q).value.trim();
-      state.intake[q] = value;
-      if (!value) continue;
-      await call(`/cases/${state.caseId}/intake`, 'POST', { questionCode: q, channel: 'PROXY', value });
+      const responseState = q === 'Q7' ? 'ANSWERED' : el('state_' + q).value;
+      let answerValue = null;
+      if (q === 'Q1' && responseState === 'ANSWERED') answerValue = { employeeSize: el('intake_Q1_employee').value, locations: el('intake_Q1_locations').value };
+      else if (q === 'Q7') { answerValue = el('intake_Q7').value.trim(); if (!answerValue) continue; }
+      else if (responseState === 'ANSWERED') { const input = el('intake_' + q); answerValue = input.multiple ? Array.from(input.selectedOptions).map(x => x.value) : input.value; }
+      state.intake[q] = answerValue;
+      await call(`/cases/${state.caseId}/intake`, 'POST', { questionCode: q, channel: 'PROXY', value: { schemaVersion: 1, questionCode: q, answerValue, responseState, respondent: { role }, provenance: { channel: 'PROXY', source: 'SALES_PROXY' } } });
     }
     const kase = await call(`/cases/${state.caseId}/intake/complete`, 'POST', { expectedVersion: state.version });
-    state.version = kase.version;
-    showView('focus');
+    const prepared = await call(`/cases/${state.caseId}/preparation/start`, 'POST', { expectedVersion: kase.version });
+    state.version = prepared.case.version; state.primaryFocus = prepared.case.primaryFocus; state.secondaryFocus = prepared.case.secondaryFocus; state.preparation = prepared.preparation;
+    renderPreparation(); showView('preparation');
   } catch (e) { setError(String(e.message || e)); }
 };
 
@@ -279,7 +294,8 @@ el('btnSelectFocus').onclick = async () => {
     state.primaryFocus = kase.primaryFocus; state.secondaryFocus = kase.secondaryFocus;
     // Preparationへの遷移はAI呼び出しを伴わない状態遷移のみ。顧客の操作を待たせず自動で進める。
     const prepared = await call(`/cases/${state.caseId}/preparation/start`, 'POST', { expectedVersion: kase.version });
-    state.version = prepared.version;
+    state.version = prepared.case.version;
+    state.preparation = prepared.preparation;
     renderPreparation();
     showView('preparation');
   } catch (e) { setError(String(e.message || e)); }
@@ -287,16 +303,25 @@ el('btnSelectFocus').onclick = async () => {
 
 function renderPreparation() {
   el('prepCompany').textContent = state.companyName || '-';
-  el('prepChange').textContent = state.intake.Q2 || '（未回答）';
-  el('prepIntent').textContent = state.intake.Q3 || '（未回答）';
-  el('prepConcern').textContent = state.intake.Q4 || '（未回答）';
+  el('prepChange').textContent = displayIntakeAnswer('Q2', state.intake.Q2);
+  el('prepIntent').textContent = displayIntakeAnswer('Q3', state.intake.Q3);
+  el('prepConcern').textContent = displayIntakeAnswer('Q4', state.intake.Q4);
   el('prepQ7').textContent = state.intake.Q7 || '（任意・未回答）';
-  const focusText = FOCUS_LABELS[state.primaryFocus] + (state.secondaryFocus ? ' / ' + FOCUS_LABELS[state.secondaryFocus] : '');
-  el('prepFocus').textContent = focusText;
-  const why = state.intake.Q3
-    ? `お客様から「${state.intake.Q3}」という今後実現したい状態が語られたため、本日は「${FOCUS_LABELS[state.primaryFocus]}」を中心に伺います。`
-    : `選択されたテーマ「${FOCUS_LABELS[state.primaryFocus]}」を中心に、現状の把握から始めます。`;
-  el('prepWhy').textContent = why;
+  const items = state.preparation.result.focusItems;
+  el('prepFocus').textContent = items.length ? items.map(x => FOCUS_LABELS[x.focus].replace(/^M\d+ /, '')).join(' / ') : '現時点では重要な確認テーマは特定されていません。';
+  const authority = state.preparation.result.authorityConfirmationCandidates.length ? ' 回答者の立場を確認する必要があります。' : '';
+  el('prepWhy').textContent = items.length ? '確認する理由：今回の経営上の関心や予定されている変化に照らし、60分で状況を確認する価値があるためです。' + authority : '今回の回答からは、優先して確認すべき重要なテーマは特定されていません。' + authority;
+}
+
+const INTAKE_LABELS = {
+  Q2: { HEADCOUNT_GROWTH:'人員を増やす', SITE_CHANGE:'拠点を変える・増やす', NEW_BUSINESS:'新しい事業を始める', ORG_CHANGE:'組織を変える', IPO_PREPARATION:'上場準備を進める', WORKSTYLE_CHANGE:'働き方を変える', BUSINESS_EXPANSION:'事業を広げる', LEAN_SCALING:'少人数で成長・運営する', STABILITY_EFFICIENCY:'安定・効率を高める', NO_MAJOR_CHANGE:'大きな変化は予定していない', OTHER:'その他' },
+  Q3: { SUPPORT_CHANGE:'変化を支えたい', IMPROVE_PRODUCTIVITY:'生産性を高めたい', PROTECT_BUSINESS:'事業を守りたい', ENABLE_MANAGEMENT_DECISION:'経営判断を支えたい', STRATEGIC_IT_USE:'ITを戦略的に活かしたい', STABILIZE_IT_OPERATION:'IT運営を安定させたい', OPTIMIZE_IT_INVESTMENT:'IT投資を見直したい', UNDECIDED:'まだ決めていない', OTHER:'その他' },
+  Q4: { MANAGEMENT_DECISION_CONCERN:'経営判断に関すること', IT_OPERATION_CONCERN:'IT運営に関すること', BUSINESS_PROTECTION_CONCERN:'事業を守ること', PRODUCTIVITY_OPPORTUNITY:'生産性を高めること', CHANGE_READINESS_CONCERN:'成長や変化への対応', STRATEGIC_USE_OPPORTUNITY:'ITの戦略活用', NO_MAJOR_CONCERN:'大きく気になることはない', OTHER:'その他' },
+};
+function displayIntakeAnswer(question, value) {
+  if (value == null) return '（未回答）';
+  const labels = INTAKE_LABELS[question] || {};
+  return (Array.isArray(value) ? value : [value]).map(v => labels[v] || '（未回答）').join(' / ');
 }
 
 el('btnStartHearing').onclick = async () => {
