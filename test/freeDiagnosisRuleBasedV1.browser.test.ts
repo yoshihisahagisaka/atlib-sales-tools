@@ -39,7 +39,7 @@ test('Production guard: 未認証では/admin/free-diagnosis-v1.htmlへアクセ
 
 test('Public Customer Selfは内部コードを表示せず、SELFとして正式送信できる', async ({ browser }) => {
   const context = await browser.newContext(); const page = await context.newPage();
-  await page.goto(h.url + '/it-management-kaizen/free-diagnosis/?utm_source=shinseikai&utm_medium=flyer_qr&utm_campaign=it_management_kaizen_free_diagnosis');
+  await page.goto(h.url + '/it-management-kaizen/free-diagnosis/?acquisition_source_type=EVENT&acquisition_source_name=SHINSEIKAI&utm_source=shinseikai&utm_medium=flyer_qr&utm_campaign=it_management_kaizen_free_diagnosis');
   await expect(page.getByText('事前アンケート', { exact: true })).toBeVisible();
   await expect(page.locator('body')).not.toContainText('Initial Rule');
   await page.locator('[data-field="employeeSize"]').selectOption('EMP_21_50'); await page.locator('[data-field="locations"]').selectOption('SITE_1'); await page.click('#next');
@@ -50,6 +50,7 @@ test('Public Customer Selfは内部コードを表示せず、SELFとして正�
   await page.getByLabel('届くが、判断には使いにくい').check(); await page.click('#next');
   await page.fill('#q7', '確認したいことがあります'); await page.click('#next');
   await page.fill('#company', '公開UI株式会社'); await page.fill('#name', '経営者'); await page.fill('#email', 'public-ui@example.test');
+  await expect(page.getByRole('link', { name: 'プライバシーポリシー' })).toHaveAttribute('href', 'https://www.atlib.jp/policy/');
   await page.check('#privacy'); await page.check('#use'); await page.click('#submit');
   await expect(page.getByText('事前アンケートを受け付けました')).toBeVisible();
   await context.close();

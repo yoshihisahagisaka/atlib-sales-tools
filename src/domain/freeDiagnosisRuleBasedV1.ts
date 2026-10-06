@@ -131,9 +131,19 @@ export const publicCustomerSelfSubmissionSchema = z.object({
   answers: z.array(intakeAnswerEnvelopeSchema).min(6).max(7),
   consent: z.object({ privacy: z.literal(true), diagnosisUse: z.literal(true), wordingVersion: z.literal('it_management_public_self_consent_v1') }).strict(),
   attribution: z.object({
+    acquisitionSourceType: z.enum(ACQUISITION_SOURCE_TYPE).optional(),
+    acquisitionSourceName: publicText(200),
     utmSource: publicText(200), utmMedium: publicText(200), utmCampaign: publicText(200), utmContent: publicText(200), utmTerm: publicText(200),
     landingUrl: z.string().trim().url().max(2000).optional(), referrer: z.string().trim().url().max(2000).optional(),
-  }).strict(),
+  }).strict().superRefine((value, ctx) => {
+    if ((value.acquisitionSourceType == null) !== (value.acquisitionSourceName == null)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'PUBLIC_ACQUISITION_SOURCE_PAIR_REQUIRED' });
+    }
+    const hasUtm = value.utmSource != null || value.utmMedium != null || value.utmCampaign != null || value.utmContent != null || value.utmTerm != null;
+    if (hasUtm && value.acquisitionSourceType == null) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'PUBLIC_UTM_REQUIRES_EXPLICIT_ACQUISITION_SOURCE' });
+    }
+  }),
 }).strict().superRefine((value, ctx) => {
   const codes = value.answers.map(answer => answer.questionCode);
   if (new Set(codes).size !== codes.length || REQUIRED_INTAKE_QUESTION_CODES.some(code => !codes.includes(code as typeof codes[number]))) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['answers'], message: 'PUBLIC_REQUIRED_INTAKE_QUESTIONS_INVALID' });

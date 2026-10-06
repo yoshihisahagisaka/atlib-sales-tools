@@ -33,14 +33,18 @@ export class PublicCustomerSelfSubmissionService {
         return { caseId: existing.rows[0].it_management_diagnosis_case_v2_id, created: false };
       }
 
+      // A missing row is not protected by SELECT ... FOR UPDATE. Keep all provisional
+      // work behind a savepoint so an INSERT conflict can discard it and return the
+      // winning submission instead of surfacing a transient 500 to a duplicate POST.
+      await client.query('SAVEPOINT create_public_submission');
       const launcher = new FreeDiagnosisSalesLauncherRepo(client as unknown as Pool);
       const cases = new FreeDiagnosisRuleBasedCaseRepo(client as unknown as Pool);
-      const hasUtm = input.attribution.utmSource != null;
+      const hasAttribution = input.attribution.acquisitionSourceType != null;
       const activity = await launcher.createSalesActivity({
         name: input.company.name, corporateNumber: input.company.corporateNumber,
         contact: { name: input.contact.name, email: input.contact.email, phone: input.contact.phone, jobTitle: input.contact.jobTitle }, selectedService: 'IT_KAIZEN',
-        attribution: hasUtm ? {
-          acquisitionSourceType: input.attribution.utmMedium === 'flyer_qr' ? 'EVENT' : 'WEB', acquisitionSourceName: input.attribution.utmSource!,
+        attribution: hasAttribution ? {
+          acquisitionSourceType: input.attribution.acquisitionSourceType!, acquisitionSourceName: input.attribution.acquisitionSourceName!,
           utmSource: input.attribution.utmSource, utmMedium: input.attribution.utmMedium, utmCampaign: input.attribution.utmCampaign,
           utmContent: input.attribution.utmContent, utmTerm: input.attribution.utmTerm, landingUrl: input.attribution.landingUrl, referrer: input.attribution.referrer,
         } : undefined,
@@ -51,12 +55,24 @@ export class PublicCustomerSelfSubmissionService {
       }
       const completed = await cases.completeIntake(kase.id, kase.version);
       await cases.initialRule(completed.id); // deterministic validation/connection; presentation remains staff-only.
-      await client.query(
+      const inserted = await client.query<{ it_management_diagnosis_case_v2_id: string }>(
         `INSERT INTO it_management_public_self_submission
          (idempotency_key,payload_hash,company_id,contact_id,sales_activity_id,it_management_diagnosis_case_v2_id,privacy_consent,diagnosis_use_consent,consent_wording_version,consent_provenance)
-         VALUES ($1,$2,$3,$4,$5,$6,true,true,$7,'CUSTOMER_SELF')`,
+         VALUES ($1,$2,$3,$4,$5,$6,true,true,$7,'CUSTOMER_SELF')
+         ON CONFLICT (idempotency_key) DO NOTHING
+         RETURNING it_management_diagnosis_case_v2_id`,
         [input.idempotencyKey, hash, activity.companyId, activity.contactId, activity.salesActivityId, completed.id, input.consent.wordingVersion],
       );
+      if (!inserted.rows[0]) {
+        await client.query('ROLLBACK TO SAVEPOINT create_public_submission');
+        const winner = await client.query<{ payload_hash: string; it_management_diagnosis_case_v2_id: string }>(
+          `SELECT payload_hash,it_management_diagnosis_case_v2_id FROM it_management_public_self_submission WHERE idempotency_key=$1`, [input.idempotencyKey],
+        );
+        if (!winner.rows[0]) throw new Error('IDEMPOTENCY_CONFLICT_WINNER_NOT_FOUND');
+        if (winner.rows[0].payload_hash !== hash) throw new RuleBasedV1Error(409, 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_SUBMISSION');
+        await client.query('COMMIT');
+        return { caseId: winner.rows[0].it_management_diagnosis_case_v2_id, created: false };
+      }
       await client.query('COMMIT');
       return { caseId: completed.id, created: true };
     } catch (error) {
