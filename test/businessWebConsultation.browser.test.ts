@@ -14,8 +14,8 @@ import { requireStaffAuth } from "../src/middleware/staffAuth";
 import { diagnosisSnapshotSchema } from "../src/domain/businessWebConsultation";
 import { randomUUID } from "node:crypto";
 let server: http.Server, url: string;
-async function answerSelfCheck(page: any, choices: number[][]) {
-    await page.goto(url);
+async function answerSelfCheck(page: any, choices: number[][], entryUrl = url) {
+    await page.goto(entryUrl);
     await page.click("#start");
     for (const choice of choices) {
         const options = page.locator(".option");
@@ -34,7 +34,7 @@ async function createBusinessWebHarness() {
     app.use(cookieParser());
     app.use("/api/business-web-consultation-leads", createBusinessWebConsultationLeadRouter(repo, { sendBusinessWebConsultationNotification: async () => {}, sendBusinessWebConsultationThanks: async () => {} } as any, { portalBaseUrl: "http://local", diagnosticNotifyEmail: "x", slack: {} } as any, async () => {}));
     app.use("/api/admin/business-web-consultation-leads", requireStaffAuth(auth), createAdminBusinessWebConsultationLeadRouter(repo));
-    app.use("/admin", requireStaffAuth(auth), express.static("C:/atlib/atlib-sales-tools/public/admin"));
+    app.use("/admin", requireStaffAuth(auth), express.static("C:/atlib/worktree-business-web-attribution/public/admin"));
     const localServer = app.listen(0, "127.0.0.1");
     await new Promise<void>(resolve => localServer.once("listening", resolve));
     return {
@@ -53,10 +53,13 @@ async function forwardLeadToHarness(route: any, api: string) {
     await route.fulfill({ status: response.status, contentType: "application/json", body });
 }
 test.beforeAll(async () => {
-    const root = "C:/atlib/atlib-corporate-site-deploy/public/business-web/self-check";
+    const root = "C:/atlib/worktree-business-web-corporate-canonical/public/business-web/self-check";
+    const corporateRoot = "C:/atlib/worktree-business-web-corporate-canonical/public";
     server = http.createServer((req, res) => {
-        const file = req.url === "/" ? "index.html" : req.url?.replace(/^\//, "") || "index.html";
-        const target = path.join(root, file);
+        const requestPath = new URL(req.url || "/", "http://local").pathname;
+        const target = requestPath === "/business-web/" || requestPath === "/business-web"
+            ? path.join(corporateRoot, "business-web", "index.html")
+            : path.join(root, requestPath === "/" ? "index.html" : requestPath.replace(/^\/business-web\/self-check\//, "").replace(/^\//, ""));
         if (!fs.existsSync(target)) {
             res.statusCode = 404;
             res.end();
@@ -71,14 +74,22 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
     await new Promise<void>(r => server.close(() => r()));
 });
-test("local Business Web Self Check loads without page errors", async ({ page }) => {
+test("local 業務KAIZEN 無料診断 loads without page errors", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", e => errors.push(e.message));
     const response = await page.goto(url);
     expect(response?.status()).toBe(200);
-    await expect(page.getByText("\u3042\u306A\u305F\u306E\u4ED5\u4E8B\u306E\u300C\u3053\u308C\u304B\u3089\u300D\u3092\u6574\u7406\u3057\u3066\u307F\u307E\u305B\u3093\u304B\uFF1F")).toBeVisible();
+    await expect(page.locator("#app .eyebrow")).toHaveText("業務KAIZEN 無料診断");
+    await expect(page.getByRole("button", { name: "無料診断をはじめる" })).toBeVisible();
     await expect(page.locator("script[src=\"self-check.js\"]")).toHaveCount(1);
     expect(errors).toEqual([]);
+});
+test("LP preserves only approved UTM values when linking to the free diagnosis", async ({ page }) => {
+    await page.goto(`${url}business-web/?utm_source=google&utm_medium=cpc&utm_campaign=gyomu-kaizen&utm_content=hero&utm_term=web-system&gclid=not-forwarded`);
+    const href = await page.locator('a[href^="/business-web/self-check/"]').first().getAttribute("href");
+    const target = new URL(href!, url);
+    expect(target.pathname).toBe("/business-web/self-check/");
+    expect(Object.fromEntries(target.searchParams)).toEqual({ utm_source: "google", utm_medium: "cpc", utm_campaign: "gyomu-kaizen", utm_content: "hero", utm_term: "web-system" });
 });
 test("Production Lead API POST is intercepted and fulfilled locally", async ({ page }) => {
     let captured: any;
@@ -96,7 +107,7 @@ test("Production Lead API POST is intercepted and fulfilled locally", async ({ p
             })
         });
     });
-    await page.goto(url);
+    await page.goto(`${url}?utm_source=google&utm_medium=cpc&utm_campaign=gyomu-kaizen&utm_content=result&utm_term=web-system`);
     await page.click("#start");
     for (let i = 0; i < 15; i++) {
         const options = page.locator(".option");
@@ -126,6 +137,7 @@ test("Production Lead API POST is intercepted and fulfilled locally", async ({ p
     expect(captured.body.privacyConsent).toBe(true);
     expect(captured.body.diagnosisTransferConsent).toBe(true);
     expect(captured.body.snapshot).toBeTruthy();
+    expect(captured.body).toMatchObject({ utmSource: "google", utmMedium: "cpc", utmCampaign: "gyomu-kaizen", utmContent: "result", utmTerm: "web-system", ctaSource: "self_check_result" });
 });
 test("local Express route persists a T10-shaped lead in PGlite", async ({ request }) => {
     const db = new PGlite();
@@ -384,7 +396,7 @@ test("T05 preserves BC semantics from the actual Self Check UI through local lea
         await page.route("https://sales.atlib.jp/api/business-web-consultation-leads", route => forwardLeadToHarness(route, harness.api));
         await answerSelfCheck(page, [[1], [7, 4, 6], [1], [2], [2], [2], [3], [1], [2], [2], [1], [2], [3], [3], [2]]);
         await expect(page.locator(".result")).toBeVisible();
-        await expect(page.getByText("部分的なシステム化と、業務設計からの見直しの両方を検討できる可能性があります")).toBeVisible();
+        await expect(page.getByText("業務の一部だけを改善するのか、前後の仕事の流れも含めて見直すのかを検討できる状態です。")).toBeVisible();
         await expect(page.locator(".gaps .gap")).toHaveCount(6);
         await expect(page.locator(".bottlenecks")).toBeVisible();
         await expect(page.locator(".facts")).toBeVisible();
@@ -416,7 +428,7 @@ test("T10 preserves UNKNOWN scope semantics from the actual Self Check UI throug
         await page.route("https://sales.atlib.jp/api/business-web-consultation-leads", route => forwardLeadToHarness(route, harness.api));
         await answerSelfCheck(page, [[0], [6, 3, 5], [0], [3], [3], [3], [3], [3], [3], [3], [3], [0], [1], [2], [5]]);
         await expect(page.locator(".result")).toBeVisible();
-        await expect(page.getByRole("heading", { name: "改善余地は確認されています。改善する範囲を判断するために、もう少し確認したいことがあります" })).toBeVisible();
+        await expect(page.getByText("改善余地は確認されています。改善する範囲を判断するために、もう少し確認したいことがあります", { exact: true })).toBeVisible();
         await expect(page.locator(".gaps .gap")).toHaveCount(6);
         await expect(page.locator(".unknowns")).toBeVisible();
         await page.click("#consult");
@@ -446,7 +458,7 @@ test("Production Admin Management UI lists, details, and updates a local Busines
     const harness = await createBusinessWebHarness();
     try {
         await page.route("https://sales.atlib.jp/api/business-web-consultation-leads", route => forwardLeadToHarness(route, harness.api));
-        await answerSelfCheck(page, [[0], [6, 3, 5], [0], [3], [3], [3], [3], [3], [3], [3], [3], [0], [1], [2], [5]]);
+        await answerSelfCheck(page, [[0], [6, 3, 5], [0], [3], [3], [3], [3], [3], [3], [3], [3], [0], [1], [2], [5]], `${url}?utm_source=admin-google&utm_medium=cpc&utm_campaign=admin-detail&utm_content=cta&utm_term=business-web`);
         await page.click("#consult");
         await page.locator('input[name="companyName"]').fill("Admin UI株式会社");
         await page.locator('input[name="personName"]').fill("管理画面担当");
@@ -473,6 +485,7 @@ test("Production Admin Management UI lists, details, and updates a local Busines
         for (const label of ["最初に確認すること", "標準質問", "深掘り候補", "すでに確認済み", "相談の進め方"]) await expect(page.getByRole("heading", { name: label })).toBeVisible();
         await expect(page.locator("#content")).toContainText("SCOPE_CLARIFICATION");
         await expect(page.locator("#content")).toContainText("confidence LOW");
+        for (const value of ["UTM source: admin-google", "UTM medium: cpc", "UTM campaign: admin-detail", "UTM content: cta", "UTM term: business-web", "CTA: self_check_result", "Landing:", "Referrer:"]) await expect(page.locator("#content")).toContainText(value);
         await page.locator("#status").selectOption("contacted");
         await page.locator("#save").click();
         await expect(page.locator("#saved")).toHaveText("保存しました。");
