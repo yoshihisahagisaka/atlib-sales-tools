@@ -88,3 +88,29 @@ test('PreparationからStructured Hearingを記録し、Final Rule Previewへ進
   await page.click('#btnRunAnalysis');
   await expect(page.locator('#analysisResult')).toBeVisible();
 });
+
+test('Admin UIからReport承認・送付・Focused ConfirmationでHearingへ戻れる', async ({ page }) => {
+  await createCase(page, 'レポート導線株式会社');
+  await completeIntake(page, { q2: ['NO_MAJOR_CHANGE'], q3: ['ENABLE_MANAGEMENT_DECISION'], q4: 'MANAGEMENT_DECISION_CONCERN', q5: 'VISIBLE_ENOUGH', q6: 'REGULAR_AND_USABLE' });
+  await page.click('#btnStartHearing');
+  await page.selectOption('#structuredAnswer', 'CANNOT_JUDGE');
+  await page.selectOption('#knowledgeState', 'PARTIAL');
+  await page.fill('#statementText', '追加確認が必要です');
+  await page.click('#btnRecordStatement');
+  await page.click('#btnCompleteHearing');
+  await page.click('#btnRunAnalysis');
+  await page.click('#btnGoToReport');
+  await expect(page.locator('#view-report')).toBeVisible();
+  await page.click('#btnProjectReport');
+  await expect(page.locator('#reportStatus')).toContainText('下書き');
+  await page.click('#btnApproveReport');
+  await expect(page.locator('#reportStatus')).toContainText('承認');
+  await page.click('#btnDeliverReport');
+  await expect(page.locator('#feedbackControls')).toBeVisible();
+  await page.selectOption('#feedbackRoute', 'FOCUSED_CONFIRMATION');
+  await page.fill('#feedbackDecision', '追加で確認する');
+  await page.fill('#feedbackAction', '確認を再開する');
+  await page.click('#btnRecordFeedback');
+  await expect(page.locator('#view-hearing')).toBeVisible();
+  await expect(page.locator('#statementList')).toContainText('一部、追加確認が必要');
+});

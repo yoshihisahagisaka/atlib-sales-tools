@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { createFreeDiagnosisRuleBasedV1Harness } from './support/freeDiagnosisRuleBasedV1Harness';
+import { contentHash } from '../src/domain/diagnosisReport';
+import { randomUUID } from 'node:crypto';
 
 let h: Awaited<ReturnType<typeof createFreeDiagnosisRuleBasedV1Harness>>;
 before(async () => { h = await createFreeDiagnosisRuleBasedV1Harness(); });
@@ -23,9 +25,51 @@ function intake(questionCode: string, channel: 'SELF' | 'PROXY') {
   return { questionCode, channel, value: { schemaVersion: 1, questionCode, answerValue: intakeValues[questionCode], responseState: 'ANSWERED', respondent: { role: 'MANAGEMENT' }, provenance: { channel, source: channel === 'SELF' ? 'CUSTOMER_SELF' : 'SALES_PROXY' } } };
 }
 
+async function deliveredVs1Report(name: string) {
+  const activity = await (await req('/sales-activities', 'POST', { name, contact: { name: '担当' }, selectedService: 'IT_KAIZEN' })).json() as { salesActivityId: string };
+  let kase: any = await (await req(`/sales-activities/${activity.salesActivityId}/cases`, 'POST', {})).json();
+  for (const q of ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6']) await req(`/cases/${kase.id}/intake`, 'POST', intake(q, 'PROXY'));
+  kase = await (await req(`/cases/${kase.id}/intake/complete`, 'POST', { expectedVersion: kase.version })).json();
+  kase = (await (await req(`/cases/${kase.id}/preparation/start`, 'POST', { expectedVersion: kase.version })).json()).case;
+  kase = await (await req(`/cases/${kase.id}/hearing/start`, 'POST', { expectedVersion: kase.version })).json();
+  const unit = (await (await req(`/cases/${kase.id}/hearing/units`)).json()).items[0];
+  await req(`/cases/${kase.id}/hearing/statements`, 'POST', { planItemRef: unit.unitCode, statementText: '確認済み', knowledgeState: 'KNOWN', structuredAnswer: { schemaVersion: 1, hearingUnitCode: unit.unitCode, semanticKey: unit.semanticKey, answerValue: 'CAN_JUDGE', responseState: 'ANSWERED', respondent: { role: 'MANAGEMENT' }, provenance: { channel: 'PROXY', source: 'SALES_PROXY' }, completionStatus: 'COMPLETE' } });
+  kase = await (await req(`/cases/${kase.id}/hearing/complete`, 'POST', { expectedVersion: kase.version })).json();
+  const final = await (await req(`/cases/${kase.id}/rule-analysis/run`, 'POST', { expectedVersion: kase.version })).json();
+  await req(`/cases/${kase.id}/final-review/project`, 'POST', { executionId: final.executionId });
+  const draft = await (await req(`/cases/${kase.id}/reports/draft`, 'POST', {})).json();
+  await req(`/cases/${kase.id}/reports/${draft.id}/approve`, 'POST', {});
+  await req(`/cases/${kase.id}/reports/${draft.id}/deliver`, 'POST', {});
+  await req(`/cases/${kase.id}/feedback/start`, 'POST', {});
+  return { kase, final, draft, unit };
+}
+
 test('Production guard: every route requires Staff auth (401 without cookie)', async () => {
   const res = await req('/sales-activities', 'POST', { name: 'x' }, false);
   assert.equal(res.status, 401);
+});
+
+test('VS1 source references enforce typed same-case ownership in the database', async () => {
+  const make = async (name:string) => { const a=await (await req('/sales-activities','POST',{name,contact:{name:'担当'},selectedService:'IT_KAIZEN'})).json() as any; return await (await req(`/sales-activities/${a.salesActivityId}/cases`,'POST',{})).json() as any; };
+  const a=await make('Source A'), b=await make('Source B');
+  const intake={id:randomUUID()};
+  await h.pool.query(`INSERT INTO hearing_intake_response_v2(id,case_id,question_code,channel,raw_value_json,entered_by_user_id,provenance) VALUES($1,$2,'Q1','PROXY',$3,'operator','SALES_PROXY')`,[intake.id,a.id,JSON.stringify({schemaVersion:1,questionCode:'Q1',answerValue:{employeeSize:'EMP_1_20',locations:'SITE_1'},responseState:'ANSWERED',respondent:{role:'MANAGEMENT'},provenance:{channel:'PROXY',source:'SALES_PROXY'}})]);
+  // The ownership checks themselves are exercised directly: no application-layer validation is involved.
+  const insightId=randomUUID();
+  await h.pool.query(`INSERT INTO diagnosis_insights(id,it_management_diagnosis_case_v2_id,semantic_type,title,content,review_status,created_by,created_by_user_id) VALUES($1,$2,'OBSERVATION','x','x','HUMAN_APPROVED','HUMAN','operator')`,[insightId,a.id]);
+  await h.pool.query(`INSERT INTO insight_sources(diagnosis_insight_id,it_management_diagnosis_case_v2_id,source_ref_type,source_ref_id,relation) VALUES($1,$2,'VS1_INTAKE_RESPONSE',$3,'RELATED')`,[insightId,a.id,intake.id]);
+  await assert.rejects(h.pool.query(`INSERT INTO insight_sources(diagnosis_insight_id,it_management_diagnosis_case_v2_id,source_ref_type,source_ref_id,relation) VALUES($1,$2,'VS1_INTAKE_RESPONSE',$3,'RELATED')`,[insightId,b.id,intake.id]));
+  await assert.rejects(h.pool.query(`INSERT INTO diagnosis_insights(id,diagnosis_case_id,it_management_diagnosis_case_v2_id,semantic_type,title,content,review_status,created_by,created_by_user_id) VALUES($1,$2,$3,'OBSERVATION','x','x','HUMAN_APPROVED','HUMAN','operator')`,[randomUUID(),randomUUID(),a.id]));
+  await assert.rejects(h.pool.query(`INSERT INTO diagnosis_insights(id,semantic_type,title,content,review_status,created_by,created_by_user_id) VALUES($1,'OBSERVATION','x','x','HUMAN_APPROVED','HUMAN','operator')`,[randomUUID()]));
+  const statement={id:randomUUID()}, execution={id:randomUUID()};
+  await h.pool.query(`INSERT INTO hearing_statement_v2(id,case_id,statement_text,knowledge_state,recorded_by_user_id) VALUES($1,$2,'x','KNOWN','operator')`,[statement.id,a.id]);
+  await h.pool.query(`INSERT INTO rule_analysis_execution(id,case_id,status,rule_version,analysis_stage) VALUES($1,$2,'SUCCEEDED','test','FINAL')`,[execution.id,a.id]);
+  for (const [type,id] of [['VS1_HEARING_STATEMENT',statement.id],['VS1_RULE_EXECUTION',execution.id]] as const) {
+    await h.pool.query(`INSERT INTO insight_sources(diagnosis_insight_id,it_management_diagnosis_case_v2_id,source_ref_type,source_ref_id,relation) VALUES($1,$2,$3,$4,'RELATED')`,[insightId,a.id,type,id]);
+    await assert.rejects(h.pool.query(`INSERT INTO insight_sources(diagnosis_insight_id,it_management_diagnosis_case_v2_id,source_ref_type,source_ref_id,relation) VALUES($1,$2,$3,$4,'RELATED')`,[insightId,b.id,type,id]));
+  }
+  await assert.rejects(h.pool.query(`INSERT INTO insight_sources(diagnosis_insight_id,diagnosis_case_id,source_ref_type,source_ref_id,relation) VALUES($1,$2,'VS1_INTAKE_RESPONSE',$3,'RELATED')`,[insightId,randomUUID(),intake.id]));
+  await assert.rejects(h.pool.query(`INSERT INTO insight_sources(diagnosis_insight_id,it_management_diagnosis_case_v2_id,source_ref_type,source_ref_id,relation) VALUES($1,$2,'SURVEY_RESPONSE',$3,'RELATED')`,[insightId,a.id,randomUUID()]));
 });
 
 test('Current Design v1 path: Envelopeを保持し、Manual FocusなしでInitial RuleからPreparationへ進む', async () => {
@@ -83,6 +127,63 @@ test('Initial/Final execution snapshotは別に保存され、Structured Hearing
   assert.equal(rows[0].input_snapshot_json.hearing, undefined); assert.equal(rows[1].input_snapshot_json.hearing[0].answerValue, 'CANNOT_JUDGE');
   const persisted = await (await req(`/cases/${kase.id}/hearing/statements`)).json();
   assert.equal(persisted.items.length, 1);
+});
+
+test('VS1 final review -> immutable approved report -> delivery -> Human feedback route', async () => {
+  const activity = await (await req('/sales-activities', 'POST', { name: 'Report株式会社', contact: { name: '担当' }, selectedService: 'IT_KAIZEN' })).json() as { salesActivityId:string };
+  let kase:any=await (await req(`/sales-activities/${activity.salesActivityId}/cases`,'POST',{})).json();
+  for(const q of ['Q1','Q2','Q3','Q4','Q5','Q6']) await req(`/cases/${kase.id}/intake`,'POST',intake(q,'PROXY'));
+  kase=await (await req(`/cases/${kase.id}/intake/complete`,'POST',{expectedVersion:kase.version})).json(); kase=(await (await req(`/cases/${kase.id}/preparation/start`,'POST',{expectedVersion:kase.version})).json()).case; kase=await (await req(`/cases/${kase.id}/hearing/start`,'POST',{expectedVersion:kase.version})).json();
+  const unit=(await (await req(`/cases/${kase.id}/hearing/units`)).json()).items[0]; await req(`/cases/${kase.id}/hearing/statements`,'POST',{planItemRef:unit.unitCode,statementText:'確認済み',knowledgeState:'KNOWN',structuredAnswer:{schemaVersion:1,hearingUnitCode:unit.unitCode,semanticKey:unit.semanticKey,answerValue:'CAN_JUDGE',responseState:'ANSWERED',respondent:{role:'MANAGEMENT'},provenance:{channel:'PROXY',source:'SALES_PROXY'},completionStatus:'COMPLETE'}});
+  kase=await (await req(`/cases/${kase.id}/hearing/complete`,'POST',{expectedVersion:kase.version})).json(); const final=await (await req(`/cases/${kase.id}/rule-analysis/run`,'POST',{expectedVersion:kase.version})).json();
+  const projected=await req(`/cases/${kase.id}/final-review/project`,'POST',{executionId:final.executionId}); assert.equal(projected.status,200);
+  const reportContext = await h.vs1.context(kase.id);
+  assert.doesNotMatch(reportContext.future.statement, /ENABLE_MANAGEMENT_DECISION|NO_MAJOR_CHANGE/);
+  const projectedSources=(await h.pool.query<any>(`SELECT source_ref_type,source_ref_id,it_management_diagnosis_case_v2_id FROM insight_sources WHERE it_management_diagnosis_case_v2_id=$1`,[kase.id])).rows;
+  assert.ok(projectedSources.length > 0);
+  assert.ok(projectedSources.every(s => s.source_ref_type === 'VS1_RULE_EXECUTION' && s.source_ref_id === final.executionId && s.it_management_diagnosis_case_v2_id === kase.id));
+  const draft=await h.vs1.draft(kase.id,'operator@atlib.jp');
+  const reportRow=(await h.pool.query<any>('SELECT id,it_management_diagnosis_case_v2_id,status FROM diagnosis_reports WHERE id=$1',[draft.id])).rows[0];
+  assert.deepEqual(reportRow,{id:draft.id,it_management_diagnosis_case_v2_id:kase.id,status:'REVIEW_REQUIRED'});
+  await h.vs1.approve(kase.id,draft.id,'operator@atlib.jp');
+  const approvedSnapshot=(await h.pool.query<any>('SELECT snapshot_json,content_json,context_hash FROM diagnosis_reports WHERE id=$1',[draft.id])).rows[0];
+  assert.equal(approvedSnapshot.snapshot_json.content_hash, contentHash(approvedSnapshot.content_json));
+  assert.equal(contentHash(approvedSnapshot.snapshot_json), contentHash(approvedSnapshot.snapshot_json));
+  await assert.rejects(h.pool.query(`UPDATE diagnosis_reports SET content_json='{}'::jsonb WHERE id=$1`,[draft.id]));
+  await assert.rejects(h.pool.query(`UPDATE diagnosis_reports SET snapshot_json='{}'::jsonb WHERE id=$1`,[draft.id]));
+  await assert.rejects(h.pool.query(`UPDATE diagnosis_reports SET context_hash='changed' WHERE id=$1`,[draft.id]));
+  await assert.rejects(h.pool.query(`DELETE FROM diagnosis_reports WHERE id=$1`,[draft.id]));
+  const delivered=await req(`/cases/${kase.id}/reports/${draft.id}/deliver`,'POST',{}); assert.equal(delivered.status,204);
+  const started=await req(`/cases/${kase.id}/feedback/start`,'POST',{}); assert.equal(started.status,204);
+  const decision=await (await req(`/cases/${kase.id}/feedback/decision`,'POST',{route:'FOCUSED_CONFIRMATION',materialDecision:'追加確認する',nextAction:'確認を再開'})).json(); assert.equal(decision.status,'HEARING_IN_PROGRESS');
+  const returned=await (await req(`/cases/${kase.id}`)).json();
+  assert.equal((await req(`/cases/${kase.id}/hearing/statements`,'POST',{planItemRef:unit.unitCode,statementText:'再確認した発言',knowledgeState:'KNOWN',structuredAnswer:{schemaVersion:1,hearingUnitCode:unit.unitCode,semanticKey:unit.semanticKey,answerValue:'CAN_JUDGE',responseState:'ANSWERED',respondent:{role:'MANAGEMENT'},provenance:{channel:'PROXY',source:'SALES_PROXY'},completionStatus:'COMPLETE'}})).status,201);
+  const afterHearing=await (await req(`/cases/${kase.id}/hearing/complete`,'POST',{expectedVersion:returned.case.version})).json();
+  const final2=await (await req(`/cases/${kase.id}/rule-analysis/run`,'POST',{expectedVersion:afterHearing.version})).json();
+  assert.notEqual(final.executionId,final2.executionId);
+  assert.equal((await req(`/cases/${kase.id}/final-review/project`,'POST',{executionId:final2.executionId})).status,200);
+  const draft2=await h.vs1.draft(kase.id,'operator@atlib.jp'); await h.vs1.approve(kase.id,draft2.id,'operator@atlib.jp');
+  const reports=(await h.pool.query<any>('SELECT version,status FROM diagnosis_reports WHERE it_management_diagnosis_case_v2_id=$1 ORDER BY version',[kase.id])).rows;
+  assert.deepEqual(reports.map(r=>[r.version,r.status]),[[1,'DELIVERED'],[2,'APPROVED']]);
+  const v1After=(await h.pool.query<any>('SELECT snapshot_json,content_json,context_hash FROM diagnosis_reports WHERE id=$1',[draft.id])).rows[0];
+  assert.deepEqual(v1After,approvedSnapshot);
+  const audit = (await h.pool.query<any>('SELECT command,actor_user_id,created_at,detail_json FROM it_management_diagnosis_case_v2_audit WHERE case_id=$1 ORDER BY created_at',[kase.id])).rows;
+  for (const command of ['CompleteHumanReviewProjection','CreateReportDraft','ApproveReport','DeliverReport','StartFeedback','RecordManagementFeedbackDecision']) assert.ok(audit.some(a => a.command === command));
+  for (const item of audit) { assert.ok(item.actor_user_id); assert.ok(item.created_at); }
+  const focused = audit.find(a => a.command === 'RecordManagementFeedbackDecision');
+  assert.equal(focused.detail_json.from_state, 'FEEDBACK_PENDING'); assert.equal(focused.detail_json.to_state, 'HEARING_IN_PROGRESS'); assert.equal(focused.detail_json.route, 'FOCUSED_CONFIRMATION');
+});
+
+test('Management Feedbackの4 routeは人が選択し、Assessment/Handoffを自動開始しない', async () => {
+  for (const route of ['DIRECT_ACT', 'STOP_HOLD', 'DESIGN_ASSESSMENT'] as const) {
+    const { kase } = await deliveredVs1Report(`Route ${route}`);
+    const response = await req(`/cases/${kase.id}/feedback/decision`, 'POST', { route, materialDecision: `${route}を選択`, nextAction: '次の行動を記録' });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).status, 'CLOSED');
+    const feedback = (await h.pool.query<any>('SELECT route_code,decided_by_user_id FROM management_feedback_decisions WHERE it_management_diagnosis_case_v2_id=$1',[kase.id])).rows[0];
+    assert.equal(feedback.route_code, route); assert.ok(feedback.decided_by_user_id);
+    assert.equal((await h.pool.query('SELECT id FROM assessment_handoffs')).rowCount, 0);
+  }
 });
 
 test('12-step Vertical Slice 1: Internal Customer entry -> Intake -> Initial Rule -> Preparation -> Hearing -> 整理 -> Complete -> Rule Analysis -> Human Review -> Analysis Approved -> Preliminary Structure/Scope', async () => {

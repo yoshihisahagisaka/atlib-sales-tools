@@ -153,7 +153,15 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <p class="hint">deterministicルールのみ。AI判定・スコア・traffic lightは一切表示しません。</p>
 <div class="row"><button id="btnRunAnalysis">Rule Analysis実行（即時）</button></div>
 <div id="analysisResult" style="display:none"><div id="resultPanel"></div>
-<div class="row" style="margin-top:1rem"><button id="btnGoToReview">Human Reviewへ</button></div></div>
+<div class="row" style="margin-top:1rem"><button id="btnGoToReview">Human Reviewへ</button><button id="btnGoToReport" class="secondary">診断内容を確認してレポートへ</button></div></div>
+</div>
+
+<div class="view" id="view-report"><h3>無料診断レポート / 経営フィードバック</h3>
+<p class="hint">人が診断内容を確認してからレポートを承認・送付します。次の進め方も必ず人が選択します。</p>
+<div id="reportStatus" class="gates-panel">診断内容の確認待ちです。</div>
+<div class="row" style="margin-top:1rem"><button id="btnProjectReport">診断内容を確認し、レポート下書きを作成</button><button id="btnApproveReport" class="secondary" disabled>レポートを承認</button><button id="btnDeliverReport" class="secondary" disabled>レポートを送付</button></div>
+<div id="feedbackControls" style="display:none"><div class="row"><label for="feedbackRoute">次の進め方</label><select id="feedbackRoute"><option value="DIRECT_ACT">まず社内で改善を進める</option><option value="FOCUSED_CONFIRMATION">追加確認を行う</option><option value="DESIGN_ASSESSMENT">Assessmentを検討する</option><option value="STOP_HOLD">今回はここで終了する</option></select></div>
+<div class="row"><label for="feedbackDecision">今回の判断</label><textarea id="feedbackDecision"></textarea></div><div class="row"><label for="feedbackAction">次の行動</label><textarea id="feedbackAction"></textarea></div><div class="row"><button id="btnRecordFeedback">経営フィードバックを記録</button></div></div>
 </div>
 
 <div class="view" id="view-review"><h3>Human Review</h3>
@@ -195,8 +203,8 @@ const PLAN_ITEM_PROMPT = {
   CORE: { why: '経営判断の前提となる現状を確認します。', starter: '今、この点についてどこまで把握されていますか？' },
   DECISION: { why: '意思決定の有無と確定度合いを確認します。', starter: 'この点について、すでに決まっていることはありますか？' },
 };
-const STEPS = ['entry', 'intake', 'focus', 'preparation', 'hearing', 'organize', 'analysis', 'review', 'approved', 'scope'];
-const STEP_LABEL = { entry: '顧客登録', intake: 'Intake', focus: 'Focus', preparation: 'Preparation', hearing: 'Hearing', organize: '整理', analysis: 'Analysis', review: 'Review', approved: 'Approved', scope: 'Scope' };
+const STEPS = ['entry', 'intake', 'focus', 'preparation', 'hearing', 'organize', 'analysis', 'review', 'report', 'approved', 'scope'];
+const STEP_LABEL = { entry: '顧客登録', intake: 'Intake', focus: 'Focus', preparation: 'Preparation', hearing: 'Hearing', organize: '整理', analysis: 'Analysis', review: 'Review', report: 'Report', approved: 'Approved', scope: 'Scope' };
 const el = id => document.getElementById(id);
 let state = { caseId: null, version: null, primaryFocus: null, secondaryFocus: null, lastExecutionId: null, intake: {}, findings: [], omitted: new Set(), overrides: {} };
 
@@ -486,6 +494,41 @@ el('btnRunAnalysis').onclick = async () => {
 };
 
 el('btnGoToReview').onclick = () => { renderFindings(); showView('review'); };
+
+el('btnGoToReport').onclick = () => { showView('report'); };
+el('btnProjectReport').onclick = async () => {
+  setError('');
+  try {
+    await call(`/cases/${state.caseId}/final-review/project`, 'POST', { executionId: state.lastExecutionId });
+    const draft = await call(`/cases/${state.caseId}/reports/draft`, 'POST', {});
+    state.reportId = draft.id;
+    el('reportStatus').textContent = `レポート下書き（第${draft.version}版）を作成しました。内容を確認して承認してください。`;
+    el('btnProjectReport').disabled = true; el('btnApproveReport').disabled = false;
+  } catch (e) { setError(String(e.message || e)); }
+};
+el('btnApproveReport').onclick = async () => {
+  setError('');
+  try { await call(`/cases/${state.caseId}/reports/${state.reportId}/approve`, 'POST', {}); el('reportStatus').textContent = 'レポートを承認しました。承認後の内容は変更できません。'; el('btnApproveReport').disabled = true; el('btnDeliverReport').disabled = false; }
+  catch (e) { setError(String(e.message || e)); }
+};
+el('btnDeliverReport').onclick = async () => {
+  setError('');
+  try { await call(`/cases/${state.caseId}/reports/${state.reportId}/deliver`, 'POST', {}); await call(`/cases/${state.caseId}/feedback/start`, 'POST', {}); el('reportStatus').textContent = 'レポートを送付しました。経営者との対話で次の進め方を選択してください。'; el('btnDeliverReport').disabled = true; el('feedbackControls').style.display = ''; }
+  catch (e) { setError(String(e.message || e)); }
+};
+el('btnRecordFeedback').onclick = async () => {
+  setError('');
+  try {
+    const route = el('feedbackRoute').value;
+    const materialDecision = el('feedbackDecision').value.trim(); const nextAction = el('feedbackAction').value.trim();
+    if (!materialDecision || !nextAction) throw new Error('今回の判断と次の行動を記入してください。');
+    const result = await call(`/cases/${state.caseId}/feedback/decision`, 'POST', { route, materialDecision, nextAction });
+    if (result.status === 'HEARING_IN_PROGRESS') {
+      const current = await call(`/cases/${state.caseId}`, 'GET'); state.version = current.case.version;
+      state.units = (await call(`/cases/${state.caseId}/hearing/units`, 'GET')).items; renderHearingColumns(); renderPlanItemSelectors(); renderStoryNav('主テーマ'); await refreshStatements(); showView('hearing');
+    } else { el('reportStatus').textContent = '経営者との対話で選択した次の進め方を記録し、無料診断を完了しました。'; el('feedbackControls').style.display = 'none'; }
+  } catch (e) { setError(String(e.message || e)); }
+};
 
 function renderFindings() {
   const container = el('findingsList'); container.replaceChildren();
