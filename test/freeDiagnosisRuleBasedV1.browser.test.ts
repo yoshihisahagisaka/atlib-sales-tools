@@ -37,6 +37,24 @@ test('Production guard: 未認証では/admin/free-diagnosis-v1.htmlへアクセ
   await freshContext.close();
 });
 
+test('Public Customer Selfは内部コードを表示せず、SELFとして正式送信できる', async ({ browser }) => {
+  const context = await browser.newContext(); const page = await context.newPage();
+  await page.goto(h.url + '/it-management-kaizen/free-diagnosis/?utm_source=shinseikai&utm_medium=flyer_qr&utm_campaign=it_management_kaizen_free_diagnosis');
+  await expect(page.getByText('事前アンケート', { exact: true })).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('Initial Rule');
+  await page.locator('[data-field="employeeSize"]').selectOption('EMP_21_50'); await page.locator('[data-field="locations"]').selectOption('SITE_1'); await page.click('#next');
+  await page.getByLabel('安定・効率を高める').check(); await page.click('#next');
+  await page.getByLabel('経営判断を支えたい').check(); await page.click('#next');
+  await page.getByLabel('経営判断に必要な情報').check(); await page.click('#next');
+  await page.getByLabel('一部だけ把握できている').check(); await page.click('#next');
+  await page.getByLabel('届くが、判断には使いにくい').check(); await page.click('#next');
+  await page.fill('#q7', '確認したいことがあります'); await page.click('#next');
+  await page.fill('#company', '公開UI株式会社'); await page.fill('#name', '経営者'); await page.fill('#email', 'public-ui@example.test');
+  await page.check('#privacy'); await page.check('#use'); await page.click('#submit');
+  await expect(page.getByText('事前アンケートを受け付けました')).toBeVisible();
+  await context.close();
+});
+
 test('Structured IntakeからInitial Ruleを通じてPreparationを表示する: Staff ProxyとQ7を保持する', async ({ page }) => {
   await createCase(page, 'ブラウザ確認株式会社');
   await expect(page.locator('#intakeForm')).toContainText('今後1〜3年で、会社として予定している変化');

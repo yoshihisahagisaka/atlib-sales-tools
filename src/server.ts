@@ -63,6 +63,8 @@ import { createAdminBusinessWebConsultationLeadRouter } from './routes/adminBusi
 import { FreeDiagnosisSalesLauncherRepo } from './services/freeDiagnosisSalesLauncherRepo';
 import { FreeDiagnosisRuleBasedCaseRepo } from './services/freeDiagnosisRuleBasedCaseRepo';
 import { createAdminFreeDiagnosisRuleBasedV1Router } from './routes/adminFreeDiagnosisRuleBasedV1';
+import { PublicCustomerSelfSubmissionService } from './services/publicCustomerSelfSubmissionService';
+import { createPublicCustomerSelfFreeDiagnosisRouter } from './routes/publicCustomerSelfFreeDiagnosis';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -79,6 +81,7 @@ async function main(): Promise<void> {
   const businessWebConsultationLeadRepo = new BusinessWebConsultationLeadRepo(pool);
   const freeDiagnosisSalesLauncherRepo = new FreeDiagnosisSalesLauncherRepo(pool);
   const freeDiagnosisRuleBasedCaseRepo = new FreeDiagnosisRuleBasedCaseRepo(pool);
+  const publicCustomerSelfSubmissionService = new PublicCustomerSelfSubmissionService(pool);
   const kaizenAssessmentRepo = new KaizenAssessmentRepo(pool);
   const kaizenAssessmentAiService = new KaizenAssessmentAiService(config.aiAssist.anthropicApiKey);
   const marketRateRepo = new MarketRateRepo(pool);
@@ -210,7 +213,8 @@ async function main(): Promise<void> {
     createAdminBusinessWebConsultationLeadRouter(businessWebConsultationLeadRepo),
   );
   // IT経営KAIZEN 無料診断 Rule-Based v1, Production Vertical Slice 1 (Internal Dogfooding
-  // only -- no public intake lane links here). Deterministic, no AI provider.
+  // and the thin Public Customer Self entry adapter. Both use the same deterministic core.
+  app.use('/api/public/it-management-kaizen/free-diagnosis-v1', createPublicCustomerSelfFreeDiagnosisRouter(publicCustomerSelfSubmissionService));
   app.use(
     '/api/admin/free-diagnosis-v1',
     ...adminAuthGate,

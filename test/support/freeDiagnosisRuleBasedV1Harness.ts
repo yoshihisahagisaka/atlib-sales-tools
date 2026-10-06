@@ -11,6 +11,8 @@ import { Vs1ReviewReportFeedbackRepo } from '../../src/services/vs1ReviewReportF
 import { createAdminFreeDiagnosisRuleBasedV1Router } from '../../src/routes/adminFreeDiagnosisRuleBasedV1';
 import { StaffAuthService } from '../../src/services/staffAuthService';
 import { requireStaffAuth } from '../../src/middleware/staffAuth';
+import { PublicCustomerSelfSubmissionService } from '../../src/services/publicCustomerSelfSubmissionService';
+import { createPublicCustomerSelfFreeDiagnosisRouter } from '../../src/routes/publicCustomerSelfFreeDiagnosis';
 
 /** Real PostgreSQL SQL/constraints/transactions in a disposable WASM database.
  * Same pattern as test/support/diagnosisHarness.ts. Only migration 027 is applied: the
@@ -27,6 +29,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness() {
   await db.exec(fs.readFileSync(path.join(root, 'migrations/028_free_diagnosis_current_design_v1_phase1_draft.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/029_vs1_report_feedback_shared_artifacts.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/030_sales_activity_marketing_attribution.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/031_public_customer_self_submission.sql'), 'utf8'));
 
   let tail = Promise.resolve();
   async function acquire() {
@@ -45,20 +48,23 @@ export async function createFreeDiagnosisRuleBasedV1Harness() {
   const launcher = new FreeDiagnosisSalesLauncherRepo(pool);
   const cases = new FreeDiagnosisRuleBasedCaseRepo(pool);
   const vs1 = new Vs1ReviewReportFeedbackRepo(pool);
+  const publicSelf = new PublicCustomerSelfSubmissionService(pool);
   const staffAuth = new StaffAuthService('disposable-test-key-not-a-production-secret');
   const staffCookie = `staff_session=${staffAuth.issueSessionToken({ email: 'operator@atlib.jp' })}`;
 
   const app = express();
   app.set('trust proxy', 'loopback');
   app.use(express.json()); app.use(cookieParser());
+  app.use('/api/public/it-management-kaizen/free-diagnosis-v1', createPublicCustomerSelfFreeDiagnosisRouter(publicSelf));
   app.use('/api/admin/free-diagnosis-v1', requireStaffAuth(staffAuth), createAdminFreeDiagnosisRuleBasedV1Router(launcher, cases, vs1));
   app.use('/admin', requireStaffAuth(staffAuth), express.static(path.join(root, 'public/admin')));
+  app.use(express.static(path.join(root, 'public')));
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
   return {
-    db, pool, launcher, cases, vs1, url, staffCookie,
+    db, pool, launcher, cases, vs1, publicSelf, url, staffCookie,
     close: async () => { await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve())); await db.close(); },
   };
 }

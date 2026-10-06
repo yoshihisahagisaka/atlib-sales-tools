@@ -123,6 +123,27 @@ export type IntakeAnswerInput = z.infer<typeof intakeAnswerSchema>;
 export const REQUIRED_INTAKE_QUESTION_CODES: readonly string[] = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'];
 // Q7 (60分で特に相談したいこと) is optional per Business Design Canonical §4.
 
+const publicText = (max: number) => z.string().trim().min(1).max(max).optional();
+export const publicCustomerSelfSubmissionSchema = z.object({
+  idempotencyKey: z.string().uuid(),
+  company: z.object({ name: z.string().trim().min(1).max(200), corporateNumber: z.string().trim().min(1).max(50).optional() }).strict(),
+  contact: z.object({ name: z.string().trim().min(1).max(200), email: z.string().trim().email().max(320), phone: publicText(50), jobTitle: publicText(100), respondentRole: z.enum(RESPONDENT_ROLE) }).strict(),
+  answers: z.array(intakeAnswerEnvelopeSchema).min(6).max(7),
+  consent: z.object({ privacy: z.literal(true), diagnosisUse: z.literal(true), wordingVersion: z.literal('it_management_public_self_consent_v1') }).strict(),
+  attribution: z.object({
+    utmSource: publicText(200), utmMedium: publicText(200), utmCampaign: publicText(200), utmContent: publicText(200), utmTerm: publicText(200),
+    landingUrl: z.string().trim().url().max(2000).optional(), referrer: z.string().trim().url().max(2000).optional(),
+  }).strict(),
+}).strict().superRefine((value, ctx) => {
+  const codes = value.answers.map(answer => answer.questionCode);
+  if (new Set(codes).size !== codes.length || REQUIRED_INTAKE_QUESTION_CODES.some(code => !codes.includes(code as typeof codes[number]))) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['answers'], message: 'PUBLIC_REQUIRED_INTAKE_QUESTIONS_INVALID' });
+  for (const answer of value.answers) {
+    if (answer.provenance.channel !== 'SELF' || answer.provenance.source !== 'CUSTOMER_SELF') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['answers'], message: 'PUBLIC_SELF_PROVENANCE_REQUIRED' });
+    if (answer.respondent.contactId != null) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['answers'], message: 'PUBLIC_CONTACT_ID_MUST_NOT_BE_CLIENT_SUPPLIED' });
+  }
+});
+export type PublicCustomerSelfSubmission = z.infer<typeof publicCustomerSelfSubmissionSchema>;
+
 export const focusSelectionObjectSchema = z.object({
   primaryFocus: z.enum(MANAGEMENT_FOCUS),
   secondaryFocus: z.enum(MANAGEMENT_FOCUS).nullish(),

@@ -32,12 +32,12 @@ function mapCaseRow(row: Record<string, unknown>): CaseRow {
 export class FreeDiagnosisRuleBasedCaseRepo {
   constructor(private readonly pool: Pool) {}
 
-  async createCase(companyId: string, contactId: string | null, salesActivityId: string, staffEmail: string): Promise<CaseRow> {
+  async createCase(companyId: string, contactId: string | null, salesActivityId: string, staffEmail: string, isInternalTest = true): Promise<CaseRow> {
     const id = randomUUID();
     const { rows } = await this.pool.query(
-      `INSERT INTO it_management_diagnosis_case_v2 (id,company_id,contact_id,sales_activity_id,status,created_by_user_id)
-       VALUES ($1,$2,$3,$4,'INTAKE_IN_PROGRESS',$5) RETURNING *`,
-      [id, companyId, contactId, salesActivityId, staffEmail],
+      `INSERT INTO it_management_diagnosis_case_v2 (id,company_id,contact_id,sales_activity_id,status,is_internal_test,created_by_user_id)
+       VALUES ($1,$2,$3,$4,'INTAKE_IN_PROGRESS',$5,$6) RETURNING *`,
+      [id, companyId, contactId, salesActivityId, isInternalTest, staffEmail],
     );
     return mapCaseRow(rows[0]);
   }
