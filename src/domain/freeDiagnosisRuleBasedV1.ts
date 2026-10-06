@@ -18,6 +18,7 @@ export const MANAGEMENT_FOCUS = [
 export type ManagementFocus = typeof MANAGEMENT_FOCUS[number];
 
 export const SELECTED_SERVICE = ['IT_KAIZEN', 'BUSINESS_WEB'] as const;
+export const ACQUISITION_SOURCE_TYPE = ['EVENT', 'REFERRAL', 'WEB', 'OUTBOUND', 'PARTNER', 'EXISTING_CUSTOMER', 'OTHER'] as const;
 export const INTAKE_QUESTION_CODE = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7'] as const;
 export const INTAKE_CHANNEL = ['SELF', 'PROXY'] as const;
 export const RESPONSE_STATE = ['ANSWERED', 'UNKNOWN', 'NOT_IN_POSITION_TO_ANSWER'] as const;
@@ -61,6 +62,18 @@ export const createCompanySchema = z.object({
     jobTitle: z.string().trim().min(1).max(100).nullish(),
   }),
   selectedService: z.enum(SELECTED_SERVICE),
+  attribution: z.object({
+    acquisitionSourceType: z.enum(ACQUISITION_SOURCE_TYPE).nullish(),
+    acquisitionSourceName: z.string().trim().min(1).max(200).nullish(),
+    utmSource: z.string().trim().min(1).max(200).nullish(),
+    utmMedium: z.string().trim().min(1).max(200).nullish(),
+    utmCampaign: z.string().trim().min(1).max(200).nullish(),
+    utmContent: z.string().trim().min(1).max(200).nullish(),
+    utmTerm: z.string().trim().min(1).max(200).nullish(),
+    landingUrl: z.string().trim().url().max(2000).nullish(),
+    referrer: z.string().trim().url().max(2000).nullish(),
+  }).strict().refine(value => value.acquisitionSourceType != null && value.acquisitionSourceName != null,
+    'ATTRIBUTION_REQUIRES_ACQUISITION_SOURCE_TYPE_AND_NAME').optional(),
 }).strict();
 export type CreateCompanyInput = z.infer<typeof createCompanySchema>;
 

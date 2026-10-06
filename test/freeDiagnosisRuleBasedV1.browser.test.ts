@@ -114,3 +114,18 @@ test('Admin UIからReport承認・送付・Focused ConfirmationでHearingへ戻
   await expect(page.locator('#view-hearing')).toBeVisible();
   await expect(page.locator('#statementList')).toContainText('一部、追加確認が必要');
 });
+
+test('Admin UIでSales Activityの流入元を保存・表示・検索できる', async ({ page }) => {
+  await page.goto(h.url + '/admin/free-diagnosis-v1.html');
+  await page.fill('#companyName', '交流会流入株式会社'); await page.fill('#contactName', '担当者');
+  await page.selectOption('#acquisitionSourceType', 'EVENT'); await page.fill('#acquisitionSourceName', '経営者交流会A');
+  await page.fill('#utmSource', 'executive-meetup-a'); await page.fill('#utmMedium', 'flyer');
+  await page.fill('#utmCampaign', 'it-kaizen-free-diagnosis'); await page.fill('#utmContent', 'flyer-v1');
+  await page.click('#btnCreateCase');
+  await completeIntake(page, { q2: ['NO_MAJOR_CHANGE'], q3: ['UNDECIDED'], q4: 'NO_MAJOR_CONCERN', q5: 'VISIBLE_ENOUGH', q6: 'REGULAR_AND_USABLE' });
+  await expect(page.locator('#prepAttribution')).toContainText('経営者交流会A');
+  await expect(page.locator('#prepAttribution')).toContainText('it-kaizen-free-diagnosis');
+  await page.goto(h.url + '/admin/free-diagnosis-v1.html');
+  await page.fill('#filterSource', '経営者交流会A'); await page.click('#btnFilterAttribution');
+  await expect(page.locator('#attributionSearchResult')).toContainText('交流会流入株式会社');
+});

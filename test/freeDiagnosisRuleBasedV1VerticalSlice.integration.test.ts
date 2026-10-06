@@ -25,8 +25,8 @@ function intake(questionCode: string, channel: 'SELF' | 'PROXY') {
   return { questionCode, channel, value: { schemaVersion: 1, questionCode, answerValue: intakeValues[questionCode], responseState: 'ANSWERED', respondent: { role: 'MANAGEMENT' }, provenance: { channel, source: channel === 'SELF' ? 'CUSTOMER_SELF' : 'SALES_PROXY' } } };
 }
 
-async function deliveredVs1Report(name: string) {
-  const activity = await (await req('/sales-activities', 'POST', { name, contact: { name: '担当' }, selectedService: 'IT_KAIZEN' })).json() as { salesActivityId: string };
+async function deliveredVs1Report(name: string, attribution?: unknown) {
+  const activity = await (await req('/sales-activities', 'POST', { name, contact: { name: '担当' }, selectedService: 'IT_KAIZEN', ...(attribution ? { attribution } : {}) })).json() as { salesActivityId: string };
   let kase: any = await (await req(`/sales-activities/${activity.salesActivityId}/cases`, 'POST', {})).json();
   for (const q of ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6']) await req(`/cases/${kase.id}/intake`, 'POST', intake(q, 'PROXY'));
   kase = await (await req(`/cases/${kase.id}/intake/complete`, 'POST', { expectedVersion: kase.version })).json();
@@ -184,6 +184,32 @@ test('Management Feedbackの4 routeは人が選択し、Assessment/Handoffを自
     assert.equal(feedback.route_code, route); assert.ok(feedback.decided_by_user_id);
     assert.equal((await h.pool.query('SELECT id FROM assessment_handoffs')).rowCount, 0);
   }
+});
+
+test('Sales Activity attributionはCase chainで追跡でき、Entry Channel/Proxyとは独立する', async () => {
+  const attribution = { acquisitionSourceType: 'EVENT', acquisitionSourceName: '経営者交流会A',
+    utmSource: 'executive-meetup-a', utmMedium: 'flyer', utmCampaign: 'it-kaizen-free-diagnosis',
+    utmContent: 'flyer-v1', utmTerm: null, landingUrl: 'https://example.test/it-kaizen?utm_source=executive-meetup-a', referrer: 'https://example.test/' };
+  const { kase } = await deliveredVs1Report('QR流入株式会社', attribution);
+  const beforeFeedback = await (await req(`/cases/${kase.id}`)).json();
+  assert.deepEqual(beforeFeedback.salesActivity.attribution, attribution);
+  assert.equal(beforeFeedback.intake[0].value.provenance.source, 'SALES_PROXY');
+  assert.equal((await req(`/cases/${kase.id}/feedback/decision`, 'POST', { route: 'STOP_HOLD', materialDecision: '今回は終了', nextAction: '必要時に再相談' })).status, 200);
+  const afterFeedback = await (await req(`/cases/${kase.id}`)).json();
+  assert.deepEqual(afterFeedback.salesActivity.attribution, attribution);
+
+  const noAttribution = await (await req('/sales-activities', 'POST', { name: '既存相当株式会社', contact: { name: '担当' }, selectedService: 'IT_KAIZEN' })).json();
+  const noAttributionCase = await (await req(`/sales-activities/${noAttribution.salesActivityId}/cases`, 'POST', {})).json();
+  assert.equal((await (await req(`/cases/${noAttributionCase.id}`)).json()).salesActivity.attribution, null);
+
+  const second = await (await req('/sales-activities', 'POST', { name: '交流会B株式会社', contact: { name: '担当' }, selectedService: 'IT_KAIZEN', attribution: { ...attribution, acquisitionSourceName: '経営者交流会B', utmCampaign: 'other-campaign' } })).json();
+  assert.ok(second.salesActivityId);
+  const bySource = await (await req('/sales-activities?acquisitionSourceName=' + encodeURIComponent('経営者交流会A'))).json();
+  assert.ok(bySource.items.some((item: any) => item.attribution?.acquisitionSourceName === '経営者交流会A'));
+  assert.ok(bySource.items.every((item: any) => item.attribution?.acquisitionSourceName === '経営者交流会A'));
+  const byCampaign = await (await req('/sales-activities?utmCampaign=it-kaizen-free-diagnosis')).json();
+  assert.ok(byCampaign.items.some((item: any) => item.attribution?.utmCampaign === 'it-kaizen-free-diagnosis'));
+  assert.ok(byCampaign.items.every((item: any) => item.attribution?.utmCampaign === 'it-kaizen-free-diagnosis'));
 });
 
 test('12-step Vertical Slice 1: Internal Customer entry -> Intake -> Initial Rule -> Preparation -> Hearing -> 整理 -> Complete -> Rule Analysis -> Human Review -> Analysis Approved -> Preliminary Structure/Scope', async () => {

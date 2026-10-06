@@ -54,6 +54,7 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   await db.exec(fs.readFileSync(path.join(root, 'migrations/027_free_diagnosis_rule_based_v1.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/028_free_diagnosis_current_design_v1_phase1_draft.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/029_vs1_report_feedback_shared_artifacts.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/030_sales_activity_marketing_attribution.sql'), 'utf8'));
   let tail = Promise.resolve();
   async function acquire() {
     const previous = tail;

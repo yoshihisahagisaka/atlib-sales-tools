@@ -42,13 +42,22 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
     res.status(201).json(kase);
   }));
 
+  r.get('/sales-activities', (req, res) => handle(res, async () => {
+    const parsed = z.object({ acquisitionSourceName: z.string().trim().min(1).max(200).optional(), utmCampaign: z.string().trim().min(1).max(200).optional() }).strict().safeParse(req.query);
+    if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    res.json({ items: await launcher.listSalesActivities(parsed.data) });
+  }));
+
   r.get('/cases/:id', (req, res) => handle(res, async () => {
     const kase = await cases.getCase(req.params.id);
     if (!kase) { res.status(404).json({ error: 'CASE_NOT_FOUND' }); return; }
-    const [intake, preliminaryScope] = await Promise.all([
+    const [intake, preliminaryScope, salesActivity] = await Promise.all([
       cases.listIntakeAnswers(kase.id), cases.getLatestPreliminaryScope(kase.id),
+      launcher.getSalesActivity(kase.salesActivityId),
     ]);
-    res.json({ case: kase, intake, preliminaryScope });
+    res.json({ case: kase, intake, preliminaryScope, salesActivity: salesActivity ? {
+      id: salesActivity.id, selectedService: salesActivity.selectedService, attribution: salesActivity.attribution,
+    } : null });
   }));
 
   // Step 2: 7-question Hearing Intake (SELF/PROXY共通、normalized Intakeへ集約).

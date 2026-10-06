@@ -80,7 +80,19 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><label for="companyName">会社名</label><input id="companyName" type="text" placeholder="サンプル株式会社"></div>
 <div class="row"><label for="contactName">担当者名</label><input id="contactName" type="text" placeholder="山田太郎"></div>
 <div class="row"><label for="contactEmail">メール（任意）</label><input id="contactEmail" type="email"></div>
+<h4>流入元 / Marketing Attribution</h4>
+<p class="hint">本人回答・代理入力とは別に、最初の顧客接点を記録します。</p>
+<div class="row"><label for="acquisitionSourceType">流入元の種別</label><select id="acquisitionSourceType"><option value="">（未設定）</option><option value="EVENT">交流会・イベント</option><option value="REFERRAL">紹介</option><option value="WEB">Web</option><option value="OUTBOUND">営業活動</option><option value="PARTNER">パートナー</option><option value="EXISTING_CUSTOMER">既存顧客</option><option value="OTHER">その他</option></select></div>
+<div class="row"><label for="acquisitionSourceName">流入元の名称</label><input id="acquisitionSourceName" type="text" maxlength="200" placeholder="例：経営者交流会A"></div>
+<div class="row"><label for="utmSource">UTM source</label><input id="utmSource" type="text" maxlength="200" placeholder="例：executive-meetup-a"></div>
+<div class="row"><label for="utmMedium">UTM medium</label><input id="utmMedium" type="text" maxlength="200" placeholder="例：flyer"></div>
+<div class="row"><label for="utmCampaign">UTM campaign</label><input id="utmCampaign" type="text" maxlength="200" placeholder="例：it-kaizen-free-diagnosis"></div>
+<div class="row"><label for="utmContent">UTM content</label><input id="utmContent" type="text" maxlength="200" placeholder="例：flyer-v1"></div>
+<div class="row"><label for="utmTerm">UTM term</label><input id="utmTerm" type="text" maxlength="200"></div>
+<div class="row"><label for="landingUrl">Landing URL</label><input id="landingUrl" type="text" maxlength="2000" placeholder="https://..."></div>
+<div class="row"><label for="referrer">Referrer</label><input id="referrer" type="text" maxlength="2000" placeholder="https://..."></div>
 <div class="row"><button id="btnCreateCase">顧客登録してCase開始</button></div>
+<hr><h4>流入元の検索</h4><div class="row"><label for="filterSource">流入元名称</label><input id="filterSource" type="text" maxlength="200"></div><div class="row"><label for="filterCampaign">UTM campaign</label><input id="filterCampaign" type="text" maxlength="200"></div><div class="row"><button id="btnFilterAttribution" class="secondary">検索</button></div><div id="attributionSearchResult" class="gates-panel"></div>
 </div>
 
 <div class="view" id="view-intake"><h3>7-question Hearing Intake</h3>
@@ -104,6 +116,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="prep-item"><h4>Concern（気になっていること）</h4><p id="prepConcern"></p></div>
 <div class="prep-item"><h4>Q7（60分で特に相談したいこと）</h4><p id="prepQ7"></p></div>
 <div class="prep-item"><h4>Primary / Secondary Focus</h4><p id="prepFocus"></p></div>
+<div class="prep-item"><h4>流入元</h4><p id="prepAttribution"></p></div>
+<div class="prep-item"><h4>回答の入力方式</h4><p id="prepEntryChannel"></p></div>
 </div>
 <div class="why-box"><h4>Why（本日この順で伺う理由）</h4><p id="prepWhy"></p></div>
 <div class="row" style="margin-top:1rem"><button id="btnStartHearing">Hearing開始</button></div>
@@ -239,11 +253,15 @@ for (const [code, label] of Object.entries(FOCUS_LABELS)) {
 el('btnCreateCase').onclick = async () => {
   setError('');
   try {
+    const values = ids => Object.fromEntries(ids.map(id => [id, el(id).value.trim() || null]));
+    const attribution = values(['acquisitionSourceType', 'acquisitionSourceName', 'utmSource', 'utmMedium', 'utmCampaign', 'utmContent', 'utmTerm', 'landingUrl', 'referrer']);
+    if (Object.values(attribution).some(Boolean) && (!attribution.acquisitionSourceType || !attribution.acquisitionSourceName)) throw new Error('流入元を記録する場合は、種別と名称を両方入力してください。');
     const activity = await call('/sales-activities', 'POST', {
       name: el('companyName').value, contact: { name: el('contactName').value, email: el('contactEmail').value || null }, selectedService: 'IT_KAIZEN',
+      attribution: Object.values(attribution).some(Boolean) ? { acquisitionSourceType: attribution.acquisitionSourceType, acquisitionSourceName: attribution.acquisitionSourceName, utmSource: attribution.utmSource, utmMedium: attribution.utmMedium, utmCampaign: attribution.utmCampaign, utmContent: attribution.utmContent, utmTerm: attribution.utmTerm, landingUrl: attribution.landingUrl, referrer: attribution.referrer } : undefined,
     });
     const kase = await call(`/sales-activities/${activity.salesActivityId}/cases`, 'POST', {});
-    state.caseId = kase.id; state.version = kase.version; state.companyName = el('companyName').value;
+    state.caseId = kase.id; state.version = kase.version; state.companyName = el('companyName').value; state.attribution = activity.attribution;
     renderIntakeForm();
     showView('intake');
   } catch (e) { setError(String(e.message || e)); }
@@ -318,9 +336,22 @@ function renderPreparation() {
   el('prepQ7').textContent = state.intake.Q7 || '（任意・未回答）';
   const items = state.preparation.result.focusItems;
   el('prepFocus').textContent = items.length ? items.map(x => FOCUS_LABELS[x.focus].replace(/^M\d+ /, '')).join(' / ') : '現時点では重要な確認テーマは特定されていません。';
+  const a = state.attribution;
+  el('prepAttribution').textContent = a ? `${a.acquisitionSourceName}（${a.acquisitionSourceType}） / source: ${a.utmSource || '—'} / medium: ${a.utmMedium || '—'} / campaign: ${a.utmCampaign || '—'} / content: ${a.utmContent || '—'}` : '未設定';
+  el('prepEntryChannel').textContent = 'Staff Proxy入力（流入元とは別に保持）';
   const authority = state.preparation.result.authorityConfirmationCandidates.length ? ' 回答者の立場を確認する必要があります。' : '';
   el('prepWhy').textContent = items.length ? '確認する理由：今回の経営上の関心や予定されている変化に照らし、60分で状況を確認する価値があるためです。' + authority : '今回の回答からは、優先して確認すべき重要なテーマは特定されていません。' + authority;
 }
+
+el('btnFilterAttribution').onclick = async () => {
+  setError('');
+  try {
+    const params = new URLSearchParams(); const source = el('filterSource').value.trim(); const campaign = el('filterCampaign').value.trim();
+    if (source) params.set('acquisitionSourceName', source); if (campaign) params.set('utmCampaign', campaign);
+    const { items } = await call('/sales-activities?' + params, 'GET');
+    el('attributionSearchResult').textContent = items.length ? items.map(x => `${x.companyName} / ${x.attribution?.acquisitionSourceName || '未設定'} / ${x.attribution?.utmCampaign || '—'}`).join('\n') : '該当するSales Activityはありません。';
+  } catch (e) { setError(String(e.message || e)); }
+};
 
 const INTAKE_LABELS = {
   Q2: { HEADCOUNT_GROWTH:'人員を増やす', SITE_CHANGE:'拠点を変える・増やす', NEW_BUSINESS:'新しい事業を始める', ORG_CHANGE:'組織を変える', IPO_PREPARATION:'上場準備を進める', WORKSTYLE_CHANGE:'働き方を変える', BUSINESS_EXPANSION:'事業を広げる', LEAN_SCALING:'少人数で成長・運営する', STABILITY_EFFICIENCY:'安定・効率を高める', NO_MAJOR_CHANGE:'大きな変化は予定していない', OTHER:'その他' },
