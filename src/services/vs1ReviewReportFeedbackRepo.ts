@@ -5,6 +5,7 @@ import { intakeAnswerEnvelopeSchema } from '../domain/freeDiagnosisRuleBasedV1';
 import { projectIntakeSemantics } from '../domain/intakeSemanticProjection';
 import { runFinalRule } from '../domain/finalRuleEngine';
 import { RuleBasedV1Error } from '../domain/freeDiagnosisRuleBasedV1';
+import { hearingAnswerDisplayLabel } from '../domain/structuredHearing';
 
 type Semantic = 'OBSERVATION'|'UNKNOWN'|'HYPOTHESIS'|'GAP_CANDIDATE'|'ROOT_CAUSE_HYPOTHESIS'|'KAIZEN_DIRECTION'|'EVIDENCE_CANDIDATE';
 const futureLabels: Record<string, string> = {
@@ -15,9 +16,9 @@ export class Vs1ReviewReportFeedbackRepo {
   private async audit(caseId:string, actor:string, command:string, detail:unknown){await this.pool.query(`INSERT INTO it_management_diagnosis_case_v2_audit(id,case_id,command,actor_user_id,detail_json) VALUES($1,$2,$3,$4,$5)`,[randomUUID(),caseId,command,actor,JSON.stringify(detail)]);}
   async project(caseId:string, executionId:string, actor:string){
     const {rows}=await this.pool.query<any>('SELECT input_snapshot_json FROM rule_analysis_execution WHERE id=$1 AND case_id=$2 AND analysis_stage=\'FINAL\'',[executionId,caseId]); if(!rows[0]) throw new RuleBasedV1Error(404,'FINAL_RULE_EXECUTION_NOT_FOUND');
-    const snap=typeof rows[0].input_snapshot_json==='string'?JSON.parse(rows[0].input_snapshot_json):rows[0].input_snapshot_json, final=runFinalRule({intake:projectIntakeSemantics(snap.intake.map((x:any)=>intakeAnswerEnvelopeSchema.parse(x))),answers:snap.hearing});
+    const snap=typeof rows[0].input_snapshot_json==='string'?JSON.parse(rows[0].input_snapshot_json):rows[0].input_snapshot_json, final=runFinalRule({intake:projectIntakeSemantics(snap.intake.map((x:any)=>intakeAnswerEnvelopeSchema.parse(x))),answers:snap.hearing,knowledgeStates:snap.hearingKnowledgeStates ?? []});
     const add=async(type:Semantic,content:string,unknownType:string|null=null)=>{const id=randomUUID();await this.pool.query(`INSERT INTO diagnosis_insights(id,it_management_diagnosis_case_v2_id,semantic_type,title,content,unknown_type,review_status,created_by,created_by_user_id) VALUES($1,$2,$3,$4,$5,$6,'HUMAN_APPROVED','HUMAN',$7)`,[id,caseId,type,type,content,unknownType,actor]);await this.pool.query(`INSERT INTO insight_sources(diagnosis_insight_id,it_management_diagnosis_case_v2_id,source_ref_type,source_ref_id,relation) VALUES($1,$2,'VS1_RULE_EXECUTION',$3,'SUPPORTS')`,[id,caseId,executionId]);return id;};
-    for(const x of final.currentUnderstanding) await add('OBSERVATION',`確認した状態：${String(x.answerValue)}`);
+    for(const x of final.currentUnderstanding) await add('OBSERVATION',`確認した状態：${hearingAnswerDisplayLabel(x.answerValue)}`);
     for(const x of final.remainingUnknown) await add('UNKNOWN','今回まだ確認できていない事項があります。','NOT_YET_CONFIRMED');
     for(const x of final.gapPossibilities) await add('GAP_CANDIDATE',x.statement);
     for(const x of final.improvementOpportunities) await add('KAIZEN_DIRECTION',x.statement);

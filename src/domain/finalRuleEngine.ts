@@ -1,6 +1,7 @@
 import type { IntakeSemanticProjection, RecognitionDifferenceCandidate, SemanticStatement } from './intakeSemanticProjection';
 import { recognitionDifferenceCandidates } from './intakeSemanticProjection';
 import type { StructuredHearingAnswer } from './structuredHearing';
+import type { KnowledgeState } from './freeDiagnosisRuleBasedV1';
 
 export const FINAL_RULE_VERSION = 'current-design-v1-final-rule-1.0.0';
 export interface FinalRuleResult {
@@ -15,9 +16,10 @@ export interface FinalRuleResult {
   improvementOpportunities: readonly { hearingUnitCode: string; statement: string }[];
   noImportantGapIdentified: boolean;
 }
-export function runFinalRule(input: { intake: IntakeSemanticProjection; answers: readonly StructuredHearingAnswer[] }): FinalRuleResult {
+export function runFinalRule(input: { intake: IntakeSemanticProjection; answers: readonly StructuredHearingAnswer[]; knowledgeStates?: readonly { hearingUnitCode: string; semanticKey: string; knowledgeState: KnowledgeState }[] }): FinalRuleResult {
   const currentUnderstanding = input.answers.map(a => ({ hearingUnitCode: a.hearingUnitCode, semanticKey: a.semanticKey, answerValue: a.answerValue, responseState: a.responseState }));
-  const remainingUnknown = input.answers.filter(a => a.responseState === 'UNKNOWN' || a.answerValue === 'UNKNOWN').map(a => ({ hearingUnitCode: a.hearingUnitCode, semanticKey: a.semanticKey }));
+  const partialOrUnknown = new Set((input.knowledgeStates ?? []).filter(x => x.knowledgeState === 'PARTIAL' || x.knowledgeState === 'UNKNOWN').map(x => `${x.hearingUnitCode}:${x.semanticKey}`));
+  const remainingUnknown = input.answers.filter(a => a.responseState === 'UNKNOWN' || a.answerValue === 'UNKNOWN' || (Array.isArray(a.answerValue) && a.answerValue.includes('UNKNOWN')) || partialOrUnknown.has(`${a.hearingUnitCode}:${a.semanticKey}`)).map(a => ({ hearingUnitCode: a.hearingUnitCode, semanticKey: a.semanticKey }));
   const authorityConfirmation = input.answers.filter(a => a.responseState === 'NOT_IN_POSITION_TO_ANSWER').map(a => ({ unitCode: a.hearingUnitCode, reason: 'NOT_IN_POSITION_TO_ANSWER' as const }));
   const semantic: SemanticStatement[] = input.answers.filter(a => a.responseState === 'ANSWERED').map(a => ({ semanticKey: a.semanticKey, value: JSON.stringify(a.answerValue), respondent: a.respondent, source: 'HEARING' }));
   const recognitionDifferences = recognitionDifferenceCandidates(semantic);

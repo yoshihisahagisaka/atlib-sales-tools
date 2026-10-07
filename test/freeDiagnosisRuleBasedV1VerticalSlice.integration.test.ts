@@ -3,6 +3,8 @@ import { after, before, test } from 'node:test';
 import { createFreeDiagnosisRuleBasedV1Harness } from './support/freeDiagnosisRuleBasedV1Harness';
 import { contentHash } from '../src/domain/diagnosisReport';
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 
 let h: Awaited<ReturnType<typeof createFreeDiagnosisRuleBasedV1Harness>>;
 before(async () => { h = await createFreeDiagnosisRuleBasedV1Harness(); });
@@ -418,4 +420,44 @@ test('楽観的ロック: 古いexpectedVersionでの遷移は409になる', asy
   await req(`/cases/${kase.id}/intake/complete`, 'POST', { expectedVersion: kase.version });
   const staleRes = await req(`/cases/${kase.id}/focus`, 'POST', { primaryFocus: 'M01_IT_MANAGEMENT_JUDGMENT', expectedVersion: kase.version });
   assert.equal(staleRes.status, 409);
+});
+
+test('Case 3: Solution HypothesisはReportへ推薦せず、PARTIALな業務詳細はUNKNOWNとして残す', async () => {
+  const values: Record<string, unknown> = {
+    Q1: { employeeSize: 'EMP_51_100', locations: 'SITE_1' }, Q2: ['LEAN_SCALING'], Q3: ['IMPROVE_PRODUCTIVITY'],
+    Q4: 'PRODUCTIVITY_OPPORTUNITY', Q5: 'VISIBLE_ON_REQUEST', Q6: 'ON_REQUEST_USABLE',
+    Q7: 'ChatGPTやAIエージェントを導入して、営業・事務を効率化したい。競合もAIを使い始めているので遅れたくない。',
+  };
+  const activity = await (await req('/sales-activities', 'POST', { name: 'Case 3株式会社', contact: { name: '社長' }, selectedService: 'IT_KAIZEN' })).json() as { salesActivityId: string };
+  let kase: any = await (await req(`/sales-activities/${activity.salesActivityId}/cases`, 'POST', {})).json();
+  for (const questionCode of Object.keys(values)) {
+    const response = await req(`/cases/${kase.id}/intake`, 'POST', { questionCode, channel: 'PROXY', value: { schemaVersion: 1, questionCode, answerValue: values[questionCode], responseState: 'ANSWERED', respondent: { role: 'MANAGEMENT' }, provenance: { channel: 'PROXY', source: 'SALES_PROXY' } } });
+    assert.equal(response.status, 204);
+  }
+  kase = await (await req(`/cases/${kase.id}/intake/complete`, 'POST', { expectedVersion: kase.version })).json();
+  const prepared = await (await req(`/cases/${kase.id}/preparation/start`, 'POST', { expectedVersion: kase.version })).json();
+  assert.deepEqual(prepared.preparation.result.focusItems.map((x: any) => [x.focus, x.verificationPurpose]), [['M04_BUSINESS_PRODUCTIVITY', 'M04_BUSINESS_PRODUCTIVITY_CONFIRMATION']]);
+  assert.equal(prepared.preparation.result.problemFindings.length, 0); assert.equal(prepared.preparation.result.assessmentEscalated, false);
+  kase = await (await req(`/cases/${kase.id}/hearing/start`, 'POST', { expectedVersion: prepared.case.version })).json();
+  const unit = (await (await req(`/cases/${kase.id}/hearing/units`)).json()).items.find((x: any) => x.focus === 'M04_BUSINESS_PRODUCTIVITY');
+  await req(`/cases/${kase.id}/hearing/statements`, 'POST', { planItemRef: unit.unitCode, statementText: '営業報告や見積書、受注後の事務連携に時間がかかっていると思います。', knowledgeState: 'PARTIAL', structuredAnswer: { schemaVersion: 1, hearingUnitCode: unit.unitCode, semanticKey: unit.semanticKey, answerValue: ['INPUT_TRANSCRIPTION', 'AGGREGATION_REPORTING'], responseState: 'ANSWERED', respondent: { role: 'MANAGEMENT' }, provenance: { channel: 'PROXY', source: 'SALES_PROXY' }, completionStatus: 'COMPLETE', deepDive: { asked: true, result: '実際の手順、作業量、入力箇所、判断内容は未確認' } } });
+  kase = await (await req(`/cases/${kase.id}/hearing/complete`, 'POST', { expectedVersion: kase.version })).json();
+  const final = await (await req(`/cases/${kase.id}/rule-analysis/run`, 'POST', { expectedVersion: kase.version })).json();
+  assert.equal(final.result.final.remainingUnknown.length, 1);
+  assert.equal(final.result.final.gapPossibilities.length, 0);
+  assert.equal(final.result.final.improvementOpportunities.length, 1);
+  assert.ok(final.findings.every((x: any) => x.grounds.focus === 'M04_BUSINESS_PRODUCTIVITY'));
+  await req(`/cases/${kase.id}/final-review/project`, 'POST', { executionId: final.executionId });
+  const draft = await (await req(`/cases/${kase.id}/reports/draft`, 'POST', {})).json();
+  const report = (await h.pool.query<any>('SELECT content_json,context_json FROM diagnosis_reports WHERE id=$1', [draft.id])).rows[0];
+  const rendered = JSON.stringify(report);
+  assert.doesNotMatch(rendered, /INPUT_TRANSCRIPTION|AGGREGATION_REPORTING|ChatGPT|AIエージェント|AI未導入/);
+  assert.match(rendered, /入力・転記/); assert.match(rendered, /集計・報告/);
+  assert.match(rendered, /今回まだ確認できていない事項があります/);
+});
+
+test('Production server wiring injects the VS1 Report / Feedback repository into the Admin router', () => {
+  const source = fs.readFileSync(path.resolve(__dirname, '../src/server.ts'), 'utf8');
+  assert.match(source, /const vs1ReviewReportFeedbackRepo = new Vs1ReviewReportFeedbackRepo\(pool\)/);
+  assert.match(source, /createAdminFreeDiagnosisRuleBasedV1Router\(freeDiagnosisSalesLauncherRepo, freeDiagnosisRuleBasedCaseRepo, vs1ReviewReportFeedbackRepo\)/);
 });

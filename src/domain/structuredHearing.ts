@@ -31,6 +31,20 @@ export const structuredHearingAnswerSchema = z.object({
 }).strict();
 export type StructuredHearingAnswer = z.infer<typeof structuredHearingAnswerSchema>;
 
+/** Customer-facing labels for the existing structured answer contract. Rule and DB values stay codes. */
+const HEARING_ANSWER_LABEL_JA: Record<string, string> = {
+  CAN_JUDGE: '判断できている', PARTIALLY_JUDGE: '一部は判断できる', CANNOT_JUDGE: '判断が難しい',
+  OPPORTUNITY_IDENTIFIED: '改善の余地がありそう', NO_OPPORTUNITY: '現時点では特にない', UNKNOWN: 'まだ分からない',
+  INPUT_TRANSCRIPTION: '入力・転記', AGGREGATION_REPORTING: '集計・報告', APPROVAL: '承認', SEARCH: '情報検索',
+  INQUIRY: '問い合わせ対応', CUSTOMER_RESPONSE: '顧客対応', PROGRESS: '進捗確認', SYSTEM_INTEGRATION: 'システム間連携',
+  NONE: '特にない', OTHER: 'その他',
+};
+
+export function hearingAnswerDisplayLabel(answerValue: unknown): string {
+  if (Array.isArray(answerValue)) return answerValue.map(value => HEARING_ANSWER_LABEL_JA[String(value)] ?? 'その他').join('、');
+  return HEARING_ANSWER_LABEL_JA[String(answerValue)] ?? '今回確認した状態';
+}
+
 export function structuredAuthority(answer: StructuredHearingAnswer): { unitCode: string; reason: 'NOT_IN_POSITION_TO_ANSWER' }[] {
   return answer.responseState === 'NOT_IN_POSITION_TO_ANSWER' ? [{ unitCode: answer.hearingUnitCode, reason: 'NOT_IN_POSITION_TO_ANSWER' }] : [];
 }

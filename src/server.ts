@@ -62,6 +62,7 @@ import { createBusinessWebConsultationLeadRouter } from './routes/businessWebCon
 import { createAdminBusinessWebConsultationLeadRouter } from './routes/adminBusinessWebConsultationLead';
 import { FreeDiagnosisSalesLauncherRepo } from './services/freeDiagnosisSalesLauncherRepo';
 import { FreeDiagnosisRuleBasedCaseRepo } from './services/freeDiagnosisRuleBasedCaseRepo';
+import { Vs1ReviewReportFeedbackRepo } from './services/vs1ReviewReportFeedbackRepo';
 import { createAdminFreeDiagnosisRuleBasedV1Router } from './routes/adminFreeDiagnosisRuleBasedV1';
 import { PublicCustomerSelfSubmissionService } from './services/publicCustomerSelfSubmissionService';
 import { createPublicCustomerSelfFreeDiagnosisRouter } from './routes/publicCustomerSelfFreeDiagnosis';
@@ -81,6 +82,7 @@ async function main(): Promise<void> {
   const businessWebConsultationLeadRepo = new BusinessWebConsultationLeadRepo(pool);
   const freeDiagnosisSalesLauncherRepo = new FreeDiagnosisSalesLauncherRepo(pool);
   const freeDiagnosisRuleBasedCaseRepo = new FreeDiagnosisRuleBasedCaseRepo(pool);
+  const vs1ReviewReportFeedbackRepo = new Vs1ReviewReportFeedbackRepo(pool);
   const publicCustomerSelfSubmissionService = new PublicCustomerSelfSubmissionService(pool);
   const kaizenAssessmentRepo = new KaizenAssessmentRepo(pool);
   const kaizenAssessmentAiService = new KaizenAssessmentAiService(config.aiAssist.anthropicApiKey);
@@ -218,7 +220,7 @@ async function main(): Promise<void> {
   app.use(
     '/api/admin/free-diagnosis-v1',
     ...adminAuthGate,
-    createAdminFreeDiagnosisRuleBasedV1Router(freeDiagnosisSalesLauncherRepo, freeDiagnosisRuleBasedCaseRepo),
+    createAdminFreeDiagnosisRuleBasedV1Router(freeDiagnosisSalesLauncherRepo, freeDiagnosisRuleBasedCaseRepo, vs1ReviewReportFeedbackRepo),
   );
   // 静的HTML側もスタッフ認証で保護する。この行は下の一般static配信より前に置くこと
   // （逆順だと未認証で/admin/*.htmlが一般static経由で読めてしまう）。

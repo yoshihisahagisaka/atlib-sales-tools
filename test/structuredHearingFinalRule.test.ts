@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { hearingUnitForFocus, isConditionalDeepDive } from '../src/domain/structuredHearing';
+import { hearingAnswerDisplayLabel, hearingUnitForFocus, isConditionalDeepDive } from '../src/domain/structuredHearing';
 import { runFinalRule } from '../src/domain/finalRuleEngine';
 
 const intake = { futureReference: [], desiredState: [], focusCandidates: [], authorityConfirmationCandidates: [], knowledgeUnknownQuestionCodes: [] } as const;
@@ -33,4 +33,14 @@ test('M04は改善可能性であり、FACTや確定Solutionを生成しない',
   const m04 = hearingUnitForFocus('M04_BUSINESS_PRODUCTIVITY');
   const result = runFinalRule({ intake, answers: [{ ...answer(['INPUT_TRANSCRIPTION']), hearingUnitCode: m04.unitCode, semanticKey: m04.semanticKey }] });
   assert.equal(result.improvementOpportunities.length, 1); assert.equal(result.gapPossibilities.length, 0);
+});
+
+test('PARTIALのKnowledge Stateは既存Structured Answerを保ったままRemaining UNKNOWNへ反映する', () => {
+  const m04 = hearingUnitForFocus('M04_BUSINESS_PRODUCTIVITY');
+  const structured = { ...answer(['INPUT_TRANSCRIPTION', 'AGGREGATION_REPORTING']), hearingUnitCode: m04.unitCode, semanticKey: m04.semanticKey };
+  const result = runFinalRule({ intake, answers: [structured], knowledgeStates: [{ hearingUnitCode: m04.unitCode, semanticKey: m04.semanticKey, knowledgeState: 'PARTIAL' }] });
+  assert.equal(result.currentUnderstanding.length, 1);
+  assert.equal(result.remainingUnknown.length, 1);
+  assert.equal(result.nextConfirmation.length, 1);
+  assert.equal(hearingAnswerDisplayLabel(structured.answerValue), '入力・転記、集計・報告');
 });

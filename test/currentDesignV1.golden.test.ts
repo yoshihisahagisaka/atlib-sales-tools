@@ -80,6 +80,19 @@ test('Guards: staff visibility is operational, Q7 is excluded, and not-in-positi
   assert.equal(runInitialRule(projection).focusItems.length, 0);
 });
 
+test('Case 3 guard: Q7のSolution HypothesisはInitial Rule、Focus、Verification Purposeを変えない', () => {
+  const common = [
+    answer('Q1', { employeeSize: 'EMP_51_100', locations: 'SITE_1' }), answer('Q2', ['LEAN_SCALING']),
+    answer('Q3', ['IMPROVE_PRODUCTIVITY']), answer('Q4', 'PRODUCTIVITY_OPPORTUNITY'),
+    answer('Q5', 'VISIBLE_ON_REQUEST'), answer('Q6', 'ON_REQUEST_USABLE'),
+  ];
+  const withAi = result([...common, answer('Q7', 'ChatGPTとAIエージェントを導入したい')]);
+  const withoutAi = result([...common, answer('Q7', 'AIは使いたくない。今の仕組みを活かしたい')]);
+  assert.deepEqual(withAi, withoutAi);
+  assert.deepEqual(withAi.focusItems.map(x => [x.focus, x.verificationPurpose]), [['M04_BUSINESS_PRODUCTIVITY', 'M04_BUSINESS_PRODUCTIVITY_CONFIRMATION']]);
+  assert.equal(withAi.problemFindings.length, 0); assert.equal(withAi.assessmentEscalated, false);
+});
+
 test('Recognition Difference helper identifies only same-semantic disagreement; structured statements never become FACT', () => {
   const candidates = recognitionDifferenceCandidates([
     { semanticKey: 'management.visibility', value: 'VISIBLE_ENOUGH', respondent: { role: 'MANAGEMENT' }, source: 'HEARING' },

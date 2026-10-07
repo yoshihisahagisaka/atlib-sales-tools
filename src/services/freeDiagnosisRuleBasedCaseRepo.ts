@@ -155,9 +155,9 @@ export class FreeDiagnosisRuleBasedCaseRepo {
     return rows.map(r => ({ planItemRef: r.plan_item_ref, statementText: r.statement_text, knowledgeState: r.knowledge_state, isNegativeAnswer: r.is_negative_answer, recordedAt: r.recorded_at }));
   }
 
-  async listStructuredAnswers(caseId: string): Promise<StructuredHearingAnswer[]> {
-    const { rows } = await this.pool.query<{ structured_answer_json: unknown }>(`SELECT structured_answer_json FROM hearing_statement_v2 WHERE case_id=$1 AND structured_answer_json IS NOT NULL ORDER BY recorded_at ASC`, [caseId]);
-    return rows.map(r => r.structured_answer_json as StructuredHearingAnswer);
+  async listStructuredAnswers(caseId: string): Promise<{ answer: StructuredHearingAnswer; knowledgeState: HearingStatementInput['knowledgeState'] }[]> {
+    const { rows } = await this.pool.query<{ structured_answer_json: unknown; knowledge_state: string }>(`SELECT structured_answer_json,knowledge_state FROM hearing_statement_v2 WHERE case_id=$1 AND structured_answer_json IS NOT NULL ORDER BY recorded_at ASC`, [caseId]);
+    return rows.map(r => ({ answer: r.structured_answer_json as StructuredHearingAnswer, knowledgeState: r.knowledge_state as HearingStatementInput['knowledgeState'] }));
   }
 
   async completeHearing(caseId: string, expectedVersion: number): Promise<CaseRow> {
@@ -173,7 +173,9 @@ export class FreeDiagnosisRuleBasedCaseRepo {
   async runAndPersistRuleAnalysis(caseId: string, expectedVersion: number): Promise<{ executionId: string; result: RuleAnalysisResult & { final: FinalRuleResult }; findings: (TriggerFinding & { id: string })[] }> {
     const kase = await this.getCase(caseId);
     if (!kase || kase.status !== 'HEARING_COMPLETED') throw new RuleBasedV1Error(409, 'HEARING_NOT_COMPLETED');
-    const [statements, answers, structuredAnswers] = await Promise.all([this.listStatements(caseId), this.listIntakeAnswers(caseId), this.listStructuredAnswers(caseId)]);
+    const [statements, answers, structuredAnswerEntries] = await Promise.all([this.listStatements(caseId), this.listIntakeAnswers(caseId), this.listStructuredAnswers(caseId)]);
+    const structuredAnswers = structuredAnswerEntries.map(x => x.answer);
+    const hearingKnowledgeStates = structuredAnswerEntries.map(x => ({ hearingUnitCode: x.answer.hearingUnitCode, semanticKey: x.answer.semanticKey, knowledgeState: x.knowledgeState }));
     const q2 = answers.find(a => a.questionCode === 'Q2');
     const q3 = answers.find(a => a.questionCode === 'Q3');
     const initial = await this.initialRule(caseId);
@@ -189,11 +191,11 @@ export class FreeDiagnosisRuleBasedCaseRepo {
       hasStatedOpportunityIntent: this.isAnswerPresent(q3?.value), verificationPurposes: initial.result.focusItems.filter(x => x.role !== 'OPPORTUNITY').flatMap(x => [{ focus: x.focus, triggerType: 'T1_KNOWLEDGE' as const }, { focus: x.focus, triggerType: 'T2_DECISION' as const }]),
     });
     const envelopes = answers.map(a => intakeAnswerEnvelopeSchema.parse(a.value));
-    const finalResult = runFinalRule({ intake: projectIntakeSemantics(envelopes), answers: structuredAnswers });
+    const finalResult = runFinalRule({ intake: projectIntakeSemantics(envelopes), answers: structuredAnswers, knowledgeStates: hearingKnowledgeStates });
     const executionId = randomUUID();
     await this.pool.query(
       `INSERT INTO rule_analysis_execution (id,case_id,status,rule_version,analysis_stage,input_snapshot_json,started_at,completed_at) VALUES ($1,$2,'SUCCEEDED',$3,'FINAL',$4,now(),now())`,
-      [executionId, caseId, finalResult.ruleVersion, JSON.stringify({ intake: envelopes, hearing: structuredAnswers })],
+      [executionId, caseId, finalResult.ruleVersion, JSON.stringify({ intake: envelopes, hearing: structuredAnswers, hearingKnowledgeStates })],
     );
     const findings: (TriggerFinding & { id: string })[] = [];
     for (const f of legacyResult.findings) {
