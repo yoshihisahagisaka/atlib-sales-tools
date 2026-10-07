@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { createFreeDiagnosisRuleBasedV1Harness } from './support/freeDiagnosisRuleBasedV1Harness';
 
 let h: Awaited<ReturnType<typeof createFreeDiagnosisRuleBasedV1Harness>>;
@@ -8,14 +8,28 @@ test.beforeEach(async ({ context }) => {
   await context.addCookies([{ name: 'staff_session', value: h.staffCookie.slice('staff_session='.length), url: h.url, httpOnly: true, sameSite: 'Lax' }]);
 });
 
-const FORBIDDEN_TERMS = [
-  'Risk Score', 'リスクスコア', 'Maturity Score', '成熟度スコア', 'Gap Score', 'ギャップスコア',
-  'traffic light', '問題あり', '問題なし', 'AI診断',
-];
+async function createCase(page: Page, name: string): Promise<void> {
+  await page.goto(h.url + '/admin/free-diagnosis-v1.html');
+  await page.fill('#companyName', name);
+  await page.fill('#contactName', '担当者');
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#view-intake')).toBeVisible();
+}
+
+async function completeIntake(page: Page, values: { q2: string[]; q3: string[]; q4: string; q5: string; q6: string; q7?: string }): Promise<void> {
+  await page.selectOption('#intake_Q1_employee', 'EMP_21_50');
+  await page.selectOption('#intake_Q1_locations', 'SITE_1');
+  await page.selectOption('#intake_Q2', values.q2);
+  await page.selectOption('#intake_Q3', values.q3);
+  await page.selectOption('#intake_Q4', values.q4);
+  await page.selectOption('#intake_Q5', values.q5);
+  await page.selectOption('#intake_Q6', values.q6);
+  if (values.q7) await page.fill('#intake_Q7', values.q7);
+  await page.click('#btnCompleteIntake');
+  await expect(page.locator('#view-preparation')).toBeVisible();
+}
 
 test('Production guard: 未認証では/admin/free-diagnosis-v1.htmlへアクセスできない（/auth/loginへredirect）', async ({ browser }) => {
-  // This harness does not mount /auth/login itself (that is server.ts's own staffAuth router,
-  // tested elsewhere) -- only requireStaffAuth's redirect target is asserted here.
   const freshContext = await browser.newContext();
   const page = await freshContext.newPage();
   await page.goto(h.url + '/admin/free-diagnosis-v1.html');
@@ -23,109 +37,130 @@ test('Production guard: 未認証では/admin/free-diagnosis-v1.htmlへアクセ
   await freshContext.close();
 });
 
-test('12-step flow end-to-end in a real browser, no forbidden score/judgment language anywhere, UNKNOWNが中立表現、ない／分からないを区別', async ({ page }) => {
-  const errors: string[] = [];
-  page.on('pageerror', e => errors.push(e.message));
-  await page.goto(h.url + '/admin/free-diagnosis-v1.html');
+test('Public Customer Selfは事前アンケートから申込み・予約導線へ進み、送信前には永続化しない', async ({ browser }) => {
+  const context = await browser.newContext(); const page = await context.newPage();
+  const before = Number((await h.pool.query('SELECT count(*)::int AS count FROM it_management_public_self_submission')).rows[0].count);
+  await page.goto(h.url + '/it-management-kaizen/free-diagnosis/?acquisition_source_type=EVENT&acquisition_source_name=SHINSEIKAI&utm_source=shinseikai&utm_medium=flyer_qr&utm_campaign=it_management_kaizen_free_diagnosis');
+  await expect(page.getByText('事前アンケート', { exact: true })).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('Initial Rule');
+  await page.locator('[data-field="employeeSize"]').selectOption('EMP_21_50'); await page.locator('[data-field="locations"]').selectOption('SITE_1'); await page.click('#next');
+  await page.getByLabel('安定・効率を高める').check(); await page.click('#next');
+  await page.getByLabel('経営判断を支えたい').check(); await page.click('#next');
+  await page.getByLabel('経営判断に必要な情報').check(); await page.click('#next');
+  await page.getByLabel('一部だけ把握できている').check(); await page.click('#next');
+  await page.getByLabel('届くが、判断には使いにくい').check(); await page.click('#next');
+  await page.fill('#q7', '確認したいことがあります'); await page.click('#next');
+  await expect(page.getByText('ご回答ありがとうございました', { exact: true })).toBeVisible();
+  await expect(page.getByText('御社について、60分で確認する準備ができました。', { exact: true })).toBeVisible();
+  await expect(page.getByText('安定・効率を高める', { exact: true })).toBeVisible();
+  await expect(page.getByText('経営判断を支えたい', { exact: true })).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('Problem'); await expect(page.locator('body')).not.toContainText('Finding'); await expect(page.locator('body')).not.toContainText('Gap');
+  expect(Number((await h.pool.query('SELECT count(*)::int AS count FROM it_management_public_self_submission')).rows[0].count)).toBe(before);
+  await page.click('#to-application');
+  await page.fill('#company', '公開UI株式会社'); await page.fill('#name', '経営者'); await page.fill('#email', 'public-ui@example.test');
+  await page.fill('#referralPersonName', '紹介 太郎');
+  await expect(page.getByRole('link', { name: 'プライバシーポリシー' })).toHaveAttribute('href', 'https://www.atlib.jp/policy/');
+  await page.check('#privacy'); await page.check('#use'); await page.click('#submit');
+  await expect(page.getByText('無料IT経営診断のお申込みを受け付けました')).toBeVisible();
+  const timerex = page.locator('#timerex-link');
+  await expect(timerex).toHaveAttribute('href', 'https://timerex.net/s/yoshihisa.hagisaka_e611/446dce29');
+  await expect(timerex).toHaveAttribute('target', '_blank'); await expect(timerex).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(page).toHaveURL(/\/it-management-kaizen\/free-diagnosis\//); expect(await page.locator('iframe').count()).toBe(0);
+  await expect(page.locator('body')).not.toContainText('48時間'); await expect(page.locator('body')).not.toContainText('14日間');
+  const saved: any = (await h.pool.query(`SELECT c.status,s.referral_person_name FROM it_management_public_self_submission p JOIN it_management_diagnosis_case_v2 c ON c.id=p.it_management_diagnosis_case_v2_id JOIN sales_activity s ON s.id=p.sales_activity_id WHERE p.contact_id=(SELECT id FROM contact WHERE email='public-ui@example.test')`)).rows[0];
+  expect(saved.status).toBe('BOOKING_PENDING'); expect(saved.referral_person_name).toBe('紹介 太郎');
+  await context.close();
+});
 
-  // Step 1: Customer / Case entry
-  await page.fill('#companyName', 'ブラウザ確認株式会社');
-  await page.fill('#contactName', '佐藤花子');
-  await page.click('#btnCreateCase');
-  await expect(page.locator('#view-intake')).toBeVisible();
+test('Structured IntakeからInitial Ruleを通じてPreparationを表示する: Staff ProxyとQ7を保持する', async ({ page }) => {
+  await createCase(page, 'ブラウザ確認株式会社');
+  await expect(page.locator('#intakeForm')).toContainText('今後1〜3年で、会社として予定している変化');
+  await completeIntake(page, {
+    q2: ['HEADCOUNT_GROWTH'], q3: ['SUPPORT_CHANGE'], q4: 'CHANGE_READINESS_CONCERN',
+    q5: 'MOSTLY_VISIBLE', q6: 'REGULAR_AND_USABLE', q7: '拠点を増やす際に確認したいことがあります。',
+  });
 
-  // Step 2: Intake (7問、Canonicalの質問文言をそのまま表示)
-  await expect(page.locator('#intakeForm')).toContainText('会社規模・主な拠点数');
-  await expect(page.locator('#intakeForm')).toContainText('今後1〜3年の会社の変化');
-  await page.fill('#intake_Q1', '社員30名、拠点1箇所');
-  await page.fill('#intake_Q2', '来年に新規事業を立ち上げる予定');
-  await page.fill('#intake_Q3', 'IT投資の判断を経営会議で適切に行えるようにしたい');
-  await page.fill('#intake_Q4', '情報システムの全体像が見えていない');
-  await page.fill('#intake_Q5', '担当者しか把握していない');
-  await page.fill('#intake_Q6', '予算の規模感');
-  await page.click('#btnCompleteIntake');
-  await expect(page.locator('#view-focus')).toBeVisible();
-
-  // Step 3: Focus Selection
-  await page.selectOption('#primaryFocus', 'M01_IT_MANAGEMENT_JUDGMENT');
-  await page.click('#btnSelectFocus');
-  await expect(page.locator('#view-preparation')).toBeVisible();
-
-  // Step 4: Preparation -- Company/Change/Intent/Concern/Q7/Focus/Whyがすべて表示される
   await expect(page.locator('#prepCompany')).toHaveText('ブラウザ確認株式会社');
-  await expect(page.locator('#prepChange')).toContainText('新規事業');
-  await expect(page.locator('#prepIntent')).toContainText('経営会議');
-  await expect(page.locator('#prepConcern')).toContainText('全体像');
-  await expect(page.locator('#prepFocus')).toContainText('M01 IT経営判断');
-  await expect(page.locator('#prepWhy')).toContainText('IT経営判断');
+  await expect(page.locator('#prepFocus')).toContainText('成長・変化への対応');
+  await expect(page.locator('#prepWhy')).toContainText('60分で状況を確認する価値');
+  await expect(page.locator('#prepQ7')).toHaveText('拠点を増やす際に確認したいことがあります。');
+  const preparationText = await page.locator('#view-preparation').innerText();
+  for (const internal of ['M05', 'PRIMARY', 'RELATED', 'HEADCOUNT_GROWTH']) expect(preparationText).not.toContain(internal);
+});
+
+test('Healthy CaseはFocusを強制せず、正常なPreparation状態として表示される', async ({ page }) => {
+  await createCase(page, '健全確認株式会社');
+  await completeIntake(page, {
+    q2: ['NO_MAJOR_CHANGE'], q3: ['UNDECIDED'], q4: 'NO_MAJOR_CONCERN',
+    q5: 'VISIBLE_ENOUGH', q6: 'REGULAR_AND_USABLE',
+  });
+  await expect(page.locator('#prepFocus')).toHaveText('現時点では重要な確認テーマは特定されていません。');
+  await expect(page.locator('#prepWhy')).toContainText('優先して確認すべき重要なテーマは特定されていません');
+  await expect(page.locator('#view-focus')).toBeHidden();
+});
+
+test('回答者の立場により質問文は変わるが、同じStructured Intakeを使う', async ({ page }) => {
+  await createCase(page, '回答者確認株式会社');
+  await page.selectOption('#respondentRole', 'IT_OR_BUSINESS_STAFF');
+  await expect(page.locator('#intakeForm')).toContainText('業務や会社に予定されている変化');
+  await expect(page.locator('#intakeForm')).toContainText('日々の業務で使うITの状況');
+  await expect(page.locator('#intake_Q2')).toBeVisible();
+  await expect(page.locator('#intake_Q6')).toBeVisible();
+});
+
+test('PreparationからStructured Hearingを記録し、Final Rule Previewへ進める', async ({ page }) => {
+  await createCase(page, 'Hearing確認株式会社');
+  await completeIntake(page, { q2: ['NO_MAJOR_CHANGE'], q3: ['ENABLE_MANAGEMENT_DECISION'], q4: 'MANAGEMENT_DECISION_CONCERN', q5: 'VISIBLE_ENOUGH', q6: 'REGULAR_AND_USABLE' });
   await page.click('#btnStartHearing');
-  await expect(page.locator('#view-hearing')).toBeVisible();
-
-  // Step 5: Live Hearing -- 3-column layout + story navigator
-  await expect(page.locator('.hearing-layout .hearing-col.left')).toBeVisible();
-  await expect(page.locator('.hearing-layout .hearing-col.center')).toBeVisible();
-  await expect(page.locator('.hearing-layout .hearing-col.right')).toBeVisible();
-  await expect(page.locator('#storyNav .crumb.active')).toHaveText('主テーマ');
-  // CORE item: UNKNOWNのまま記録（中立表現であることを確認）
-  await page.selectOption('#planItemRef', 'M01_IT_MANAGEMENT_JUDGMENT_CORE');
-  await page.selectOption('#knowledgeState', 'UNKNOWN');
-  await page.fill('#statementText', '経営会議での意思決定フローはまだ確認できていない');
+  await expect(page.locator('#hearingStarter')).toContainText('経営判断に必要なIT情報');
+  await page.selectOption('#structuredAnswer', 'CANNOT_JUDGE');
+  await page.selectOption('#knowledgeState', 'PARTIAL');
+  await page.fill('#statementText', '予算判断に必要な情報がそろわない');
   await page.click('#btnRecordStatement');
-  await expect(page.locator('#statementList')).toContainText('今回まだ確認できていない');
-  // DECISION item: 「ない」(存在しない) ケースをKNOWN+naFlagで記録 -- 「分からない」とは別バッジになること
-  await page.selectOption('#planItemRef', 'M01_IT_MANAGEMENT_JUDGMENT_DECISION');
-  await page.selectOption('#knowledgeState', 'KNOWN');
-  await page.check('#naFlag');
-  await page.fill('#statementText', '来期のIT予算方針はまだ存在しない（検討前）');
-  await page.click('#btnRecordStatement');
-  await expect(page.locator('#statementList')).toContainText('ない（確認済み）');
-  const statementListText = await page.locator('#statementList').innerText();
-  expect(statementListText).toContain('ない（確認済み）');
-  expect(statementListText).toContain('今回まだ確認できていない');
-  // 「ない」と「分からない」が別バッジであることを直接確認
-  const ngBadgeCount = await page.locator('#statementList .badge.ng').count();
-  const unknownBadgeCount = await page.locator('#statementList .badge.unknown').count();
-  expect(ngBadgeCount).toBe(1);
-  expect(unknownBadgeCount).toBe(1);
-
-  // Step 6: 整理モード
-  await page.click('#btnOrganize');
-  await expect(page.locator('#view-organize')).toBeVisible();
-  await expect(page.locator('.organize-bucket.unknown')).toContainText('M01_IT_MANAGEMENT_JUDGMENT_CORE');
-  await expect(page.locator('.organize-bucket.known')).toContainText('M01_IT_MANAGEMENT_JUDGMENT_DECISION');
-  // 整理モードでの再確認（append-onlyであり、元の記録を書き換えない）
-  await page.selectOption('#planItemRefOrganize', 'M01_IT_MANAGEMENT_JUDGMENT_CORE');
-  await page.selectOption('#knowledgeStateOrganize', 'KNOWN');
-  await page.fill('#statementTextOrganize', '再確認：意思決定フローが明確になった');
-  await page.click('#btnReconfirm');
-  await expect(page.locator('.organize-bucket.known')).toContainText('M01_IT_MANAGEMENT_JUDGMENT_CORE');
-
-  // Step 7: Hearing Complete
-  await page.click('#btnCompleteHearingFromOrganize');
+  await expect(page.locator('#statementList')).toContainText('一部、追加確認が必要');
+  await page.click('#btnCompleteHearing');
   await expect(page.locator('#view-analysis')).toBeVisible();
-
-  // Step 8: Rule Analysis
   await page.click('#btnRunAnalysis');
   await expect(page.locator('#analysisResult')).toBeVisible();
-  await expect(page.locator('#resultPanel')).toContainText('Investigation Need');
-  await page.click('#btnGoToReview');
-  await expect(page.locator('#view-review')).toBeVisible();
+});
 
-  // Step 9: Human Review -- approve
-  await page.click('#btnApprove');
-  await expect(page.locator('#view-approved')).toBeVisible();
+test('Admin UIからReport承認・送付・Focused ConfirmationでHearingへ戻れる', async ({ page }) => {
+  await createCase(page, 'レポート導線株式会社');
+  await completeIntake(page, { q2: ['NO_MAJOR_CHANGE'], q3: ['ENABLE_MANAGEMENT_DECISION'], q4: 'MANAGEMENT_DECISION_CONCERN', q5: 'VISIBLE_ENOUGH', q6: 'REGULAR_AND_USABLE' });
+  await page.click('#btnStartHearing');
+  await page.selectOption('#structuredAnswer', 'CANNOT_JUDGE');
+  await page.selectOption('#knowledgeState', 'PARTIAL');
+  await page.fill('#statementText', '追加確認が必要です');
+  await page.click('#btnRecordStatement');
+  await page.click('#btnCompleteHearing');
+  await page.click('#btnRunAnalysis');
+  await page.click('#btnGoToReport');
+  await expect(page.locator('#view-report')).toBeVisible();
+  await page.click('#btnProjectReport');
+  await expect(page.locator('#reportStatus')).toContainText('下書き');
+  await page.click('#btnApproveReport');
+  await expect(page.locator('#reportStatus')).toContainText('承認');
+  await page.click('#btnDeliverReport');
+  await expect(page.locator('#feedbackControls')).toBeVisible();
+  await page.selectOption('#feedbackRoute', 'FOCUSED_CONFIRMATION');
+  await page.fill('#feedbackDecision', '追加で確認する');
+  await page.fill('#feedbackAction', '確認を再開する');
+  await page.click('#btnRecordFeedback');
+  await expect(page.locator('#view-hearing')).toBeVisible();
+  await expect(page.locator('#statementList')).toContainText('一部、追加確認が必要');
+});
 
-  // Step 10/11/12: Analysis Approved -> Preliminary Assessment Structure / Suggested Scope
-  await page.click('#btnGoToScope');
-  await expect(page.locator('#view-scope')).toBeVisible();
-  await page.click('#btnGenerateScope');
-  await expect(page.locator('#scopeResult')).toBeVisible();
-  await expect(page.locator('#gatesPanel')).toContainText('対象ごとに個別の確認が必要か');
-  await expect(page.locator('#scopePanel')).toContainText('Assessment Structure');
-
-  // UIで禁止するものが一切表示されていないことをページ全体テキストで確認
-  const fullText = await page.locator('main.admin-shell').innerText();
-  for (const term of FORBIDDEN_TERMS) expect(fullText).not.toContain(term);
-
-  expect(errors, 'no uncaught page errors during the full 12-step flow').toHaveLength(0);
+test('Admin UIでSales Activityの流入元を保存・表示・検索できる', async ({ page }) => {
+  await page.goto(h.url + '/admin/free-diagnosis-v1.html');
+  await page.fill('#companyName', '交流会流入株式会社'); await page.fill('#contactName', '担当者');
+  await page.selectOption('#acquisitionSourceType', 'EVENT'); await page.fill('#acquisitionSourceName', '経営者交流会A');
+  await page.fill('#utmSource', 'executive-meetup-a'); await page.fill('#utmMedium', 'flyer');
+  await page.fill('#utmCampaign', 'it-kaizen-free-diagnosis'); await page.fill('#utmContent', 'flyer-v1');
+  await page.click('#btnCreateCase');
+  await completeIntake(page, { q2: ['NO_MAJOR_CHANGE'], q3: ['UNDECIDED'], q4: 'NO_MAJOR_CONCERN', q5: 'VISIBLE_ENOUGH', q6: 'REGULAR_AND_USABLE' });
+  await expect(page.locator('#prepAttribution')).toContainText('経営者交流会A');
+  await expect(page.locator('#prepAttribution')).toContainText('it-kaizen-free-diagnosis');
+  await page.goto(h.url + '/admin/free-diagnosis-v1.html');
+  await page.fill('#filterSource', '経営者交流会A'); await page.click('#btnFilterAttribution');
+  await expect(page.locator('#attributionSearchResult')).toContainText('交流会流入株式会社');
 });

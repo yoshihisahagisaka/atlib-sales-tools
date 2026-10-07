@@ -48,6 +48,15 @@ export async function createDiagnosisHarness(notify?: CompletionNotifier, provid
   await db.exec(fs.readFileSync(path.join(root, 'migrations/010_it_management_diagnosis_human_review.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/011_it_management_diagnosis_report_feedback.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/012_it_management_diagnosis_assessment_handoff.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/015_management_feedback_decision.sql'), 'utf8'));
+  // Phase 2C-2 coexistence guard: legacy suites execute with the additive VS1
+  // ownership/source constraints already applied. No legacy data is converted.
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/027_free_diagnosis_rule_based_v1.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/028_free_diagnosis_current_design_v1_phase1_draft.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/029_vs1_report_feedback_shared_artifacts.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/030_sales_activity_marketing_attribution.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/031_public_customer_self_submission.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/032_sales_activity_referral_person_name.sql'), 'utf8'));
   let tail = Promise.resolve();
   async function acquire() {
     const previous = tail;
