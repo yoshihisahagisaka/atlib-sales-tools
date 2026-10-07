@@ -83,7 +83,10 @@ export class FreeDiagnosisRuleBasedCaseRepo {
 
   async hearingUnits(caseId: string) {
     const initial = await this.initialRule(caseId);
-    return initial.result.focusItems.map(x => hearingUnitForFocus(x.focus));
+    const contexts = initial.result.focusItems.length
+      ? initial.result.focusItems.map(x => x.focus)
+      : initial.result.relevanceReferences.map(x => x.focus);
+    return [...new Set(contexts)].map(hearingUnitForFocus);
   }
 
   async completeIntake(caseId: string, expectedVersion: number): Promise<CaseRow> {
@@ -170,13 +173,16 @@ export class FreeDiagnosisRuleBasedCaseRepo {
   async runAndPersistRuleAnalysis(caseId: string, expectedVersion: number): Promise<{ executionId: string; result: RuleAnalysisResult & { final: FinalRuleResult }; findings: (TriggerFinding & { id: string })[] }> {
     const kase = await this.getCase(caseId);
     if (!kase || kase.status !== 'HEARING_COMPLETED') throw new RuleBasedV1Error(409, 'HEARING_NOT_COMPLETED');
-    if (!kase.primaryFocus) throw new RuleBasedV1Error(409, 'FOCUS_NOT_SELECTED');
     const [statements, answers, structuredAnswers] = await Promise.all([this.listStatements(caseId), this.listIntakeAnswers(caseId), this.listStructuredAnswers(caseId)]);
     const q2 = answers.find(a => a.questionCode === 'Q2');
     const q3 = answers.find(a => a.questionCode === 'Q3');
     const initial = await this.initialRule(caseId);
+    const healthyVerificationFocus = initial.result.focusItems.length === 0
+      ? initial.result.relevanceReferences[0]?.focus ?? null
+      : null;
+    if (!kase.primaryFocus && !healthyVerificationFocus) throw new RuleBasedV1Error(409, 'FOCUS_NOT_SELECTED');
     const legacyResult = runRuleAnalysis({
-      primaryFocus: kase.primaryFocus,
+      primaryFocus: kase.primaryFocus ?? healthyVerificationFocus!,
       secondaryFocus: kase.secondaryFocus,
       statements,
       hasStatedChangeIntent: this.isAnswerPresent(q2?.value),

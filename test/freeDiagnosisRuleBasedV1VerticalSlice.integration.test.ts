@@ -245,6 +245,28 @@ test('Public Customer Selfは明示Attributionを保持し、並行同一送信�
   assert.equal(invalid.status, 400);
 });
 
+test('Healthy Case: Future relevanceだけでもVerification HearingからGapなしReport、STOP_HOLD完了まで進める', async () => {
+  const activity = await (await req('/sales-activities', 'POST', { name: 'Healthy Future株式会社', contact: { name: '経営者' }, selectedService: 'IT_KAIZEN' })).json() as any;
+  let kase = await (await req(`/sales-activities/${activity.salesActivityId}/cases`, 'POST', {})).json() as any;
+  const values: Record<string, unknown> = { Q1:{employeeSize:'EMP_21_50',locations:'SITE_1'}, Q2:['HEADCOUNT_GROWTH','SITE_CHANGE'], Q3:['SUPPORT_CHANGE'], Q4:'NO_MAJOR_CONCERN', Q5:'VISIBLE_ON_REQUEST', Q6:'REGULAR_AND_USABLE' };
+  for (const q of ['Q1','Q2','Q3','Q4','Q5','Q6']) await req(`/cases/${kase.id}/intake`, 'POST', { questionCode:q,channel:'SELF',value:{schemaVersion:1,questionCode:q,answerValue:values[q],responseState:'ANSWERED',respondent:{role:'MANAGEMENT'},provenance:{channel:'SELF',source:'CUSTOMER_SELF'}} });
+  kase = await (await req(`/cases/${kase.id}/intake/complete`, 'POST', { expectedVersion:kase.version })).json();
+  const preparation:any = await (await req(`/cases/${kase.id}/preparation/start`, 'POST', { expectedVersion:kase.version })).json();
+  assert.equal(preparation.preparation.result.noImportantConfirmation, true); assert.equal(preparation.preparation.result.focusItems.length, 0); assert.equal(preparation.case.primaryFocus, null);
+  kase = await (await req(`/cases/${kase.id}/hearing/start`, 'POST', { expectedVersion:preparation.case.version })).json();
+  const units:any[] = (await (await req(`/cases/${kase.id}/hearing/units`)).json()).items; assert.ok(units.length > 0);
+  const unit=units[0];
+  await req(`/cases/${kase.id}/hearing/statements`, 'POST', { planItemRef:unit.unitCode,statementText:'現時点で大きな支障は認識されていない',knowledgeState:'KNOWN',structuredAnswer:{schemaVersion:1,hearingUnitCode:unit.unitCode,semanticKey:unit.semanticKey,answerValue:'CAN_JUDGE',responseState:'ANSWERED',respondent:{role:'MANAGEMENT'},provenance:{channel:'SELF',source:'CUSTOMER_SELF'},completionStatus:'COMPLETE'} });
+  kase = await (await req(`/cases/${kase.id}/hearing/complete`, 'POST', { expectedVersion:kase.version })).json();
+  const final:any = await (await req(`/cases/${kase.id}/rule-analysis/run`, 'POST', { expectedVersion:kase.version })).json();
+  assert.equal(final.result.final.noImportantGapIdentified, true); assert.equal(final.result.final.gapPossibilities.length, 0); assert.equal(final.result.final.improvementOpportunities.length, 0); assert.equal(final.findings.length, 0);
+  await req(`/cases/${kase.id}/final-review/project`, 'POST', { executionId:final.executionId });
+  const draft:any = await (await req(`/cases/${kase.id}/reports/draft`, 'POST', {})).json();
+  await req(`/cases/${kase.id}/reports/${draft.id}/approve`, 'POST', {}); await req(`/cases/${kase.id}/reports/${draft.id}/deliver`, 'POST', {}); await req(`/cases/${kase.id}/feedback/start`, 'POST', {});
+  const complete:any = await (await req(`/cases/${kase.id}/feedback/decision`, 'POST', { route:'STOP_HOLD',materialDecision:'現時点で追加対応は不要',nextAction:'変化時に再確認' })).json();
+  assert.equal(complete.status, 'CLOSED'); assert.equal((await h.pool.query('SELECT id FROM assessment_handoffs')).rowCount, 0);
+});
+
 test('12-step Vertical Slice 1: Internal Customer entry -> Intake -> Initial Rule -> Preparation -> Hearing -> 整理 -> Complete -> Rule Analysis -> Human Review -> Analysis Approved -> Preliminary Structure/Scope', async () => {
   // Step 1: Internal Customer / Case entry
   const activityRes = await req('/sales-activities', 'POST', {
