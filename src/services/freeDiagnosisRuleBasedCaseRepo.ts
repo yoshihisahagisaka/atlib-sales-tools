@@ -96,6 +96,11 @@ export class FreeDiagnosisRuleBasedCaseRepo {
     return this.transition(caseId, ['INTAKE_IN_PROGRESS'], 'INTAKE_COMPLETED', expectedVersion);
   }
 
+  /** A public self submission awaits an external booking before staff preparation. */
+  async markBookingPending(caseId: string, expectedVersion: number): Promise<CaseRow> {
+    return this.transition(caseId, ['INTAKE_COMPLETED'], 'BOOKING_PENDING', expectedVersion);
+  }
+
   async selectFocus(caseId: string, input: FocusSelectionInput, expectedVersion: number): Promise<CaseRow> {
     return this.transition(caseId, ['INTAKE_COMPLETED'], 'FOCUS_SELECTED', expectedVersion,
       ', primary_focus=$5, secondary_focus=$6', [input.primaryFocus, input.secondaryFocus ?? null]);

@@ -220,22 +220,30 @@ test('Sales Activity attributionはCase chainで追跡でき、Entry Channel/Pro
 test('Public Customer Selfは明示Attributionを保持し、並行同一送信は同じCaseへ収束し、同一人物の再診断を妨げない', async () => {
   const idempotencyKey = randomUUID();
   const self = (questionCode: string, answerValue: unknown) => ({ schemaVersion: 1, questionCode, answerValue, responseState: 'ANSWERED', respondent: { role: 'MANAGEMENT' }, provenance: { channel: 'SELF', source: 'CUSTOMER_SELF' } });
-  const payload = { idempotencyKey, company: { name: '公開申込株式会社' }, contact: { name: '経営者', email: 'same@example.test', respondentRole: 'MANAGEMENT' },
+  const payload = { idempotencyKey, company: { name: '公開申込株式会社' }, contact: { name: '経営者', email: 'same@example.test', respondentRole: 'MANAGEMENT' }, referralPersonName: '交流会のご紹介者',
     answers: [self('Q1',{employeeSize:'EMP_21_50',locations:'SITE_1'}),self('Q2',['STABILITY_EFFICIENCY']),self('Q3',['ENABLE_MANAGEMENT_DECISION']),self('Q4','MANAGEMENT_DECISION_CONCERN'),self('Q5','PARTIALLY_VISIBLE'),self('Q6','DELIVERED_NOT_USABLE'),self('Q7','事前に確認したいこと')],
     consent: { privacy: true, diagnosisUse: true, wordingVersion: 'it_management_public_self_consent_v1' },
     attribution: { acquisitionSourceType: 'EVENT', acquisitionSourceName: 'SHINSEIKAI', utmSource: 'shinseikai', utmMedium: 'flyer_qr', utmCampaign: 'it_management_kaizen_free_diagnosis', utmContent: 'flyer-v1', utmTerm: undefined, landingUrl: 'https://example.test/it-management-kaizen/free-diagnosis/?utm_source=shinseikai', referrer: 'https://example.test/' } };
   const [first, replay] = await Promise.all([publicReq('/submissions', payload), publicReq('/submissions', payload)]);
   const a: any = await first.json(), b: any = await replay.json(); assert.ok([200,201].includes(first.status), JSON.stringify(a)); assert.ok([200,201].includes(replay.status), JSON.stringify(b)); assert.equal(a.caseId, b.caseId);
   const detail: any = await (await req(`/cases/${a.caseId}`)).json();
-  assert.equal(detail.case.isInternalTest, false); assert.equal(detail.case.status, 'INTAKE_COMPLETED');
+  assert.equal(detail.case.isInternalTest, false); assert.equal(detail.case.status, 'BOOKING_PENDING');
   assert.equal(detail.intake.length, 7); assert.ok(detail.intake.every((x: any) => x.value.provenance.source === 'CUSTOMER_SELF'));
   assert.equal(detail.salesActivity.attribution.acquisitionSourceType, 'EVENT'); assert.equal(detail.salesActivity.attribution.acquisitionSourceName, 'SHINSEIKAI');
+  assert.equal((await h.launcher.getSalesActivity(detail.case.salesActivityId))?.referralPersonName, '交流会のご紹介者');
   const consent: any = (await h.db.query('SELECT * FROM it_management_public_self_submission WHERE it_management_diagnosis_case_v2_id=$1', [a.caseId])).rows[0];
   assert.equal(consent.consent_provenance, 'CUSTOMER_SELF'); assert.equal(consent.privacy_consent, true);
   const withoutQ7 = { ...payload, idempotencyKey: randomUUID(), answers: payload.answers.slice(0, 6), attribution: { landingUrl: 'https://example.test/it-management-kaizen/free-diagnosis/' } };
   const next: any = await (await publicReq('/submissions', withoutQ7)).json(); assert.notEqual(next.caseId, a.caseId);
   const nextDetail: any = await (await req(`/cases/${next.caseId}`)).json(); assert.equal(nextDetail.intake.length, 6); assert.equal(nextDetail.salesActivity.attribution, null);
+  assert.equal((await h.launcher.getSalesActivity(nextDetail.case.salesActivityId))?.referralPersonName, '交流会のご紹介者');
+  const { referralPersonName: _referral, ...noReferralPayload } = payload;
+  const noReferral: any = await (await publicReq('/submissions', { ...noReferralPayload, idempotencyKey: randomUUID() }, '203.0.113.9')).json();
+  const noReferralCase = await (await req(`/cases/${noReferral.caseId}`)).json();
+  assert.equal((await h.launcher.getSalesActivity(noReferralCase.case.salesActivityId))?.referralPersonName, null);
+  assert.deepEqual((await h.cases.initialRule(a.caseId)).result, (await h.cases.initialRule(noReferral.caseId)).result);
   const altered = await publicReq('/submissions', { ...payload, company: { name: '別会社' } }); assert.equal(altered.status, 409);
+  const alteredReferral = await publicReq('/submissions', { ...payload, referralPersonName: '別の紹介者' }); assert.equal(alteredReferral.status, 409);
 
   const partner = { ...payload, idempotencyKey: randomUUID(), attribution: { ...payload.attribution, acquisitionSourceType: 'PARTNER', acquisitionSourceName: 'ONLYSTORY', utmSource: 'onlystory' } };
   const partnerResponse = await publicReq('/submissions', partner, '203.0.113.10'); assert.equal(partnerResponse.status, 201); const partnerResult: any = await partnerResponse.json();

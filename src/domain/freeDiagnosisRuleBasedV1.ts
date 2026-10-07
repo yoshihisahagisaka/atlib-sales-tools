@@ -62,6 +62,8 @@ export const createCompanySchema = z.object({
     jobTitle: z.string().trim().min(1).max(100).nullish(),
   }),
   selectedService: z.enum(SELECTED_SERVICE),
+  // Sales context; deliberately separate from marketing attribution and diagnosis input.
+  referralPersonName: z.string().trim().min(1).max(200).nullish(),
   attribution: z.object({
     acquisitionSourceType: z.enum(ACQUISITION_SOURCE_TYPE).nullish(),
     acquisitionSourceName: z.string().trim().min(1).max(200).nullish(),
@@ -130,6 +132,7 @@ export const publicCustomerSelfSubmissionSchema = z.object({
   contact: z.object({ name: z.string().trim().min(1).max(200), email: z.string().trim().email().max(320), phone: publicText(50), jobTitle: publicText(100), respondentRole: z.enum(RESPONDENT_ROLE) }).strict(),
   answers: z.array(intakeAnswerEnvelopeSchema).min(6).max(7),
   consent: z.object({ privacy: z.literal(true), diagnosisUse: z.literal(true), wordingVersion: z.literal('it_management_public_self_consent_v1') }).strict(),
+  referralPersonName: publicText(200),
   attribution: z.object({
     acquisitionSourceType: z.enum(ACQUISITION_SOURCE_TYPE).optional(),
     acquisitionSourceName: publicText(200),

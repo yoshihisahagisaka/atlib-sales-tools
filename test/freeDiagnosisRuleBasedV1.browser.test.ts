@@ -37,8 +37,9 @@ test('Production guard: 未認証では/admin/free-diagnosis-v1.htmlへアクセ
   await freshContext.close();
 });
 
-test('Public Customer Selfは内部コードを表示せず、SELFとして正式送信できる', async ({ browser }) => {
+test('Public Customer Selfは事前アンケートから申込み・予約導線へ進み、送信前には永続化しない', async ({ browser }) => {
   const context = await browser.newContext(); const page = await context.newPage();
+  const before = Number((await h.pool.query('SELECT count(*)::int AS count FROM it_management_public_self_submission')).rows[0].count);
   await page.goto(h.url + '/it-management-kaizen/free-diagnosis/?acquisition_source_type=EVENT&acquisition_source_name=SHINSEIKAI&utm_source=shinseikai&utm_medium=flyer_qr&utm_campaign=it_management_kaizen_free_diagnosis');
   await expect(page.getByText('事前アンケート', { exact: true })).toBeVisible();
   await expect(page.locator('body')).not.toContainText('Initial Rule');
@@ -49,10 +50,25 @@ test('Public Customer Selfは内部コードを表示せず、SELFとして正�
   await page.getByLabel('一部だけ把握できている').check(); await page.click('#next');
   await page.getByLabel('届くが、判断には使いにくい').check(); await page.click('#next');
   await page.fill('#q7', '確認したいことがあります'); await page.click('#next');
+  await expect(page.getByText('ご回答ありがとうございました', { exact: true })).toBeVisible();
+  await expect(page.getByText('御社について、60分で確認する準備ができました。', { exact: true })).toBeVisible();
+  await expect(page.getByText('安定・効率を高める', { exact: true })).toBeVisible();
+  await expect(page.getByText('経営判断を支えたい', { exact: true })).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('Problem'); await expect(page.locator('body')).not.toContainText('Finding'); await expect(page.locator('body')).not.toContainText('Gap');
+  expect(Number((await h.pool.query('SELECT count(*)::int AS count FROM it_management_public_self_submission')).rows[0].count)).toBe(before);
+  await page.click('#to-application');
   await page.fill('#company', '公開UI株式会社'); await page.fill('#name', '経営者'); await page.fill('#email', 'public-ui@example.test');
+  await page.fill('#referralPersonName', '紹介 太郎');
   await expect(page.getByRole('link', { name: 'プライバシーポリシー' })).toHaveAttribute('href', 'https://www.atlib.jp/policy/');
   await page.check('#privacy'); await page.check('#use'); await page.click('#submit');
-  await expect(page.getByText('事前アンケートを受け付けました')).toBeVisible();
+  await expect(page.getByText('無料IT経営診断のお申込みを受け付けました')).toBeVisible();
+  const timerex = page.locator('#timerex-link');
+  await expect(timerex).toHaveAttribute('href', 'https://timerex.net/s/yoshihisa.hagisaka_e611/446dce29');
+  await expect(timerex).toHaveAttribute('target', '_blank'); await expect(timerex).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(page).toHaveURL(/\/it-management-kaizen\/free-diagnosis\//); expect(await page.locator('iframe').count()).toBe(0);
+  await expect(page.locator('body')).not.toContainText('48時間'); await expect(page.locator('body')).not.toContainText('14日間');
+  const saved: any = (await h.pool.query(`SELECT c.status,s.referral_person_name FROM it_management_public_self_submission p JOIN it_management_diagnosis_case_v2 c ON c.id=p.it_management_diagnosis_case_v2_id JOIN sales_activity s ON s.id=p.sales_activity_id WHERE p.contact_id=(SELECT id FROM contact WHERE email='public-ui@example.test')`)).rows[0];
+  expect(saved.status).toBe('BOOKING_PENDING'); expect(saved.referral_person_name).toBe('紹介 太郎');
   await context.close();
 });
 

@@ -43,6 +43,7 @@ export class PublicCustomerSelfSubmissionService {
       const activity = await launcher.createSalesActivity({
         name: input.company.name, corporateNumber: input.company.corporateNumber,
         contact: { name: input.contact.name, email: input.contact.email, phone: input.contact.phone, jobTitle: input.contact.jobTitle }, selectedService: 'IT_KAIZEN',
+        referralPersonName: input.referralPersonName,
         attribution: hasAttribution ? {
           acquisitionSourceType: input.attribution.acquisitionSourceType!, acquisitionSourceName: input.attribution.acquisitionSourceName!,
           utmSource: input.attribution.utmSource, utmMedium: input.attribution.utmMedium, utmCampaign: input.attribution.utmCampaign,
@@ -55,13 +56,14 @@ export class PublicCustomerSelfSubmissionService {
       }
       const completed = await cases.completeIntake(kase.id, kase.version);
       await cases.initialRule(completed.id); // deterministic validation/connection; presentation remains staff-only.
+      const bookingPending = await cases.markBookingPending(completed.id, completed.version);
       const inserted = await client.query<{ it_management_diagnosis_case_v2_id: string }>(
         `INSERT INTO it_management_public_self_submission
          (idempotency_key,payload_hash,company_id,contact_id,sales_activity_id,it_management_diagnosis_case_v2_id,privacy_consent,diagnosis_use_consent,consent_wording_version,consent_provenance)
          VALUES ($1,$2,$3,$4,$5,$6,true,true,$7,'CUSTOMER_SELF')
          ON CONFLICT (idempotency_key) DO NOTHING
          RETURNING it_management_diagnosis_case_v2_id`,
-        [input.idempotencyKey, hash, activity.companyId, activity.contactId, activity.salesActivityId, completed.id, input.consent.wordingVersion],
+        [input.idempotencyKey, hash, activity.companyId, activity.contactId, activity.salesActivityId, bookingPending.id, input.consent.wordingVersion],
       );
       if (!inserted.rows[0]) {
         await client.query('ROLLBACK TO SAVEPOINT create_public_submission');
@@ -74,7 +76,7 @@ export class PublicCustomerSelfSubmissionService {
         return { caseId: winner.rows[0].it_management_diagnosis_case_v2_id, created: false };
       }
       await client.query('COMMIT');
-      return { caseId: completed.id, created: true };
+      return { caseId: bookingPending.id, created: true };
     } catch (error) {
       await client.query('ROLLBACK').catch(() => undefined);
       throw error;
