@@ -99,3 +99,16 @@ test('production config fail-fast; migration only needs DB config; Human-only co
     delete process.env.DB_NAME; await assert.rejects(loadDatabaseConfig(), /DB_NAME/);
   } finally { for (const name of Object.keys(process.env)) if (!(name in before)) delete process.env[name]; Object.assign(process.env, before); }
 });
+
+test('migration credentials are independent from runtime credentials and fail closed', async () => {
+  const before = { ...process.env };
+  try {
+    Object.assign(process.env,{DB_NAME:'synthetic',DB_USER:'runtime_user',DB_PASSWORD:'runtime_password',DB_SOCKET_PATH:'/cloudsql/synthetic'});
+    delete process.env.DB_MIGRATION_USER; delete process.env.DB_MIGRATION_PASSWORD;
+    await assert.rejects(loadDatabaseConfig('migration'),/DB_MIGRATION_USER/);
+    process.env.DB_MIGRATION_USER='migration_user'; process.env.DB_MIGRATION_PASSWORD='migration_password';
+    const migration=await loadDatabaseConfig('migration'),runtime=await loadDatabaseConfig('runtime');
+    assert.equal(migration.user,'migration_user'); assert.equal(migration.password,'migration_password'); assert.equal(migration.socketPath,'/cloudsql/synthetic');
+    assert.equal(runtime.user,'runtime_user'); assert.equal(runtime.password,'runtime_password');
+  } finally { for (const name of Object.keys(process.env)) if (!(name in before)) delete process.env[name]; Object.assign(process.env,before); }
+});
