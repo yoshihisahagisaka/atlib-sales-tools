@@ -1,5 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createFreeDiagnosisRuleBasedV1Harness } from './support/freeDiagnosisRuleBasedV1Harness';
+import { intakeAnswerEnvelopeSchema } from '../src/domain/freeDiagnosisRuleBasedV1';
+import { projectIntakeSemantics } from '../src/domain/intakeSemanticProjection';
+import { runInitialRule } from '../src/domain/initialRuleEngine';
 
 let h: Awaited<ReturnType<typeof createFreeDiagnosisRuleBasedV1Harness>>;
 test.beforeAll(async () => { h = await createFreeDiagnosisRuleBasedV1Harness(); });
@@ -83,6 +86,35 @@ test('Public Customer Selfは事前アンケートから申込み・予約導線
   const saved: any = (await h.pool.query(`SELECT c.status,s.referral_person_name FROM it_management_public_self_submission p JOIN it_management_diagnosis_case_v2 c ON c.id=p.it_management_diagnosis_case_v2_id JOIN sales_activity s ON s.id=p.sales_activity_id WHERE p.contact_id=(SELECT id FROM contact WHERE email='public-ui@example.test')`)).rows[0];
   expect(saved.status).toBe('BOOKING_PENDING'); expect(saved.referral_person_name).toBe('紹介 太郎');
   await context.close();
+});
+
+test('Public Customer Selfは質問内の回答としてUNKNOWNと回答者の立場による未確認を保存し、Ruleで問題化しない', async ({ browser }) => {
+  const context = await browser.newContext(); const page = await context.newPage();
+  await page.goto(h.url + '/it-management-kaizen/free-diagnosis/');
+  await page.getByLabel('経営者・役員').check(); await page.click('#start-questions');
+  await page.locator('[data-field="employeeSize"]').selectOption('EMP_21_50'); await page.locator('[data-field="locations"]').selectOption('SITE_1'); await page.click('#next');
+  await page.getByLabel('安定・効率を高める').check(); await page.click('#next');
+  await page.getByLabel('経営判断を支えたい').check(); await page.click('#next');
+  await expect(page.getByLabel('分からない', { exact: true })).toBeVisible(); await expect(page.getByLabel('私の立場では分からない', { exact: true })).toBeVisible();
+  await page.getByLabel('分からない', { exact: true }).check(); await page.click('#next');
+  await page.getByLabel('一部だけ把握できている').check(); await page.click('#next');
+  await expect(page.getByLabel('私の立場では分からない', { exact: true })).toBeVisible(); await page.getByLabel('私の立場では分からない', { exact: true }).check(); await page.click('#next');
+  await page.click('#next'); await page.click('#to-application');
+  await page.fill('#company', '回答状態確認株式会社'); await page.fill('#name', '経営者'); await page.fill('#email', 'response-state@example.test');
+  await page.check('#privacy'); await page.check('#use'); await page.click('#submit');
+  await expect(page.getByText('無料IT経営診断のお申込みを受け付けました')).toBeVisible();
+  const rows: any[] = (await h.pool.query(`SELECT r.raw_value_json FROM hearing_intake_response_v2 r JOIN it_management_public_self_submission p ON p.it_management_diagnosis_case_v2_id=r.case_id JOIN contact c ON c.id=p.contact_id WHERE c.email='response-state@example.test' ORDER BY r.question_code`)).rows;
+  const answers = rows.map(row => intakeAnswerEnvelopeSchema.parse(row.raw_value_json));
+  expect(answers.find(answer => answer.questionCode === 'Q4')).toMatchObject({ answerValue: null, responseState: 'UNKNOWN' });
+  expect(answers.find(answer => answer.questionCode === 'Q6')).toMatchObject({ answerValue: null, responseState: 'NOT_IN_POSITION_TO_ANSWER' });
+  const projection = projectIntakeSemantics(answers); expect(projection.knowledgeUnknownQuestionCodes).toContain('Q4'); expect(projection.authorityConfirmationCandidates).toEqual([{ questionCode: 'Q6', reason: 'NOT_IN_POSITION_TO_ANSWER' }]);
+  const rule = runInitialRule(projection); expect(rule.problemFindings).toEqual([]); expect(rule.assessmentEscalated).toBe(false);
+  await context.close();
+  const adminContext = await browser.newContext(); await adminContext.addCookies([{ name: 'staff_session', value: h.staffCookie.slice('staff_session='.length), url: h.url, httpOnly: true, sameSite: 'Lax' }]);
+  const adminPage = await adminContext.newPage(); await adminPage.goto(h.url + '/admin/free-diagnosis-v1.html'); await adminPage.click('#btnLoadCases');
+  const card = adminPage.locator('.case-card').filter({ hasText: '回答状態確認株式会社' }); await card.getByRole('button', { name: 'この案件を開く' }).click();
+  await expect(adminPage.locator('#view-intake')).toBeVisible(); await expect(adminPage.locator('input[name="response_Q6"][value="NOT_IN_POSITION_TO_ANSWER"]')).toBeChecked();
+  await adminContext.close();
 });
 
 test('Customer Selfで作成済みの案件を管理画面で再利用し、回答を変更せず診断準備へ進める', async ({ browser }) => {
