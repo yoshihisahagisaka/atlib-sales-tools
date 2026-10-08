@@ -14,6 +14,8 @@ RUN npm ci --omit=dev
 # Dedicated deploy job/CI step; never run migrations at service startup.
 FROM node:20-alpine AS migration
 WORKDIR /app
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 ENV NODE_ENV=production
 COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
@@ -23,6 +25,8 @@ CMD ["node", "dist/db/migrateCli.js"]
 
 FROM node:20-alpine AS runtime
 WORKDIR /app
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 ENV NODE_ENV=production
 COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist

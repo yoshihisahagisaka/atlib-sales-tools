@@ -1,0 +1,65 @@
+{
+  "status": "APPROVED_FOR_ARTIFACT_GENERATION",
+  "environment": "production",
+  "database": "sales_tools",
+  "application_rc_sha": "dffde2ffd73887650442bfeb18e258f258d7dac3",
+  "release_decision": {
+    "date": "2026-10-08",
+    "scope": "Build and inspect the dedicated 028-032 migration artifact and run a read-only Production preflight only.",
+    "migration_execution_authorized": false
+  },
+  "artifact_generation": {
+    "permitted": true,
+    "scope": "Artifact creation and inspection only. It does not authorize a Cloud Run Job execution, Production migration, runtime deployment, or traffic change."
+  },
+  "baseline": {
+    "required_applied_once": [
+      "027_free_diagnosis_rule_based_v1.sql"
+    ],
+    "required_unapplied": [
+      "028_free_diagnosis_current_design_v1_phase1_draft.sql",
+      "029_vs1_report_feedback_shared_artifacts.sql",
+      "030_sales_activity_marketing_attribution.sql",
+      "031_public_customer_self_submission.sql",
+      "032_sales_activity_referral_person_name.sql"
+    ],
+    "reject_migration_number_greater_than": 27
+  },
+  "migrations": [
+    {
+      "order": 1,
+      "filename": "028_free_diagnosis_current_design_v1_phase1_draft.sql",
+      "git_blob_id": "45a56ad466841baf74940ed3ff6b47c9b2521c21",
+      "byte_count": 577,
+      "sha256": "3549c812956e8831c1e0b278c85d5842570c922765874e2f33ae2945007b5ae1"
+    },
+    {
+      "order": 2,
+      "filename": "029_vs1_report_feedback_shared_artifacts.sql",
+      "git_blob_id": "65245a0377586a2de7a735aff4526a6074fd4904",
+      "byte_count": 5800,
+      "sha256": "2757af1b368a0d6b25f0597f0067f237a3d8ea778411ad748180df9078e9a6fc"
+    },
+    {
+      "order": 3,
+      "filename": "030_sales_activity_marketing_attribution.sql",
+      "git_blob_id": "bca2a2a7a6d744d5d8ae9380196313d0e99f65f6",
+      "byte_count": 1135,
+      "sha256": "2165281c39438ee7fb3e89535ea6dd50fd921c098bde59c268658c8707085adb"
+    },
+    {
+      "order": 4,
+      "filename": "031_public_customer_self_submission.sql",
+      "git_blob_id": "013f7b137f9fe4f1dcfd99af0f450d8960f27574",
+      "byte_count": 1583,
+      "sha256": "6bb10da75189dc10e62e9cbb49559b3345dd0c38417ff71e761aa785f4a341e7"
+    },
+    {
+      "order": 5,
+      "filename": "032_sales_activity_referral_person_name.sql",
+      "git_blob_id": "31a7b079c8e0489f33a324866bceda7ba09ff129",
+      "byte_count": 168,
+      "sha256": "be488f38b8b9361edeb35ccc1e49c2dc936c09ce2de4d710084e392d6de4894b"
+    }
+  ]
+}
