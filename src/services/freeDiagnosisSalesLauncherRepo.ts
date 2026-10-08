@@ -78,11 +78,17 @@ export class FreeDiagnosisSalesLauncherRepo {
 
   async listSalesActivities(filters: { acquisitionSourceName?: string; utmCampaign?: string }) {
     const { rows } = await this.pool.query<Record<string, unknown>>(
-      `SELECT s.*, c.name AS company_name FROM sales_activity s JOIN company c ON c.id=s.company_id
+      `SELECT s.*, c.name AS company_name, latest_case.id AS diagnosis_case_id, latest_case.status AS diagnosis_case_status
+       FROM sales_activity s JOIN company c ON c.id=s.company_id
+       LEFT JOIN LATERAL (
+         SELECT id,status FROM it_management_diagnosis_case_v2
+         WHERE sales_activity_id=s.id ORDER BY created_at DESC LIMIT 1
+       ) latest_case ON true
        WHERE ($1::text IS NULL OR s.acquisition_source_name=$1) AND ($2::text IS NULL OR s.utm_campaign=$2)
        ORDER BY s.created_at DESC, s.id DESC LIMIT 100`, [filters.acquisitionSourceName ?? null, filters.utmCampaign ?? null],
     );
     return rows.map(row => ({ id: row.id, companyName: row.company_name, selectedService: row.selected_service,
-      createdAt: row.created_at, attribution: mapAttribution(row) }));
+      createdAt: row.created_at, attribution: mapAttribution(row), diagnosisCaseId: row.diagnosis_case_id,
+      diagnosisCaseStatus: row.diagnosis_case_status }));
   }
 }

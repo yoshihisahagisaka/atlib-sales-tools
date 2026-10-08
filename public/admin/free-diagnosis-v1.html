@@ -15,6 +15,7 @@
 .step-nav span.current{background:#2563eb;color:#fff}
 .row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem;align-items:flex-start}
 .row label{min-width:9rem;font-size:.875rem;padding-top:.35rem}
+.case-list{display:grid;gap:.75rem;margin:1rem 0}.case-card{border:1px solid #dbe4ee;border-radius:.65rem;padding:1rem;background:#f8fafc}.case-card p{margin:.35rem 0 .75rem;color:#475569}.entry-form{padding:1rem 0}details summary{cursor:pointer;font-weight:600;color:#1d4ed8}.report-preview{display:grid;gap:.75rem;margin:1rem 0}.report-preview section{padding:1rem;border:1px solid #e2e8f0;border-radius:.65rem;background:#fff}.report-preview h4{margin:0 0 .5rem}.report-preview p{white-space:pre-wrap;line-height:1.7}
 input[type=text],input[type=email],select,textarea{padding:.4rem .6rem;border:1px solid #d1d5db;border-radius:.375rem;font-size:.9rem;font-family:inherit}
 textarea{width:100%;min-height:3rem}
 button{padding:.5rem 1rem;border-radius:.375rem;border:1px solid #2563eb;background:#2563eb;color:#fff;cursor:pointer;font-size:.9rem}
@@ -69,83 +70,79 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #resultPanel,.gates-panel{white-space:pre-wrap;background:#f9fafb;padding:.75rem;border-radius:.375rem;font-size:.85rem}
 </style></head>
 <body><main class="admin-shell">
-<header class="admin-header"><div><p class="eyebrow">atLIB Sales Tools</p><h1>IT経営KAIZEN 無料診断（Rule-Based v1）</h1>
-<p class="subtitle">Production Vertical Slice 1 — Internal Dogfooding専用。社内Staffが模擬顧客で60分診断を一連で実施します。</p></div></header>
+<header class="admin-header"><div><p class="eyebrow">atLIB Sales Tools</p><h1>IT経営KAIZEN 無料診断</h1>
+<p class="subtitle">お客様が実現したいことを起点に、次に詳しく確認する価値を整理します。</p></div></header>
 
 <section class="card">
 <div class="step-nav" id="stepNav"></div>
 
-<div class="view active" id="view-entry"><h3>Customer / Case entry</h3>
-<p class="hint">Company / Contact / Service Selectionを登録し、Caseを開始します。</p>
+<div class="view active" id="view-entry"><h3>案件一覧</h3>
+<p class="hint">公開申込み済みのお客様を選ぶか、必要な場合だけ新しい案件を登録します。</p>
+<div class="row"><button id="btnLoadCases" class="secondary">案件一覧を更新</button></div><div id="caseList" class="case-list"></div>
+<details><summary>代理入力のために新しい案件を登録する</summary><div class="entry-form">
 <div class="row"><label for="companyName">会社名</label><input id="companyName" type="text" placeholder="サンプル株式会社"></div>
 <div class="row"><label for="contactName">担当者名</label><input id="contactName" type="text" placeholder="山田太郎"></div>
 <div class="row"><label for="contactEmail">メール（任意）</label><input id="contactEmail" type="email"></div>
-<h4>流入元 / Marketing Attribution</h4>
-<p class="hint">本人回答・代理入力とは別に、最初の顧客接点を記録します。</p>
-<div class="row"><label for="acquisitionSourceType">流入元の種別</label><select id="acquisitionSourceType"><option value="">（未設定）</option><option value="EVENT">交流会・イベント</option><option value="REFERRAL">紹介</option><option value="WEB">Web</option><option value="OUTBOUND">営業活動</option><option value="PARTNER">パートナー</option><option value="EXISTING_CUSTOMER">既存顧客</option><option value="OTHER">その他</option></select></div>
-<div class="row"><label for="acquisitionSourceName">流入元の名称</label><input id="acquisitionSourceName" type="text" maxlength="200" placeholder="例：経営者交流会A"></div>
-<div class="row"><label for="utmSource">UTM source</label><input id="utmSource" type="text" maxlength="200" placeholder="例：executive-meetup-a"></div>
-<div class="row"><label for="utmMedium">UTM medium</label><input id="utmMedium" type="text" maxlength="200" placeholder="例：flyer"></div>
-<div class="row"><label for="utmCampaign">UTM campaign</label><input id="utmCampaign" type="text" maxlength="200" placeholder="例：it-kaizen-free-diagnosis"></div>
-<div class="row"><label for="utmContent">UTM content</label><input id="utmContent" type="text" maxlength="200" placeholder="例：flyer-v1"></div>
-<div class="row"><label for="utmTerm">UTM term</label><input id="utmTerm" type="text" maxlength="200"></div>
-<div class="row"><label for="landingUrl">Landing URL</label><input id="landingUrl" type="text" maxlength="2000" placeholder="https://..."></div>
-<div class="row"><label for="referrer">Referrer</label><input id="referrer" type="text" maxlength="2000" placeholder="https://..."></div>
-<div class="row"><button id="btnCreateCase">顧客登録してCase開始</button></div>
-<hr><h4>流入元の検索</h4><div class="row"><label for="filterSource">流入元名称</label><input id="filterSource" type="text" maxlength="200"></div><div class="row"><label for="filterCampaign">UTM campaign</label><input id="filterCampaign" type="text" maxlength="200"></div><div class="row"><button id="btnFilterAttribution" class="secondary">検索</button></div><div id="attributionSearchResult" class="gates-panel"></div>
+<h4>お客様との最初の接点</h4>
+<div class="row"><label for="acquisitionSourceType">きっかけ</label><select id="acquisitionSourceType"><option value="">（未設定）</option><option value="EVENT">経営者交流会・イベント</option><option value="REFERRAL">紹介</option><option value="WEB">Web</option><option value="OUTBOUND">営業活動</option><option value="PARTNER">パートナー</option><option value="EXISTING_CUSTOMER">既存顧客</option><option value="OTHER">その他</option></select></div>
+<div class="row"><label for="acquisitionSourceName">きっかけの名称（任意）</label><input id="acquisitionSourceName" type="text" maxlength="200" placeholder="例：新成会"></div>
+<div class="row"><label for="referralPersonName">ご紹介者（任意）</label><input id="referralPersonName" type="text" maxlength="200" placeholder="例：山田太郎さん"></div>
+<div class="row"><button id="btnCreateCase">登録して事前アンケートへ</button></div>
+</div></details>
 </div>
 
-<div class="view" id="view-intake"><h3>7-question Hearing Intake</h3>
-<p class="hint">内部dogfooding用のStaff操作導線です（質問の内容・意味はCanonicalのまま変更していません）。</p>
+<div class="view" id="view-intake"><h3>事前アンケート確認</h3>
+<p class="hint">お客様ご本人の回答を確認し、代理入力の場合は同じ質問に回答します。</p>
+<p id="intakeProgress" class="hint"></p>
 <div id="intakeForm"></div>
-<div class="row"><button id="btnCompleteIntake">Intake完了</button></div>
+<div class="row"><button id="btnPreviousIntake" class="secondary">前へ</button><button id="btnNextIntake">次へ</button><button id="btnCompleteIntake" hidden>回答内容を確定して、診断準備へ進む</button></div>
 </div>
 
-<div class="view" id="view-focus"><h3>Focus Selection</h3>
-<div class="row"><label for="primaryFocus">Primary Focus（必須・1件）</label><select id="primaryFocus"></select></div>
-<div class="row"><label for="secondaryFocus">Secondary Focus（任意・0〜1件）</label><select id="secondaryFocus"><option value="">（なし）</option></select></div>
-<div class="row"><button id="btnSelectFocus">Focus確定</button></div>
+<div class="view" id="view-focus"><h3>今回確認すること</h3>
+<div class="row"><label for="primaryFocus">主に確認すること</label><select id="primaryFocus"></select></div>
+<div class="row"><label for="secondaryFocus">あわせて確認すること（任意）</label><select id="secondaryFocus"><option value="">（なし）</option></select></div>
+<div class="row"><button id="btnSelectFocus">確認内容を決定する</button></div>
 </div>
 
-<div class="view" id="view-preparation"><h3>Preparation</h3>
-<p class="hint">会話を始める前に、ここまでの情報を確認します。</p>
+<div class="view" id="view-preparation"><h3>60分診断の準備</h3>
+<p class="hint">事前アンケートをもとに、今回の診断で確認する内容を整理しています。</p>
 <div class="prep-grid">
-<div class="prep-item"><h4>Company</h4><p id="prepCompany"></p></div>
-<div class="prep-item"><h4>Change（今後1〜3年の変化）</h4><p id="prepChange"></p></div>
-<div class="prep-item"><h4>Intent（実現したい状態）</h4><p id="prepIntent"></p></div>
-<div class="prep-item"><h4>Concern（気になっていること）</h4><p id="prepConcern"></p></div>
-<div class="prep-item"><h4>Q7（60分で特に相談したいこと）</h4><p id="prepQ7"></p></div>
-<div class="prep-item"><h4>Primary / Secondary Focus</h4><p id="prepFocus"></p></div>
-<div class="prep-item"><h4>流入元</h4><p id="prepAttribution"></p></div>
-<div class="prep-item"><h4>回答の入力方式</h4><p id="prepEntryChannel"></p></div>
+<div class="prep-item"><h4>お客様について</h4><p id="prepCompany"></p></div>
+<div class="prep-item"><h4>今後予定している変化</h4><p id="prepChange"></p></div>
+<div class="prep-item"><h4>実現したいこと</h4><p id="prepIntent"></p></div>
+<div class="prep-item"><h4>気になっていること</h4><p id="prepConcern"></p></div>
+<div class="prep-item"><h4>60分の診断で相談したいこと</h4><p id="prepQ7"></p></div>
+<div class="prep-item"><h4>今回確認すること</h4><p id="prepFocus"></p></div>
+<div class="prep-item"><h4>きっかけ</h4><p id="prepAttribution"></p></div>
+<div class="prep-item"><h4>回答方法</h4><p id="prepEntryChannel"></p></div>
 </div>
-<div class="why-box"><h4>Why（本日この順で伺う理由）</h4><p id="prepWhy"></p></div>
-<div class="row" style="margin-top:1rem"><button id="btnStartHearing">Hearing開始</button></div>
+<div class="why-box"><h4>今回ここを確認する理由</h4><p id="prepWhy"></p></div>
+<div class="row" style="margin-top:1rem"><button id="btnStartHearing">60分診断を始める</button></div>
 </div>
 
-<div class="view" id="view-hearing"><h3>Live Hearing</h3>
+<div class="view" id="view-hearing"><h3>60分診断</h3>
 <div class="hearing-layout">
-<div class="hearing-col left"><h4>Intent / Context / Concern</h4>
-<p><strong>Intent:</strong> <span id="hearingIntent"></span></p>
-<p><strong>Change:</strong> <span id="hearingChange"></span></p>
-<p><strong>Concern:</strong> <span id="hearingConcern"></span></p>
+<div class="hearing-col left"><h4>事前に伺ったこと</h4>
+<p><strong>実現したいこと:</strong> <span id="hearingIntent"></span></p>
+<p><strong>予定している変化:</strong> <span id="hearingChange"></span></p>
+<p><strong>気になっていること:</strong> <span id="hearingConcern"></span></p>
 </div>
-<div class="hearing-col center"><h4 id="hearingTopicTitle">Current Topic</h4>
+<div class="hearing-col center"><h4 id="hearingTopicTitle">今回確認すること</h4>
 <p id="hearingWhy" style="font-size:.85rem;color:#4b5563"></p>
 <p id="hearingStarter" style="font-weight:600"></p>
 <div class="row"><label for="planItemRef">話題</label><select id="planItemRef"></select></div>
-<div class="row"><label for="knowledgeState">確認結果</label>
+<div class="row"><label for="knowledgeState">今回の診断で確認できた範囲</label><small>今回の会話で、診断に必要な内容をどこまで確認できたかを記録します。</small>
 <select id="knowledgeState"><option value="KNOWN">今回確認できた</option><option value="AVAILABLE">追加確認すれば分かる</option><option value="PARTIAL">一部、追加確認が必要</option><option value="UNKNOWN" selected>今回まだ確認できていない</option></select></div>
-<div class="row"><label for="structuredAnswer">確認した状況</label><select id="structuredAnswer"><option value="CAN_JUDGE">判断できている</option><option value="PARTIALLY_JUDGE">一部は判断できる</option><option value="CANNOT_JUDGE">判断が難しい</option><option value="UNKNOWN">まだ分からない</option><option value="OPPORTUNITY_IDENTIFIED">改善の余地がありそう</option><option value="NO_OPPORTUNITY">現時点では特にない</option></select></div>
+<div class="row"><label for="structuredAnswer">お客様の現在の認識</label><small>このテーマについて、お客様自身が現在どこまで判断できているかを記録します。</small><select id="structuredAnswer"><option value="CAN_JUDGE">判断できている</option><option value="PARTIALLY_JUDGE">一部は判断できる</option><option value="CANNOT_JUDGE">判断が難しい</option><option value="UNKNOWN">まだ分からない</option><option value="OPPORTUNITY_IDENTIFIED">改善の余地がありそう</option><option value="NO_OPPORTUNITY">現時点では特にない</option></select></div>
 <div class="row"><label for="naFlag">「ない（存在しない）」という回答</label><input id="naFlag" type="checkbox"></div>
-<div class="row"><label for="requiresIndividual">対象ごとに個別確認が必要（optional branch）</label><input id="requiresIndividual" type="checkbox"></div>
-<div class="row"><label for="statementText">Note（発言・メモ）</label><textarea id="statementText"></textarea></div>
+<div class="row"><label for="requiresIndividual">対象ごとに個別確認が必要</label><input id="requiresIndividual" type="checkbox"></div>
+<div class="row"><label for="statementText">発言・メモ</label><textarea id="statementText"></textarea></div>
 <div class="row"><button id="btnRecordStatement" class="secondary">記録を追加</button></div>
 </div>
 <div class="hearing-col right"><h4>今回の確認状況</h4><ul class="observable-list" id="statementList"></ul></div>
 </div>
 <div class="story-nav" id="storyNav"></div>
-<div class="row" style="margin-top:1rem"><button id="btnOrganize" class="secondary">整理モードへ</button><button id="btnCompleteHearing">Hearing完了</button></div>
+<div class="row" style="margin-top:1rem"><button id="btnOrganize" class="secondary">確認内容を整理する</button><button id="btnCompleteHearing">60分診断を完了する</button></div>
 </div>
 
 <div class="view" id="view-organize"><h3>整理モード</h3>
@@ -158,12 +155,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row" style="margin-top:1rem"><label for="planItemRefOrganize">再確認する話題</label><select id="planItemRefOrganize"></select></div>
 <div class="row"><label for="knowledgeStateOrganize">確認結果</label>
 <select id="knowledgeStateOrganize"><option value="KNOWN">今回確認できた</option><option value="AVAILABLE">追加確認すれば分かる</option><option value="PARTIAL">一部、追加確認が必要</option><option value="UNKNOWN">今回まだ確認できていない</option></select></div>
-<div class="row"><label for="statementTextOrganize">Note</label><textarea id="statementTextOrganize"></textarea></div>
+<div class="row"><label for="statementTextOrganize">発言・メモ</label><textarea id="statementTextOrganize"></textarea></div>
 <div class="row"><button id="btnReconfirm" class="secondary">再確認を記録</button></div>
-<div class="row" style="margin-top:1rem"><button id="btnCompleteHearingFromOrganize">Hearing完了</button></div>
+<div class="row" style="margin-top:1rem"><button id="btnCompleteHearingFromOrganize">60分診断を完了する</button></div>
 </div>
 
-<div class="view" id="view-analysis"><h3>Rule Analysis result</h3>
+<div class="view" id="view-analysis"><h3>診断内容を整理しています</h3>
 <p class="hint">deterministicルールのみ。AI判定・スコア・traffic lightは一切表示しません。</p>
 <div class="row"><button id="btnRunAnalysis">Rule Analysis実行（即時）</button></div>
 <div id="analysisResult" style="display:none"><div id="resultPanel"></div>
@@ -173,15 +170,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="view" id="view-report"><h3>無料診断レポート / 経営フィードバック</h3>
 <p class="hint">人が診断内容を確認してからレポートを承認・送付します。次の進め方も必ず人が選択します。</p>
 <div id="reportStatus" class="gates-panel">診断内容の確認待ちです。</div>
-<div class="row" style="margin-top:1rem"><button id="btnProjectReport">診断内容を確認し、レポート下書きを作成</button><button id="btnApproveReport" class="secondary" disabled>レポートを承認</button><button id="btnDeliverReport" class="secondary" disabled>レポートを送付</button></div>
+<div id="reportPreview" class="report-preview"></div>
+<div class="row" style="margin-top:1rem"><button id="btnProjectReport" hidden>内部処理</button><button id="btnApproveReport" disabled>レポートを承認</button><button id="btnDeliverReport" class="secondary" disabled>レポートを送付</button></div>
 <div id="feedbackControls" style="display:none"><div class="row"><label for="feedbackRoute">次の進め方</label><select id="feedbackRoute"><option value="DIRECT_ACT">まず社内で改善を進める</option><option value="FOCUSED_CONFIRMATION">追加確認を行う</option><option value="DESIGN_ASSESSMENT">Assessmentを検討する</option><option value="STOP_HOLD">今回はここで終了する</option></select></div>
 <div class="row"><label for="feedbackDecision">今回の判断</label><textarea id="feedbackDecision"></textarea></div><div class="row"><label for="feedbackAction">次の行動</label><textarea id="feedbackAction"></textarea></div><div class="row"><button id="btnRecordFeedback">経営フィードバックを記録</button></div></div>
 </div>
 
-<div class="view" id="view-review"><h3>Human Review</h3>
+<div class="view" id="view-review"><h3>診断内容の確認</h3>
 <p class="hint">採用・編集して採用・却下・grounds確認ができます。Gates/grounds自体は書き換えません。</p>
 <div id="findingsList"></div>
-<div class="row"><button id="btnApprove">採用してAnalysis Approved</button><button id="btnReject" class="secondary">却下</button></div>
+<div class="row"><button id="btnApprove">内容を確認して、レポート作成へ進む</button><button id="btnReject" class="secondary">今回は採用しない</button></div>
 </div>
 
 <div class="view" id="view-approved"><h3>Analysis Approved</h3>
@@ -217,10 +215,10 @@ const PLAN_ITEM_PROMPT = {
   CORE: { why: '経営判断の前提となる現状を確認します。', starter: '今、この点についてどこまで把握されていますか？' },
   DECISION: { why: '意思決定の有無と確定度合いを確認します。', starter: 'この点について、すでに決まっていることはありますか？' },
 };
-const STEPS = ['entry', 'intake', 'focus', 'preparation', 'hearing', 'organize', 'analysis', 'review', 'report', 'approved', 'scope'];
-const STEP_LABEL = { entry: '顧客登録', intake: 'Intake', focus: 'Focus', preparation: 'Preparation', hearing: 'Hearing', organize: '整理', analysis: 'Analysis', review: 'Review', report: 'Report', approved: 'Approved', scope: 'Scope' };
+const STEPS = ['entry', 'intake', 'preparation', 'hearing', 'review', 'report'];
+const STEP_LABEL = { entry: '案件一覧', intake: '事前アンケート', preparation: '60分診断の準備', hearing: '60分診断', review: '診断内容の確認', report: '顧客向けレポート' };
 const el = id => document.getElementById(id);
-let state = { caseId: null, version: null, primaryFocus: null, secondaryFocus: null, lastExecutionId: null, intake: {}, findings: [], omitted: new Set(), overrides: {} };
+let state = { caseId: null, version: null, primaryFocus: null, secondaryFocus: null, lastExecutionId: null, intake: {}, responseStates: {}, entryChannel: 'PROXY', respondentRole: 'MANAGEMENT', intakeStep: -1, findings: [], omitted: new Set(), overrides: {} };
 
 function renderStepNav(current) {
   const nav = el('stepNav'); nav.replaceChildren();
@@ -253,22 +251,60 @@ for (const [code, label] of Object.entries(FOCUS_LABELS)) {
 el('btnCreateCase').onclick = async () => {
   setError('');
   try {
-    const values = ids => Object.fromEntries(ids.map(id => [id, el(id).value.trim() || null]));
-    const attribution = values(['acquisitionSourceType', 'acquisitionSourceName', 'utmSource', 'utmMedium', 'utmCampaign', 'utmContent', 'utmTerm', 'landingUrl', 'referrer']);
-    if (Object.values(attribution).some(Boolean) && (!attribution.acquisitionSourceType || !attribution.acquisitionSourceName)) throw new Error('流入元を記録する場合は、種別と名称を両方入力してください。');
+    const attribution = { acquisitionSourceType: el('acquisitionSourceType').value || null, acquisitionSourceName: el('acquisitionSourceName').value.trim() || null };
+    if ((attribution.acquisitionSourceType == null) !== (attribution.acquisitionSourceName == null)) throw new Error('きっかけを記録する場合は、種別と名称を両方入力してください。');
     const activity = await call('/sales-activities', 'POST', {
       name: el('companyName').value, contact: { name: el('contactName').value, email: el('contactEmail').value || null }, selectedService: 'IT_KAIZEN',
-      attribution: Object.values(attribution).some(Boolean) ? { acquisitionSourceType: attribution.acquisitionSourceType, acquisitionSourceName: attribution.acquisitionSourceName, utmSource: attribution.utmSource, utmMedium: attribution.utmMedium, utmCampaign: attribution.utmCampaign, utmContent: attribution.utmContent, utmTerm: attribution.utmTerm, landingUrl: attribution.landingUrl, referrer: attribution.referrer } : undefined,
+      referralPersonName: el('referralPersonName').value.trim() || undefined,
+      attribution: attribution.acquisitionSourceType ? attribution : undefined,
     });
     const kase = await call(`/sales-activities/${activity.salesActivityId}/cases`, 'POST', {});
-    state.caseId = kase.id; state.version = kase.version; state.companyName = el('companyName').value; state.attribution = activity.attribution;
+    state.caseId = kase.id; state.version = kase.version; state.companyName = el('companyName').value; state.attribution = activity.attribution; state.entryChannel = 'PROXY'; state.respondentRole = 'MANAGEMENT'; state.intakeStep = -1; state.intake = {}; state.responseStates = {};
     renderIntakeForm();
     showView('intake');
   } catch (e) { setError(String(e.message || e)); }
 };
 
+function friendlyStatus(status) {
+  return ({ APPLICATION_STARTED:'申込み開始', INTAKE_IN_PROGRESS:'事前アンケート入力中', INTAKE_COMPLETED:'診断準備待ち', BOOKING_PENDING:'日程予約待ち', PREPARATION_IN_PROGRESS:'60分診断の準備完了', HEARING_IN_PROGRESS:'60分診断中', HEARING_COMPLETED:'診断内容を整理中', HUMAN_REVIEW_REQUIRED:'診断内容の確認待ち', REPORT_REVIEW_REQUIRED:'レポート確認待ち', REPORT_APPROVED:'送付待ち', FEEDBACK_PENDING:'経営フィードバック待ち', CLOSED:'完了' })[status] || '確認中';
+}
+async function openCase(caseId) {
+  const detail = await call(`/cases/${caseId}`, 'GET');
+  state.caseId = detail.case.id; state.version = detail.case.version; state.primaryFocus = detail.case.primaryFocus; state.secondaryFocus = detail.case.secondaryFocus;
+  state.companyName = ''; state.attribution = detail.salesActivity?.attribution || null; state.intake = {}; state.responseStates = {};
+  for (const answer of detail.intake) {
+    state.intake[answer.questionCode] = answer.value.answerValue;
+    state.responseStates[answer.questionCode] = answer.value.responseState || 'ANSWERED';
+    state.entryChannel = answer.value?.provenance?.channel || state.entryChannel;
+    state.respondentRole = answer.value?.respondent?.role || state.respondentRole;
+  }
+  state.intakeStep = state.entryChannel === 'SELF' ? 7 : -1;
+  if (detail.case.status === 'BOOKING_PENDING' || detail.case.status === 'INTAKE_COMPLETED' || detail.case.status === 'INTAKE_IN_PROGRESS') { renderIntakeForm(); showView('intake'); return; }
+  if (detail.case.status === 'PREPARATION_IN_PROGRESS') { state.preparation = await call(`/cases/${caseId}/preparation`, 'GET'); renderPreparation(); showView('preparation'); return; }
+  if (detail.case.status === 'HEARING_IN_PROGRESS' || detail.case.status === 'HEARING_ORGANIZING') { state.units = (await call(`/cases/${caseId}/hearing/units`, 'GET')).items; renderHearingColumns(); renderPlanItemSelectors(); await refreshStatements(); showView('hearing'); return; }
+  showView('report');
+}
+async function loadCases() {
+  setError('');
+  try {
+    const { items } = await call('/sales-activities', 'GET');
+    const target = el('caseList'); target.replaceChildren();
+    const kaizen = items.filter(item => item.selectedService === 'IT_KAIZEN');
+    if (!kaizen.length) { target.textContent = '表示できる案件はありません。'; return; }
+    for (const item of kaizen) {
+      const card = document.createElement('div'); card.className = 'case-card';
+      const title = document.createElement('strong'); title.textContent = item.companyName;
+      const text = document.createElement('p'); text.textContent = item.diagnosisCaseId ? friendlyStatus(item.diagnosisCaseStatus) : '診断を開始できます';
+      const button = document.createElement('button'); button.textContent = item.diagnosisCaseId ? 'この案件を開く' : '診断を開始する';
+      button.onclick = async () => { try { if (item.diagnosisCaseId) await openCase(item.diagnosisCaseId); else { const kase = await call(`/sales-activities/${item.id}/cases`, 'POST', {}); state.caseId=kase.id; state.version=kase.version; state.companyName=item.companyName; state.attribution=item.attribution; state.entryChannel='PROXY'; state.respondentRole='MANAGEMENT'; state.intakeStep=-1; state.intake={}; state.responseStates={}; renderIntakeForm(); showView('intake'); } } catch(e) { setError(String(e.message||e)); } };
+      card.append(title,text,button); target.append(card);
+    }
+  } catch (e) { setError(String(e.message || e)); }
+}
+el('btnLoadCases').onclick = loadCases;
+
 function renderIntakeForm() {
-  const role = el('respondentRole')?.value || 'MANAGEMENT';
+  const role = state.respondentRole || el('respondentRole')?.value || 'MANAGEMENT';
   const wording = {
     MANAGEMENT: { Q2: '今後1〜3年で、会社として予定している変化はありますか？', Q3: 'その変化に向けて、ITにどのような役割を期待しますか？', Q5: '経営として、会社で使うITの状況はどの程度見えていますか？', Q6: '経営判断に必要なIT情報は、判断に使える形で届いていますか？' },
     IT_DECISION_OWNER: { Q2: '今後1〜3年で、会社として予定している変化はありますか？', Q3: 'その変化に向けて、ITで実現したい状態はありますか？', Q5: 'ITの状況は、判断に必要な範囲まで見えていますか？', Q6: '経営判断に必要なIT情報は、判断に使える形で共有されていますか？' },
@@ -276,33 +312,77 @@ function renderIntakeForm() {
   }[role];
   const questions = [['Q1', '会社規模・主な拠点数'], ['Q2', wording.Q2], ['Q3', wording.Q3], ['Q4', '現在ITについて気になっていること'], ['Q5', wording.Q5], ['Q6', wording.Q6], ['Q7', '60分で特に相談したいこと（任意）']];
   const form = el('intakeForm'); form.replaceChildren();
+  const previous = el('btnPreviousIntake'), next = el('btnNextIntake'), complete = el('btnCompleteIntake');
+  previous.hidden = state.entryChannel === 'SELF' || state.intakeStep <= -1; next.hidden = state.entryChannel === 'SELF' || state.intakeStep >= 7; complete.hidden = state.entryChannel !== 'SELF' && state.intakeStep !== 7;
+  complete.textContent = state.entryChannel === 'SELF' ? '回答内容を確認して、診断準備へ進む' : '回答内容を確定して、診断準備へ進む';
+  if (state.entryChannel === 'SELF') { const notice = document.createElement('p'); notice.className = 'hint'; notice.textContent = 'お客様ご本人が回答した内容です。内容を確認して、診断準備へ進みます。回答内容はここでは書き換えません。'; form.append(notice); }
+  el('intakeProgress').textContent = state.entryChannel === 'SELF' ? '回答内容の確認' : state.intakeStep < 0 ? '回答者の立場を確認' : state.intakeStep < 7 ? `事前アンケート ${state.intakeStep + 1} / 7` : '回答内容の確認';
   const roleRow = document.createElement('div'); roleRow.className = 'row'; roleRow.innerHTML = '<label>今回の回答者の立場</label><select id="respondentRole"><option value="MANAGEMENT">経営を担う立場</option><option value="IT_DECISION_OWNER">ITの判断を担う立場</option><option value="IT_OR_BUSINESS_STAFF">IT・業務の担当者</option></select>';
-  form.append(roleRow); el('respondentRole').value = role; el('respondentRole').onchange = renderIntakeForm;
+  if (state.intakeStep < 0) { form.append(roleRow); el('respondentRole').value = role; el('respondentRole').onchange = () => { state.respondentRole = el('respondentRole').value; }; return; }
   const stateOptions = [['ANSWERED','回答する'], ['UNKNOWN','分からない'], ['NOT_IN_POSITION_TO_ANSWER','この立場では分からない']];
   const options = { Q2:[['HEADCOUNT_GROWTH','人員を増やす'],['SITE_CHANGE','拠点を変える・増やす'],['NEW_BUSINESS','新しい事業を始める'],['ORG_CHANGE','組織を変える'],['IPO_PREPARATION','上場準備を進める'],['WORKSTYLE_CHANGE','働き方を変える'],['BUSINESS_EXPANSION','事業を広げる'],['LEAN_SCALING','少人数で成長・運営する'],['STABILITY_EFFICIENCY','安定・効率を高める'],['NO_MAJOR_CHANGE','大きな変化は予定していない'],['OTHER','その他']], Q3:[['SUPPORT_CHANGE','変化を支えたい'],['IMPROVE_PRODUCTIVITY','生産性を高めたい'],['PROTECT_BUSINESS','事業を守りたい'],['ENABLE_MANAGEMENT_DECISION','経営判断を支えたい'],['STRATEGIC_IT_USE','ITを戦略的に活かしたい'],['STABILIZE_IT_OPERATION','IT運営を安定させたい'],['OPTIMIZE_IT_INVESTMENT','IT投資を見直したい'],['UNDECIDED','まだ決めていない'],['OTHER','その他']], Q4:[['MANAGEMENT_DECISION_CONCERN','経営判断に関すること'],['IT_OPERATION_CONCERN','IT運営に関すること'],['BUSINESS_PROTECTION_CONCERN','事業を守ること'],['PRODUCTIVITY_OPPORTUNITY','生産性を高めること'],['CHANGE_READINESS_CONCERN','成長や変化への対応'],['STRATEGIC_USE_OPPORTUNITY','ITの戦略活用'],['NO_MAJOR_CONCERN','大きく気になることはない'],['OTHER','その他']], Q5:[['VISIBLE_ENOUGH','十分に見えている'],['MOSTLY_VISIBLE','おおむね見えている'],['PARTIALLY_VISIBLE','一部は見えている'],['VISIBLE_ON_REQUEST','必要な時に確認している'],['LARGELY_UNKNOWN','よく分からない']], Q6:[['REGULAR_AND_USABLE','定期的に届き、判断に使える'],['DELIVERED_NOT_USABLE','届くが判断には使いにくい'],['ON_REQUEST_USABLE','必要な時に確認すれば使える'],['NOT_SUFFICIENTLY_DELIVERED','十分には届いていない'],['INFORMATION_NEED_UNCLEAR','何が必要かまだ定まっていない']] };
-  for (const [code, label] of questions) {
+  const visibleQuestions = state.intakeStep === 7 ? questions : [questions[state.intakeStep]];
+  for (const [code, label] of visibleQuestions) {
     const row = document.createElement('div'); row.className = 'row';
     const l = document.createElement('label'); l.textContent = code + '. ' + label;
     row.append(l);
     if (code === 'Q1') row.innerHTML += '<select id="intake_Q1_employee"><option value="EMP_1_20">20人以下</option><option value="EMP_21_50">21〜50人</option><option value="EMP_51_100">51〜100人</option><option value="EMP_101_300">101〜300人</option><option value="EMP_301_PLUS">301人以上</option><option value="EMP_UNKNOWN">分からない</option></select><select id="intake_Q1_locations"><option value="SITE_1">主な拠点は1か所</option><option value="SITE_2_3">主な拠点は2〜3か所</option><option value="SITE_4_PLUS">主な拠点は4か所以上</option><option value="SITE_NOT_APPLICABLE">該当しない</option><option value="SITE_UNKNOWN">分からない</option></select>';
     else if (code === 'Q7') row.innerHTML += '<textarea id="intake_Q7" placeholder="任意の補足"></textarea>';
-    else { const multiple = code === 'Q2' || code === 'Q3'; const select = document.createElement('select'); select.id = 'intake_' + code; select.multiple = multiple; for (const [v,t] of options[code]) select.add(new Option(t,v)); row.append(select); }
-    if (code !== 'Q7') { const stateSelect = document.createElement('select'); stateSelect.id = 'state_' + code; for (const [v,t] of stateOptions) stateSelect.add(new Option(t,v)); row.append(stateSelect); }
+    else {
+      const multiple = code === 'Q2' || code === 'Q3';
+      const choices = document.createElement('fieldset'); choices.className = 'answer-choices';
+      const hint = document.createElement('small'); hint.textContent = multiple ? '複数選択できます' : '1つ選択してください'; choices.append(hint);
+      for (const [v,t] of options[code]) {
+        const choice = document.createElement('label'); const input = document.createElement('input');
+        input.type = multiple ? 'checkbox' : 'radio'; input.name = 'intake_' + code; input.value = v;
+        const saved = state.intake[code]; input.checked = multiple ? Array.isArray(saved) && saved.includes(v) : saved === v;
+        choice.append(input, document.createTextNode(t)); choices.append(choice);
+      }
+      row.append(choices);
+    }
+    if (code !== 'Q7') {
+      const responseChoices = document.createElement('fieldset'); responseChoices.className = 'answer-choices';
+      const hint = document.createElement('small'); hint.textContent = '回答の状況'; responseChoices.append(hint);
+      for (const [v, text] of stateOptions) { const choice = document.createElement('label'); const input = document.createElement('input'); input.type = 'radio'; input.name = 'response_' + code; input.value = v; input.checked = (state.responseStates[code] || 'ANSWERED') === v; choice.append(input, document.createTextNode(text)); responseChoices.append(choice); }
+      row.append(responseChoices);
+    }
     form.append(row);
+    if (code === 'Q1') { el('intake_Q1_employee').value = state.intake.Q1?.employeeSize || 'EMP_1_20'; el('intake_Q1_locations').value = state.intake.Q1?.locations || 'SITE_1'; }
   }
+  if (el('intake_Q7')) el('intake_Q7').value = state.intake.Q7 || '';
+  if (state.entryChannel === 'SELF' || state.intakeStep === 7) form.querySelectorAll('input, select, textarea').forEach(input => { input.disabled = true; });
 }
+
+function saveCurrentIntakeStep() {
+  if (state.intakeStep < 0) { state.respondentRole = el('respondentRole').value; return true; }
+  if (state.intakeStep >= 7) return true;
+  const q = ['Q1','Q2','Q3','Q4','Q5','Q6','Q7'][state.intakeStep];
+  if (q === 'Q7') { state.intake.Q7 = el('intake_Q7').value.trim(); return true; }
+  const responseState = document.querySelector(`input[name="response_${q}"]:checked`)?.value;
+  if (!responseState) return false;
+  state.responseStates[q] = responseState;
+  if (responseState !== 'ANSWERED') { state.intake[q] = null; return true; }
+  if (q === 'Q1') { state.intake.Q1 = { employeeSize: el('intake_Q1_employee').value, locations: el('intake_Q1_locations').value }; return true; }
+  const values = Array.from(document.querySelectorAll(`input[name="intake_${q}"]:checked`)).map(x => x.value);
+  if (!values.length) return false;
+  state.intake[q] = q === 'Q2' || q === 'Q3' ? values : values[0]; return true;
+}
+el('btnPreviousIntake').onclick = () => { if (state.intakeStep > -1) { state.intakeStep--; renderIntakeForm(); } };
+el('btnNextIntake').onclick = () => { if (!saveCurrentIntakeStep()) { setError('回答を選択するか、「分からない」を選んでください。'); return; } setError(''); state.intakeStep++; renderIntakeForm(); };
 
 el('btnCompleteIntake').onclick = async () => {
   setError('');
   try {
-    const role = el('respondentRole').value;
+    const role = state.respondentRole;
+    if (state.entryChannel === 'SELF') {
+      const prepared = await call(`/cases/${state.caseId}/preparation/start`, 'POST', { expectedVersion: state.version });
+      state.version = prepared.case.version; state.primaryFocus = prepared.case.primaryFocus; state.secondaryFocus = prepared.case.secondaryFocus; state.preparation = prepared.preparation;
+      renderPreparation(); showView('preparation'); return;
+    }
     for (const q of ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']) {
-      const responseState = q === 'Q7' ? 'ANSWERED' : el('state_' + q).value;
-      let answerValue = null;
-      if (q === 'Q1' && responseState === 'ANSWERED') answerValue = { employeeSize: el('intake_Q1_employee').value, locations: el('intake_Q1_locations').value };
-      else if (q === 'Q7') { answerValue = el('intake_Q7').value.trim(); if (!answerValue) continue; }
-      else if (responseState === 'ANSWERED') { const input = el('intake_' + q); answerValue = input.multiple ? Array.from(input.selectedOptions).map(x => x.value) : input.value; }
-      state.intake[q] = answerValue;
+      const responseState = q === 'Q7' ? 'ANSWERED' : state.responseStates[q];
+      const answerValue = state.intake[q];
+      if (q === 'Q7' && !answerValue) continue;
       await call(`/cases/${state.caseId}/intake`, 'POST', { questionCode: q, channel: 'PROXY', value: { schemaVersion: 1, questionCode: q, answerValue, responseState, respondent: { role }, provenance: { channel: 'PROXY', source: 'SALES_PROXY' } } });
     }
     const kase = await call(`/cases/${state.caseId}/intake/complete`, 'POST', { expectedVersion: state.version });
@@ -337,21 +417,11 @@ function renderPreparation() {
   const items = state.preparation.result.focusItems;
   el('prepFocus').textContent = items.length ? items.map(x => FOCUS_LABELS[x.focus].replace(/^M\d+ /, '')).join(' / ') : '現時点では重要な確認テーマは特定されていません。';
   const a = state.attribution;
-  el('prepAttribution').textContent = a ? `${a.acquisitionSourceName}（${a.acquisitionSourceType}） / source: ${a.utmSource || '—'} / medium: ${a.utmMedium || '—'} / campaign: ${a.utmCampaign || '—'} / content: ${a.utmContent || '—'}` : '未設定';
-  el('prepEntryChannel').textContent = 'Staff Proxy入力（流入元とは別に保持）';
+  el('prepAttribution').textContent = a ? `${a.acquisitionSourceName}` : '未設定';
+  el('prepEntryChannel').textContent = state.entryChannel === 'SELF' ? 'お客様ご本人による回答' : '営業担当者による代理入力';
   const authority = state.preparation.result.authorityConfirmationCandidates.length ? ' 回答者の立場を確認する必要があります。' : '';
   el('prepWhy').textContent = items.length ? '確認する理由：今回の経営上の関心や予定されている変化に照らし、60分で状況を確認する価値があるためです。' + authority : '今回の回答からは、優先して確認すべき重要なテーマは特定されていません。' + authority;
 }
-
-el('btnFilterAttribution').onclick = async () => {
-  setError('');
-  try {
-    const params = new URLSearchParams(); const source = el('filterSource').value.trim(); const campaign = el('filterCampaign').value.trim();
-    if (source) params.set('acquisitionSourceName', source); if (campaign) params.set('utmCampaign', campaign);
-    const { items } = await call('/sales-activities?' + params, 'GET');
-    el('attributionSearchResult').textContent = items.length ? items.map(x => `${x.companyName} / ${x.attribution?.acquisitionSourceName || '未設定'} / ${x.attribution?.utmCampaign || '—'}`).join('\n') : '該当するSales Activityはありません。';
-  } catch (e) { setError(String(e.message || e)); }
-};
 
 const INTAKE_LABELS = {
   Q2: { HEADCOUNT_GROWTH:'人員を増やす', SITE_CHANGE:'拠点を変える・増やす', NEW_BUSINESS:'新しい事業を始める', ORG_CHANGE:'組織を変える', IPO_PREPARATION:'上場準備を進める', WORKSTYLE_CHANGE:'働き方を変える', BUSINESS_EXPANSION:'事業を広げる', LEAN_SCALING:'少人数で成長・運営する', STABILITY_EFFICIENCY:'安定・効率を高める', NO_MAJOR_CHANGE:'大きな変化は予定していない', OTHER:'その他' },
@@ -379,12 +449,12 @@ el('btnStartHearing').onclick = async () => {
 };
 
 function renderHearingColumns() {
-  el('hearingIntent').textContent = state.intake.Q3 || '-';
-  el('hearingChange').textContent = state.intake.Q2 || '-';
-  el('hearingConcern').textContent = state.intake.Q4 || '-';
+  el('hearingIntent').textContent = displayIntakeAnswer('Q3', state.intake.Q3);
+  el('hearingChange').textContent = displayIntakeAnswer('Q2', state.intake.Q2);
+  el('hearingConcern').textContent = displayIntakeAnswer('Q4', state.intake.Q4);
 }
 function renderStoryNav(active) {
-  const crumbs = ['Context', 'IT全体', '主テーマ', '副テーマ', '整理'];
+  const crumbs = ['お客様の状況', 'IT全体の状況', '主に確認すること', 'あわせて確認すること', '確認内容の整理'];
   const nav = el('storyNav'); nav.replaceChildren();
   crumbs.forEach((c, i) => {
     if (i > 0) { const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = '→'; nav.append(sep); }
@@ -408,7 +478,7 @@ function updateHearingTopic() {
   const code = el('planItemRef').value;
   const kind = code.endsWith('_CORE') ? 'CORE' : 'DECISION';
   const [, label] = planItemCodes().find(([c]) => c === code) || [null, code];
-  el('hearingTopicTitle').textContent = label || 'Current Topic';
+  el('hearingTopicTitle').textContent = label || '今回確認すること';
   const unit = (state.units || []).find(u => u.unitCode === code);
   el('hearingWhy').textContent = unit ? '確認する理由：経営判断に必要な状況を確かめるためです。' : '確認する理由：' + PLAN_ITEM_PROMPT[kind].why;
   el('hearingStarter').textContent = unit ? unit.standardQuestion : PLAN_ITEM_PROMPT[kind].starter;
@@ -498,7 +568,12 @@ async function completeHearing() {
   try {
     const kase = await call(`/cases/${state.caseId}/hearing/complete`, 'POST', { expectedVersion: state.version });
     state.version = kase.version;
-    showView('analysis');
+    // Final Rule is deterministic and belongs to the completion action. Staff
+    // continue directly to the human confirmation, never to an internal rule screen.
+    const outcome = await call(`/cases/${state.caseId}/rule-analysis/run`, 'POST', { expectedVersion: state.version });
+    state.lastExecutionId = outcome.executionId; state.findings = outcome.findings; state.omitted = new Set(); state.overrides = {};
+    const current = await call(`/cases/${state.caseId}`, 'GET'); state.version = current.case.version;
+    renderFindings(); showView('review');
   } catch (e) { setError(String(e.message || e)); }
 }
 
@@ -527,6 +602,18 @@ el('btnRunAnalysis').onclick = async () => {
 el('btnGoToReview').onclick = () => { renderFindings(); showView('review'); };
 
 el('btnGoToReport').onclick = () => { showView('report'); };
+const REPORT_TITLES = { FUTURE:'目指している会社の姿', CURRENT_AND_UNKNOWN:'今回確認できたこと', GAP:'まだ分からないこと', ROOT_CAUSE_AND_KAIZEN:'ITで良くできそうなこと', NEXT_CONFIRMATION:'次に確認する価値があること' };
+async function renderReportPreview() {
+  const report = await call(`/cases/${state.caseId}/reports/${state.reportId}`, 'GET');
+  const preview = el('reportPreview'); preview.replaceChildren();
+  for (const section of report.content.sections) {
+    const card = document.createElement('section'); const title = document.createElement('h4');
+    title.textContent = REPORT_TITLES[section.section_key] || section.title; card.append(title);
+    if (!section.blocks.length) { const empty=document.createElement('p'); empty.textContent='現時点で記載する内容はありません。'; card.append(empty); }
+    for (const block of section.blocks) { const p=document.createElement('p'); p.textContent=block.text; card.append(p); }
+    preview.append(card);
+  }
+}
 el('btnProjectReport').onclick = async () => {
   setError('');
   try {
@@ -534,6 +621,7 @@ el('btnProjectReport').onclick = async () => {
     const draft = await call(`/cases/${state.caseId}/reports/draft`, 'POST', {});
     state.reportId = draft.id;
     el('reportStatus').textContent = `レポート下書き（第${draft.version}版）を作成しました。内容を確認して承認してください。`;
+    await renderReportPreview();
     el('btnProjectReport').disabled = true; el('btnApproveReport').disabled = false;
   } catch (e) { setError(String(e.message || e)); }
 };
@@ -593,7 +681,21 @@ async function reviewDecision(decision) {
       omittedFindingIds: Array.from(state.omitted), wordingOverrides: state.overrides,
     });
     state.version = kase.version;
-    if (kase.status === 'ANALYSIS_APPROVED') showView('approved');
+    if (kase.status === 'ANALYSIS_APPROVED') {
+      // Scope/price is preserved as an internal, deterministic input to a
+      // possible assessment explanation. It is not a staff-facing stop.
+      if (state.primaryFocus) {
+        await call(`/cases/${state.caseId}/preliminary-scope`, 'POST', { expectedVersion: state.version });
+        const scoped = await call(`/cases/${state.caseId}`, 'GET'); state.version = scoped.case.version;
+      }
+      await call(`/cases/${state.caseId}/final-review/project`, 'POST', { executionId: state.lastExecutionId });
+      const draft = await call(`/cases/${state.caseId}/reports/draft`, 'POST', {});
+      state.reportId = draft.id;
+      el('reportStatus').textContent = `第${draft.version}版の顧客向けレポートを作成しました。内容を確認して承認してください。`;
+      await renderReportPreview();
+      el('btnProjectReport').disabled = true; el('btnApproveReport').disabled = false;
+      showView('report');
+    }
     else { setError('却下されました（status=' + kase.status + '）。Preliminary Scopeには進めません。'); }
   } catch (e) { setError(String(e.message || e)); }
 }
@@ -614,6 +716,7 @@ el('btnGenerateScope').onclick = async () => {
   } catch (e) { setError(String(e.message || e)); }
 };
 
+loadCases();
 showView('entry');
 </script>
 </body></html>

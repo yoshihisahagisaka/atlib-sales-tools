@@ -150,6 +150,7 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
 
   r.post('/cases/:id/final-review/project', (req,res)=>handle(res,async()=>{if(!vs1){res.status(501).end();return;}const p=z.object({executionId:z.string().uuid()}).strict().safeParse(req.body);if(!p.success){res.status(400).end();return;}res.json(await vs1.project(req.params.id,p.data.executionId,staffEmail(req)));}));
   r.post('/cases/:id/reports/draft', (req,res)=>handle(res,async()=>{if(!vs1){res.status(501).end();return;}res.status(201).json(await vs1.draft(req.params.id,staffEmail(req)));}));
+  r.get('/cases/:id/reports/:reportId', (req,res)=>handle(res,async()=>{if(!vs1){res.status(501).end();return;}res.json(await vs1.getReport(req.params.id,req.params.reportId));}));
   r.post('/cases/:id/reports/:reportId/approve', (req,res)=>handle(res,async()=>{if(!vs1){res.status(501).end();return;}await vs1.approve(req.params.id,req.params.reportId,staffEmail(req));res.status(204).end();}));
   r.post('/cases/:id/reports/:reportId/deliver', (req,res)=>handle(res,async()=>{if(!vs1){res.status(501).end();return;}await vs1.deliver(req.params.id,req.params.reportId,staffEmail(req));res.status(204).end();}));
   r.post('/cases/:id/feedback/start', (req,res)=>handle(res,async()=>{if(!vs1){res.status(501).end();return;}await vs1.startFeedback(req.params.id,staffEmail(req));res.status(204).end();}));
