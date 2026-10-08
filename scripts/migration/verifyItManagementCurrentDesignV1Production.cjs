@@ -1,7 +1,7 @@
 /* Post-migration verifier. Requires BEGIN READ ONLY and cannot execute migrations. */
 const {Pool}=require('pg');
 const fail=(message)=>{throw Error(`IT_MANAGEMENT_RELEASE_VERIFY_FAILED:${message}`)};
-const args=Object.fromEntries(process.argv.slice(2).flatMap((v,i,a)=>v.startsWith('--')&&a[i+1]?[[v.slice(2),a[i+1]]:[]));
+const args=Object.fromEntries(process.argv.slice(2).flatMap((v,i,a)=>v.startsWith('--')&&a[i+1]?[[v.slice(2),a[i+1]]]:[]));
 const must=(ok,label)=>{if(!ok)fail(label)};
 const migrationFiles=['028_free_diagnosis_current_design_v1_phase1_draft.sql','029_vs1_report_feedback_shared_artifacts.sql','030_sales_activity_marketing_attribution.sql','031_public_customer_self_submission.sql','032_sales_activity_referral_person_name.sql'];
 const columns=[['hearing_statement_v2','structured_answer_json'],['rule_analysis_execution','analysis_stage'],['rule_analysis_execution','input_snapshot_json'],['sales_activity','acquisition_source_type'],['sales_activity','acquisition_source_name'],['sales_activity','utm_source'],['sales_activity','utm_medium'],['sales_activity','utm_campaign'],['sales_activity','utm_content'],['sales_activity','utm_term'],['sales_activity','landing_url'],['sales_activity','referrer'],['sales_activity','referral_person_name'],['diagnosis_reports','it_management_diagnosis_case_v2_id'],['management_feedback_decisions','it_management_diagnosis_case_v2_id'],['it_management_public_self_submission','idempotency_key']];
