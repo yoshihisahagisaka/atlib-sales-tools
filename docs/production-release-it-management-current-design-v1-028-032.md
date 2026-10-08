@@ -46,4 +46,4 @@ Only after a separately approved Production migration execution decision:
 - Environment: `MIGRATIONS_DIR=/app/migrations`.
 - Retry count: zero; immutable image digest only.
 
-After a successful execution, a separate fail-closed read-only verifier must check ledger entries, columns, PK/FK/composite FK/CHECK/generated columns/indexes, runtime `sales_tools_app` DML privileges, `referral_person_name`, and legacy-row compatibility.
+After a successful execution, `scripts/migration/verifyItManagementCurrentDesignV1Production.cjs` is the separate fail-closed read-only verifier. It checks ledger entries, columns, PK/FK/composite FK/CHECK/generated columns/indexes, runtime `sales_tools_app` DML privileges, `referral_person_name`, and legacy-row compatibility. It accepts the preflight baseline Sales Activity count as a minimum-count guard.
