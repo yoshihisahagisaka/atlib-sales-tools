@@ -50,6 +50,14 @@ export function runInitialRule(input: IntakeSemanticProjection): InitialRuleResu
   if (direct === 'M03_BUSINESS_DEFENSE_CONTINUITY' && managementDecisionNeed) add(items, 'M01_IT_MANAGEMENT_JUDGMENT', 'RELATED', ['Q3', 'M03_DEPENDENCY']);
   if (direct === 'M06_IT_STRATEGIC_USE' && managementDecisionNeed) add(items, 'M01_IT_MANAGEMENT_JUDGMENT', items.length ? 'RELATED' : 'PRIMARY', ['Q3', 'M06_DEPENDENCY']);
 
+  // Future and desired state never establish a problem.  They can, however,
+  // make a bounded 60-minute confirmation theme worthwhile.  Keep these as
+  // OPPORTUNITY items so they are available to the Hearing without changing
+  // the primary/secondary case focus or escalating an Assessment.
+  const expansionOrLean = future.has('BUSINESS_EXPANSION') || future.has('LEAN_SCALING');
+  if (expansionOrLean) add(items, 'M05_GROWTH_CHANGE_ADAPTATION', 'OPPORTUNITY', ['Q2:BUSINESS_EXPANSION_OR_LEAN_SCALING']);
+  if (expansionOrLean && desired.has('IMPROVE_PRODUCTIVITY')) add(items, 'M04_BUSINESS_PRODUCTIVITY', 'OPPORTUNITY', ['Q2:BUSINESS_EXPANSION_OR_LEAN_SCALING', 'Q3:IMPROVE_PRODUCTIVITY']);
+
   // A healthy case may surface productivity as an opportunity but must not force a primary focus.
   if (!direct && desired.has('IMPROVE_PRODUCTIVITY') && q6?.usability === 'USABLE') add(items, 'M04_BUSINESS_PRODUCTIVITY', 'OPPORTUNITY', ['Q3']);
 

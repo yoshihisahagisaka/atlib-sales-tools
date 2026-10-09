@@ -121,7 +121,7 @@ test('Public Customer SelfはQ2だけで立場による未確認を保存し、Q
   const adminContext = await browser.newContext(); await adminContext.addCookies([{ name: 'staff_session', value: h.staffCookie.slice('staff_session='.length), url: h.url, httpOnly: true, sameSite: 'Lax' }]);
   const adminPage = await adminContext.newPage(); await adminPage.goto(h.url + '/admin/free-diagnosis-v1.html'); await adminPage.click('#btnLoadCases');
   const row = adminPage.locator('tr').filter({ hasText: '回答状態確認株式会社' }); await row.getByRole('button', { name: '開く' }).click();
-  await expect(adminPage.locator('#view-intake')).toBeVisible(); await expect(adminPage.locator('input[name="response_Q2"][value="NOT_IN_POSITION_TO_ANSWER"]')).toBeChecked();
+  await expect(adminPage.locator('#view-intake')).toBeVisible(); await expect(adminPage.locator('input[name="response_Q2"]')).toHaveCount(0);
   await adminContext.close();
 });
 
@@ -196,6 +196,26 @@ test('Healthy CaseはFocusを強制せず、正常なPreparation状態として�
   await expect(page.locator('#view-focus')).toBeHidden();
 });
 
+test('HA case: 事業拡大・少人数成長・生産性・経営判断から複数テーマと質問シーケンスを表示する', async ({ page }) => {
+  await createCase(page, '逆算型ヒアリング株式会社');
+  await completeIntake(page, {
+    q2: ['BUSINESS_EXPANSION', 'LEAN_SCALING'], q3: ['IMPROVE_PRODUCTIVITY', 'ENABLE_MANAGEMENT_DECISION'],
+    q4: 'MANAGEMENT_DECISION_CONCERN', q5: 'PARTIALLY_VISIBLE', q6: 'DELIVERED_NOT_USABLE',
+  });
+  await expect(page.locator('#prepThemes')).toContainText('IT経営判断');
+  await expect(page.locator('#prepThemes')).toContainText('成長・変化への対応');
+  await expect(page.locator('#prepThemes')).toContainText('業務生産性');
+  await page.click('#btnStartHearing');
+  await expect(page.locator('#hearingThemes')).toContainText('IT経営判断');
+  await expect(page.locator('#hearingThemes')).toContainText('成長・変化への対応');
+  await expect(page.locator('#hearingThemes')).toContainText('業務生産性');
+  await page.getByRole('button', { name: /成長・変化への対応/ }).click();
+  await expect(page.locator('#hearingSequence')).toContainText('必要な状態');
+  await expect(page.locator('#hearingSequence')).toContainText('今の業務やITのまま規模が広がった場合');
+  await expect(page.locator('#deepDiveHints')).toContainText('Excel');
+  await expect(page.locator('#planItemRef')).toBeHidden();
+});
+
 test('回答者の立場により質問文は変わるが、同じStructured Intakeを使う', async ({ page }) => {
   await createCase(page, '回答者確認株式会社');
   await page.selectOption('#respondentRole', 'IT_OR_BUSINESS_STAFF');
@@ -238,9 +258,14 @@ test('Admin UIからReport承認・送付・Focused ConfirmationでHearingへ戻
   await page.click('#btnApprove');
   await expect(page.locator('#view-report')).toBeVisible();
   await expect(page.locator('#reportStatus')).toContainText('レポート下書き');
-  await expect(page.locator('#reportPreview')).toContainText('IT経営アセスメント');
+  const draftText = page.locator('.report-draft-edit').first();
+  await expect(draftText).toBeVisible();
+  await draftText.fill('今回の60分で伺った、今後の会社の変化・ITに期待する状態です。');
+  await page.click('#btnSaveReportDraft');
+  await expect(page.locator('.report-draft-edit').first()).toHaveValue('今回の60分で伺った、今後の会社の変化・ITに期待する状態です。');
   await page.click('#btnApproveReport');
   await expect(page.locator('#reportStatus')).toContainText('承認');
+  await expect(page.locator('.report-draft-edit')).toHaveCount(0);
   await page.click('#btnDeliverReport');
   await expect(page.locator('#feedbackControls')).toBeVisible();
   await page.selectOption('#feedbackRoute', 'FOCUSED_CONFIRMATION');

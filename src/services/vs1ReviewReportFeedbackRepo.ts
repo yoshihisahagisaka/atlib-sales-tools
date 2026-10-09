@@ -11,6 +11,16 @@ type Semantic = 'OBSERVATION'|'UNKNOWN'|'HYPOTHESIS'|'GAP_CANDIDATE'|'ROOT_CAUSE
 const futureLabels: Record<string, string> = {
   HEADCOUNT_GROWTH: '人員を増やす', SITE_CHANGE: '拠点を変える・増やす', NEW_BUSINESS: '新しい事業を始める', ORG_CHANGE: '組織を変える', IPO_PREPARATION: '上場準備を進める', WORKSTYLE_CHANGE: '働き方を変える', BUSINESS_EXPANSION: '事業を広げる', LEAN_SCALING: '少人数で成長・運営する', STABILITY_EFFICIENCY: '安定・効率を高める', NO_MAJOR_CHANGE: '大きな変化は予定していない', SUPPORT_CHANGE: '変化を支えたい', IMPROVE_PRODUCTIVITY: '生産性を高めたい', PROTECT_BUSINESS: '事業を守りたい', ENABLE_MANAGEMENT_DECISION: '経営判断を支えたい', STRATEGIC_IT_USE: 'ITを戦略的に活かしたい', STABILIZE_IT_OPERATION: 'IT運営を安定させたい', OPTIMIZE_IT_INVESTMENT: 'IT投資を見直したい', UNDECIDED: 'まだ決めていない', OTHER: 'その他',
 };
+const focusLabel = (unitCode: string) => ({
+  M01_IT_MANAGEMENT_JUDGMENT_CORE: '経営判断に必要な情報',
+  M02_IT_OPERATION_CONTINUITY_CORE: 'IT運用の継続性',
+  M03_BUSINESS_DEFENSE_CONTINUITY_CORE: '事業を守るためのIT上の状況',
+  M04_BUSINESS_PRODUCTIVITY_CORE: '日々の業務の生産性',
+  M05_GROWTH_CHANGE_ADAPTATION_CORE: '事業の拡大・変化への対応',
+  M06_IT_STRATEGIC_USE_CORE: 'ITの戦略的な活用',
+} as Record<string,string>)[unitCode] ?? '今回確認したテーマ';
+const currentUnderstandingText = (unitCode: string, value: unknown) => `${focusLabel(unitCode)}について、${hearingAnswerDisplayLabel(value)}と伺いました。`;
+const remainingUnknownText = (unitCode: string) => `今回の60分では、${focusLabel(unitCode)}について判断に必要な状況を十分に確認できていません。`;
 export class Vs1ReviewReportFeedbackRepo {
   constructor(private readonly pool: Pool) {}
   private async audit(caseId:string, actor:string, command:string, detail:unknown){await this.pool.query(`INSERT INTO it_management_diagnosis_case_v2_audit(id,case_id,command,actor_user_id,detail_json) VALUES($1,$2,$3,$4,$5)`,[randomUUID(),caseId,command,actor,JSON.stringify(detail)]);}
@@ -18,8 +28,8 @@ export class Vs1ReviewReportFeedbackRepo {
     const {rows}=await this.pool.query<any>('SELECT input_snapshot_json FROM rule_analysis_execution WHERE id=$1 AND case_id=$2 AND analysis_stage=\'FINAL\'',[executionId,caseId]); if(!rows[0]) throw new RuleBasedV1Error(404,'FINAL_RULE_EXECUTION_NOT_FOUND');
     const snap=typeof rows[0].input_snapshot_json==='string'?JSON.parse(rows[0].input_snapshot_json):rows[0].input_snapshot_json, final=runFinalRule({intake:projectIntakeSemantics(snap.intake.map((x:any)=>intakeAnswerEnvelopeSchema.parse(x))),answers:snap.hearing,knowledgeStates:snap.hearingKnowledgeStates ?? []});
     const add=async(type:Semantic,content:string,unknownType:string|null=null)=>{const id=randomUUID();await this.pool.query(`INSERT INTO diagnosis_insights(id,it_management_diagnosis_case_v2_id,semantic_type,title,content,unknown_type,review_status,created_by,created_by_user_id) VALUES($1,$2,$3,$4,$5,$6,'HUMAN_APPROVED','HUMAN',$7)`,[id,caseId,type,type,content,unknownType,actor]);await this.pool.query(`INSERT INTO insight_sources(diagnosis_insight_id,it_management_diagnosis_case_v2_id,source_ref_type,source_ref_id,relation) VALUES($1,$2,'VS1_RULE_EXECUTION',$3,'SUPPORTS')`,[id,caseId,executionId]);return id;};
-    for(const x of final.currentUnderstanding) await add('OBSERVATION',`確認した状態：${hearingAnswerDisplayLabel(x.answerValue)}`);
-    for(const x of final.remainingUnknown) await add('UNKNOWN','今回まだ確認できていない事項があります。','NOT_YET_CONFIRMED');
+    for(const x of final.currentUnderstanding) await add('OBSERVATION',currentUnderstandingText(x.hearingUnitCode, x.answerValue));
+    for(const x of final.remainingUnknown) await add('UNKNOWN',remainingUnknownText(x.hearingUnitCode),'NOT_YET_CONFIRMED');
     for(const x of final.gapPossibilities) await add('GAP_CANDIDATE',x.statement);
     for(const x of final.improvementOpportunities) await add('KAIZEN_DIRECTION',x.statement);
     for(const x of final.evidenceCandidates) await add('EVIDENCE_CANDIDATE',x.purpose);
@@ -39,6 +49,25 @@ export class Vs1ReviewReportFeedbackRepo {
   }
   async draft(caseId:string,actor:string){const context=await this.context(caseId), output=manualReport(context), id=randomUUID();const r=await this.pool.query<any>('SELECT COALESCE(MAX(version),0)+1 v FROM diagnosis_reports WHERE it_management_diagnosis_case_v2_id=$1',[caseId]);await this.pool.query(`INSERT INTO diagnosis_reports(id,it_management_diagnosis_case_v2_id,version,status,content_json,context_json,context_hash,prompt_version,policy_version,created_by,created_by_user_id) VALUES($1,$2,$3,'REVIEW_REQUIRED',$4,$5,$6,'human-projection-v1','vs1','HUMAN',$7)`,[id,caseId,r.rows[0].v,JSON.stringify(storeReport(output)),JSON.stringify(context),contentHash(context),actor]);await this.pool.query(`UPDATE it_management_diagnosis_case_v2 SET status='REPORT_REVIEW_REQUIRED',version=version+1 WHERE id=$1`,[caseId]);await this.audit(caseId,actor,'CreateReportDraft',{from_state:'HUMAN_REVIEW_REQUIRED',to_state:'REPORT_REVIEW_REQUIRED',report_id:id,report_version:r.rows[0].v});return{id,version:r.rows[0].v};}
   async getReport(caseId:string,reportId:string){const row=(await this.pool.query<any>('SELECT id,version,status,content_json,snapshot_json FROM diagnosis_reports WHERE id=$1 AND it_management_diagnosis_case_v2_id=$2',[reportId,caseId])).rows[0];if(!row)throw new RuleBasedV1Error(404,'REPORT_NOT_FOUND');return {id:row.id,version:row.version,status:row.status,content:row.content_json,snapshot:row.snapshot_json};}
+  /**
+   * Customer-facing wording may be adjusted while a VS1 report is a draft.
+   * Block references and all raw/structured hearing inputs remain untouched;
+   * this is deliberately not an Insight/FACT editing command.
+   */
+  async editDraft(caseId:string,reportId:string,actor:string,blocks:readonly {blockId:string;text:string}[]) {
+    const row=(await this.pool.query<any>('SELECT content_json FROM diagnosis_reports WHERE id=$1 AND it_management_diagnosis_case_v2_id=$2 AND status=\'REVIEW_REQUIRED\'',[reportId,caseId])).rows[0];
+    if(!row)throw new RuleBasedV1Error(409,'REPORT_NOT_EDITABLE');
+    const content=typeof row.content_json==='string'?JSON.parse(row.content_json):structuredClone(row.content_json);
+    const all=content.sections.flatMap((section:any)=>section.blocks);
+    for(const edit of blocks){
+      if(typeof edit.blockId!=='string'||typeof edit.text!=='string'||!edit.text.trim()||edit.text.trim().length>20_000)throw new RuleBasedV1Error(400,'INVALID_REPORT_DRAFT_EDIT');
+      const block=all.find((candidate:any)=>candidate.block_id===edit.blockId);if(!block)throw new RuleBasedV1Error(422,'REPORT_BLOCK_NOT_FOUND');
+      block.text=edit.text.trim();
+    }
+    await this.pool.query('UPDATE diagnosis_reports SET content_json=$1 WHERE id=$2',[JSON.stringify(content),reportId]);
+    await this.audit(caseId,actor,'EditReportDraft',{report_id:reportId,edited_block_ids:blocks.map(x=>x.blockId)});
+    return this.getReport(caseId,reportId);
+  }
   async latestReport(caseId:string){const row=(await this.pool.query<any>('SELECT id,version,status FROM diagnosis_reports WHERE it_management_diagnosis_case_v2_id=$1 ORDER BY version DESC LIMIT 1',[caseId])).rows[0];return row ? {id:row.id,version:row.version,status:row.status} : null;}
   async approve(caseId:string,reportId:string,actor:string){const q=await this.pool.query<any>('SELECT * FROM diagnosis_reports WHERE id=$1 AND it_management_diagnosis_case_v2_id=$2',[reportId,caseId]);const r=q.rows[0];if(!r||r.status!=='REVIEW_REQUIRED')throw new RuleBasedV1Error(409,'REPORT_NOT_REVIEWABLE');const snapshot={context:r.context_json,content_hash:contentHash(r.content_json),approved_by:actor,approved_at:new Date().toISOString()};await this.pool.query(`UPDATE diagnosis_reports SET status='APPROVED',snapshot_json=$1,approved_by_user_id=$2,approved_at=now() WHERE id=$3`,[JSON.stringify(snapshot),actor,reportId]);await this.pool.query(`UPDATE it_management_diagnosis_case_v2 SET status='REPORT_APPROVED',version=version+1 WHERE id=$1`,[caseId]);await this.audit(caseId,actor,'ApproveReport',{from_state:'REPORT_REVIEW_REQUIRED',to_state:'REPORT_APPROVED',report_id:reportId,approval_snapshot_hash:contentHash(snapshot)});}
   async deliver(caseId:string,reportId:string,actor:string){const r=(await this.pool.query<any>('SELECT status,snapshot_json FROM diagnosis_reports WHERE id=$1 AND it_management_diagnosis_case_v2_id=$2',[reportId,caseId])).rows[0];if(!r||r.status!=='APPROVED'||!r.snapshot_json)throw new RuleBasedV1Error(409,'REPORT_NOT_APPROVED');await this.pool.query(`UPDATE diagnosis_reports SET status='DELIVERED',delivered_at=now() WHERE id=$1`,[reportId]);await this.pool.query(`UPDATE it_management_diagnosis_case_v2 SET status='FEEDBACK_PENDING',feedback_report_id=$2,version=version+1 WHERE id=$1`,[caseId,reportId]);await this.audit(caseId,actor,'DeliverReport',{from_state:'REPORT_APPROVED',to_state:'FEEDBACK_PENDING',report_id:reportId,approval_snapshot_hash:contentHash(r.snapshot_json)});}

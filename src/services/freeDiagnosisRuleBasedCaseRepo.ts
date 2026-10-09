@@ -223,14 +223,16 @@ export class FreeDiagnosisRuleBasedCaseRepo {
     return rows.map(r => ({ id: r.id, triggerType: r.trigger_type as TriggerFinding['triggerType'], investigationNeed: r.investigation_need as TriggerFinding['investigationNeed'], grounds: r.grounds_json as TriggerFinding['grounds'] }));
   }
 
-  async latestFinalRuleAnalysis(caseId: string): Promise<{ executionId: string; findings: (TriggerFinding & { id: string })[] } | null> {
-    const { rows } = await this.pool.query<{ id: string }>(
-      `SELECT id FROM rule_analysis_execution
+  async latestFinalRuleAnalysis(caseId: string): Promise<{ executionId: string; findings: (TriggerFinding & { id: string })[]; final: FinalRuleResult } | null> {
+    const { rows } = await this.pool.query<{ id: string; input_snapshot_json: unknown }>(
+      `SELECT id,input_snapshot_json FROM rule_analysis_execution
        WHERE case_id=$1 AND analysis_stage='FINAL' AND status='SUCCEEDED'
        ORDER BY completed_at DESC, started_at DESC LIMIT 1`, [caseId],
     );
     if (!rows[0]) return null;
-    return { executionId: rows[0].id, findings: await this.listInvestigationOutputs(rows[0].id) };
+    const snapshot = typeof rows[0].input_snapshot_json === 'string' ? JSON.parse(rows[0].input_snapshot_json) : rows[0].input_snapshot_json as { intake: unknown[]; hearing: StructuredHearingAnswer[]; hearingKnowledgeStates?: { hearingUnitCode: string; semanticKey: string; knowledgeState: HearingStatementInput['knowledgeState'] }[] };
+    const envelopes = snapshot.intake.map((value: unknown) => intakeAnswerEnvelopeSchema.parse(value));
+    return { executionId: rows[0].id, findings: await this.listInvestigationOutputs(rows[0].id), final: runFinalRule({ intake: projectIntakeSemantics(envelopes), answers: snapshot.hearing, knowledgeStates: snapshot.hearingKnowledgeStates }) };
   }
 
   /**

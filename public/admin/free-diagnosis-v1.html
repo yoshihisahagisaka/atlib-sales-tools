@@ -48,6 +48,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .story-nav .crumb{padding:.2rem .6rem;border-radius:999px;background:#fff;border:1px solid #d1d5db}
 .story-nav .crumb.active{background:#2563eb;color:#fff;border-color:#2563eb}
 .story-nav .sep{color:#9ca3af}
+.hearing-theme{display:block;width:100%;text-align:left;margin:0 0 .45rem;padding:.65rem;border:1px solid #dbe4ee;background:#fff;color:#1f2937}
+.hearing-theme.active{border-color:#2563eb;background:#eff6ff;color:#1e40af}.hearing-theme small{display:block;margin-top:.2rem;color:#64748b}
+.question-sequence{margin:.75rem 0;padding-left:1.3rem}.question-sequence li{margin:.5rem 0;line-height:1.55}.question-sequence .optional{color:#64748b}
+.deep-dive-hints{margin:.25rem 0 .75rem;padding:.6rem .75rem;background:#f8fafc;border-radius:.4rem;font-size:.85rem;color:#475569}
 
 /* --- 整理モード: 3 buckets --- */
 .organize-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
@@ -90,7 +94,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </div></details>
 </div>
 
-<div class="view" id="view-intake"><h3>事前アンケート確認</h3>
+<div class="view" id="view-intake"><h3>事前アンケート回答</h3>
 <p class="hint">お客様ご本人の回答を確認し、代理入力の場合は同じ質問に回答します。</p>
 <p id="intakeAttribution" class="hint"></p>
 <p id="intakeProgress" class="hint"></p>
@@ -104,8 +108,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><button id="btnSelectFocus">確認内容を決定する</button></div>
 </div>
 
-<div class="view" id="view-preparation"><h3>60分診断の準備</h3>
-<p class="hint">事前アンケートをもとに、今回の診断で確認する内容を整理しています。</p>
+<div class="view" id="view-preparation"><h3>60分診断で確認するテーマ</h3>
+<p class="hint">事前アンケートをもとに、今回の60分で確認する価値があるテーマを整理しました。ここではまだ診断結果を決めません。</p>
 <div class="prep-grid">
 <div class="prep-item"><h4>お客様について</h4><p id="prepCompany"></p></div>
 <div class="prep-item"><h4>今後予定している変化</h4><p id="prepChange"></p></div>
@@ -116,26 +120,25 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="prep-item"><h4>きっかけ</h4><p id="prepAttribution"></p></div>
 <div class="prep-item"><h4>回答方法</h4><p id="prepEntryChannel"></p></div>
 </div>
-<div class="why-box"><h4>今回ここを確認する理由</h4><p id="prepWhy"></p></div>
+<div class="why-box"><h4>今回確認するテーマ</h4><p id="prepWhy"></p><div id="prepThemes"></div></div>
 <div class="row" style="margin-top:1rem"><button id="btnStartHearing">60分診断を始める</button></div>
 </div>
 
 <div class="view" id="view-hearing"><h3>60分診断</h3>
 <div class="hearing-layout">
-<div class="hearing-col left"><h4>事前に伺ったこと</h4>
-<p><strong>実現したいこと:</strong> <span id="hearingIntent"></span></p>
+<div class="hearing-col left"><h4>今回確認するテーマ</h4><div id="hearingThemes"></div>
+<details><summary>事前に伺ったこと</summary><p><strong>実現したいこと:</strong> <span id="hearingIntent"></span></p>
 <p><strong>予定している変化:</strong> <span id="hearingChange"></span></p>
-<p><strong>気になっていること:</strong> <span id="hearingConcern"></span></p>
+<p><strong>気になっていること:</strong> <span id="hearingConcern"></span></p></details>
 </div>
 <div class="hearing-col center"><h4 id="hearingTopicTitle">今回確認すること</h4>
 <p id="hearingWhy" style="font-size:.85rem;color:#4b5563"></p>
 <p id="hearingStarter" style="font-weight:600"></p>
-<div class="row"><label for="planItemRef">話題</label><select id="planItemRef"></select></div>
-<div class="row"><label for="knowledgeState">今回の診断で確認できた範囲</label><small>今回の会話で、診断に必要な内容をどこまで確認できたかを記録します。</small>
+<ol id="hearingSequence" class="question-sequence"></ol><div id="deepDiveHints" class="deep-dive-hints"></div>
+<select id="planItemRef" hidden aria-hidden="true"></select>
+<div class="row"><label for="knowledgeState">今回の60分で、必要な確認がどこまでできたか</label><small>今回の会話で、診断に必要な内容をどこまで確認できたかを記録します。</small>
 <select id="knowledgeState"><option value="KNOWN">今回確認できた</option><option value="AVAILABLE">追加確認すれば分かる</option><option value="PARTIAL">一部、追加確認が必要</option><option value="UNKNOWN" selected>今回まだ確認できていない</option></select></div>
-<div class="row"><label for="structuredAnswer">お客様の現在の認識</label><small>このテーマについて、お客様自身が現在どこまで判断できているかを記録します。</small><select id="structuredAnswer"><option value="CAN_JUDGE">判断できている</option><option value="PARTIALLY_JUDGE">一部は判断できる</option><option value="CANNOT_JUDGE">判断が難しい</option><option value="UNKNOWN">まだ分からない</option><option value="OPPORTUNITY_IDENTIFIED">改善の余地がありそう</option><option value="NO_OPPORTUNITY">現時点では特にない</option></select></div>
-<div class="row"><label for="naFlag">「ない（存在しない）」という回答</label><input id="naFlag" type="checkbox"></div>
-<div class="row"><label for="requiresIndividual">対象ごとに個別確認が必要</label><input id="requiresIndividual" type="checkbox"></div>
+<div class="row"><label for="structuredAnswer">お客様は現在、このことをどこまで判断できていますか？</label><small>お客様の認識を記録します。確認済みの事実を登録するものではありません。</small><select id="structuredAnswer"><option value="CAN_JUDGE">判断できている</option><option value="PARTIALLY_JUDGE">一部は判断できる</option><option value="CANNOT_JUDGE">判断が難しい</option><option value="UNKNOWN">まだ分からない</option><option value="OPPORTUNITY_IDENTIFIED">改善の余地がありそう</option><option value="NO_OPPORTUNITY">現時点では特にない</option></select></div>
 <div class="row"><label for="statementText">発言・メモ</label><textarea id="statementText"></textarea></div>
 <div class="row"><button id="btnRecordStatement" class="secondary">記録を追加</button></div>
 </div>
@@ -145,8 +148,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row" style="margin-top:1rem"><button id="btnOrganize" class="secondary">確認内容を整理する</button><button id="btnCompleteHearing">60分診断を完了する</button></div>
 </div>
 
-<div class="view" id="view-organize"><h3>整理モード</h3>
-<p class="hint">顧客との認識合わせ。「ない（確認済み）」と「分からない」は別バッジで区別します。再確認は新しい記録として追加してください（元の記録は書き換えません）。</p>
+<div class="view" id="view-organize"><h3>今回の60分で確認したことの整理</h3>
+<p class="hint">今回確認できたこと、追加で確認する価値があることを整理します。追加の確認は新しい記録として残ります。</p>
 <div class="organize-grid">
 <div class="organize-bucket known"><h4>今回確認できたこと</h4><ul id="bucketKnown"></ul></div>
 <div class="organize-bucket available"><h4>追加確認すれば分かること</h4><ul id="bucketAvailable"></ul></div>
@@ -171,26 +174,26 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <p class="hint">診断内容を確認してからレポートを承認・送付します。経営者との対話で、次の進め方を選択します。</p>
 <div id="reportStatus" class="gates-panel">診断内容の確認待ちです。</div>
 <div id="reportPreview" class="report-preview"></div>
-<div class="row" style="margin-top:1rem"><button id="btnProjectReport" hidden>内部処理</button><button id="btnApproveReport" disabled>レポートを承認</button><button id="btnDeliverReport" class="secondary" disabled>レポートを送付</button></div>
+<div class="row" style="margin-top:1rem"><button id="btnProjectReport" hidden>内部処理</button><button id="btnSaveReportDraft" class="secondary" hidden>下書きの編集を保存</button><button id="btnApproveReport" disabled>レポートを承認</button><button id="btnDeliverReport" class="secondary" disabled>レポートを送付</button></div>
 <div id="feedbackControls" style="display:none"><div class="row"><label for="feedbackRoute">次の進め方</label><select id="feedbackRoute"><option value="DIRECT_ACT">まず社内で改善を進める</option><option value="FOCUSED_CONFIRMATION">追加確認を行う</option><option value="DESIGN_ASSESSMENT">Assessmentを検討する</option><option value="STOP_HOLD">今回はここで終了する</option></select></div>
 <div class="row"><label for="feedbackDecision">今回の判断</label><textarea id="feedbackDecision"></textarea></div><div class="row"><label for="feedbackAction">次の行動</label><textarea id="feedbackAction"></textarea></div><div class="row"><button id="btnRecordFeedback">経営フィードバックを記録</button></div></div>
 </div>
 
-<div class="view" id="view-review"><h3>診断内容の確認</h3>
-<p class="hint">診断で確認した内容を見直し、顧客へお伝えする内容を確認します。</p>
+<div class="view" id="view-review"><h3>顧客向けレポートの内容を確認</h3>
+<p class="hint">今回の会話に基づく診断結果の原案を確認します。確認していないことを事実として追加しないでください。</p>
 <div id="findingsList"></div>
 <div class="row"><button id="btnApprove">内容を確認して、レポート作成へ進む</button><button id="btnReject" class="secondary">今回は採用しない</button></div>
 </div>
 
-<div class="view" id="view-approved"><h3>Analysis Approved</h3>
-<p>Rule Analysis結果が承認されました。以降、Findingsの内容は変更できません。</p>
-<div class="row"><button id="btnGoToScope">Preliminary Assessment Structureへ</button></div>
+<div class="view" id="view-approved"><h3>診断内容を確認しました</h3>
+<p>確認した内容をもとに、次の確認範囲を整理できます。</p>
+<div class="row"><button id="btnGoToScope">次の確認範囲を整理する</button></div>
 </div>
 
-<div class="view" id="view-scope"><h3>Preliminary Assessment Structure / Suggested Scope</h3>
-<div class="row"><button id="btnGenerateScope">Preliminary Scopeを生成</button></div>
+<div class="view" id="view-scope"><h3>次に詳しく確認する範囲の整理</h3>
+<div class="row"><button id="btnGenerateScope">確認範囲を整理する</button></div>
 <div id="scopeResult" style="display:none"><div class="gates-panel" id="gatesPanel"></div><div id="scopePanel" style="margin-top:1rem;font-weight:600"></div>
-<p style="font-size:.8rem;color:#6b7280;margin-top:.5rem">System Suggestion ≠ Customer Quote。PPTXへは未反映です。</p></div>
+<p style="font-size:.8rem;color:#6b7280;margin-top:.5rem">ここでの整理は、今後詳しく確認する場合の社内向けの目安です。お客様へのご提案内容を確定するものではありません。</p></div>
 </div>
 
 <p id="errorMsg"></p>
@@ -204,7 +207,27 @@ const FOCUS_LABELS = {
   M04_BUSINESS_PRODUCTIVITY: 'M04 業務生産性', M05_GROWTH_CHANGE_ADAPTATION: 'M05 成長・変化への対応',
   M06_IT_STRATEGIC_USE: 'M06 ITの戦略活用',
 };
+const focusDisplay = focus => (FOCUS_LABELS[focus] || '').replace(/^(H00|M0[1-6])\s+/, '');
 const KS_LABEL = { KNOWN: '今回確認できた', AVAILABLE: '追加確認すれば分かる', PARTIAL: '一部、追加確認が必要', UNKNOWN: '今回まだ確認できていない' };
+const HEARING_ANSWER_LABELS = {
+  CAN_JUDGE: '経営判断に使える状態になっている',
+  PARTIALLY_JUDGE: '一部は判断できている',
+  CANNOT_JUDGE: '判断が難しい',
+  UNKNOWN: 'まだ分からない',
+  OPPORTUNITY_IDENTIFIED: '改善できる余地がありそう',
+  NO_OPPORTUNITY: '現時点では特にない',
+  NOT_USABLE_FOR_DECISION: '情報はあるが、経営判断には使いにくい',
+  AVAILABLE_IF_ASKED: '確認すれば、必要な情報を得られる',
+  NOT_AVAILABLE: '確認しても、必要な情報が十分に得られない',
+  NOT_ORGANIZED: '何を確認すればよいか、まだ整理できていない',
+  NO_CONCERN: '大きな懸念はない',
+  UNDER_CONTROL: '対応できている',
+  PARTIALLY_CONTROLLED: '一部に確認が必要な点がある',
+};
+function hearingAnswerDisplay(value) {
+  const display = item => HEARING_ANSWER_LABELS[item] || item;
+  return Array.isArray(value) ? value.map(display).join('、') : display(value);
+}
 const GATE_LABEL = {
   structure_determinable: '調査構造を今回の情報だけで判定できるか',
   single_management_scope: '単一の代表的な確認経路でFactを成立させられるか',
@@ -216,7 +239,7 @@ const PLAN_ITEM_PROMPT = {
   DECISION: { why: '意思決定の有無と確定度合いを確認します。', starter: 'この点について、すでに決まっていることはありますか？' },
 };
 const STEPS = ['entry', 'intake', 'preparation', 'hearing', 'review', 'report'];
-const STEP_LABEL = { entry: '案件一覧', intake: '事前アンケート', preparation: '60分診断の準備', hearing: '60分診断', review: '診断内容の確認', report: '顧客向けレポート' };
+const STEP_LABEL = { entry: '案件一覧', intake: '事前アンケート回答', preparation: '60分診断の準備', hearing: '60分診断', review: '診断内容の確認', report: '顧客向けレポート' };
 const el = id => document.getElementById(id);
 let state = { caseId: null, version: null, primaryFocus: null, secondaryFocus: null, lastExecutionId: null, intake: {}, responseStates: {}, entryChannel: 'PROXY', respondentRole: 'MANAGEMENT', intakeStep: -1, findings: [], omitted: new Set(), overrides: {}, reachableSteps: new Set(['entry']), caseStatus: null, reportId: null };
 
@@ -345,7 +368,7 @@ function renderIntakeForm() {
     IT_DECISION_OWNER: { Q2: '今後1〜3年で、会社として予定している変化はありますか？', Q3: 'その変化に向けて、ITで実現したい状態はありますか？', Q5: 'ITの状況は、判断に必要な範囲まで見えていますか？', Q6: '経営判断に必要なIT情報は、判断に使える形で共有されていますか？' },
     IT_OR_BUSINESS_STAFF: { Q2: '今後1〜3年で、業務や会社に予定されている変化はありますか？', Q3: 'その変化に向けて、ITで実現したいことはありますか？', Q5: '日々の業務で使うITの状況は、どの程度見えていますか？', Q6: '経営判断に必要なIT情報は、判断に使える形で共有されていると思いますか？' },
   }[role];
-  const questions = [['Q1', '会社規模・主な拠点数'], ['Q2', wording.Q2], ['Q3', wording.Q3], ['Q4', '現在ITについて気になっていること'], ['Q5', wording.Q5], ['Q6', wording.Q6], ['Q7', '60分で特に相談したいこと（任意）']];
+  const questions = [['Q1', '会社規模・主な拠点数'], ['Q2', wording.Q2], ['Q3', wording.Q3], ['Q4', '現在、特に確認しておきたいことに近いものを1つ選んでください'], ['Q5', wording.Q5], ['Q6', wording.Q6], ['Q7', '60分で特に相談したいこと（任意）']];
   const form = el('intakeForm'); form.replaceChildren();
   const a = state.attribution;
   el('intakeAttribution').textContent = a ? (a.acquisitionSourceName ? `最初の接点：${a.acquisitionSourceName}` : `最初の接点：未確定${a.utmSource ? ` / UTM source: ${a.utmSource}` : ''}${a.utmCampaign ? ` / campaign: ${a.utmCampaign}` : ''}`) : '最初の接点：未設定';
@@ -377,7 +400,10 @@ function renderIntakeForm() {
       }
       row.append(choices);
     }
-    if (code !== 'Q7') {
+    // A customer's submitted response is shown as an answer, not as an
+    // operator-editable response-state control.  Proxy intake retains the
+    // control because staff are recording the conversation.
+    if (code !== 'Q7' && state.entryChannel !== 'SELF') {
       const responseChoices = document.createElement('fieldset'); responseChoices.className = 'answer-choices';
       const hint = document.createElement('small'); hint.textContent = '回答の状況'; responseChoices.append(hint);
       for (const [v, text] of stateOptions) { const choice = document.createElement('label'); const input = document.createElement('input'); input.type = 'radio'; input.name = 'response_' + code; input.value = v; input.checked = (state.responseStates[code] || 'ANSWERED') === v; choice.append(input, document.createTextNode(text)); responseChoices.append(choice); }
@@ -452,12 +478,14 @@ function renderPreparation() {
   el('prepConcern').textContent = displayIntakeAnswer('Q4', state.intake.Q4);
   el('prepQ7').textContent = state.intake.Q7 || '（任意・未回答）';
   const items = state.preparation.result.focusItems;
-  el('prepFocus').textContent = items.length ? items.map(x => FOCUS_LABELS[x.focus].replace(/^M\d+ /, '')).join(' / ') : '現時点では重要な確認テーマは特定されていません。';
+  el('prepFocus').textContent = items.length ? items.map(x => focusDisplay(x.focus)).join(' / ') : '現時点では重要な確認テーマは特定されていません。';
   const a = state.attribution;
   el('prepAttribution').textContent = a ? (a.acquisitionSourceName ? a.acquisitionSourceName : `獲得元：未確定${a.utmSource ? ` / UTM source: ${a.utmSource}` : ''}${a.utmCampaign ? ` / campaign: ${a.utmCampaign}` : ''}`) : '未設定';
   el('prepEntryChannel').textContent = state.entryChannel === 'SELF' ? 'お客様ご本人による回答' : '営業担当者による代理入力';
   const authority = state.preparation.result.authorityConfirmationCandidates.length ? ' 回答者の立場を確認する必要があります。' : '';
   el('prepWhy').textContent = items.length ? '確認する理由：今回の経営上の関心や予定されている変化に照らし、60分で状況を確認する価値があるためです。' + authority : '今回の回答からは、優先して確認すべき重要なテーマは特定されていません。' + authority;
+  const themes = el('prepThemes'); themes.replaceChildren();
+  for (const item of items) { const p=document.createElement('p'); p.textContent=`${focusDisplay(item.focus)}：${item.role === 'OPPORTUNITY' ? '将来像との関係を確認します。' : '経営判断に必要な状況を確認します。'}`; themes.append(p); }
 }
 
 const INTAKE_LABELS = {
@@ -499,7 +527,7 @@ function renderStoryNav(active) {
   });
 }
 function planItemCodes() {
-  if (state.units) return state.units.map(u => [u.unitCode, FOCUS_LABELS[u.focus].replace(/^M\d+ /, ''), 'CORE']);
+  if (state.units) return state.units.map(u => [u.unitCode, focusDisplay(u.focus), 'CORE']);
   const focuses = [state.primaryFocus].concat(state.secondaryFocus ? [state.secondaryFocus] : []);
   return focuses.flatMap(f => [[f + '_CORE', FOCUS_LABELS[f] + ' / 現状の把握', 'CORE'], [f + '_DECISION', FOCUS_LABELS[f] + ' / 経営判断の確認', 'DECISION']]);
 }
@@ -511,6 +539,18 @@ function renderPlanItemSelectors() {
   }
   updateHearingTopic();
 }
+function renderHearingThemes() {
+  const target = el('hearingThemes'); target.replaceChildren();
+  for (const unit of state.units || []) {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'hearing-theme' + (unit.unitCode === el('planItemRef').value ? ' active' : '');
+    const latest = [...(state.statements || [])].reverse().find(s => s.planItemRef === unit.unitCode);
+    button.textContent = focusDisplay(unit.focus);
+    const detail = document.createElement('small'); detail.textContent = latest ? KS_LABEL[latest.knowledgeState] : '未確認';
+    button.append(detail);
+    button.onclick = () => { el('planItemRef').value = unit.unitCode; updateHearingTopic(); renderHearingThemes(); };
+    target.append(button);
+  }
+}
 function updateHearingTopic() {
   const code = el('planItemRef').value;
   const kind = code.endsWith('_CORE') ? 'CORE' : 'DECISION';
@@ -519,6 +559,9 @@ function updateHearingTopic() {
   const unit = (state.units || []).find(u => u.unitCode === code);
   el('hearingWhy').textContent = unit ? '確認する理由：経営判断に必要な状況を確かめるためです。' : '確認する理由：' + PLAN_ITEM_PROMPT[kind].why;
   el('hearingStarter').textContent = unit ? unit.standardQuestion : PLAN_ITEM_PROMPT[kind].starter;
+  const sequence = el('hearingSequence'); sequence.replaceChildren();
+  for (const step of unit?.questionSequence || []) { const li=document.createElement('li'); li.textContent=`${step.label}：${step.question}`; if(step.optional)li.className='optional'; sequence.append(li); }
+  el('deepDiveHints').textContent = unit ? '必要な場合だけ具体化します。使っているツールを棚卸しするのではなく、業務・情報・ITの順に、Excel、SaaS、紙、メール、チャット、AI、手作業、転記、集計、情報探索、確認待ち、属人化、システム間連携、IT運用などを確認します。' : '';
 }
 
 function statementBadge(s) {
@@ -534,9 +577,10 @@ async function refreshStatements() {
     const badge = statementBadge(s);
     const span = document.createElement('span'); span.className = 'badge ' + badge.cls; span.textContent = badge.label;
     const unit = (state.units || []).find(u => u.unitCode === s.planItemRef);
-    li.append(document.createTextNode(unit ? FOCUS_LABELS[unit.focus].replace(/^M\d+ /, '') : '確認項目'), span);
+    li.append(document.createTextNode(unit ? focusDisplay(unit.focus) : '確認項目'), span);
     list.append(li);
   }
+  renderHearingThemes();
 }
 
 async function recordStatement(planItemSelId, ksSelId, textId, naCheckId, individualCheckId) {
@@ -558,7 +602,7 @@ async function recordStatement(planItemSelId, ksSelId, textId, naCheckId, indivi
 
 el('btnRecordStatement').onclick = async () => {
   setError('');
-  try { await recordStatement('planItemRef', 'knowledgeState', 'statementText', 'naFlag', 'requiresIndividual'); }
+  try { await recordStatement('planItemRef', 'knowledgeState', 'statementText', null, null); }
   catch (e) { setError(String(e.message || e)); }
 };
 
@@ -580,7 +624,7 @@ async function renderOrganizeBuckets() {
   for (const s of latest.values()) {
     const badge = statementBadge(s);
     const unit = (state.units || []).find(u => u.unitCode === s.planItemRef);
-    const entry = `${unit ? FOCUS_LABELS[unit.focus].replace(/^M\d+ /, '') : '確認項目'}: ${badge.label}`;
+    const entry = `${unit ? focusDisplay(unit.focus) : '確認項目'}: ${badge.label}`;
     if (s.knowledgeState === 'KNOWN') buckets.known.push(entry);
     else if (s.knowledgeState === 'AVAILABLE') buckets.available.push(entry);
     else buckets.unknown.push(entry); // PARTIAL/UNKNOWN まとめて「まだ確認していない」側
@@ -608,7 +652,7 @@ async function completeHearing() {
     // Final Rule is deterministic and belongs to the completion action. Staff
     // continue directly to the human confirmation, never to an internal rule screen.
     const outcome = await call(`/cases/${state.caseId}/rule-analysis/run`, 'POST', { expectedVersion: state.version });
-    state.lastExecutionId = outcome.executionId; state.findings = outcome.findings; state.omitted = new Set(); state.overrides = {};
+    state.lastExecutionId = outcome.executionId; state.findings = outcome.findings; state.finalRule = outcome.result.final; state.omitted = new Set(); state.overrides = {};
     const current = await call(`/cases/${state.caseId}`, 'GET'); state.version = current.case.version;
     renderFindings(); showView('review');
   } catch (e) { setError(String(e.message || e)); }
@@ -639,7 +683,7 @@ el('btnRunAnalysis').onclick = async () => {
 el('btnGoToReview').onclick = () => { renderFindings(); showView('review'); };
 
 el('btnGoToReport').onclick = () => { showView('report'); };
-const REPORT_TITLES = { FUTURE:'目指している会社の姿', CURRENT_AND_UNKNOWN:'今回確認できたこと', GAP:'まだ分からないこと', ROOT_CAUSE_AND_KAIZEN:'ITで良くできそうなこと', NEXT_CONFIRMATION:'次に確認する価値があること' };
+const REPORT_TITLES = { FUTURE:'目指している会社の姿', CURRENT_AND_UNKNOWN:'今回確認できたこと / まだ分からないこと', GAP:'Futureとの差の可能性', ROOT_CAUSE_AND_KAIZEN:'ITで良くできそうなこと', NEXT_CONFIRMATION:'次に確認する価値があること' };
 async function renderReportPreview() {
   const report = await call(`/cases/${state.caseId}/reports/${state.reportId}`, 'GET');
   const preview = el('reportPreview'); preview.replaceChildren();
@@ -647,11 +691,15 @@ async function renderReportPreview() {
     const card = document.createElement('section'); const title = document.createElement('h4');
     title.textContent = REPORT_TITLES[section.section_key] || section.title; card.append(title);
     if (!section.blocks.length) { const empty=document.createElement('p'); empty.textContent='現時点で記載する内容はありません。'; card.append(empty); }
-    for (const block of section.blocks) { const p=document.createElement('p'); p.textContent=block.text; card.append(p); }
+    for (const block of section.blocks) {
+      if (report.status === 'REVIEW_REQUIRED') { const field=document.createElement('textarea'); field.className='report-draft-edit'; field.dataset.blockId=block.block_id; field.value=block.text; field.setAttribute('aria-label', title.textContent + 'の文章'); card.append(field); }
+      else { const p=document.createElement('p'); p.textContent=block.text; card.append(p); }
+    }
     preview.append(card);
   }
   el('btnProjectReport').disabled = true;
   el('btnApproveReport').disabled = report.status !== 'REVIEW_REQUIRED';
+  el('btnSaveReportDraft').hidden = report.status !== 'REVIEW_REQUIRED';
   el('btnDeliverReport').disabled = report.status !== 'APPROVED';
   el('feedbackControls').style.display = 'none';
   if (report.status === 'REVIEW_REQUIRED') el('reportStatus').textContent = `レポート下書き（第${report.version}版）を確認して承認してください。`;
@@ -672,9 +720,14 @@ el('btnProjectReport').onclick = async () => {
     el('btnProjectReport').disabled = true; el('btnApproveReport').disabled = false;
   } catch (e) { setError(String(e.message || e)); }
 };
+el('btnSaveReportDraft').onclick = async () => {
+  setError('');
+  try { const blocks=[...document.querySelectorAll('.report-draft-edit')].map(field=>({blockId:field.dataset.blockId,text:field.value})); await call(`/cases/${state.caseId}/reports/${state.reportId}`, 'PATCH', {blocks}); await renderReportPreview(); }
+  catch (e) { setError(String(e.message || e)); }
+};
 el('btnApproveReport').onclick = async () => {
   setError('');
-  try { await call(`/cases/${state.caseId}/reports/${state.reportId}/approve`, 'POST', {}); el('reportStatus').textContent = 'レポートを承認しました。承認後の内容は変更できません。'; el('btnApproveReport').disabled = true; el('btnDeliverReport').disabled = false; }
+  try { await call(`/cases/${state.caseId}/reports/${state.reportId}/approve`, 'POST', {}); await renderReportPreview(); }
   catch (e) { setError(String(e.message || e)); }
 };
 el('btnDeliverReport').onclick = async () => {
@@ -698,19 +751,29 @@ el('btnRecordFeedback').onclick = async () => {
 
 function renderFindings() {
   const container = el('findingsList'); container.replaceChildren();
-  if (state.findings.length === 0) {
-    const p = document.createElement('p'); p.textContent = '今回はトリガーされたFindingがありません。'; container.append(p); return;
+  const final = state.finalRule;
+  const addSummary = (title, values, empty) => {
+    const card=document.createElement('section'); card.className='finding-card'; const heading=document.createElement('strong'); heading.textContent=title; card.append(heading);
+    const list=document.createElement('ul'); for(const value of values){const li=document.createElement('li');li.textContent=value;list.append(li);} if(!values.length){const li=document.createElement('li');li.textContent=empty;list.append(li);} card.append(list);container.append(card);
+  };
+  if (final) {
+    addSummary('今回確認できたこと', final.currentUnderstanding.map(x => `${focusDisplay((state.units || []).find(u=>u.unitCode===x.hearingUnitCode)?.focus || '')}：${hearingAnswerDisplay(x.answerValue)}`), '今回の60分で確認した内容はありません。');
+    addSummary('まだ分からないこと', final.remainingUnknown.map(x => `${focusDisplay((state.units || []).find(u=>u.unitCode===x.hearingUnitCode)?.focus || '')}：追加確認が必要です。`), '今回の会話から追加確認が必要な事項はありません。');
+    addSummary('ITで良くできそうなこと', final.improvementOpportunities.map(x => x.statement), '現時点では具体的な改善可能性は確認されていません。');
+    addSummary('次に確認する価値があること', final.evidenceCandidates.map(x => x.purpose), '現時点では追加の確認候補はありません。');
+  } else if (state.findings.length === 0) {
+    const p = document.createElement('p'); p.textContent = '今回の60分で確認した内容をもとに、顧客向けレポート原案を作成できます。'; container.append(p);
   }
   for (const f of state.findings) {
     const card = document.createElement('div'); card.className = 'finding-card' + (state.omitted.has(f.id) ? ' omitted' : '');
-    const title = document.createElement('div'); title.innerHTML = '<strong>[' + f.triggerType + ']</strong> ' + FOCUS_LABELS[f.grounds.focus] + ' / ' + f.grounds.planItemRef;
-    const need = document.createElement('div'); need.textContent = 'Investigation Need: ' + f.investigationNeed;
-    const grounds = document.createElement('div'); grounds.className = 'grounds'; grounds.textContent = 'grounds: ' + KS_LABEL[f.grounds.knowledgeState] + '（grounds自体は変更できません）';
-    const wordingInput = document.createElement('textarea'); wordingInput.placeholder = '編集して採用する場合の表示文言（任意）';
+    const title = document.createElement('div'); title.innerHTML = '<strong>追加で確認する候補</strong> ' + focusDisplay(f.grounds.focus);
+    const need = document.createElement('div'); need.textContent = '今回の会話で追加確認が必要になった場合に、レポートへ反映します。';
+    const grounds = document.createElement('div'); grounds.className = 'grounds'; grounds.textContent = KS_LABEL[f.grounds.knowledgeState] + 'として記録された内容です。';
+    const wordingInput = document.createElement('textarea'); wordingInput.placeholder = '顧客向けの補足（任意）';
     wordingInput.value = state.overrides[f.id] || '';
     wordingInput.oninput = () => { state.overrides[f.id] = wordingInput.value; };
     const actions = document.createElement('div'); actions.className = 'finding-actions';
-    const omitBtn = document.createElement('button'); omitBtn.className = 'ghost'; omitBtn.textContent = state.omitted.has(f.id) ? '却下を取り消す' : 'この findingを却下(omit)';
+    const omitBtn = document.createElement('button'); omitBtn.className = 'ghost'; omitBtn.textContent = state.omitted.has(f.id) ? '表示候補へ戻す' : '今回はレポートに含めない';
     omitBtn.onclick = () => { if (state.omitted.has(f.id)) state.omitted.delete(f.id); else state.omitted.add(f.id); renderFindings(); };
     actions.append(omitBtn);
     card.append(title, need, grounds, wordingInput, actions);
@@ -719,8 +782,9 @@ function renderFindings() {
 }
 
 async function loadReview() {
+  state.units = (await call(`/cases/${state.caseId}/hearing/units`, 'GET')).items;
   const latest = await call(`/cases/${state.caseId}/rule-analysis/latest`, 'GET');
-  state.lastExecutionId = latest.executionId; state.findings = latest.findings; renderFindings(); showView('review');
+  state.lastExecutionId = latest.executionId; state.findings = latest.findings; state.finalRule = latest.final; renderFindings(); showView('review');
 }
 
 el('btnApprove').onclick = async () => reviewDecision('APPROVED');
@@ -763,7 +827,7 @@ el('btnGenerateScope').onclick = async () => {
     const gateLines = Object.entries(suggestion.grounds).map(([k, v]) => GATE_LABEL[k] + ': ' + (v ? 'はい' : 'いいえ'));
     el('gatesPanel').textContent = gateLines.join('\n');
     const priceText = suggestion.suggestedBasePriceYen != null ? suggestion.suggestedBasePriceYen.toLocaleString('ja-JP') + '円（税別）' : '価格確定なし';
-    el('scopePanel').textContent = `Assessment Structure: ${suggestion.structure}\nSuggested Scope: ${suggestion.suggestedScope}\nSuggested Base Price: ${priceText}` + (suggestion.requiresIndividualQuote ? '\n※ 個別見積が別途必要です。' : '');
+    el('scopePanel').textContent = `確認の進め方: ${suggestion.structure}\n確認の範囲: ${suggestion.suggestedScope}\n参考価格: ${priceText}` + (suggestion.requiresIndividualQuote ? '\n※ 個別のお見積りが必要です。' : '');
     el('scopeResult').style.display = '';
   } catch (e) { setError(String(e.message || e)); }
 };

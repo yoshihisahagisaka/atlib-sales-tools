@@ -453,7 +453,10 @@ test('Case 3: Solution HypothesisはReportへ推薦せず、PARTIALな業務詳�
   }
   kase = await (await req(`/cases/${kase.id}/intake/complete`, 'POST', { expectedVersion: kase.version })).json();
   const prepared = await (await req(`/cases/${kase.id}/preparation/start`, 'POST', { expectedVersion: kase.version })).json();
-  assert.deepEqual(prepared.preparation.result.focusItems.map((x: any) => [x.focus, x.verificationPurpose]), [['M04_BUSINESS_PRODUCTIVITY', 'M04_BUSINESS_PRODUCTIVITY_CONFIRMATION']]);
+  assert.deepEqual(prepared.preparation.result.focusItems.map((x: any) => [x.focus, x.verificationPurpose]), [
+    ['M04_BUSINESS_PRODUCTIVITY', 'M04_BUSINESS_PRODUCTIVITY_CONFIRMATION'],
+    ['M05_GROWTH_CHANGE_ADAPTATION', 'M05_GROWTH_CHANGE_ADAPTATION_CONFIRMATION'],
+  ]);
   assert.equal(prepared.preparation.result.problemFindings.length, 0); assert.equal(prepared.preparation.result.assessmentEscalated, false);
   kase = await (await req(`/cases/${kase.id}/hearing/start`, 'POST', { expectedVersion: prepared.case.version })).json();
   const unit = (await (await req(`/cases/${kase.id}/hearing/units`)).json()).items.find((x: any) => x.focus === 'M04_BUSINESS_PRODUCTIVITY');
@@ -470,7 +473,7 @@ test('Case 3: Solution HypothesisはReportへ推薦せず、PARTIALな業務詳�
   const rendered = JSON.stringify(report);
   assert.doesNotMatch(rendered, /INPUT_TRANSCRIPTION|AGGREGATION_REPORTING|ChatGPT|AIエージェント|AI未導入/);
   assert.match(rendered, /入力・転記/); assert.match(rendered, /集計・報告/);
-  assert.match(rendered, /今回まだ確認できていない事項があります/);
+  assert.match(rendered, /日々の業務の生産性について判断に必要な状況を十分に確認できていません/);
 });
 
 test('Production server wiring injects the VS1 Report / Feedback repository into the Admin router', () => {
