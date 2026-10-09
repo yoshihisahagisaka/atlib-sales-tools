@@ -13,8 +13,8 @@ export interface SalesActivityCreated {
 }
 
 export interface MarketingAttribution {
-  acquisitionSourceType: string;
-  acquisitionSourceName: string;
+  acquisitionSourceType: string | null;
+  acquisitionSourceName: string | null;
   utmSource: string | null;
   utmMedium: string | null;
   utmCampaign: string | null;
@@ -25,8 +25,10 @@ export interface MarketingAttribution {
 }
 
 function mapAttribution(row: Record<string, unknown>): MarketingAttribution | null {
-  if (!row.acquisition_source_type) return null;
-  return { acquisitionSourceType: row.acquisition_source_type as string, acquisitionSourceName: row.acquisition_source_name as string,
+  const observed = ['acquisition_source_type','acquisition_source_name','utm_source','utm_medium','utm_campaign','utm_content','utm_term','landing_url','referrer']
+    .some(column => row[column] != null);
+  if (!observed) return null;
+  return { acquisitionSourceType: row.acquisition_source_type as string | null, acquisitionSourceName: row.acquisition_source_name as string | null,
     utmSource: row.utm_source as string | null, utmMedium: row.utm_medium as string | null,
     utmCampaign: row.utm_campaign as string | null, utmContent: row.utm_content as string | null,
     utmTerm: row.utm_term as string | null, landingUrl: row.landing_url as string | null, referrer: row.referrer as string | null };
@@ -58,12 +60,15 @@ export class FreeDiagnosisSalesLauncherRepo {
         attribution?.utmContent ?? null, attribution?.utmTerm ?? null, attribution?.landingUrl ?? null, attribution?.referrer ?? null,
         input.referralPersonName ?? null],
     );
-    return { companyId, contactId, salesActivityId, attribution: attribution ? {
-      acquisitionSourceType: attribution.acquisitionSourceType!, acquisitionSourceName: attribution.acquisitionSourceName!,
+    const savedAttribution: MarketingAttribution | null = attribution ? {
+      acquisitionSourceType: attribution.acquisitionSourceType ?? null, acquisitionSourceName: attribution.acquisitionSourceName ?? null,
       utmSource: attribution.utmSource ?? null, utmMedium: attribution.utmMedium ?? null,
       utmCampaign: attribution.utmCampaign ?? null, utmContent: attribution.utmContent ?? null,
       utmTerm: attribution.utmTerm ?? null, landingUrl: attribution.landingUrl ?? null, referrer: attribution.referrer ?? null,
-    } : null, referralPersonName: input.referralPersonName ?? null };
+    } : null;
+    return { companyId, contactId, salesActivityId,
+      attribution: savedAttribution && Object.values(savedAttribution).some(value => value != null) ? savedAttribution : null,
+      referralPersonName: input.referralPersonName ?? null };
   }
 
   async getSalesActivity(id: string): Promise<{ id: string; companyId: string; primaryContactId: string | null; selectedService: string; attribution: MarketingAttribution | null; referralPersonName: string | null } | null> {
@@ -78,17 +83,24 @@ export class FreeDiagnosisSalesLauncherRepo {
 
   async listSalesActivities(filters: { acquisitionSourceName?: string; utmCampaign?: string }) {
     const { rows } = await this.pool.query<Record<string, unknown>>(
-      `SELECT s.*, c.name AS company_name, latest_case.id AS diagnosis_case_id, latest_case.status AS diagnosis_case_status
+      `SELECT s.*, c.name AS company_name, latest_case.id AS diagnosis_case_id, latest_case.status AS diagnosis_case_status,
+              latest_case.updated_at AS diagnosis_case_updated_at
        FROM sales_activity s JOIN company c ON c.id=s.company_id
        LEFT JOIN LATERAL (
-         SELECT id,status FROM it_management_diagnosis_case_v2
+         SELECT id,status,updated_at FROM it_management_diagnosis_case_v2
          WHERE sales_activity_id=s.id ORDER BY created_at DESC LIMIT 1
        ) latest_case ON true
+       LEFT JOIN LATERAL (
+         SELECT raw_value_json->'provenance'->>'channel' AS entry_channel
+         FROM hearing_intake_response_v2
+         WHERE case_id=latest_case.id ORDER BY created_at ASC LIMIT 1
+       ) intake_origin ON true
        WHERE ($1::text IS NULL OR s.acquisition_source_name=$1) AND ($2::text IS NULL OR s.utm_campaign=$2)
        ORDER BY s.created_at DESC, s.id DESC LIMIT 100`, [filters.acquisitionSourceName ?? null, filters.utmCampaign ?? null],
     );
     return rows.map(row => ({ id: row.id, companyName: row.company_name, selectedService: row.selected_service,
-      createdAt: row.created_at, attribution: mapAttribution(row), diagnosisCaseId: row.diagnosis_case_id,
-      diagnosisCaseStatus: row.diagnosis_case_status }));
+      createdAt: row.created_at, updatedAt: row.diagnosis_case_updated_at ?? row.created_at,
+      attribution: mapAttribution(row), diagnosisCaseId: row.diagnosis_case_id,
+      diagnosisCaseStatus: row.diagnosis_case_status, entryChannel: row.entry_channel ?? null }));
   }
 }

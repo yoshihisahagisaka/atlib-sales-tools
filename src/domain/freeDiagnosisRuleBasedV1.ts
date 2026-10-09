@@ -142,10 +142,8 @@ export const publicCustomerSelfSubmissionSchema = z.object({
     if ((value.acquisitionSourceType == null) !== (value.acquisitionSourceName == null)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'PUBLIC_ACQUISITION_SOURCE_PAIR_REQUIRED' });
     }
-    const hasUtm = value.utmSource != null || value.utmMedium != null || value.utmCampaign != null || value.utmContent != null || value.utmTerm != null;
-    if (hasUtm && value.acquisitionSourceType == null) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'PUBLIC_UTM_REQUIRES_EXPLICIT_ACQUISITION_SOURCE' });
-    }
+    // Public UTM values are observed attribution. They do not establish an
+    // Acquisition Source, so UTM-only submissions remain valid with the pair unset.
   }),
 }).strict().superRefine((value, ctx) => {
   const codes = value.answers.map(answer => answer.questionCode);

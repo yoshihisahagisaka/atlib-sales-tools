@@ -51,13 +51,14 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
   r.get('/cases/:id', (req, res) => handle(res, async () => {
     const kase = await cases.getCase(req.params.id);
     if (!kase) { res.status(404).json({ error: 'CASE_NOT_FOUND' }); return; }
-    const [intake, preliminaryScope, salesActivity] = await Promise.all([
+    const [intake, preliminaryScope, salesActivity, latestReport] = await Promise.all([
       cases.listIntakeAnswers(kase.id), cases.getLatestPreliminaryScope(kase.id),
       launcher.getSalesActivity(kase.salesActivityId),
+      vs1 ? vs1.latestReport(kase.id) : Promise.resolve(null),
     ]);
     res.json({ case: kase, intake, preliminaryScope, salesActivity: salesActivity ? {
       id: salesActivity.id, selectedService: salesActivity.selectedService, attribution: salesActivity.attribution,
-    } : null });
+    } : null, latestReport });
   }));
 
   // Step 2: 7-question Hearing Intake (SELF/PROXY共通、normalized Intakeへ集約).
@@ -144,6 +145,11 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
     res.status(201).json({ executionId, result, findings });
   }));
 
+  r.get('/cases/:id/rule-analysis/latest', (req, res) => handle(res, async () => {
+    const latest = await cases.latestFinalRuleAnalysis(req.params.id);
+    if (!latest) { res.status(404).json({ error: 'FINAL_RULE_EXECUTION_NOT_FOUND' }); return; }
+    res.json(latest);
+  }));
   r.get('/cases/:id/rule-analysis/:executionId/findings', (req, res) => handle(res, async () => {
     res.json({ items: await cases.listInvestigationOutputs(req.params.executionId) });
   }));

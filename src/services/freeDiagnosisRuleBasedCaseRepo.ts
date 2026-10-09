@@ -223,6 +223,16 @@ export class FreeDiagnosisRuleBasedCaseRepo {
     return rows.map(r => ({ id: r.id, triggerType: r.trigger_type as TriggerFinding['triggerType'], investigationNeed: r.investigation_need as TriggerFinding['investigationNeed'], grounds: r.grounds_json as TriggerFinding['grounds'] }));
   }
 
+  async latestFinalRuleAnalysis(caseId: string): Promise<{ executionId: string; findings: (TriggerFinding & { id: string })[] } | null> {
+    const { rows } = await this.pool.query<{ id: string }>(
+      `SELECT id FROM rule_analysis_execution
+       WHERE case_id=$1 AND analysis_stage='FINAL' AND status='SUCCEEDED'
+       ORDER BY completed_at DESC, started_at DESC LIMIT 1`, [caseId],
+    );
+    if (!rows[0]) return null;
+    return { executionId: rows[0].id, findings: await this.listInvestigationOutputs(rows[0].id) };
+  }
+
   /**
    * reviewNotes: Doc E #9 Human Review -- 編集して採用(wordingOverrides)／却下(omittedFindingIds)。
    * これらは既存のgrounds_json/Gatesを書き換えず、提示方法・採否のみをHuman決定として別途記録する。

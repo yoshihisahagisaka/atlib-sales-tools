@@ -235,8 +235,17 @@ test('Public Customer Selfは明示Attributionを保持し、並行同一送信�
   assert.equal(consent.consent_provenance, 'CUSTOMER_SELF'); assert.equal(consent.privacy_consent, true);
   const withoutQ7 = { ...payload, idempotencyKey: randomUUID(), answers: payload.answers.slice(0, 6), attribution: { landingUrl: 'https://example.test/it-management-kaizen/free-diagnosis/' } };
   const next: any = await (await publicReq('/submissions', withoutQ7)).json(); assert.notEqual(next.caseId, a.caseId);
-  const nextDetail: any = await (await req(`/cases/${next.caseId}`)).json(); assert.equal(nextDetail.intake.length, 6); assert.equal(nextDetail.salesActivity.attribution, null);
+  const nextDetail: any = await (await req(`/cases/${next.caseId}`)).json(); assert.equal(nextDetail.intake.length, 6); assert.equal(nextDetail.salesActivity.attribution.acquisitionSourceType, null); assert.equal(nextDetail.salesActivity.attribution.landingUrl, 'https://example.test/it-management-kaizen/free-diagnosis/');
   assert.equal((await h.launcher.getSalesActivity(nextDetail.case.salesActivityId))?.referralPersonName, '交流会のご紹介者');
+  const utmOnly = { ...payload, idempotencyKey: randomUUID(), attribution: { utmSource: 'chatgpt.com', utmMedium: 'referral', utmCampaign: 'ha23', landingUrl: 'https://example.test/it-management-kaizen/free-diagnosis/?utm_source=chatgpt.com', referrer: 'https://chatgpt.com/' } };
+  const utmOnlyResponse = await publicReq('/submissions', utmOnly, '203.0.113.8'); assert.equal(utmOnlyResponse.status, 201); const utmOnlyResult: any = await utmOnlyResponse.json();
+  const utmOnlyDetail: any = await (await req(`/cases/${utmOnlyResult.caseId}`)).json(); assert.equal(utmOnlyDetail.salesActivity.attribution.acquisitionSourceType, null); assert.equal(utmOnlyDetail.salesActivity.attribution.acquisitionSourceName, null); assert.equal(utmOnlyDetail.salesActivity.attribution.utmSource, 'chatgpt.com'); assert.equal(utmOnlyDetail.salesActivity.attribution.utmCampaign, 'ha23');
+  const sourcePairOnly = { ...payload, idempotencyKey: randomUUID(), attribution: { acquisitionSourceType: 'REFERRAL', acquisitionSourceName: '既存のお客様からの紹介' } };
+  const sourcePairOnlyResponse = await publicReq('/submissions', sourcePairOnly, '203.0.113.13'); assert.equal(sourcePairOnlyResponse.status, 201); const sourcePairOnlyResult: any = await sourcePairOnlyResponse.json();
+  const sourcePairOnlyDetail: any = await (await req(`/cases/${sourcePairOnlyResult.caseId}`)).json(); assert.equal(sourcePairOnlyDetail.salesActivity.attribution.acquisitionSourceType, 'REFERRAL'); assert.equal(sourcePairOnlyDetail.salesActivity.attribution.acquisitionSourceName, '既存のお客様からの紹介'); assert.equal(sourcePairOnlyDetail.salesActivity.attribution.utmSource, null);
+  const noAttribution = { ...payload, idempotencyKey: randomUUID(), attribution: {} };
+  const noAttributionResponse = await publicReq('/submissions', noAttribution, '203.0.113.14'); assert.equal(noAttributionResponse.status, 201); const noAttributionResult: any = await noAttributionResponse.json();
+  const noAttributionDetail: any = await (await req(`/cases/${noAttributionResult.caseId}`)).json(); assert.equal(noAttributionDetail.salesActivity.attribution, null);
   const { referralPersonName: _referral, ...noReferralPayload } = payload;
   const noReferral: any = await (await publicReq('/submissions', { ...noReferralPayload, idempotencyKey: randomUUID() }, '203.0.113.9')).json();
   const noReferralCase = await (await req(`/cases/${noReferral.caseId}`)).json();

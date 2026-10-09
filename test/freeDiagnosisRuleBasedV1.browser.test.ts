@@ -66,8 +66,8 @@ test('Public Customer Selfは事前アンケートから申込み・予約導線
   await page.getByLabel('情報は得られるが、そのままでは判断に使いにくい').check(); await page.click('#next');
   await page.fill('#q7', '確認したいことがあります'); await page.click('#next');
   await expect(page.getByText('ご回答ありがとうございました', { exact: true })).toBeVisible();
-  await expect(page.getByText('御社について、60分で確認する準備ができました。', { exact: true })).toBeVisible();
-  await expect(page.getByText('事前アンケートだけで診断結果を決めることはありません。ご回答をもとに、60分の診断で詳しく確認する内容を整理します。', { exact: true })).toBeVisible();
+  await expect(page.getByText('ご回答をもとに、御社が実現したいことに対して、「今どこまで分かっているか」「次に何を確認すれば、経営として判断できるか」を60分で一緒に整理します。', { exact: true })).toBeVisible();
+  await expect(page.getByText('ITの良し悪しを採点したり、システムの導入を勧めたりする診断ではありません。', { exact: true })).toBeVisible();
   await expect(page.getByText('ご回答いただいた内容', { exact: true })).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText('安定・効率を高める');
   await expect(page.locator('body')).not.toContainText('経営判断を支えたい');
@@ -92,7 +92,7 @@ test('Public Customer Selfは事前アンケートから申込み・予約導線
   await context.close();
 });
 
-test('Public Customer Selfは質問内の「分からない」をUNKNOWNと回答者の立場による未確認へ保存し、Ruleで問題化しない', async ({ browser }) => {
+test('Public Customer SelfはQ2だけで立場による未確認を保存し、Q4〜Q6では通常回答を選ぶ', async ({ browser }) => {
   const context = await browser.newContext(); const page = await context.newPage();
   await page.goto(h.url + '/it-management-kaizen/free-diagnosis/');
   await page.getByLabel('ITまたは業務の担当').check(); await page.click('#start-questions');
@@ -101,11 +101,11 @@ test('Public Customer Selfは質問内の「分からない」をUNKNOWNと回�
   await expect(page.getByLabel('分からない', { exact: true })).toHaveCount(1);
   await page.getByLabel('分からない', { exact: true }).check(); await page.click('#next');
   await page.getByLabel('経営判断を支えたい').check(); await page.click('#next');
-  await expect(page.getByLabel('分からない', { exact: true })).toHaveCount(1);
+  await expect(page.getByLabel('分からない', { exact: true })).toHaveCount(0);
   await expect(page.getByText('回答の状況', { exact: true })).toHaveCount(0);
-  await page.getByLabel('分からない', { exact: true }).check(); await page.click('#next');
+  await page.getByLabel('経営判断に必要な情報').check(); await page.click('#next');
   await page.getByLabel('分かることと分からないことがある').check(); await page.click('#next');
-  await expect(page.getByLabel('分からない', { exact: true })).toHaveCount(1); await page.getByLabel('分からない', { exact: true }).check(); await page.click('#next');
+  await expect(page.getByLabel('分からない', { exact: true })).toHaveCount(0); await page.getByLabel('情報は得られるが、そのままでは判断に使いにくい').check(); await page.click('#next');
   await page.click('#next'); await page.click('#to-application');
   await page.fill('#company', '回答状態確認株式会社'); await page.fill('#name', '担当者'); await page.fill('#email', 'response-state@example.test');
   await page.check('#privacy'); await page.check('#use'); await page.click('#submit');
@@ -113,15 +113,15 @@ test('Public Customer Selfは質問内の「分からない」をUNKNOWNと回�
   const rows: any[] = (await h.pool.query(`SELECT r.raw_value_json FROM hearing_intake_response_v2 r JOIN it_management_public_self_submission p ON p.it_management_diagnosis_case_v2_id=r.case_id JOIN contact c ON c.id=p.contact_id WHERE c.email='response-state@example.test' ORDER BY r.question_code`)).rows;
   const answers = rows.map(row => intakeAnswerEnvelopeSchema.parse(row.raw_value_json));
   expect(answers.find(answer => answer.questionCode === 'Q2')).toMatchObject({ answerValue: null, responseState: 'NOT_IN_POSITION_TO_ANSWER' });
-  expect(answers.find(answer => answer.questionCode === 'Q4')).toMatchObject({ answerValue: null, responseState: 'UNKNOWN' });
-  expect(answers.find(answer => answer.questionCode === 'Q6')).toMatchObject({ answerValue: null, responseState: 'NOT_IN_POSITION_TO_ANSWER' });
-  const projection = projectIntakeSemantics(answers); expect(projection.knowledgeUnknownQuestionCodes).toContain('Q4'); expect(projection.authorityConfirmationCandidates).toEqual([{ questionCode: 'Q2', reason: 'NOT_IN_POSITION_TO_ANSWER' }, { questionCode: 'Q6', reason: 'NOT_IN_POSITION_TO_ANSWER' }]);
+  expect(answers.find(answer => answer.questionCode === 'Q4')).toMatchObject({ answerValue: 'MANAGEMENT_DECISION_CONCERN', responseState: 'ANSWERED' });
+  expect(answers.find(answer => answer.questionCode === 'Q6')).toMatchObject({ answerValue: 'DELIVERED_NOT_USABLE', responseState: 'ANSWERED' });
+  const projection = projectIntakeSemantics(answers); expect(projection.knowledgeUnknownQuestionCodes).toEqual([]); expect(projection.authorityConfirmationCandidates).toEqual([{ questionCode: 'Q2', reason: 'NOT_IN_POSITION_TO_ANSWER' }]);
   const rule = runInitialRule(projection); expect(rule.problemFindings).toEqual([]); expect(rule.assessmentEscalated).toBe(false);
   await context.close();
   const adminContext = await browser.newContext(); await adminContext.addCookies([{ name: 'staff_session', value: h.staffCookie.slice('staff_session='.length), url: h.url, httpOnly: true, sameSite: 'Lax' }]);
   const adminPage = await adminContext.newPage(); await adminPage.goto(h.url + '/admin/free-diagnosis-v1.html'); await adminPage.click('#btnLoadCases');
-  const card = adminPage.locator('.case-card').filter({ hasText: '回答状態確認株式会社' }); await card.getByRole('button', { name: 'この案件を開く' }).click();
-  await expect(adminPage.locator('#view-intake')).toBeVisible(); await expect(adminPage.locator('input[name="response_Q6"][value="NOT_IN_POSITION_TO_ANSWER"]')).toBeChecked();
+  const row = adminPage.locator('tr').filter({ hasText: '回答状態確認株式会社' }); await row.getByRole('button', { name: '開く' }).click();
+  await expect(adminPage.locator('#view-intake')).toBeVisible(); await expect(adminPage.locator('input[name="response_Q2"][value="NOT_IN_POSITION_TO_ANSWER"]')).toBeChecked();
   await adminContext.close();
 });
 
@@ -131,6 +131,7 @@ test('Public Customer SelfはQ1にResponse State UIを出さず、Q3の「まだ
   await page.getByLabel('経営者・役員').check(); await page.click('#start-questions');
   await expect(page.locator('input[name="response-state"]')).toHaveCount(0);
   await expect(page.getByText('回答の状況', { exact: true })).toHaveCount(0);
+  await expect(page.locator('option[value="EMP_UNKNOWN"], option[value="SITE_UNKNOWN"]')).toHaveCount(0);
   await page.locator('[data-field="employeeSize"]').selectOption('EMP_21_50'); await page.locator('[data-field="locations"]').selectOption('SITE_1'); await page.click('#next');
   await expect(page.locator('input[name="response-state"]')).toHaveCount(0);
   await page.getByLabel('安定・効率を高める').check(); await page.click('#next');
@@ -138,10 +139,9 @@ test('Public Customer SelfはQ1にResponse State UIを出さず、Q3の「まだ
   await expect(page.locator('input[name="response-state"]')).toHaveCount(0);
   await page.getByLabel('まだ決めていない', { exact: true }).check(); await page.click('#next');
   await page.getByLabel('大きな懸念はない').check(); await page.click('#next');
-  await expect(page.getByLabel('分からない', { exact: true })).toHaveCount(1);
-  await page.getByLabel('分からない', { exact: true }).check();
+  await expect(page.getByLabel('分からない', { exact: true })).toHaveCount(0);
   await page.getByLabel('必要な状況は把握できている').check();
-  await expect(page.getByLabel('分からない', { exact: true })).not.toBeChecked();
+  await page.click('#next'); await expect(page.getByLabel('分からない', { exact: true })).toHaveCount(0);
   await context.close();
 });
 
@@ -162,7 +162,7 @@ test('Customer Selfで作成済みの案件を管理画面で再利用し、回�
 
   const adminContext = await browser.newContext(); await adminContext.addCookies([{ name: 'staff_session', value: h.staffCookie.slice('staff_session='.length), url: h.url, httpOnly: true, sameSite: 'Lax' }]);
   const adminPage = await adminContext.newPage(); await adminPage.goto(h.url + '/admin/free-diagnosis-v1.html'); await adminPage.click('#btnLoadCases');
-  const card = adminPage.locator('.case-card').filter({ hasText: '公開案件再利用株式会社' }); await card.getByRole('button', { name: 'この案件を開く' }).click();
+  const card = adminPage.locator('tr').filter({ hasText: '公開案件再利用株式会社' }); await card.getByRole('button', { name: '開く' }).click();
   await expect(adminPage.locator('#view-intake')).toBeVisible(); await expect(adminPage.locator('#intakeForm')).toContainText('お客様ご本人が回答した内容です');
   await expect(adminPage.locator('#intake_Q1_employee')).toBeDisabled(); await adminPage.click('#btnCompleteIntake');
   await expect(adminPage.locator('#view-preparation')).toBeVisible(); await expect(adminPage.locator('#prepEntryChannel')).toHaveText('お客様ご本人による回答');
@@ -217,6 +217,12 @@ test('PreparationからStructured Hearingを記録し、Final Ruleを自動実�
   await expect(page.locator('#statementList')).toContainText('一部、追加確認が必要');
   await page.click('#btnCompleteHearing');
   await expect(page.locator('#view-review')).toBeVisible();
+  await page.goto(h.url + '/admin/free-diagnosis-v1.html'); await page.click('#btnLoadCases');
+  const savedCase = page.locator('tr').filter({ hasText: 'Hearing確認株式会社' }); await savedCase.getByRole('button', { name: '開く' }).click();
+  await expect(page.locator('#view-review')).toBeVisible(); await expect(page.locator('#findingsList')).toBeVisible();
+  await expect(page.getByRole('button', { name: '顧客向けレポート' })).toBeDisabled();
+  await page.getByRole('button', { name: '60分診断', exact: true }).click(); await expect(page.locator('#view-hearing')).toBeVisible();
+  await page.getByRole('button', { name: '診断内容の確認' }).click(); await expect(page.locator('#view-review')).toBeVisible();
 });
 
 test('Admin UIからReport承認・送付・Focused ConfirmationでHearingへ戻れる', async ({ page }) => {
@@ -231,7 +237,7 @@ test('Admin UIからReport承認・送付・Focused ConfirmationでHearingへ戻
   await expect(page.locator('#view-review')).toBeVisible();
   await page.click('#btnApprove');
   await expect(page.locator('#view-report')).toBeVisible();
-  await expect(page.locator('#reportStatus')).toContainText('顧客向けレポート');
+  await expect(page.locator('#reportStatus')).toContainText('レポート下書き');
   await expect(page.locator('#reportPreview')).toContainText('IT経営アセスメント');
   await page.click('#btnApproveReport');
   await expect(page.locator('#reportStatus')).toContainText('承認');

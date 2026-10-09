@@ -39,16 +39,15 @@ export class PublicCustomerSelfSubmissionService {
       await client.query('SAVEPOINT create_public_submission');
       const launcher = new FreeDiagnosisSalesLauncherRepo(client as unknown as Pool);
       const cases = new FreeDiagnosisRuleBasedCaseRepo(client as unknown as Pool);
-      const hasAttribution = input.attribution.acquisitionSourceType != null;
       const activity = await launcher.createSalesActivity({
         name: input.company.name, corporateNumber: input.company.corporateNumber,
         contact: { name: input.contact.name, email: input.contact.email, phone: input.contact.phone, jobTitle: input.contact.jobTitle }, selectedService: 'IT_KAIZEN',
         referralPersonName: input.referralPersonName,
-        attribution: hasAttribution ? {
-          acquisitionSourceType: input.attribution.acquisitionSourceType!, acquisitionSourceName: input.attribution.acquisitionSourceName!,
+        attribution: {
+          acquisitionSourceType: input.attribution.acquisitionSourceType, acquisitionSourceName: input.attribution.acquisitionSourceName,
           utmSource: input.attribution.utmSource, utmMedium: input.attribution.utmMedium, utmCampaign: input.attribution.utmCampaign,
           utmContent: input.attribution.utmContent, utmTerm: input.attribution.utmTerm, landingUrl: input.attribution.landingUrl, referrer: input.attribution.referrer,
-        } : undefined,
+        },
       }, PUBLIC_ACTOR);
       const kase = await cases.createCase(activity.companyId, activity.contactId, activity.salesActivityId, PUBLIC_ACTOR, false);
       for (const envelope of input.answers) {
