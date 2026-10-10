@@ -1,6 +1,6 @@
 # IT経営KAIZEN 無料診断 Design v2 — HA6 Fit/Gap Source Gate
 
-Status: SOURCE RECOVERY GATE / STOP BEFORE IMPLEMENTATION
+Status: SOURCE RECOVERY GATE RESOLVED / READY FOR READ-ONLY FIT-GAP
 Date: 2026-10-10
 Branch: docs/free-diagnosis-design-v2-20261010
 
@@ -21,58 +21,118 @@ Known release context:
 - Production traffic remains on prior VS1; HA6 is not Production traffic
 - HA6 was the Human Acceptance candidate whose hearing UX exposed the redesign need
 
-## 3. GitHub verification performed
+## 3. Initial GitHub verification
 
 Repository checked:
 
 `yoshihisahagisaka/atlib-sales-tools`
 
-Result:
+Initial result:
 
 - Fetch by exact commit SHA `0f8700e4454bf3ead886057b0993863e28d34fc8` returned: commit not found.
 - Search for commit text `HA6` returned no matching commit.
 - Search for branch name containing `ha6` returned no branch.
 - Search for branch name containing `it-kaizen` returned no branch.
 
-Therefore the currently connected GitHub repository cannot be used to prove the exact HA6 source tree.
+This established that the connected GitHub remote alone could not prove the exact HA6 source tree.
 
-## 4. Decision
+## 4. Local source recovery result
 
-Do **not** substitute any of the following for HA6 without evidence:
+Work performed a read-only recovery investigation under `C:\atlib` and found the exact HA6 source.
 
-- current `main`
-- older VS1 source
-- an earlier dogfooding commit
-- memory of HA6 behavior
-- reconstructed code from the Design v2 discussion
+**HA6 SOURCE RECOVERY: FOUND**
 
-The next Fit/Gap must compare Design v2 against the exact source used to build HA6, or another artifact proven byte-equivalent / source-equivalent to that build.
+Recovered source:
 
-## 5. Why this gate matters
+- shared Git repository: `C:\atlib\atlib-sales-tools`
+- worktree: `C:\atlib\worktree-sales-tools-release-candidate`
+- branch: `release-candidate-sales-tools-20261008`
+- HEAD / HA6 source: `0f8700e4454bf3ead886057b0993863e28d34fc8`
+- subject: `feat: expand deterministic hearing themes`
+- commit date: `2026-10-10 02:25:32 +09:00`
+- parent: `1a3890937b71fea59254c6ebc75bc811d634cad7`
+- remote: `https://github.com/yoshihisahagisaka/atlib-sales-tools.git`
 
-HA6 is specifically the implementation that exposed the product-design problem. Using a different source revision would risk:
+Evidence reported by Work:
 
-- identifying already-fixed gaps again
-- missing HA6-specific behavior
-- designing patches against the wrong schema/API/UI
-- violating the project rule that completed/current work must be recovered from Git/docs/Canonical rather than guessed
+- `git worktree list` records the worktree at HA6 SHA on branch `release-candidate-sales-tools-20261008`.
+- `.git\worktrees\worktree-sales-tools-release-candidate\HEAD` points to the same branch.
+- SHA exists as a commit object in the shared object database.
+- SHA is reachable from the local branch, worktree HEAD and reflog.
+- SHA is not detached, stashed, dangling or unreachable.
+- `git fsck --unreachable` did not report the HA6 SHA.
+- worktree HEAD exactly matches the HA6 SHA.
+- worktree is clean with no uncommitted changes.
 
-## 6. Acceptable recovery evidence
+Reason the SHA was not visible from GitHub:
 
-Fit/Gap may resume when at least one of the following is available and provenance is confirmed:
+- local branch is three commits ahead of `origin/release-candidate-sales-tools-20261008`.
+- remote branch remains at `d4e66b7`.
+- HA6 therefore remained valid in the local repository without being pushed to GitHub.
 
-1. the exact HA6 Git commit/tree,
-2. the source archive recorded by Cloud Build / Cloud Run for the HA6 build,
-3. a local worktree whose HEAD is proven to be the HA6 source SHA,
-4. another Git ref/artifact whose tree hash or file hashes are proven equivalent to HA6.
+## 5. HA6 commit changed files
 
-## 7. Current gate
+The recovered HA6 commit changed:
 
-**STOP: HA6 implementation Fit/Gap is not started.**
+- `public/admin/free-diagnosis-v1.html`
+- `public/it-management-kaizen/free-diagnosis/app.js`
+- `src/domain/finalRuleEngine.ts`
+- `src/domain/initialRuleEngine.ts`
+- `src/domain/structuredHearing.ts`
+- `src/routes/adminFreeDiagnosisRuleBasedV1.ts`
+- `src/services/freeDiagnosisRuleBasedCaseRepo.ts`
+- `src/services/vs1ReviewReportFeedbackRepo.ts`
+- `test/freeDiagnosisRuleBasedV1.browser.test.ts`
+- `test/freeDiagnosisRuleBasedV1VerticalSlice.integration.test.ts`
+- `test/reverseHearingContract.test.ts`
 
-Design work may continue, but no implementation patch, migration, build, HA7, deploy, or traffic change should be created from an approximate source baseline.
+## 6. Recovered implementation map
 
-## 8. Design v2 artifacts already completed before this gate
+Work identified the following HA6 implementation locations for the upcoming 1:1 Fit/Gap:
+
+| Concern | HA6 location |
+|---|---|
+| Public survey UI | `public/it-management-kaizen/free-diagnosis/index.html`, `app.js` |
+| Q1〜Q7 / answer contract | `src/domain/freeDiagnosisRuleBasedV1.ts` |
+| Public submission API | `src/routes/publicCustomerSelfFreeDiagnosis.ts` |
+| Customer Self submission/save | `src/services/publicCustomerSelfSubmissionService.ts` |
+| Intake / Case persistence | `src/services/freeDiagnosisRuleBasedCaseRepo.ts` |
+| Semantic Projection | `src/domain/intakeSemanticProjection.ts` |
+| Initial Rule | `src/domain/initialRuleEngine.ts` |
+| Hearing theme / question sequence | `src/domain/structuredHearing.ts` |
+| Final Rule / re-analysis | `src/domain/finalRuleEngine.ts`, `src/domain/ruleAnalysisEngine.ts` |
+| Hearing / Admin UI | `public/admin/free-diagnosis-v1.html`, `src/routes/adminFreeDiagnosisRuleBasedV1.ts` |
+| Review / Report / Feedback | `src/services/vs1ReviewReportFeedbackRepo.ts`, `src/domain/diagnosisReport.ts` |
+| Schema | `migrations/027_free_diagnosis_rule_based_v1.sql` 〜 `032_sales_activity_referral_person_name.sql` |
+| Browser / integration / golden tests | `test/freeDiagnosisRuleBasedV1.browser.test.ts`, `test/freeDiagnosisRuleBasedV1VerticalSlice.integration.test.ts`, `test/reverseHearingContract.test.ts`, `test/structuredHearingFinalRule.test.ts`, `test/currentDesignV1.golden.test.ts`, `test/ruleAnalysisEngine.golden.test.ts` |
+
+The base worktree `C:\atlib\atlib-sales-tools` has unrelated uncommitted changes, but the HA6 worktree itself is clean and those changes are not part of the HA6 source.
+
+## 7. Decision
+
+The source gate is now satisfied.
+
+The exact local HA6 source is:
+
+`C:\atlib\worktree-sales-tools-release-candidate @ 0f8700e4454bf3ead886057b0993863e28d34fc8`
+
+This source, and not `main`, VS1, HA5 or memory of HA6 behavior, is the baseline for the next Design v2 1:1 Fit/Gap.
+
+## 8. Next gate
+
+**READY: read-only Design v2 vs HA6 Fit/Gap may begin.**
+
+Still prohibited until that Fit/Gap is reviewed and an implementation plan is explicitly approved:
+
+- code modification
+- migration creation/application
+- HA7 creation
+- build
+- deploy
+- Cloud Run traffic change
+- Production change
+
+## 9. Design v2 artifacts already completed
 
 - Design v2 checkpoint
 - Initial Analysis Contract
@@ -82,4 +142,4 @@ Design work may continue, but no implementation patch, migration, build, HA7, de
 - Healthy / Solution Hypothesis validation
 - Report / Current Understanding Contract
 
-These remain valid design artifacts independent of the HA6 source recovery gate.
+These design artifacts remain the comparison target. HA6 is the implementation baseline, not the source of product design decisions.
