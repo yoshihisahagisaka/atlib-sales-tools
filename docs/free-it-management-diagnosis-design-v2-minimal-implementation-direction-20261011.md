@@ -13,7 +13,7 @@ Original Survey Snapshot（immutable）
 → Semantic Projection
 → Initial Current Structured State
 → Deterministic Initial Analysis / Narrative
-→ Hearing（memo / optional recording。Ruleへ直接入力しない）
+→ Hearing（memo。Ruleへ直接入力しない）
 → Post-Hearing Human Update of Current Structured State
 → Deterministic Re-analysis
 → System Generated Narrative
@@ -23,6 +23,8 @@ Original Survey Snapshot（immutable）
 → Customer Report
 
 Free DiagnosisはFACTを認定せず、Where should we look? / Next FACT Candidateまでを扱う。AssessmentでEvidenceを確認し、人間の判断材料を作る。
+
+**Recording機能はDesign v2の対象外とする。** Hearingはmemoで成立させ、音声録音・音声ファイル保存・文字起こし・録音参照は実装しない。
 
 ## 2. HA6 Fit/Gap review
 
@@ -75,7 +77,13 @@ Free DiagnosisはFACTを認定せず、Where should we look? / Next FACT Candida
 - System Generated Narrative / Human Edited Narrativeの分離
 - 技術 / 運用 / 管理をmulti-lensとして持つanalysis model
 - FACT Candidateごとの What / Why / What becomes knowable / lens
-- recordingはoptional capability。Design v2の成立条件はmemoで満たせるため、初回実装のblocking requirementにはしない
+
+### EXPLICITLY NOT ADD
+
+- Hearing recording
+- 音声ファイル保存
+- 自動文字起こし
+- RecordingからのAI自動分析
 
 ## 3. Important correction to the Fit/Gap wording
 
@@ -83,7 +91,7 @@ Hearing UIのDesign v2は「3領域レイアウト」ではない。
 
 - Live Hearing: **2 columns**
   - Left: Original Survey
-  - Center: 確認したい視点 + Hearing memo / optional recording
+  - Center: 確認したい視点 + Hearing memo
 - Post-Hearing Analysis: **3 columns**
   - Left: Original Survey
   - Center: Hearing Record
@@ -109,7 +117,7 @@ Original Surveyとは別に、Hearing後にHumanが更新できるCurrent Struct
 
 - 初期値はOriginal Survey / Semantic Projectionから生成
 - Q2〜Q7相当の現在値をHumanが変更可能
-- Hearing memo / recordingからSystemが自動変更しない
+- Hearing memoからSystemが自動変更しない
 - Human Update後に同じdeterministic analysis ruleを再実行
 - Original Surveyは常に保持
 
@@ -144,7 +152,7 @@ HearingはQuestion completionではなくCoverage completionで扱う。
 - Surveyで既に分かっていることを聞き直さない
 - 1つの会話で複数のcoverage / lensを満たしてよい
 - M01〜M06を顧客会話の章にしない
-- memo / statement / recordingはObservationであり、Rule Sourceではない
+- memo / statementはObservationであり、Rule Sourceではない
 - optional example questionsは営業支援として表示してよいが、必須sequenceにはしない
 
 HA6の`hearing_statement_v2`等は記録基盤として再利用可能だが、`structured_answer_json`をDesign v2のFinal Ruleへ直接流す経路は外す。
