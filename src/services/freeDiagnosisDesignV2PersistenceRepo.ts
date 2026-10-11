@@ -426,6 +426,14 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
       const latest = await this.latestGenerated(client, input.caseId);
       if (!latest) throw new FreeDiagnosisDesignV2PersistenceError(409, 'GENERATED_NARRATIVE_NOT_FOUND');
       if (latest.id !== input.generatedNarrativeId) throw new FreeDiagnosisDesignV2PersistenceError(409, 'STALE_GENERATED_NARRATIVE');
+      const latestState = await client.query<{ id: string }>(
+        `SELECT id FROM it_management_diagnosis_current_state_revision_v2
+         WHERE case_id=$1 ORDER BY revision_no DESC LIMIT 1`,
+        [input.caseId],
+      );
+      if (!latestState.rows[0] || latest.currentStateId !== latestState.rows[0].id) {
+        throw new FreeDiagnosisDesignV2PersistenceError(409, 'STALE_GENERATED_NARRATIVE');
+      }
       const revisionResult = await client.query<{ revision_no: number }>(
         `SELECT COALESCE(MAX(revision_no),0)::int + 1 AS revision_no
          FROM it_management_diagnosis_human_edited_narrative_v2 WHERE generated_narrative_id=$1`,

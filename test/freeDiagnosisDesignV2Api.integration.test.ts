@@ -35,7 +35,7 @@ function fields(value: CurrentStructuredStateV2): DesignV2CurrentStateFields {
   return state;
 }
 
-test('Package C Design v2 Admin API acceptance (24 contracts)', async t => {
+test('Package C Design v2 Admin API acceptance (25 contracts)', async t => {
   const h = await createFreeDiagnosisRuleBasedV1Harness();
   let failNextAnalysis = false;
   const persistence = new FreeDiagnosisDesignV2PersistenceRepo(h.pool, state => {
@@ -187,6 +187,37 @@ test('Package C Design v2 Admin API acceptance (24 contracts)', async t => {
       assert.equal(workspace.latestHumanEditedNarrative.id, edit.id);
     });
 
+    await t.test('18b Save-before-reanalysis rejects edit from the previous Generated source', async () => {
+      const before = (await h.pool.query(
+        `SELECT
+           (SELECT count(*)::int FROM it_management_diagnosis_human_edited_narrative_v2 WHERE case_id=$1) edit_count,
+           (SELECT count(*)::int FROM it_management_diagnosis_case_v2_audit WHERE case_id=$1 AND command='SaveDesignV2HumanEditedNarrative') audit_count,
+           (SELECT count(*)::int FROM it_management_diagnosis_generated_narrative_v2 WHERE case_id=$1) generated_count,
+           (SELECT content_hash FROM it_management_diagnosis_human_edited_narrative_v2 WHERE id=$2) old_edit_hash`,
+        [kase.id, edit.id],
+      )).rows[0];
+      const response = await api('POST', `/cases/${kase.id}/design-v2/narrative-edits`, {
+        generatedNarrativeId: reanalysis3.generated.id,
+        content: reanalysis3.generated.content,
+        editReason: 'must not be accepted while reanalysis is required',
+      });
+      assert.equal(response.status, 409);
+      assert.equal((await response.json() as any).error, 'STALE_GENERATED_NARRATIVE');
+      const after = (await h.pool.query(
+        `SELECT
+           (SELECT count(*)::int FROM it_management_diagnosis_human_edited_narrative_v2 WHERE case_id=$1) edit_count,
+           (SELECT count(*)::int FROM it_management_diagnosis_case_v2_audit WHERE case_id=$1 AND command='SaveDesignV2HumanEditedNarrative') audit_count,
+           (SELECT count(*)::int FROM it_management_diagnosis_generated_narrative_v2 WHERE case_id=$1) generated_count,
+           (SELECT content_hash FROM it_management_diagnosis_human_edited_narrative_v2 WHERE id=$2) old_edit_hash`,
+        [kase.id, edit.id],
+      )).rows[0];
+      assert.deepEqual(after, before);
+      const workspace = await (await api('GET', `/cases/${kase.id}/design-v2/post-hearing-analysis`)).json() as any;
+      assert.equal(workspace.currentStateRevision.revisionNo, 4);
+      assert.equal(workspace.analysisFreshness, 'REANALYSIS_REQUIRED');
+      assert.equal(workspace.latestHumanEditedNarrative.id, edit.id);
+    });
+
     failNextAnalysis = true;
     const failedAnalysis = await api('POST', `/cases/${kase.id}/design-v2/reanalyze`, { expectedCurrentStateRevision: 4 });
     await t.test('11 Analyzer failure preserves Human Current revision', async () => {
@@ -209,10 +240,23 @@ test('Package C Design v2 Admin API acceptance (24 contracts)', async t => {
     const retry = await retryResponse.json() as any;
     await t.test('14 Failed analysis can be retried and identical retry is idempotent', async () => {
       assert.equal(retryResponse.status, 200);
+      const before = (await h.pool.query(
+        `SELECT
+           (SELECT count(*)::int FROM it_management_diagnosis_analysis_result_v2 WHERE case_id=$1) analysis_count,
+           (SELECT count(*)::int FROM it_management_diagnosis_generated_narrative_v2 WHERE case_id=$1) generated_count`,
+        [kase.id],
+      )).rows[0];
       const second = await (await api('POST', `/cases/${kase.id}/design-v2/reanalyze`, { expectedCurrentStateRevision: 4 })).json() as any;
       assert.equal(second.reused, true);
       assert.equal(second.analysis.id, retry.analysis.id);
       assert.equal(second.generated.id, retry.generated.id);
+      const after = (await h.pool.query(
+        `SELECT
+           (SELECT count(*)::int FROM it_management_diagnosis_analysis_result_v2 WHERE case_id=$1) analysis_count,
+           (SELECT count(*)::int FROM it_management_diagnosis_generated_narrative_v2 WHERE case_id=$1) generated_count`,
+        [kase.id],
+      )).rows[0];
+      assert.deepEqual(after, before);
     });
 
     await t.test('15 Q7 AI interest does not become an AI recommendation', async () => {
