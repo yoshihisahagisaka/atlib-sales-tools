@@ -12,7 +12,7 @@ Package A was implemented from the exact HA6 baseline:
 - implementation branch: `feat/free-diagnosis-design-v2-package-a`
 - local worktree: `C:\atlib\worktree-sales-tools-release-candidate`
 
-## 2. Local commits reported
+## 2. Local commits confirmed
 
 ### Design contract import
 
@@ -21,18 +21,29 @@ Package A was implemented from the exact HA6 baseline:
 
 ### Package A domain core
 
-- commit: `ea73cb917423de1df70b4989c0caee7dc3ec5b4a`
+- confirmed commit: `ea73cb95810bf4397b75ba738bb31652a7f40927`
+- parent: `97ce0c4b64163b2a91a720e79b40b018775010a1`
 - subject: `feat: add free diagnosis design v2 domain core`
 
 These commits remain local and have not been pushed at the time of this record.
 
-## 3. Files reported as added
+Correction note:
+
+- A previously reported SHA `ea73cb917423de1df70b4989c0caee7dc3ec5b4a` was incorrect.
+- Read-only Git verification confirmed that this incorrect SHA does not exist in the repository object database.
+- The authoritative Package A code commit is `ea73cb95810bf4397b75ba738bb31652a7f40927`.
+
+## 3. Files confirmed in Package A code commit
+
+The Package A code commit changes only these five files:
 
 - `src/domain/freeDiagnosisDesignV2.ts`
 - `src/domain/freeDiagnosisSemanticProjectionV2.ts`
 - `src/domain/freeDiagnosisAnalysisV2.ts`
 - `src/domain/freeDiagnosisNarrativeV2.ts`
 - `test/freeDiagnosisDesignV2.golden.test.ts`
+
+No routes, repositories, migrations, DB-related files, public/admin UI, existing HA6 rule files, or report wiring are changed in this commit.
 
 ## 4. Reported functional scope
 
@@ -79,6 +90,6 @@ No changes were made to:
 
 Execution evidence is sufficient to mark Package A as **IMPLEMENTED LOCALLY / TEST PASS**.
 
-Before Package B begins, perform one bounded read-only source review of commit `ea73cb917423de1df70b4989c0caee7dc3ec5b4a` against the Package A contract. The review must verify the actual public types/functions, guard behavior, multi-lens structure, FACT Candidate structure, and that no hidden HA6-flow wiring or forbidden scope changes were introduced.
+Before Package B begins, perform one bounded read-only source review of the authoritative commit `ea73cb95810bf4397b75ba738bb31652a7f40927` against the Package A contract. The review must verify the actual public types/functions, guard behavior, multi-lens structure, FACT Candidate structure, Golden Test assertions, and that no hidden HA6-flow wiring or forbidden scope changes were introduced.
 
 Do not begin Package B persistence or migrations until that review passes.
