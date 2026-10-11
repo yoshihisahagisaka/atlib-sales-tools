@@ -16,6 +16,7 @@ export const DESIGN_V2_NARRATIVE_GENERATOR_VERSION = 'free-diagnosis-v2-narrativ
 
 export type DesignV2CurrentStateFields = Omit<CurrentStructuredStateV2, 'q1CompanyContext'>;
 export type HumanEditedNarrativeStatusV2 = 'CURRENT' | 'STALE_REVIEW_REQUIRED' | 'NONE';
+type FreeDiagnosisAnalyzerV2 = (state: CurrentStructuredStateV2) => AnalysisResultV2;
 
 export class FreeDiagnosisDesignV2PersistenceError extends Error {
   constructor(public readonly status: number, public readonly code: string) {
@@ -179,7 +180,10 @@ function mapHumanEdit(row: Record<string, unknown>): HumanEditedNarrativeRecordV
 }
 
 export class FreeDiagnosisDesignV2PersistenceRepo {
-  constructor(private readonly pool: Pool) {}
+  constructor(
+    private readonly pool: Pool,
+    private readonly analyzer: FreeDiagnosisAnalyzerV2 = analyzeFreeDiagnosisV2,
+  ) {}
 
   private async tx<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
@@ -209,7 +213,7 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
   private async createAnalysisAndNarrative(
     client: PoolClient, caseId: string, current: CurrentStateRevisionV2, fullState: CurrentStructuredStateV2,
   ): Promise<{ analysis: AnalysisResultRecordV2; generated: GeneratedNarrativeRecordV2 }> {
-    const analysisValue = analyzeFreeDiagnosisV2(fullState);
+    const analysisValue = this.analyzer(fullState);
     const analysisId = randomUUID();
     const inputHash = contentHash(fullState);
     const resultHash = contentHash(analysisValue);

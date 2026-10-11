@@ -37,7 +37,7 @@ function edited(content: FreeDiagnosisNarrativeV2, marker: string): FreeDiagnosi
   return { ...content, currentUnderstanding: { ...content.currentUnderstanding, entries: [...content.currentUnderstanding.entries, marker] } };
 }
 
-test('Package B persistence acceptance (23 required contracts)', async t => {
+test('Package B persistence acceptance (28 required contracts)', async t => {
   const h = await createFreeDiagnosisRuleBasedV1Harness();
   try {
     await h.db.exec(fs.readFileSync(path.join(root, 'migrations/033_free_diagnosis_design_v2_persistence.sql'), 'utf8'));
@@ -249,6 +249,74 @@ test('Package B persistence acceptance (23 required contracts)', async t => {
       assert.equal(attempts.filter(result => result.status === 'fulfilled').length, 1);
       assert.equal(attempts.filter(result => result.status === 'rejected').length, 1);
       assert.deepEqual((await repo.listCurrentStateRevisions(kase.id)).map(item => item.revisionNo), [1, 2]);
+    });
+
+    const analyzerFailure = () => { throw new Error('injected analyzer failure'); };
+    const failingRepo = new FreeDiagnosisDesignV2PersistenceRepo(h.pool, analyzerFailure);
+
+    await t.test('26 Analysis failure rolls back reanalysis artifacts and audit', async () => {
+      const activity = await h.launcher.createSalesActivity({ name: 'Reanalysis rollback', contact: { name: 'E' }, selectedService: 'IT_KAIZEN' }, 'operator@atlib.jp');
+      const kase = await h.cases.createCase(activity.companyId, activity.contactId, activity.salesActivityId, 'operator@atlib.jp');
+      const initial = await repo.initializeDesignV2FromCompletedSurvey({
+        caseId: kase.id, answers: survey(), surveyVersion: 'test', entryChannel: 'STAFF_PROXY',
+        answeredByRole: 'OWNER', actor: 'operator@atlib.jp',
+      });
+      const before = (await h.pool.query(
+        `SELECT
+           (SELECT count(*)::int FROM it_management_diagnosis_analysis_result_v2 WHERE case_id=$1) analysis_count,
+           (SELECT count(*)::int FROM it_management_diagnosis_generated_narrative_v2 WHERE case_id=$1) generated_count,
+           (SELECT count(*)::int FROM it_management_diagnosis_case_v2_audit WHERE case_id=$1 AND command='CreateDesignV2CurrentStateRevision') audit_count,
+           (SELECT content_hash FROM it_management_diagnosis_original_survey_snapshot_v2 WHERE case_id=$1) original_hash`,
+        [kase.id],
+      )).rows[0];
+
+      await assert.rejects(
+        failingRepo.appendDesignV2CurrentStateAndReanalyze({
+          caseId: kase.id, expectedRevision: 1,
+          state: fields(survey({ q5Visibility: 'LOW_VISIBILITY' })), actor: 'reviewer@atlib.jp',
+        }),
+        /injected analyzer failure/,
+      );
+
+      assert.deepEqual((await repo.listCurrentStateRevisions(kase.id)).map(item => item.revisionNo), [1]);
+      const after = (await h.pool.query(
+        `SELECT
+           (SELECT count(*)::int FROM it_management_diagnosis_analysis_result_v2 WHERE case_id=$1) analysis_count,
+           (SELECT count(*)::int FROM it_management_diagnosis_generated_narrative_v2 WHERE case_id=$1) generated_count,
+           (SELECT count(*)::int FROM it_management_diagnosis_case_v2_audit WHERE case_id=$1 AND command='CreateDesignV2CurrentStateRevision') audit_count,
+           (SELECT content_hash FROM it_management_diagnosis_original_survey_snapshot_v2 WHERE case_id=$1) original_hash`,
+        [kase.id],
+      )).rows[0];
+      assert.deepEqual(after, before);
+      const latest = await repo.getPostHearingAnalysisView(kase.id);
+      assert.equal(latest.currentStructuredState.revisionNo, 1);
+      assert.equal(latest.currentStructuredState.id, initial.currentStructuredState.id);
+    });
+
+    await t.test('27 Analysis failure rolls back initialization artifacts and audit', async () => {
+      const activity = await h.launcher.createSalesActivity({ name: 'Initialization rollback', contact: { name: 'F' }, selectedService: 'IT_KAIZEN' }, 'operator@atlib.jp');
+      const kase = await h.cases.createCase(activity.companyId, activity.contactId, activity.salesActivityId, 'operator@atlib.jp');
+
+      await assert.rejects(
+        failingRepo.initializeDesignV2FromCompletedSurvey({
+          caseId: kase.id, answers: survey(), surveyVersion: 'test', entryChannel: 'STAFF_PROXY',
+          answeredByRole: 'OWNER', actor: 'operator@atlib.jp',
+        }),
+        /injected analyzer failure/,
+      );
+
+      const counts = (await h.pool.query(
+        `SELECT
+           (SELECT count(*)::int FROM it_management_diagnosis_original_survey_snapshot_v2 WHERE case_id=$1) original_count,
+           (SELECT count(*)::int FROM it_management_diagnosis_current_state_revision_v2 WHERE case_id=$1) current_count,
+           (SELECT count(*)::int FROM it_management_diagnosis_analysis_result_v2 WHERE case_id=$1) analysis_count,
+           (SELECT count(*)::int FROM it_management_diagnosis_generated_narrative_v2 WHERE case_id=$1) generated_count,
+           (SELECT count(*)::int FROM it_management_diagnosis_case_v2_audit WHERE case_id=$1 AND command='CompleteDesignV2OriginalSurvey') audit_count`,
+        [kase.id],
+      )).rows[0];
+      assert.deepEqual(counts, {
+        original_count: 0, current_count: 0, analysis_count: 0, generated_count: 0, audit_count: 0,
+      });
     });
   } finally { await h.close(); }
 });
