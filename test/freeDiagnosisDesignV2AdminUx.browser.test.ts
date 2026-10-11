@@ -1,0 +1,47 @@
+import { test, expect } from '@playwright/test';
+import express from 'express';
+import path from 'node:path';
+import type { AddressInfo } from 'node:net';
+
+let server: ReturnType<express.Express['listen']>; let url: string;
+test.beforeAll(async () => { const app=express(); app.use('/admin',express.static(path.resolve(__dirname,'../public/admin'))); server=app.listen(0,'127.0.0.1'); await new Promise<void>(r=>server.once('listening',r)); url=`http://127.0.0.1:${(server.address() as AddressInfo).port}`; });
+test.afterAll(async()=>{await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()))});
+
+const content={future:{heading:'目指している会社の姿',entries:['少人数で成長する']},currentUnderstanding:{heading:'現在の理解',entries:['一部を把握している']},confirmationAndImprovement:{heading:'改善可能性',entries:['確認する価値があります']},unknowns:{heading:'まだ確認できていないこと',entries:['業務の詳細']},nextFacts:{heading:'次に確認すること',entries:['情報の流れ']}};
+function workspace(overrides:any={}){return {case:{id:'11111111-1111-4111-8111-111111111111'},originalSurvey:{answers:{q1CompanyContext:{employeeRange:'EMP_21_50',siteRange:'SITE_1'},q2Future:['BUSINESS_GROWTH','LEAN_GROWTH'],q3ItExpectations:['PRODUCTIVITY','MANAGEMENT_DECISION_SUPPORT'],q4CurrentInterest:'MANAGEMENT_DECISION',q5Visibility:'VISIBLE_PARTIAL',q6ManagementConnection:'REPORTED_NOT_DECISION_USABLE',q7InterestThemes:['AI']}},hearingRecords:[{statementText:'<img src=x onerror=alert(1)>確認した内容',recordedAt:'2026-10-11T00:00:00Z'}],currentStructuredState:{q2Future:['BUSINESS_GROWTH','LEAN_GROWTH'],q3ItExpectations:['PRODUCTIVITY','MANAGEMENT_DECISION_SUPPORT'],q4CurrentInterest:'MANAGEMENT_DECISION',q5Visibility:'VISIBLE_PARTIAL',q6ManagementConnection:'REPORTED_NOT_DECISION_USABLE',q7InterestThemes:['AI']},currentStateRevision:{id:'state-1',revisionNo:1},currentStateDiffFromOriginal:{q2Future:{status:'UNCHANGED'},q3ItExpectations:{status:'UNCHANGED'},q4CurrentInterest:{status:'UNCHANGED'},q5Visibility:{status:'UNCHANGED'},q6ManagementConnection:{status:'UNCHANGED'},q7InterestThemes:{status:'UNCHANGED'}},latestAnalysisResult:{analysis:{futureUnderstanding:[{text:'成長したい'}],currentUnderstanding:[{text:'一部を把握'}],lensFindings:[{text:'情報の流れを確認する価値',lenses:['TECHNOLOGY','OPERATION','MANAGEMENT']}],unknowns:[{text:'まだ確認できていない',lenses:['OPERATION']}],hearingViewpoints:[{label:'情報が判断へ届く流れ',whyUseful:'経営判断とのつながりを確認するため',lenses:['OPERATION','MANAGEMENT'],exampleQuestions:['どの情報を確認していますか？']}],factCandidates:[{whatToVerify:'共有内容',whyItMattersToFuture:'成長を支えるため',whatMayBecomeKnowable:'改善可能性',lenses:['MANAGEMENT']}],healthyGuard:{noImportantGapIdentified:false}}},latestGeneratedNarrative:{id:'22222222-2222-4222-8222-222222222222',content},latestHumanEditedNarrative:null,humanEditedNarrativeStatus:'NONE',analysisFreshness:'CURRENT',...overrides}}
+
+test('Live Hearing is bounded two-column workspace with safe memo append',async({page})=>{
+  let data=workspace();let memoBody:any; await page.route('**/design-v2/post-hearing-analysis',r=>r.fulfill({json:data}));
+  await page.route('**/hearing/statements',async r=>{memoBody=r.request().postDataJSON();data={...data,hearingRecords:[...data.hearingRecords,{statementText:memoBody.statementText,recordedAt:'2026-10-11T01:00:00Z'}]};await r.fulfill({status:201,json:{id:'memo'}})});
+  await page.goto(`${url}/admin/free-diagnosis-v2-hearing.html?caseId=11111111-1111-4111-8111-111111111111`);
+  await expect(page.getByRole('heading',{name:'最初の回答'})).toBeVisible(); await expect(page.getByRole('heading',{name:'ヒアリング',exact:true})).toBeVisible();
+  const expectedColumns=(page.viewportSize()?.width||0)>1000?2:1; expect(await page.locator('.live-grid').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length)).toBe(expectedColumns);
+  await expect(page.getByText('情報が判断へ届く流れ')).toBeVisible(); await expect(page.getByText('聞き方の例')).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('M01'); await expect(page.locator('body')).not.toContainText('Primary Focus'); await expect(page.locator('#currentForm')).toHaveCount(0);
+  expect(await page.locator('img').count()).toBe(0); await page.fill('#memo','追加の会話メモ'); await page.click('#saveMemo'); await expect(page.getByText('追加の会話メモ')).toBeVisible();
+  expect(memoBody.structuredAnswer).toBeUndefined(); expect(memoBody.planItemRef).toBeUndefined(); await expect(page.locator('#toAnalysis')).toHaveAttribute('href',/free-diagnosis-v2-analysis/);
+});
+
+test('Post-Hearing separates three layers and calls save then re-analysis',async({page})=>{
+  let data=workspace();const calls:string[]=[]; await page.route('**/design-v2/post-hearing-analysis',r=>r.fulfill({json:data}));
+  await page.route('**/design-v2/current-state-revisions',async r=>{calls.push('save');data={...data,currentStructuredState:{...data.currentStructuredState,q5Visibility:'LOW_VISIBILITY'},currentStateRevision:{id:'state-2',revisionNo:2},analysisFreshness:'REANALYSIS_REQUIRED',latestAnalysisResult:null,latestGeneratedNarrative:null,currentStateDiffFromOriginal:{...data.currentStateDiffFromOriginal,q5Visibility:{status:'CHANGED'}}};await r.fulfill({status:201,json:{id:'state-2',revisionNo:2}})});
+  await page.route('**/design-v2/reanalyze',async r=>{calls.push('reanalyze');data=workspace({currentStructuredState:{...workspace().currentStructuredState,q5Visibility:'LOW_VISIBILITY'},currentStateRevision:{id:'state-2',revisionNo:2},currentStateDiffFromOriginal:{...workspace().currentStateDiffFromOriginal,q5Visibility:{status:'CHANGED'}}});await r.fulfill({json:{reused:false}})});
+  await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=11111111-1111-4111-8111-111111111111`);
+  const expectedColumns=(page.viewportSize()?.width||0)>1000?3:1; expect(await page.locator('.analysis-grid').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length)).toBe(expectedColumns); expect(await page.locator('.column-title',{hasText:'最初の回答'}).count()).toBe(1); expect(await page.locator('.column-title',{hasText:'ヒアリング記録'}).count()).toBe(1); expect(await page.locator('.column-title',{hasText:'現在の理解'}).count()).toBe(1);
+  await expect(page.locator('#analysis').getByRole('heading',{name:'まだ確認できていないこと',exact:true})).toBeVisible(); await expect(page.locator('#analysis').getByRole('heading',{name:'次に確認する価値があること',exact:true})).toBeVisible(); await expect(page.getByText('分析から作成した文面')).toBeVisible();
+  await page.locator('[name=q5Visibility][value=LOW_VISIBILITY]').check(); await page.click('#saveAndAnalyze'); await expect.poll(()=>calls).toEqual(['save','reanalyze']); await expect(page.getByText('ヒアリング後に変更')).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('Semantic Projection'); await expect(page.locator('body')).not.toContainText('Generated Narrative'); expect(await page.locator('img').count()).toBe(0);
+});
+
+test('Re-analysis failure keeps saved Current and offers retry; stale edit is disabled',async({page})=>{
+  let data=workspace();let attempts=0; await page.route('**/design-v2/post-hearing-analysis',r=>r.fulfill({json:data}));
+  await page.route('**/design-v2/current-state-revisions',async r=>{data={...data,currentStateRevision:{id:'state-2',revisionNo:2},analysisFreshness:'REANALYSIS_REQUIRED',latestAnalysisResult:null,latestGeneratedNarrative:null};await r.fulfill({status:201,json:{id:'state-2',revisionNo:2}})});
+  await page.route('**/design-v2/reanalyze',async r=>{attempts++;if(attempts===1){await r.fulfill({status:500,json:{error:'ANALYSIS_FAILED'}});return}data=workspace({currentStateRevision:{id:'state-2',revisionNo:2}});await r.fulfill({json:{}})});
+  await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=11111111-1111-4111-8111-111111111111`); await page.click('#saveAndAnalyze'); await expect(page.getByText('現在の理解は保存されましたが、再分析に失敗しました。')).toBeVisible(); await expect(page.getByText('再分析が必要です。')).toBeVisible(); await expect(page.locator('#retryAnalysis')).toBeVisible(); await page.click('#retryAnalysis'); await expect(page.getByText('現在の分析は最新です。')).toBeVisible(); expect(attempts).toBe(2);
+  data=workspace({analysisFreshness:'REANALYSIS_REQUIRED',humanEditedNarrativeStatus:'STALE_REVIEW_REQUIRED',latestAnalysisResult:null,latestGeneratedNarrative:null,latestHumanEditedNarrative:{id:'old',content}}); await page.reload(); await expect(page.locator('#saveNarrative')).toHaveCount(0); await expect(page.getByText('前回の編集文は、現在の分析より前の内容です。確認してください。')).toBeVisible(); await expect(page.getByText('先に再分析してください。')).toBeVisible();
+});
+
+test('narrow viewport preserves named layers and unavailable guard is safe',async({page})=>{
+  await page.setViewportSize({width:390,height:844}); await page.route('**/design-v2/post-hearing-analysis',r=>r.fulfill({json:workspace()})); await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=11111111-1111-4111-8111-111111111111`); expect(await page.locator('.analysis-grid').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length)).toBe(1); await expect(page.locator('.column-title',{hasText:'最初の回答'})).toBeVisible(); await expect(page.locator('.column-title',{hasText:'ヒアリング記録'})).toBeVisible(); await expect(page.locator('.column-title',{hasText:'現在の理解'})).toBeVisible();
+  await page.unroute('**/design-v2/post-hearing-analysis'); await page.route('**/design-v2/post-hearing-analysis',r=>r.fulfill({status:404,json:{error:'DESIGN_V2_NOT_INITIALIZED'}})); await page.goto(`${url}/admin/free-diagnosis-v2-hearing.html?caseId=bad`); await expect(page.getByText('この案件はDesign v2の準備が完了していません。')).toBeVisible();
+});
