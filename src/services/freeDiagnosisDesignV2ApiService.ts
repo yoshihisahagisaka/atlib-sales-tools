@@ -210,4 +210,13 @@ export class FreeDiagnosisDesignV2ApiService {
       return this.mapPersistenceError(error);
     }
   }
+
+  async createReportDraft(caseId: string, actor: string) {
+    await this.requireCase(caseId);
+    try {
+      return await this.persistence.createDesignV2ReportDraft(caseId, actor);
+    } catch (error) {
+      return this.mapPersistenceError(error);
+    }
+  }
 }

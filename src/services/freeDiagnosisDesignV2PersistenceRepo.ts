@@ -9,6 +9,11 @@ import type {
 import { generateFreeDiagnosisNarrativeV2 } from '../domain/freeDiagnosisNarrativeV2';
 import { projectFreeDiagnosisSemanticV2 } from '../domain/freeDiagnosisSemanticProjectionV2';
 import { contentHash } from '../domain/diagnosisReport';
+import {
+  buildDesignV2ReportContent,
+  DESIGN_V2_REPORT_CONTEXT_VERSION,
+  type DesignV2ReportContent,
+} from '../domain/freeDiagnosisDesignV2Report';
 
 export const DESIGN_V2_ANALYZER_VERSION = 'free-diagnosis-v2-analyzer-1.0.0';
 export const DESIGN_V2_RULE_SET_VERSION = 'free-diagnosis-v2-rules-1.0.0';
@@ -48,6 +53,7 @@ export interface CurrentStateRevisionV2 {
   supplement: Record<string, unknown> | null;
   updatedByUserId: string | null;
   changeReason: string | null;
+  createdAt: string;
 }
 
 export interface AnalysisResultRecordV2 {
@@ -145,6 +151,13 @@ export interface DesignV2PersistenceWorkspace {
   latestHumanEditedNarrative: HumanEditedNarrativeRecordV2 | null;
 }
 
+export interface DesignV2ReportDraftResult {
+  id: string;
+  version: number;
+  content: DesignV2ReportContent;
+  context: Record<string, unknown>;
+}
+
 function asJson<T>(value: T | string): T {
   return typeof value === 'string' ? JSON.parse(value) as T : value;
 }
@@ -177,6 +190,7 @@ function mapState(row: Record<string, unknown>): CurrentStateRevisionV2 {
     previousStateId: row.previous_state_id as string | null, state: asJson(row.state_json as DesignV2CurrentStateFields),
     supplement: row.supplement_json == null ? null : asJson(row.supplement_json as Record<string, unknown>),
     updatedByUserId: row.updated_by_user_id as string | null, changeReason: row.change_reason as string | null,
+    createdAt: new Date(row.created_at as string).toISOString(),
   };
 }
 
@@ -508,6 +522,102 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
       latestGeneratedNarrative: generatedRows.rows[0] ? mapGenerated(generatedRows.rows[0]) : null,
       latestHumanEditedNarrative: edits.rows[0] ? mapHumanEdit(edits.rows[0]) : null,
     };
+  }
+
+  /**
+   * Projects only the latest Design v2 canonical objects into a downstream
+   * customer Report Draft.  Hearing records are intentionally not queried.
+   */
+  async createDesignV2ReportDraft(caseId: string, actor: string): Promise<DesignV2ReportDraftResult> {
+    return this.tx(async client => {
+      const caseResult = await client.query<Record<string, unknown>>(
+        `SELECT c.id,c.version,c.status,co.name AS organization_display_name
+           FROM it_management_diagnosis_case_v2 c
+           JOIN company co ON co.id=c.company_id
+          WHERE c.id=$1 FOR UPDATE`, [caseId],
+      );
+      const kase = caseResult.rows[0];
+      if (!kase) throw new FreeDiagnosisDesignV2PersistenceError(404, 'CASE_NOT_FOUND');
+
+      const originals = await client.query<Record<string, unknown>>(
+        'SELECT * FROM it_management_diagnosis_original_survey_snapshot_v2 WHERE case_id=$1', [caseId],
+      );
+      const states = await client.query<Record<string, unknown>>(
+        'SELECT * FROM it_management_diagnosis_current_state_revision_v2 WHERE case_id=$1 ORDER BY revision_no DESC LIMIT 1', [caseId],
+      );
+      if (!originals.rows[0] || !states.rows[0]) throw new FreeDiagnosisDesignV2PersistenceError(409, 'DESIGN_V2_REPORT_SOURCE_NOT_READY');
+      const original = mapOriginal(originals.rows[0]);
+      const current = mapState(states.rows[0]);
+      const analysisResult = await client.query<Record<string, unknown>>(
+        `SELECT * FROM it_management_diagnosis_analysis_result_v2
+          WHERE case_id=$1 AND current_state_id=$2 AND analyzer_version=$3 AND rule_set_version=$4
+          ORDER BY created_at DESC LIMIT 1`,
+        [caseId, current.id, DESIGN_V2_ANALYZER_VERSION, DESIGN_V2_RULE_SET_VERSION],
+      );
+      if (!analysisResult.rows[0]) throw new FreeDiagnosisDesignV2PersistenceError(409, 'DESIGN_V2_REANALYSIS_REQUIRED');
+      const analysis = mapAnalysis(analysisResult.rows[0]);
+      const generatedResult = await client.query<Record<string, unknown>>(
+        `SELECT * FROM it_management_diagnosis_generated_narrative_v2
+          WHERE case_id=$1 AND current_state_id=$2 AND analysis_result_id=$3 AND generator_version=$4
+          ORDER BY created_at DESC LIMIT 1`,
+        [caseId, current.id, analysis.id, DESIGN_V2_NARRATIVE_GENERATOR_VERSION],
+      );
+      if (!generatedResult.rows[0]) throw new FreeDiagnosisDesignV2PersistenceError(409, 'DESIGN_V2_REANALYSIS_REQUIRED');
+      const generated = mapGenerated(generatedResult.rows[0]);
+      const currentEditResult = await client.query<Record<string, unknown>>(
+        `SELECT * FROM it_management_diagnosis_human_edited_narrative_v2
+          WHERE case_id=$1 AND generated_narrative_id=$2
+          ORDER BY revision_no DESC LIMIT 1`, [caseId, generated.id],
+      );
+      const humanEdit = currentEditResult.rows[0] ? mapHumanEdit(currentEditResult.rows[0]) : null;
+      const adopted = humanEdit?.content ?? generated.content;
+      const sourceKind = humanEdit ? 'HUMAN_EDITED' : 'SYSTEM_GENERATED';
+      const content = buildDesignV2ReportContent({
+        organizationDisplayName: kase.organization_display_name as string,
+        diagnosisDate: current.createdAt,
+        narrative: adopted,
+        analysis: analysis.analysis,
+      });
+      const context: Record<string, unknown> = {
+        formatVersion: DESIGN_V2_REPORT_CONTEXT_VERSION,
+        caseId,
+        originalSurvey: { id: original.id, surveyVersion: original.surveyVersion, contentHash: original.contentHash },
+        currentState: {
+          id: current.id, revisionNo: current.revisionNo,
+          contentHash: contentHash({ state: current.state, supplement: current.supplement }),
+        },
+        analysisResult: {
+          id: analysis.id, analyzerVersion: analysis.analyzerVersion, ruleSetVersion: analysis.ruleSetVersion,
+          inputHash: analysis.inputHash, resultHash: analysis.resultHash,
+        },
+        generatedNarrative: { id: generated.id, generatorVersion: generated.generatorVersion, contentHash: generated.contentHash },
+        adoptedNarrative: humanEdit
+          ? { source: sourceKind, id: humanEdit.id, revisionNo: humanEdit.revisionNo, contentHash: humanEdit.contentHash, generatedNarrativeId: humanEdit.generatedNarrativeId }
+          : { source: sourceKind, id: generated.id, contentHash: generated.contentHash },
+      };
+      const versionResult = await client.query<{ version: number }>(
+        'SELECT COALESCE(MAX(version),0)+1 AS version FROM diagnosis_reports WHERE it_management_diagnosis_case_v2_id=$1', [caseId],
+      );
+      const reportId = randomUUID();
+      const version = Number(versionResult.rows[0]!.version);
+      await client.query(
+        `INSERT INTO diagnosis_reports
+           (id,it_management_diagnosis_case_v2_id,version,status,content_json,context_json,context_hash,prompt_version,policy_version,created_by,created_by_user_id)
+         VALUES($1,$2,$3,'REVIEW_REQUIRED',$4,$5,$6,'design-v2-deterministic-projection-1','design-v2','HUMAN',$7)`,
+        [reportId, caseId, version, JSON.stringify(content), JSON.stringify(context), contentHash(context), actor],
+      );
+      await client.query(
+        `UPDATE it_management_diagnosis_case_v2
+            SET status='REPORT_REVIEW_REQUIRED',version=version+1
+          WHERE id=$1`, [caseId],
+      );
+      await this.audit(client, caseId, actor, 'CreateDesignV2ReportDraft', {
+        from_state: kase.status, to_state: 'REPORT_REVIEW_REQUIRED', report_id: reportId, report_version: version,
+        current_state_id: current.id, analysis_result_id: analysis.id, generated_narrative_id: generated.id,
+        human_edited_narrative_id: humanEdit?.id ?? null, adopted_narrative_source: sourceKind,
+      });
+      return { id: reportId, version, content, context };
+    });
   }
 
   async listDesignV2HearingRecords(caseId: string): Promise<HearingRecordV2[]> {

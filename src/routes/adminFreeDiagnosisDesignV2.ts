@@ -81,5 +81,9 @@ export function createAdminFreeDiagnosisDesignV2Router(service: FreeDiagnosisDes
     res.status(201).json(await service.saveNarrativeEdit(req.params.id, parsed.data, actor(req)));
   }));
 
+  router.post('/cases/:id/design-v2/report-drafts', (req, res) => handle(res, async () => {
+    res.status(201).json(await service.createReportDraft(req.params.id, actor(req)));
+  }));
+
   return router;
 }
