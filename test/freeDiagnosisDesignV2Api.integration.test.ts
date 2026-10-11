@@ -96,6 +96,7 @@ test('Package C Design v2 Admin API acceptance (25 contracts)', async t => {
     const revision2State = fields(survey({ q5Visibility: 'RELIES_ON_OTHERS' }));
     const save2Response = await api('POST', `/cases/${kase.id}/design-v2/current-state-revisions`, {
       expectedRevision: 1, state: revision2State, supplements: { q5: 'Human-confirmed' },
+      q1CompanyContext: { employeeRange: 'EMP_21_50', siteRange: 'SITE_2_3' },
       changeReason: 'Hearingで確認',
     });
     const saved2 = await save2Response.json() as any;
@@ -104,17 +105,21 @@ test('Package C Design v2 Admin API acceptance (25 contracts)', async t => {
       assert.equal(saved2.revisionNo, 2);
       assert.equal(saved2.updatedByUserId, 'design-v2-operator@atlib.jp');
       assert.equal(saved2.state.q5Visibility, 'RELIES_ON_OTHERS');
+      assert.deepEqual(saved2.supplement.q1CompanyContext, { employeeRange: 'EMP_21_50', siteRange: 'SITE_2_3' });
     });
     await t.test('4 Original remains immutable after Current save', async () => {
       const original = await persistence.getOriginalSurvey(kase.id);
       assert.equal(original?.contentHash, initial.originalSurvey.contentHash);
       assert.equal(original?.answers.q5Visibility, 'VISIBLE_PARTIAL');
+      assert.deepEqual(original?.answers.q1CompanyContext, { employeeRange: '11-30', siteRange: 'ONE' });
     });
     await t.test('5 Save does not run analysis and freshness becomes required', async () => {
       const workspace = await (await api('GET', `/cases/${kase.id}/design-v2/post-hearing-analysis`)).json() as any;
       assert.equal(workspace.analysisFreshness, 'REANALYSIS_REQUIRED');
       assert.equal(workspace.latestAnalysisResult, null);
       assert.equal(workspace.latestGeneratedNarrative, null);
+      assert.deepEqual(workspace.currentCompanyContext, { employeeRange: 'EMP_21_50', siteRange: 'SITE_2_3' });
+      assert.equal(workspace.currentStateDiffFromOriginal.q1CompanyContext.status, 'CHANGED');
     });
 
     const reanalysis2Response = await api('POST', `/cases/${kase.id}/design-v2/reanalyze`, { expectedCurrentStateRevision: 2 });

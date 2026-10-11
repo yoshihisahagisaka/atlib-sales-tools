@@ -24,10 +24,11 @@ test('Package D reuses append-only plain Hearing memo without changing Design v2
     const persistence = new FreeDiagnosisDesignV2PersistenceRepo(h.pool);
     const initialized = await persistence.initializeDesignV2FromCompletedSurvey({ caseId: kase.id, answers: survey, surveyVersion: 'package-d-test', entryChannel: 'STAFF_PROXY', answeredByRole: 'OWNER', actor: 'operator@atlib.jp' });
     await h.pool.query("UPDATE it_management_diagnosis_case_v2 SET status='HEARING_IN_PROGRESS' WHERE id=$1", [kase.id]);
-    const response = await fetch(`${h.url}/api/admin/free-diagnosis-v1/cases/${kase.id}/hearing/statements`, { method: 'POST', headers: { cookie: h.staffCookie, 'content-type': 'application/json' }, body: JSON.stringify({ statementText: '<img src=x onerror=alert(1)> plain memo', knowledgeState: 'KNOWN', requiresIndividualConfirmation: false, isNegativeAnswer: false }) });
+    const viewpointId = initialized.latestAnalysisResult.analysis.hearingViewpoints[0]!.id;
+    const response = await fetch(`${h.url}/api/admin/free-diagnosis-v1/cases/${kase.id}/hearing/statements`, { method: 'POST', headers: { cookie: h.staffCookie, 'content-type': 'application/json' }, body: JSON.stringify({ statementText: '<img src=x onerror=alert(1)> plain memo', planItemRef: `design-v2-viewpoint:${viewpointId}`, knowledgeState: 'KNOWN', requiresIndividualConfirmation: false, isNegativeAnswer: false }) });
     assert.equal(response.status, 201);
     const row = (await h.pool.query('SELECT plan_item_ref,structured_answer_json,statement_text,recorded_by_user_id FROM hearing_statement_v2 WHERE case_id=$1', [kase.id])).rows[0];
-    assert.equal(row.plan_item_ref, null); assert.equal(row.structured_answer_json, null);
+    assert.equal(row.plan_item_ref, `design-v2-viewpoint:${viewpointId}`); assert.equal(row.structured_answer_json, null);
     assert.equal(row.statement_text, '<img src=x onerror=alert(1)> plain memo'); assert.equal(row.recorded_by_user_id, 'operator@atlib.jp');
     const after = await persistence.getDesignV2PersistenceWorkspace(kase.id);
     assert.equal(after?.currentStructuredState.revisionNo, 1);

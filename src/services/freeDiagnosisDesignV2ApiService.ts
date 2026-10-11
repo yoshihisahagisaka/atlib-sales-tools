@@ -1,4 +1,4 @@
-import type { CurrentStructuredStateV2, FreeDiagnosisNarrativeV2 } from '../domain/freeDiagnosisDesignV2';
+import type { AnalysisResultV2, CompanyContextV2, CurrentStructuredStateV2, FreeDiagnosisNarrativeV2 } from '../domain/freeDiagnosisDesignV2';
 import { FreeDiagnosisDesignV2ValidationError } from '../domain/freeDiagnosisSemanticProjectionV2';
 import type { FreeDiagnosisRuleBasedCaseRepo } from './freeDiagnosisRuleBasedCaseRepo';
 import {
@@ -21,8 +21,42 @@ export class FreeDiagnosisDesignV2ApiError extends Error {
 export interface SaveCurrentStateRequestV2 {
   expectedRevision: number;
   state: DesignV2CurrentStateFields;
+  q1CompanyContext?: CompanyContextV2;
   supplements?: Record<string, unknown> | null;
   changeReason?: string | null;
+}
+
+function currentCompanyContext(original: CompanyContextV2, supplement: Record<string, unknown> | null): CompanyContextV2 {
+  const value = supplement?.q1CompanyContext;
+  if (!value || typeof value !== 'object') return original;
+  const context = value as Record<string, unknown>;
+  return typeof context.employeeRange === 'string' && typeof context.siteRange === 'string'
+    ? { employeeRange: context.employeeRange, siteRange: context.siteRange } : original;
+}
+
+function traceability(analysis: AnalysisResultV2) {
+  const ruleQuestions = new Map<string, readonly string[]>();
+  [...analysis.futureUnderstanding, ...analysis.currentUnderstanding, ...analysis.lensFindings]
+    .forEach(item => ruleQuestions.set(item.ruleId, item.sourceQuestionCodes));
+  const viewpoints = analysis.hearingViewpoints.map(item => ({
+    id: item.id,
+    relatedQuestionCodes: [...new Set(item.sourceRuleIds.flatMap(ruleId => ruleQuestions.get(ruleId) ?? []))],
+  }));
+  const relatedThemes = (sourceRuleIds: readonly string[]) => analysis.hearingViewpoints
+    .filter(viewpoint => viewpoint.sourceRuleIds.some(ruleId => sourceRuleIds.includes(ruleId))).map(viewpoint => viewpoint.id);
+  return {
+    viewpoints,
+    analysisItemThemes: Object.fromEntries([
+      ...analysis.lensFindings.map(item => [item.id, relatedThemes([item.ruleId])]),
+      ...analysis.unknowns.map(item => [item.id, relatedThemes(item.sourceRuleIds)]),
+      ...analysis.factCandidates.map(item => [item.id, relatedThemes(item.sourceRuleIds)]),
+    ]),
+    narrativeSectionThemes: {
+      confirmationAndImprovement: [...new Set(analysis.lensFindings.flatMap(item => relatedThemes([item.ruleId])))],
+      unknowns: [...new Set(analysis.unknowns.flatMap(item => relatedThemes(item.sourceRuleIds)))],
+      nextFacts: [...new Set(analysis.factCandidates.flatMap(item => relatedThemes(item.sourceRuleIds)))],
+    },
+  };
 }
 
 export interface ReanalyzeRequestV2 {
@@ -107,11 +141,13 @@ export class FreeDiagnosisDesignV2ApiService {
       : analysisFreshness === 'CURRENT'
         && workspace.latestGeneratedNarrative?.id === workspace.latestHumanEditedNarrative.generatedNarrativeId
         ? 'CURRENT' : 'STALE_REVIEW_REQUIRED';
+    const currentQ1 = currentCompanyContext(workspace.originalSurvey.answers.q1CompanyContext, workspace.currentStructuredState.supplement);
     return {
       case: kase,
       originalSurvey: workspace.originalSurvey,
       hearingRecords,
       currentStructuredState: workspace.currentStructuredState.state,
+      currentCompanyContext: currentQ1,
       currentStateRevision: {
         id: workspace.currentStructuredState.id,
         revisionNo: workspace.currentStructuredState.revisionNo,
@@ -120,12 +156,16 @@ export class FreeDiagnosisDesignV2ApiService {
         updatedByUserId: workspace.currentStructuredState.updatedByUserId,
         changeReason: workspace.currentStructuredState.changeReason,
       },
-      currentStateDiffFromOriginal: diffState(workspace.originalSurvey.answers, workspace.currentStructuredState.state),
+      currentStateDiffFromOriginal: {
+        q1CompanyContext: fieldDiff(workspace.originalSurvey.answers.q1CompanyContext, currentQ1),
+        ...diffState(workspace.originalSurvey.answers, workspace.currentStructuredState.state),
+      },
       latestAnalysisResult: workspace.latestAnalysisResult,
       latestGeneratedNarrative: workspace.latestGeneratedNarrative,
       latestHumanEditedNarrative: workspace.latestHumanEditedNarrative,
       humanEditedNarrativeStatus,
       analysisFreshness,
+      traceability: workspace.latestAnalysisResult ? traceability(workspace.latestAnalysisResult.analysis) : null,
     };
   }
 
@@ -134,7 +174,10 @@ export class FreeDiagnosisDesignV2ApiService {
     try {
       return await this.persistence.appendDesignV2CurrentStateRevision({
         caseId, expectedRevision: request.expectedRevision, state: request.state,
-        supplement: request.supplements, changeReason: request.changeReason, actor,
+        supplement: {
+          ...(request.supplements ?? {}),
+          ...(request.q1CompanyContext ? { q1CompanyContext: request.q1CompanyContext } : {}),
+        }, changeReason: request.changeReason, actor,
       });
     } catch (error) {
       return this.mapPersistenceError(error);

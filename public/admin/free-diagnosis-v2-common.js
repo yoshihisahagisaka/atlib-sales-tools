@@ -10,6 +10,7 @@
   };
   const questions={q1CompanyContext:'Q1 会社の状況',q2Future:'Q2 実現したい会社の未来',q3ItExpectations:'Q3 ITに期待していること',q4CurrentInterest:'Q4 現在特に確認したいこと',q5Visibility:'Q5 現在の把握状況',q6ManagementConnection:'Q6 情報と経営判断のつながり',q7InterestThemes:'Q7 関心のあるITテーマ'};
   const codeGroups={
+    q1CompanyContext:{employeeRange:['EMP_1_20','EMP_21_50','EMP_51_100','EMP_101_300','EMP_301_PLUS','EMP_UNKNOWN'],siteRange:['SITE_1','SITE_2_3','SITE_4_PLUS','SITE_NOT_APPLICABLE','SITE_UNKNOWN']},
     q2Future:['BUSINESS_GROWTH','FOCUS_ON_CORE_WORK','LEAN_GROWTH','NEW_BUSINESS_OR_WORKSTYLE','BUSINESS_CONTINUITY','NO_MAJOR_CHANGE','UNDECIDED'],
     q3ItExpectations:['PRODUCTIVITY','LEAN_OPERATION','MANAGEMENT_DECISION_SUPPORT','DATA_USE','CHANGE_READINESS','EMPLOYEE_EXPERIENCE','RESILIENCE','IT_OPERATION_EFFICIENCY','UNDECIDED'],
     q4CurrentInterest:['MANAGEMENT_DECISION','PRODUCTIVITY','INFORMATION_AND_DATA','GROWTH_AND_CHANGE','IT_OPERATION_AND_GOVERNANCE','SECURITY_AND_CONTINUITY','UNDECIDED'],
@@ -21,8 +22,9 @@
   function text(value){if(Array.isArray(value))return value.map(displayCode).join('、');if(value&&typeof value==='object'){if('employeeRange'in value)return `従業員規模: ${displayCode(value.employeeRange)}、拠点: ${displayCode(value.siteRange)}`;return '未確認'}return displayCode(value)}
   function el(tag,cls,value){const node=document.createElement(tag);if(cls)node.className=cls;if(value!=null)node.textContent=value;return node}
   function answerValues(value){if(Array.isArray(value))return value.map(displayCode);if(value&&typeof value==='object'&&'employeeRange'in value)return [`従業員規模: ${displayCode(value.employeeRange)}`,`拠点: ${displayCode(value.siteRange)}`];return [displayCode(value)]}
-  function renderOriginal(target,answers){target.replaceChildren();for(const [key,title] of Object.entries(questions)){const [number,...labelParts]=title.split(' '),box=el('section','question original-card'),heading=el('div','question-heading');heading.append(el('span','question-number',number),el('h3','',labelParts.join(' ')));const values=el('div','answer-value answer-chips');answerValues(answers[key]).forEach(value=>values.append(el('span','answer-chip',value)));box.append(heading,values);target.append(box)}}
+  function renderOriginal(target,answers,diffs={}){target.replaceChildren();for(const [key,title] of Object.entries(questions)){const [number,...labelParts]=title.split(' '),box=el('section','question original-card'),heading=el('div','question-heading');heading.append(el('span','question-number',number),el('h3','',labelParts.join(' ')));if(diffs[key]&&diffs[key].status!=='UNCHANGED')heading.append(el('span','change-badge','変更あり'));const values=el('div','answer-value answer-chips');answerValues(answers[key]).forEach(value=>values.append(el('span','answer-chip',value)));box.append(heading,values);target.append(box)}}
+  function relatedBadges(ids,prefix='関連テーマ'){if(!ids?.length)return null;const row=el('div','related-badges');row.append(el('span','related-label',prefix));ids.forEach(id=>row.append(el('span','badge',id)));return row}
   function renderRecords(target,records){target.replaceChildren();if(!records.length){target.append(el('p','hint','まだ記録はありません。'));return}records.forEach(record=>{const box=el('article','record');box.append(el('p','',record.statementText));if(record.recordedAt)box.append(el('time','',new Date(record.recordedAt).toLocaleString('ja-JP')));target.append(box)})}
   function narrativeToText(content){return ['future','currentUnderstanding','confirmationAndImprovement','unknowns','nextFacts'].map(k=>`${content[k].heading}\n${content[k].entries.join('\n')}`).join('\n\n')}
-  window.DesignV2UI={labels,questions,codeGroups,text,el,renderOriginal,renderRecords,narrativeToText};
+  window.DesignV2UI={labels,questions,codeGroups,text,el,answerValues,renderOriginal,renderRecords,narrativeToText,relatedBadges};
 })();

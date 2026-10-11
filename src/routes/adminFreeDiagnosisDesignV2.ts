@@ -36,6 +36,7 @@ const stateSchema = z.object({
 const saveCurrentStateSchema = z.object({
   expectedRevision: z.number().int().positive(),
   state: stateSchema,
+  q1CompanyContext: z.object({ employeeRange: z.string().trim().min(1).max(100), siteRange: z.string().trim().min(1).max(100) }).strict().optional(),
   supplements: z.record(z.unknown()).nullable().optional(),
   changeReason: z.string().trim().max(2_000).nullable().optional(),
 }).strict();

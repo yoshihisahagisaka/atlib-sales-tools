@@ -317,12 +317,13 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
         throw new FreeDiagnosisDesignV2PersistenceError(409, 'CURRENT_STATE_REVISION_CONFLICT');
       }
       const fullState = projectFreeDiagnosisSemanticV2({ q1CompanyContext: original.answers.q1CompanyContext, ...input.state });
+      const supplement = { ...(previous.supplement ?? {}), ...(input.supplement ?? {}) };
       const currentRow = await client.query<Record<string, unknown>>(
         `INSERT INTO it_management_diagnosis_current_state_revision_v2
          (id,case_id,revision_no,source_type,based_on_original_snapshot_id,previous_state_id,state_json,supplement_json,updated_by_user_id,change_reason)
          VALUES($1,$2,$3,'HUMAN_UPDATE',$4,$5,$6,$7,$8,$9) RETURNING *`,
         [randomUUID(), input.caseId, previous.revisionNo + 1, original.id, previous.id,
-          JSON.stringify(stateFields(fullState)), input.supplement == null ? null : JSON.stringify(input.supplement),
+          JSON.stringify(stateFields(fullState)), Object.keys(supplement).length ? JSON.stringify(supplement) : null,
           input.actor, input.changeReason ?? null],
       );
       const current = mapState(currentRow.rows[0]!);
@@ -352,12 +353,13 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
         throw new FreeDiagnosisDesignV2PersistenceError(409, 'CURRENT_STATE_REVISION_CONFLICT');
       }
       const fullState = projectFreeDiagnosisSemanticV2({ q1CompanyContext: original.answers.q1CompanyContext, ...input.state });
+      const supplement = { ...(previous.supplement ?? {}), ...(input.supplement ?? {}) };
       const currentRow = await client.query<Record<string, unknown>>(
         `INSERT INTO it_management_diagnosis_current_state_revision_v2
          (id,case_id,revision_no,source_type,based_on_original_snapshot_id,previous_state_id,state_json,supplement_json,updated_by_user_id,change_reason)
          VALUES($1,$2,$3,'HUMAN_UPDATE',$4,$5,$6,$7,$8,$9) RETURNING *`,
         [randomUUID(), input.caseId, previous.revisionNo + 1, original.id, previous.id,
-          JSON.stringify(stateFields(fullState)), input.supplement == null ? null : JSON.stringify(input.supplement),
+          JSON.stringify(stateFields(fullState)), Object.keys(supplement).length ? JSON.stringify(supplement) : null,
           input.actor, input.changeReason ?? null],
       );
       const current = mapState(currentRow.rows[0]!);
