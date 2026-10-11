@@ -45,6 +45,10 @@ test('E1 Design v2 Report Draft uses only latest canonical sources and creates a
     method: 'POST', headers: { cookie, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+  const get = (suffix: string) => fetch(base + suffix, { headers: { cookie } });
+  const patch = (suffix: string, body: unknown) => fetch(base + suffix, {
+    method: 'PATCH', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify(body),
+  });
   try {
     await h.db.exec(fs.readFileSync(path.join(root, 'migrations/033_free_diagnosis_design_v2_persistence.sql'), 'utf8'));
     const activity = await h.launcher.createSalesActivity({ name: 'E1 report company', contact: { name: 'Operator' }, selectedService: 'IT_KAIZEN' }, 'operator@atlib.jp');
@@ -119,6 +123,61 @@ test('E1 Design v2 Report Draft uses only latest canonical sources and creates a
           WHERE case_id=$1 AND command='CreateDesignV2ReportDraft' ORDER BY created_at DESC LIMIT 1`, [kase.id],
       );
       assert.equal(audit.rows[0].detail_json.human_edited_narrative_id, currentEditBody.id);
+    });
+    await t.test('E2 reuses the existing editable Draft and only saves customer-facing presentation', async () => {
+      const ensuredOnce = await post(`/cases/${kase.id}/design-v2/report-drafts/ensure`);
+      const ensuredTwice = await post(`/cases/${kase.id}/design-v2/report-drafts/ensure`);
+      assert.equal(ensuredOnce.status, 200);
+      assert.equal(ensuredTwice.status, 200);
+      const once = await ensuredOnce.json() as any;
+      const twice = await ensuredTwice.json() as any;
+      assert.equal(once.id, second.id);
+      assert.equal(twice.id, second.id);
+      const reportCount = await h.pool.query<{ count: string }>('SELECT count(*) FROM diagnosis_reports WHERE it_management_diagnosis_case_v2_id=$1', [kase.id]);
+      assert.equal(Number(reportCount.rows[0]!.count), 2);
+
+      const before = await get(`/cases/${kase.id}/design-v2/report-drafts/${second.id}`);
+      assert.equal(before.status, 200);
+      const draft = await before.json() as any;
+      const originalContext = structuredClone(draft.context);
+      const sourceCounts = await h.pool.query<{ current: string; analysis: string; generated: string; edited: string }>(
+        `SELECT
+          (SELECT count(*) FROM it_management_diagnosis_current_state_revision_v2 WHERE case_id=$1)::text AS current,
+          (SELECT count(*) FROM it_management_diagnosis_analysis_result_v2 WHERE case_id=$1)::text AS analysis,
+          (SELECT count(*) FROM it_management_diagnosis_generated_narrative_v2 WHERE case_id=$1)::text AS generated,
+          (SELECT count(*) FROM it_management_diagnosis_human_edited_narrative_v2 WHERE case_id=$1)::text AS edited`, [kase.id],
+      );
+      const content = structuredClone(draft.content);
+      content.recipient = { organizationDisplayName: 'E2 顧客株式会社', role: '代表取締役', name: '山田 太郎' };
+      content.diagnosisDate = '2026-10-12';
+      content.sections[0].entries = ['顧客向けに整えた未来の表現'];
+      const candidate = content.factCandidates[0]!;
+      content.assessmentProposal = {
+        ...content.assessmentProposal,
+        selectedCandidateIds: [candidate.id],
+        presentationByCandidateId: { [candidate.id]: { customerExpression: '確認対象の顧客向け表現', reason: '確認する理由を顧客向けに整理した表現' } },
+        durationText: '2〜4週間', priceExcludingTaxText: '個別にご相談のうえお見積り',
+      };
+      assert.deepEqual(content.factCandidates, draft.content.factCandidates);
+      const saved = await patch(`/cases/${kase.id}/design-v2/report-drafts/${second.id}`, content);
+      if (saved.status !== 200) assert.fail(await saved.text());
+      const updated = await saved.json() as any;
+      assert.equal(updated.contentVersion, draft.contentVersion + 1);
+      assert.deepEqual(updated.context, originalContext);
+      assert.deepEqual(updated.content.factCandidates, draft.content.factCandidates);
+      assert.deepEqual(updated.content.assessmentProposal.candidates, draft.content.assessmentProposal.candidates);
+      assert.equal(updated.content.recipient.name, '山田 太郎');
+      assert.equal(updated.content.assessmentProposal.selectedCandidateIds[0], candidate.id);
+      assert.deepEqual((await h.pool.query(
+        `SELECT
+          (SELECT count(*) FROM it_management_diagnosis_current_state_revision_v2 WHERE case_id=$1)::text AS current,
+          (SELECT count(*) FROM it_management_diagnosis_analysis_result_v2 WHERE case_id=$1)::text AS analysis,
+          (SELECT count(*) FROM it_management_diagnosis_generated_narrative_v2 WHERE case_id=$1)::text AS generated,
+          (SELECT count(*) FROM it_management_diagnosis_human_edited_narrative_v2 WHERE case_id=$1)::text AS edited`, [kase.id],
+      )).rows[0], sourceCounts.rows[0]);
+      content.factCandidates[0].whatToVerify = 'analysis source must not be changed';
+      const invalid = await patch(`/cases/${kase.id}/design-v2/report-drafts/${second.id}`, content);
+      assert.equal(invalid.status, 422);
     });
   } finally {
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));

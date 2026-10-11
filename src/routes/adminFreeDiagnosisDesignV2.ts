@@ -9,6 +9,7 @@ import {
   VISIBILITY_CODES_V2,
 } from '../domain/freeDiagnosisDesignV2';
 import { FreeDiagnosisDesignV2ApiError, type FreeDiagnosisDesignV2ApiService } from '../services/freeDiagnosisDesignV2ApiService';
+import { DESIGN_V2_REPORT_FORMAT_VERSION, type DesignV2ReportContent } from '../domain/freeDiagnosisDesignV2Report';
 
 function actor(req: Request): string {
   return req.staffEmail ?? 'unknown-staff';
@@ -55,6 +56,22 @@ const narrativeEditSchema = z.object({
   content: narrativeSchema,
   editReason: z.string().trim().max(2_000).nullable().optional(),
 }).strict();
+const reportEntrySchema = z.string().trim().min(1).max(20_000);
+const reportContentSchema = z.object({
+  formatVersion: z.literal(DESIGN_V2_REPORT_FORMAT_VERSION),
+  recipient: z.object({ organizationDisplayName: z.string().trim().min(1).max(500), role: z.string().trim().max(200).optional(), name: z.string().trim().max(200).optional() }).strict(),
+  diagnosisDate: z.string().trim().min(1).max(100),
+  issuer: z.object({ displayName: z.literal('atLIB株式会社') }).strict(),
+  sections: z.array(z.object({ key: z.enum(['FUTURE','CURRENT_UNDERSTANDING','LENSES','UNKNOWNS','NEXT_FACTS']), title: z.string().trim().min(1).max(200), entries: z.array(reportEntrySchema).max(100) }).strict()).length(5),
+  factCandidates: z.array(z.object({ id: z.string().min(1), whatToVerify: z.string(), whyItMattersToFuture: z.string(), whatMayBecomeKnowable: z.string(), lenses: z.array(z.enum(['TECHNOLOGY','OPERATION','MANAGEMENT'])), sourceRuleIds: z.array(z.string()) }).strict()).max(100),
+  assessmentProposal: z.object({
+    status: z.literal('NOT_SELECTED'), source: z.literal('ANALYSIS_FACT_CANDIDATES'),
+    candidates: z.array(z.object({ id: z.string().min(1), whatToVerify: z.string(), whyItMattersToFuture: z.string(), whatMayBecomeKnowable: z.string(), lenses: z.array(z.enum(['TECHNOLOGY','OPERATION','MANAGEMENT'])), sourceRuleIds: z.array(z.string()) }).strict()).max(100),
+    selectedCandidateIds: z.array(z.string().min(1)).max(100).optional(),
+    presentationByCandidateId: z.record(z.string().min(1), z.object({ customerExpression: z.string().trim().max(20_000), reason: z.string().trim().max(20_000) }).strict()).optional(),
+    durationText: z.string().trim().max(500).optional(), priceExcludingTaxText: z.string().trim().max(500).optional(),
+  }).strict(),
+}).strict();
 
 export function createAdminFreeDiagnosisDesignV2Router(service: FreeDiagnosisDesignV2ApiService): Router {
   const router = Router();
@@ -83,6 +100,17 @@ export function createAdminFreeDiagnosisDesignV2Router(service: FreeDiagnosisDes
 
   router.post('/cases/:id/design-v2/report-drafts', (req, res) => handle(res, async () => {
     res.status(201).json(await service.createReportDraft(req.params.id, actor(req)));
+  }));
+  router.post('/cases/:id/design-v2/report-drafts/ensure', (req, res) => handle(res, async () => {
+    res.json(await service.ensureReportDraft(req.params.id, actor(req)));
+  }));
+  router.get('/cases/:id/design-v2/report-drafts/:reportId', (req, res) => handle(res, async () => {
+    res.json(await service.getReportDraft(req.params.id, req.params.reportId));
+  }));
+  router.patch('/cases/:id/design-v2/report-drafts/:reportId', (req, res) => handle(res, async () => {
+    const parsed = reportContentSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    res.json(await service.updateReportDraftPresentation(req.params.id, req.params.reportId, parsed.data as DesignV2ReportContent, actor(req)));
   }));
 
   return router;

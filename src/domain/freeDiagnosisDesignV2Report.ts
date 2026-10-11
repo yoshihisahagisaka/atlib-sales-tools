@@ -24,7 +24,7 @@ export interface DesignV2ReportFactCandidate {
  */
 export interface DesignV2ReportContent {
   formatVersion: typeof DESIGN_V2_REPORT_FORMAT_VERSION;
-  recipient: { organizationDisplayName: string };
+  recipient: { organizationDisplayName: string; role?: string; name?: string };
   diagnosisDate: string;
   issuer: { displayName: string };
   sections: readonly DesignV2ReportSection[];
@@ -33,6 +33,10 @@ export interface DesignV2ReportContent {
     status: 'NOT_SELECTED';
     source: 'ANALYSIS_FACT_CANDIDATES';
     candidates: readonly DesignV2ReportFactCandidate[];
+    selectedCandidateIds?: readonly string[];
+    presentationByCandidateId?: Readonly<Record<string, { customerExpression: string; reason: string }>>;
+    durationText?: string;
+    priceExcludingTaxText?: string;
   };
 }
 

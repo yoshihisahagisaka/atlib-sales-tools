@@ -158,6 +158,15 @@ export interface DesignV2ReportDraftResult {
   context: Record<string, unknown>;
 }
 
+export interface DesignV2StoredReportDraft {
+  id: string;
+  version: number;
+  contentVersion: number;
+  status: string;
+  content: DesignV2ReportContent;
+  context: Record<string, unknown>;
+}
+
 function asJson<T>(value: T | string): T {
   return typeof value === 'string' ? JSON.parse(value) as T : value;
 }
@@ -620,6 +629,61 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
     });
   }
 
+  async getDesignV2ReportDraft(caseId: string, reportId: string): Promise<DesignV2StoredReportDraft> {
+    const result = await this.pool.query<Record<string, unknown>>(
+      `SELECT id,version,content_version,status,content_json,context_json
+         FROM diagnosis_reports
+        WHERE id=$1 AND it_management_diagnosis_case_v2_id=$2 AND policy_version='design-v2'`,
+      [reportId, caseId],
+    );
+    if (!result.rows[0]) throw new FreeDiagnosisDesignV2PersistenceError(404, 'DESIGN_V2_REPORT_NOT_FOUND');
+    return this.mapDesignV2ReportDraft(result.rows[0]);
+  }
+
+  async ensureDesignV2ReportDraft(caseId: string, actor: string): Promise<DesignV2StoredReportDraft> {
+    const existing = await this.pool.query<Record<string, unknown>>(
+      `SELECT id,version,content_version,status,content_json,context_json
+         FROM diagnosis_reports
+        WHERE it_management_diagnosis_case_v2_id=$1 AND policy_version='design-v2' AND status='REVIEW_REQUIRED'
+        ORDER BY version DESC LIMIT 1`, [caseId],
+    );
+    if (existing.rows[0]) return this.mapDesignV2ReportDraft(existing.rows[0]);
+    const created = await this.createDesignV2ReportDraft(caseId, actor);
+    return { id: created.id, version: created.version, contentVersion: 1, status: 'REVIEW_REQUIRED', content: created.content, context: created.context };
+  }
+
+  async updateDesignV2ReportDraftPresentation(
+    caseId: string,
+    reportId: string,
+    content: DesignV2ReportContent,
+    actor: string,
+  ): Promise<DesignV2StoredReportDraft> {
+    return this.tx(async client => {
+      const result = await client.query<Record<string, unknown>>(
+        `SELECT id,version,content_version,status,content_json,context_json
+           FROM diagnosis_reports
+          WHERE id=$1 AND it_management_diagnosis_case_v2_id=$2 AND policy_version='design-v2'
+          FOR UPDATE`, [reportId, caseId],
+      );
+      if (!result.rows[0]) throw new FreeDiagnosisDesignV2PersistenceError(404, 'DESIGN_V2_REPORT_NOT_FOUND');
+      const report = this.mapDesignV2ReportDraft(result.rows[0]);
+      if (report.status !== 'REVIEW_REQUIRED') throw new FreeDiagnosisDesignV2PersistenceError(409, 'DESIGN_V2_REPORT_NOT_EDITABLE');
+      this.assertDesignV2ReportPresentation(content, report.content);
+      const updated = await client.query<Record<string, unknown>>(
+        `UPDATE diagnosis_reports
+            SET content_json=$3,content_version=content_version+1,updated_at=now()
+          WHERE id=$1 AND it_management_diagnosis_case_v2_id=$2
+          RETURNING id,version,content_version,status,content_json,context_json`,
+        [reportId, caseId, JSON.stringify(content)],
+      );
+      await this.audit(client, caseId, actor, 'UpdateDesignV2ReportPresentation', {
+        report_id: reportId, report_version: report.version,
+        previous_content_hash: contentHash(report.content), content_hash: contentHash(content),
+      });
+      return this.mapDesignV2ReportDraft(updated.rows[0]!);
+    });
+  }
+
   async listDesignV2HearingRecords(caseId: string): Promise<HearingRecordV2[]> {
     const result = await this.pool.query<Record<string, unknown>>(
       `SELECT id,plan_item_ref,statement_text,operator_note_text,knowledge_state,structured_answer_json,
@@ -642,6 +706,49 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
        WHERE g.case_id=$1 ORDER BY s.revision_no DESC,g.created_at DESC LIMIT 1`, [caseId],
     );
     return result.rows[0] ? mapGenerated(result.rows[0]) : null;
+  }
+
+  private mapDesignV2ReportDraft(row: Record<string, unknown>): DesignV2StoredReportDraft {
+    return {
+      id: row.id as string, version: Number(row.version), contentVersion: Number(row.content_version), status: row.status as string,
+      content: asJson(row.content_json as DesignV2ReportContent), context: asJson(row.context_json as Record<string, unknown>),
+    };
+  }
+
+  private assertDesignV2ReportPresentation(candidate: DesignV2ReportContent, original: DesignV2ReportContent): void {
+    if (candidate.formatVersion !== original.formatVersion || candidate.issuer?.displayName !== original.issuer?.displayName) {
+      throw new FreeDiagnosisDesignV2PersistenceError(422, 'DESIGN_V2_REPORT_PRESENTATION_INVALID');
+    }
+    const sameCandidate = (left: typeof candidate.factCandidates[number], right: typeof original.factCandidates[number] | undefined): boolean => right != null
+      && left.id === right.id
+      && left.whatToVerify === right.whatToVerify
+      && left.whyItMattersToFuture === right.whyItMattersToFuture
+      && left.whatMayBecomeKnowable === right.whatMayBecomeKnowable
+      && left.lenses.length === right.lenses.length && left.lenses.every((value, index) => value === right.lenses[index])
+      && left.sourceRuleIds.length === right.sourceRuleIds.length && left.sourceRuleIds.every((value, index) => value === right.sourceRuleIds[index]);
+    const originalFacts = new Map(original.factCandidates.map(item => [item.id, item]));
+    if (candidate.factCandidates.length !== original.factCandidates.length || candidate.factCandidates.some(item => !sameCandidate(item, originalFacts.get(item.id)))) {
+      throw new FreeDiagnosisDesignV2PersistenceError(422, 'DESIGN_V2_REPORT_SOURCE_MUTATION_FORBIDDEN');
+    }
+    const originalProposalFacts = new Map(original.assessmentProposal.candidates.map(item => [item.id, item]));
+    if (candidate.assessmentProposal.candidates.length !== original.assessmentProposal.candidates.length
+      || candidate.assessmentProposal.candidates.some(item => !sameCandidate(item, originalProposalFacts.get(item.id)))) {
+      throw new FreeDiagnosisDesignV2PersistenceError(422, 'DESIGN_V2_REPORT_SOURCE_MUTATION_FORBIDDEN');
+    }
+    if (candidate.sections.length !== 5 || candidate.sections.some((section, index) => section.key !== original.sections[index]?.key || section.title !== original.sections[index]?.title || !Array.isArray(section.entries))) {
+      throw new FreeDiagnosisDesignV2PersistenceError(422, 'DESIGN_V2_REPORT_PRESENTATION_INVALID');
+    }
+    const selected = candidate.assessmentProposal?.selectedCandidateIds ?? [];
+    if (new Set(selected).size !== selected.length || selected.some(id => !originalFacts.has(id))) {
+      throw new FreeDiagnosisDesignV2PersistenceError(422, 'DESIGN_V2_REPORT_FACT_CANDIDATE_INVALID');
+    }
+    const presentations = candidate.assessmentProposal?.presentationByCandidateId ?? {};
+    if (Object.keys(presentations).some(id => !selected.includes(id))) {
+      throw new FreeDiagnosisDesignV2PersistenceError(422, 'DESIGN_V2_REPORT_FACT_CANDIDATE_INVALID');
+    }
+    if (candidate.assessmentProposal?.status !== 'NOT_SELECTED' || candidate.assessmentProposal?.source !== 'ANALYSIS_FACT_CANDIDATES') {
+      throw new FreeDiagnosisDesignV2PersistenceError(422, 'DESIGN_V2_REPORT_SOURCE_MUTATION_FORBIDDEN');
+    }
   }
 
   private async buildView(client: PoolClient, caseId: string): Promise<PostHearingAnalysisViewV2> {

@@ -1,4 +1,5 @@
 import type { AnalysisResultV2, CompanyContextV2, CurrentStructuredStateV2, FreeDiagnosisNarrativeV2 } from '../domain/freeDiagnosisDesignV2';
+import type { DesignV2ReportContent } from '../domain/freeDiagnosisDesignV2Report';
 import { FreeDiagnosisDesignV2ValidationError } from '../domain/freeDiagnosisSemanticProjectionV2';
 import type { FreeDiagnosisRuleBasedCaseRepo } from './freeDiagnosisRuleBasedCaseRepo';
 import {
@@ -218,5 +219,23 @@ export class FreeDiagnosisDesignV2ApiService {
     } catch (error) {
       return this.mapPersistenceError(error);
     }
+  }
+
+  async ensureReportDraft(caseId: string, actor: string) {
+    await this.requireCase(caseId);
+    try { return await this.persistence.ensureDesignV2ReportDraft(caseId, actor); }
+    catch (error) { return this.mapPersistenceError(error); }
+  }
+
+  async getReportDraft(caseId: string, reportId: string) {
+    await this.requireCase(caseId);
+    try { return await this.persistence.getDesignV2ReportDraft(caseId, reportId); }
+    catch (error) { return this.mapPersistenceError(error); }
+  }
+
+  async updateReportDraftPresentation(caseId: string, reportId: string, content: DesignV2ReportContent, actor: string) {
+    await this.requireCase(caseId);
+    try { return await this.persistence.updateDesignV2ReportDraftPresentation(caseId, reportId, content, actor); }
+    catch (error) { return this.mapPersistenceError(error); }
   }
 }
