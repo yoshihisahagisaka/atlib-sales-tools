@@ -60,6 +60,10 @@ function addRule(ruleIds: string[], id: string): void {
   if (!ruleIds.includes(id)) ruleIds.push(id);
 }
 
+function addUnknown(items: UnknownItemV2[], item: UnknownItemV2): void {
+  if (!items.some((existing) => existing.id === item.id)) items.push(item);
+}
+
 /**
  * The one deterministic Design v2 analyser. Survey answers are recognition and
  * confirmation candidates; this function never turns them into verified FACT.
@@ -100,7 +104,7 @@ export function analyzeFreeDiagnosisV2(input: CurrentStructuredStateV2): Analysi
   };
   currentUnderstanding.push(block('visibility', 'V2-D-Q5-VISIBILITY', visibilityText[state.q5Visibility]!, ['Q5']));
   addRule(appliedRuleIds, 'V2-D-Q5-VISIBILITY');
-  if (state.q5Visibility === 'UNKNOWN') unknowns.push(unknown('unknown-visibility', '現在の業務・ITについて、経営としてどこまで把握できているかは未確認です。', ['OPERATION', 'MANAGEMENT'], ['V2-D-Q5-VISIBILITY']));
+  if (state.q5Visibility === 'UNKNOWN') addUnknown(unknowns, unknown('unknown-visibility', '現在の業務・ITについて、経営としてどこまで把握できているかは未確認です。', ['OPERATION', 'MANAGEMENT'], ['V2-D-Q5-VISIBILITY']));
 
   const managementText: Record<string, string> = {
     UNMANAGED_OR_NOT_VISIBLE: 'ITについて、経営として継続的に把握するための情報がどこまで管理されているかは未確認です。',
@@ -112,7 +116,15 @@ export function analyzeFreeDiagnosisV2(input: CurrentStructuredStateV2): Analysi
   };
   currentUnderstanding.push(block('management-connection', 'V2-D-Q6-MANAGEMENT_CONNECTION', managementText[state.q6ManagementConnection]!, ['Q6']));
   addRule(appliedRuleIds, 'V2-D-Q6-MANAGEMENT_CONNECTION');
-  if (state.q6ManagementConnection === 'UNKNOWN') unknowns.push(unknown('unknown-management-connection', '会社の状況について得られる情報が経営判断にどう使われているかは未確認です。', ['MANAGEMENT'], ['V2-D-Q6-MANAGEMENT_CONNECTION']));
+  if (state.q6ManagementConnection === 'UNKNOWN') addUnknown(unknowns, unknown('unknown-management-connection', '会社の状況について得られる情報が経営判断にどう使われているかは未確認です。', ['MANAGEMENT'], ['V2-D-Q6-MANAGEMENT_CONNECTION']));
+  if (state.q6ManagementConnection === 'REPORTED_NOT_DECISION_USABLE') {
+    addUnknown(unknowns, unknown('unknown-management-report-detail', '何が経営へ届き、何が判断に使えているか、使いにくい情報や届いていない情報は何かは未確認です。', ['MANAGEMENT'], ['V2-U-003-REPORT']));
+    addRule(appliedRuleIds, 'V2-U-003-REPORT');
+  }
+  if (state.q6ManagementConnection === 'MANAGED_NOT_REPORTED') {
+    addUnknown(unknowns, unknown('unknown-management-sharing-detail', 'どの管理情報が経営へ届いていないか、どの頻度・経路で共有されているかは未確認です。', ['MANAGEMENT'], ['V2-U-003-SHARING']));
+    addRule(appliedRuleIds, 'V2-U-003-SHARING');
+  }
 
   if (state.q7InterestThemes.includes('AI')) {
     currentUnderstanding.push(block('interest-ai', 'V2-D-Q7-INTEREST', 'AI・生成AIに関心があります。', ['Q7']));
@@ -122,12 +134,17 @@ export function analyzeFreeDiagnosisV2(input: CurrentStructuredStateV2): Analysi
     currentUnderstanding.push(block('interest-security', 'V2-D-Q7-INTEREST', 'セキュリティに関心があります。', ['Q7']));
     addRule(appliedRuleIds, 'V2-D-Q7-INTEREST');
   }
+  if (hasAny(state.q7InterestThemes, ['AI', 'AUTOMATION'])) {
+    addUnknown(unknowns, unknown('unknown-automation-applicability', 'どの業務へAI・自動化を適用する価値があるかは未確認です。', ['TECHNOLOGY', 'OPERATION'], ['V2-U-002-APPLICABILITY']));
+    addRule(appliedRuleIds, 'V2-U-002-APPLICABILITY');
+  }
 
   const growthAndEfficiency = hasAny(state.q2Future, ['BUSINESS_GROWTH', 'LEAN_GROWTH']) && hasAny(state.q3ItExpectations, ['PRODUCTIVITY', 'LEAN_OPERATION']);
   if (growthAndEfficiency) {
     lensFindings.push(finding('growth-workflow', 'V2-C-001', '現在の仕事の進め方が、事業規模が大きくなっても無理なく回るかを確認する価値があります。', ['OPERATION'], ['Q2', 'Q3']));
     hearingViewpoints.push(viewpoint('growth-workflow', '成長時にも無理なく回る仕事の進め方', '成長と生産性への期待が両方あるため、日々の仕事の流れを確認すると有用です。', ['OPERATION'], ['V2-C-001'], ['まず、日々の仕事で時間や確認が集中している場面を教えてください。', 'その仕事量が増えた場合、どこに負担が出そうですか。']));
     factCandidates.push(fact('growth-workflow', '仕事量が増えた場合に、どの業務で手作業・確認待ち・属人化が起きるか。', '事業成長と少人数での運営を両立するため。', '確認価値の高い業務と、改善可能性のある仕事の流れ。', ['OPERATION'], ['V2-C-001']));
+    addUnknown(unknowns, unknown('unknown-growth-operation-detail', 'どの業務が事業拡大時に負担増となるか、手作業・転記・集計・確認待ち・情報探索・属人化の実態は未確認です。', ['OPERATION'], ['V2-C-001']));
     addRule(appliedRuleIds, 'V2-C-001');
   }
   if (growthAndEfficiency && hasAny(state.q7InterestThemes, ['AI', 'AUTOMATION'])) {
@@ -149,6 +166,18 @@ export function analyzeFreeDiagnosisV2(input: CurrentStructuredStateV2): Analysi
     hearingViewpoints.push(viewpoint('decision-usable', '経営判断に使える情報の形', '報告の有無だけでなく、判断に使える形かを具体的に確かめるためです。', ['MANAGEMENT'], ['V2-C-004'], ['現在、経営で確認している数字や報告には何がありますか。', '判断しにくいと感じるのは、どのような場面ですか。']));
     factCandidates.push(fact('decision-usable', '経営へ共有されるIT・業務情報の内容、頻度、判断への使われ方。', '経営判断を支える情報の形を確認するため。', '報告・共有・判断の間で追加確認が必要な箇所。', ['MANAGEMENT'], ['V2-C-004']));
     addRule(appliedRuleIds, 'V2-C-004');
+  }
+  const threeLensInformationFlow = growthAndEfficiency
+    && state.q3ItExpectations.includes('MANAGEMENT_DECISION_SUPPORT')
+    && state.q4CurrentInterest === 'MANAGEMENT_DECISION'
+    && LIMITED_VISIBILITY.has(state.q5Visibility)
+    && state.q6ManagementConnection === 'REPORTED_NOT_DECISION_USABLE'
+    && hasAny(state.q7InterestThemes, ['AI', 'AUTOMATION']);
+  if (threeLensInformationFlow) {
+    lensFindings.push(finding('growth-decision-information-flow', 'V2-C-011', '事業拡大を少人数で支えるために、経営判断に必要な情報を作る・届ける・使う流れを、技術・運用・管理の各面から確認する価値があります。', ['TECHNOLOGY', 'OPERATION', 'MANAGEMENT'], ['Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']));
+    hearingViewpoints.push(viewpoint('growth-decision-information-flow', '経営判断に必要な情報を作る・届ける・使う流れ', '情報作成を支える技術、収集・集計・報告の仕事の進め方、経営への届け方と判断での使い方を一つの流れとして確認するためです。', ['TECHNOLOGY', 'OPERATION', 'MANAGEMENT'], ['V2-C-011']));
+    factCandidates.push(fact('growth-decision-information-flow', '経営判断に必要な情報が、どのように作られ、届けられ、使われているか。', '少人数での事業拡大を、技術・運用・管理のつながりから支えられるかを確認するため。', '情報作成の技術的な支援可能性、業務の見直し可能性、経営判断への接続状況。', ['TECHNOLOGY', 'OPERATION', 'MANAGEMENT'], ['V2-C-011']));
+    addRule(appliedRuleIds, 'V2-C-011');
   }
   if (state.q6ManagementConnection === 'MANAGED_NOT_REPORTED') {
     lensFindings.push(finding('management-not-reported', 'V2-C-005', 'ITの管理自体は行われている一方、経営へどの情報がどの頻度で共有されているかを確認する価値があります。', ['MANAGEMENT'], ['Q6']));
@@ -173,6 +202,7 @@ export function analyzeFreeDiagnosisV2(input: CurrentStructuredStateV2): Analysi
     addRule(appliedRuleIds, 'V2-C-009');
   }
   if (state.q2Future.includes('UNDECIDED')) {
+    addUnknown(unknowns, unknown('unknown-future', '今後1〜3年で実現したい会社の未来は、現時点ではまだ具体化されていません。', ['MANAGEMENT'], ['V2-C-010']));
     hearingViewpoints.push(viewpoint('future-undecided', '経営として優先したい変化', '将来像が具体化の途中であるため、まず優先したい変化を確認するためです。', ['MANAGEMENT'], ['V2-C-010']));
     addRule(appliedRuleIds, 'V2-C-010');
   }
