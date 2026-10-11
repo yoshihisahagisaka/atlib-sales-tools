@@ -92,7 +92,7 @@ export interface PostHearingAnalysisViewV2 {
   humanEditedNarrativeStatus: HumanEditedNarrativeStatusV2;
 }
 
-interface InitializeInput {
+export interface InitializeInput {
   caseId: string;
   answers: CurrentStructuredStateV2;
   surveyVersion: string;
@@ -103,7 +103,7 @@ interface InitializeInput {
   actor: string;
 }
 
-interface AppendStateInput {
+export interface AppendStateInput {
   caseId: string;
   expectedRevision: number;
   state: DesignV2CurrentStateFields;
@@ -112,12 +112,37 @@ interface AppendStateInput {
   changeReason?: string | null;
 }
 
-interface AppendHumanEditInput {
+export interface AppendHumanEditInput {
   caseId: string;
   generatedNarrativeId: string;
   content: FreeDiagnosisNarrativeV2;
   actor: string;
   editReason?: string | null;
+}
+
+export interface ReanalyzeInput {
+  caseId: string;
+  expectedCurrentStateRevision: number;
+  actor: string;
+}
+
+export interface HearingRecordV2 {
+  id: string;
+  planItemRef: string | null;
+  statementText: string;
+  operatorNoteText: string | null;
+  knowledgeState: string;
+  structuredAnswer: unknown | null;
+  recordedByUserId: string;
+  recordedAt: string;
+}
+
+export interface DesignV2PersistenceWorkspace {
+  originalSurvey: OriginalSurveySnapshotV2;
+  currentStructuredState: CurrentStateRevisionV2;
+  latestAnalysisResult: AnalysisResultRecordV2 | null;
+  latestGeneratedNarrative: GeneratedNarrativeRecordV2 | null;
+  latestHumanEditedNarrative: HumanEditedNarrativeRecordV2 | null;
 }
 
 function asJson<T>(value: T | string): T {
@@ -310,6 +335,89 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
     });
   }
 
+  async appendDesignV2CurrentStateRevision(input: AppendStateInput): Promise<CurrentStateRevisionV2> {
+    if (!input.actor.trim()) throw new FreeDiagnosisDesignV2PersistenceError(422, 'ACTOR_REQUIRED');
+    return this.tx(async client => {
+      await this.lockCase(client, input.caseId);
+      const originalResult = await client.query<Record<string, unknown>>(
+        'SELECT * FROM it_management_diagnosis_original_survey_snapshot_v2 WHERE case_id=$1', [input.caseId],
+      );
+      if (!originalResult.rows[0]) throw new FreeDiagnosisDesignV2PersistenceError(404, 'DESIGN_V2_NOT_INITIALIZED');
+      const original = mapOriginal(originalResult.rows[0]);
+      const latestResult = await client.query<Record<string, unknown>>(
+        'SELECT * FROM it_management_diagnosis_current_state_revision_v2 WHERE case_id=$1 ORDER BY revision_no DESC LIMIT 1', [input.caseId],
+      );
+      const previous = latestResult.rows[0] ? mapState(latestResult.rows[0]) : null;
+      if (!previous || previous.revisionNo !== input.expectedRevision) {
+        throw new FreeDiagnosisDesignV2PersistenceError(409, 'CURRENT_STATE_REVISION_CONFLICT');
+      }
+      const fullState = projectFreeDiagnosisSemanticV2({ q1CompanyContext: original.answers.q1CompanyContext, ...input.state });
+      const currentRow = await client.query<Record<string, unknown>>(
+        `INSERT INTO it_management_diagnosis_current_state_revision_v2
+         (id,case_id,revision_no,source_type,based_on_original_snapshot_id,previous_state_id,state_json,supplement_json,updated_by_user_id,change_reason)
+         VALUES($1,$2,$3,'HUMAN_UPDATE',$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [randomUUID(), input.caseId, previous.revisionNo + 1, original.id, previous.id,
+          JSON.stringify(stateFields(fullState)), input.supplement == null ? null : JSON.stringify(input.supplement),
+          input.actor, input.changeReason ?? null],
+      );
+      const current = mapState(currentRow.rows[0]!);
+      await this.audit(client, input.caseId, input.actor, 'CreateDesignV2CurrentStateRevision', {
+        current_state_id: current.id, revision_no: current.revisionNo, previous_state_id: previous.id,
+        source_type: current.sourceType,
+      });
+      return current;
+    });
+  }
+
+  async reanalyzeDesignV2CurrentState(input: ReanalyzeInput): Promise<{
+    current: CurrentStateRevisionV2;
+    analysis: AnalysisResultRecordV2;
+    generated: GeneratedNarrativeRecordV2;
+    reused: boolean;
+  }> {
+    if (!input.actor.trim()) throw new FreeDiagnosisDesignV2PersistenceError(422, 'ACTOR_REQUIRED');
+    return this.tx(async client => {
+      await this.lockCase(client, input.caseId);
+      const originals = await client.query<Record<string, unknown>>(
+        'SELECT * FROM it_management_diagnosis_original_survey_snapshot_v2 WHERE case_id=$1', [input.caseId],
+      );
+      const states = await client.query<Record<string, unknown>>(
+        'SELECT * FROM it_management_diagnosis_current_state_revision_v2 WHERE case_id=$1 ORDER BY revision_no DESC LIMIT 1', [input.caseId],
+      );
+      if (!originals.rows[0] || !states.rows[0]) throw new FreeDiagnosisDesignV2PersistenceError(404, 'DESIGN_V2_NOT_INITIALIZED');
+      const original = mapOriginal(originals.rows[0]);
+      const current = mapState(states.rows[0]);
+      if (current.revisionNo !== input.expectedCurrentStateRevision) {
+        throw new FreeDiagnosisDesignV2PersistenceError(409, 'CURRENT_STATE_REVISION_CONFLICT');
+      }
+      const existingAnalysis = await client.query<Record<string, unknown>>(
+        `SELECT * FROM it_management_diagnosis_analysis_result_v2
+         WHERE current_state_id=$1 AND analyzer_version=$2 AND rule_set_version=$3`,
+        [current.id, DESIGN_V2_ANALYZER_VERSION, DESIGN_V2_RULE_SET_VERSION],
+      );
+      if (existingAnalysis.rows[0]) {
+        const existingGenerated = await client.query<Record<string, unknown>>(
+          `SELECT * FROM it_management_diagnosis_generated_narrative_v2
+           WHERE analysis_result_id=$1 AND generator_version=$2`,
+          [existingAnalysis.rows[0].id, DESIGN_V2_NARRATIVE_GENERATOR_VERSION],
+        );
+        if (!existingGenerated.rows[0]) throw new FreeDiagnosisDesignV2PersistenceError(409, 'DESIGN_V2_GENERATED_NARRATIVE_MISSING');
+        return {
+          current, analysis: mapAnalysis(existingAnalysis.rows[0]), generated: mapGenerated(existingGenerated.rows[0]), reused: true,
+        };
+      }
+      const fullState = projectFreeDiagnosisSemanticV2({ q1CompanyContext: original.answers.q1CompanyContext, ...current.state });
+      const created = await this.createAnalysisAndNarrative(client, input.caseId, current, fullState);
+      await this.audit(client, input.caseId, input.actor, 'RunDesignV2Reanalysis', {
+        current_state_id: current.id, revision_no: current.revisionNo,
+        analysis_result_id: created.analysis.id, generated_narrative_id: created.generated.id,
+        analyzer_version: DESIGN_V2_ANALYZER_VERSION, rule_set_version: DESIGN_V2_RULE_SET_VERSION,
+        generator_version: DESIGN_V2_NARRATIVE_GENERATOR_VERSION,
+      });
+      return { current, ...created, reused: false };
+    });
+  }
+
   async appendDesignV2HumanEditedNarrative(input: AppendHumanEditInput): Promise<HumanEditedNarrativeRecordV2> {
     if (!input.actor.trim()) throw new FreeDiagnosisDesignV2PersistenceError(422, 'ACTOR_REQUIRED');
     if (!input.content || typeof input.content !== 'object') throw new FreeDiagnosisDesignV2PersistenceError(422, 'HUMAN_EDIT_CONTENT_REQUIRED');
@@ -356,6 +464,55 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
   async getPostHearingAnalysisView(caseId: string): Promise<PostHearingAnalysisViewV2> {
     const client = await this.pool.connect();
     try { return await this.buildView(client, caseId); } finally { client.release(); }
+  }
+
+  async getDesignV2PersistenceWorkspace(caseId: string): Promise<DesignV2PersistenceWorkspace | null> {
+    const originals = await this.pool.query<Record<string, unknown>>(
+      'SELECT * FROM it_management_diagnosis_original_survey_snapshot_v2 WHERE case_id=$1', [caseId],
+    );
+    const states = await this.pool.query<Record<string, unknown>>(
+      'SELECT * FROM it_management_diagnosis_current_state_revision_v2 WHERE case_id=$1 ORDER BY revision_no DESC LIMIT 1', [caseId],
+    );
+    if (!originals.rows[0] || !states.rows[0]) return null;
+    const current = mapState(states.rows[0]);
+    const analyses = await this.pool.query<Record<string, unknown>>(
+      `SELECT * FROM it_management_diagnosis_analysis_result_v2
+       WHERE case_id=$1 AND current_state_id=$2 AND analyzer_version=$3 AND rule_set_version=$4
+       ORDER BY created_at DESC LIMIT 1`,
+      [caseId, current.id, DESIGN_V2_ANALYZER_VERSION, DESIGN_V2_RULE_SET_VERSION],
+    );
+    const analysis = analyses.rows[0] ? mapAnalysis(analyses.rows[0]) : null;
+    const generatedRows = analysis ? await this.pool.query<Record<string, unknown>>(
+      `SELECT * FROM it_management_diagnosis_generated_narrative_v2
+       WHERE case_id=$1 AND current_state_id=$2 AND analysis_result_id=$3 AND generator_version=$4
+       ORDER BY created_at DESC LIMIT 1`,
+      [caseId, current.id, analysis.id, DESIGN_V2_NARRATIVE_GENERATOR_VERSION],
+    ) : { rows: [] as Record<string, unknown>[] };
+    const edits = await this.pool.query<Record<string, unknown>>(
+      `SELECT * FROM it_management_diagnosis_human_edited_narrative_v2
+       WHERE case_id=$1 ORDER BY created_at DESC,revision_no DESC LIMIT 1`, [caseId],
+    );
+    return {
+      originalSurvey: mapOriginal(originals.rows[0]), currentStructuredState: current,
+      latestAnalysisResult: analysis,
+      latestGeneratedNarrative: generatedRows.rows[0] ? mapGenerated(generatedRows.rows[0]) : null,
+      latestHumanEditedNarrative: edits.rows[0] ? mapHumanEdit(edits.rows[0]) : null,
+    };
+  }
+
+  async listDesignV2HearingRecords(caseId: string): Promise<HearingRecordV2[]> {
+    const result = await this.pool.query<Record<string, unknown>>(
+      `SELECT id,plan_item_ref,statement_text,operator_note_text,knowledge_state,structured_answer_json,
+              recorded_by_user_id,recorded_at
+       FROM hearing_statement_v2 WHERE case_id=$1 ORDER BY recorded_at,id`, [caseId],
+    );
+    return result.rows.map(row => ({
+      id: row.id as string, planItemRef: row.plan_item_ref as string | null,
+      statementText: row.statement_text as string, operatorNoteText: row.operator_note_text as string | null,
+      knowledgeState: row.knowledge_state as string,
+      structuredAnswer: row.structured_answer_json == null ? null : asJson(row.structured_answer_json),
+      recordedByUserId: row.recorded_by_user_id as string, recordedAt: new Date(row.recorded_at as string).toISOString(),
+    }));
   }
 
   private async latestGenerated(client: PoolClient, caseId: string): Promise<GeneratedNarrativeRecordV2 | null> {

@@ -66,6 +66,9 @@ import { Vs1ReviewReportFeedbackRepo } from './services/vs1ReviewReportFeedbackR
 import { createAdminFreeDiagnosisRuleBasedV1Router } from './routes/adminFreeDiagnosisRuleBasedV1';
 import { PublicCustomerSelfSubmissionService } from './services/publicCustomerSelfSubmissionService';
 import { createPublicCustomerSelfFreeDiagnosisRouter } from './routes/publicCustomerSelfFreeDiagnosis';
+import { FreeDiagnosisDesignV2PersistenceRepo } from './services/freeDiagnosisDesignV2PersistenceRepo';
+import { FreeDiagnosisDesignV2ApiService } from './services/freeDiagnosisDesignV2ApiService';
+import { createAdminFreeDiagnosisDesignV2Router } from './routes/adminFreeDiagnosisDesignV2';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -84,6 +87,8 @@ async function main(): Promise<void> {
   const freeDiagnosisRuleBasedCaseRepo = new FreeDiagnosisRuleBasedCaseRepo(pool);
   const vs1ReviewReportFeedbackRepo = new Vs1ReviewReportFeedbackRepo(pool);
   const publicCustomerSelfSubmissionService = new PublicCustomerSelfSubmissionService(pool);
+  const freeDiagnosisDesignV2PersistenceRepo = new FreeDiagnosisDesignV2PersistenceRepo(pool);
+  const freeDiagnosisDesignV2ApiService = new FreeDiagnosisDesignV2ApiService(freeDiagnosisRuleBasedCaseRepo, freeDiagnosisDesignV2PersistenceRepo);
   const kaizenAssessmentRepo = new KaizenAssessmentRepo(pool);
   const kaizenAssessmentAiService = new KaizenAssessmentAiService(config.aiAssist.anthropicApiKey);
   const marketRateRepo = new MarketRateRepo(pool);
@@ -221,6 +226,11 @@ async function main(): Promise<void> {
     '/api/admin/free-diagnosis-v1',
     ...adminAuthGate,
     createAdminFreeDiagnosisRuleBasedV1Router(freeDiagnosisSalesLauncherRepo, freeDiagnosisRuleBasedCaseRepo, vs1ReviewReportFeedbackRepo),
+  );
+  app.use(
+    '/api/admin/free-diagnosis-v1',
+    ...adminAuthGate,
+    createAdminFreeDiagnosisDesignV2Router(freeDiagnosisDesignV2ApiService),
   );
   // 静的HTML側もスタッフ認証で保護する。この行は下の一般static配信より前に置くこと
   // （逆順だと未認証で/admin/*.htmlが一般static経由で読めてしまう）。
