@@ -1,27 +1,15 @@
 .cover-service{margin:34mm 0 2mm;font-size:14pt;letter-spacing:.08em;color:#334155}
 .cover-message{margin-top:12mm;font-size:13pt;color:#475569}
 .executive-summary>h2{margin:0 0 4mm;font-size:21pt;color:#17375e}
-.summary-lead{font-size:12.5pt;color:#42576d;margin:0 0 9mm}
-.summary-premise,.summary-results{border-top:2px solid #3155a6;padding-top:4mm;margin-top:7mm}
-.summary-premise>h3,.summary-results>h3{font-size:13pt;color:#17375e;margin:0 0 4mm}
-.summary-premise{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
-.summary-premise>h3{grid-column:1/-1}
-.summary-item{padding:4mm 5mm;background:#f7f9fc;border:1px solid #d5dee8}
-.summary-item h4,.summary-result h4{font-size:11pt;line-height:1.5;color:#17375e;margin:0 0 2mm}
-.summary-item .document-entry-list,.summary-result .document-entry-list{font-size:10.5pt}
-.summary-results{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
-.summary-results>h3{grid-column:1/-1}
-.summary-result{padding:5mm;border-left:3px solid #8098b5;background:#fff}
+.summary-paragraph{margin:0;padding:6mm 0;border-top:1px solid #d5dee8;font-size:12pt;line-height:2;color:#263b52}
+.summary-paragraph:last-child{border-bottom:1px solid #d5dee8}
 .chapter-note{padding:4mm 5mm;border-left:3px solid #8098b5;background:#f7f9fc;color:#3f4f63}
-.assessment-bridge{margin-top:8mm;padding:6mm 7mm;border-top:2px solid #3155a6;background:#f7faff}
-.assessment-bridge h3{font-size:12pt;color:#17375e;margin:0 0 2mm}
-.assessment-bridge p{margin:0}
 .assessment-value{font-size:13pt;color:#3155a6;margin:0 0 4mm}
-.assessment-flow{display:grid;gap:2mm;justify-items:center;margin:7mm 0}
-.flow-step{width:80%;padding:3mm 5mm;border:1px solid #aab9ca;text-align:center;background:#fff}
+.assessment-flow{display:flex;align-items:stretch;justify-content:center;gap:2mm;margin:7mm 0}
+.flow-step{flex:1;min-width:0;padding:3mm 4mm;border:1px solid #aab9ca;text-align:center;background:#fff}
 .flow-step strong{display:block;color:#17375e}
 .flow-step p{margin:1mm 0 0}
-.flow-arrow{color:#64748b;font-size:14pt}
+.flow-arrow{align-self:center;color:#64748b;font-size:14pt}
 .fact-candidate{border-left:4px solid #3155a6;padding-left:5mm}
 .report-document .lens-badge,.report-document .candidate-lenses,.report-document .candidate-lens-label{display:none}
-@media(max-width:700px){.summary-premise,.summary-results{grid-template-columns:1fr}.flow-step{width:100%}}
+@media(max-width:700px){.assessment-flow{flex-direction:column}.flow-arrow{align-self:center;transform:rotate(90deg)}.flow-step{width:100%}}
