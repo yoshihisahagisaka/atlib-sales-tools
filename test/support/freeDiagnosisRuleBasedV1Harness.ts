@@ -15,6 +15,8 @@ import { PublicCustomerSelfSubmissionService } from '../../src/services/publicCu
 import { createPublicCustomerSelfFreeDiagnosisRouter } from '../../src/routes/publicCustomerSelfFreeDiagnosis';
 import { FreeDiagnosisDesignV2PersistenceRepo } from '../../src/services/freeDiagnosisDesignV2PersistenceRepo';
 import { FreeDiagnosisDesignV2EntryAdapter } from '../../src/services/freeDiagnosisDesignV2EntryAdapter';
+import { FreeDiagnosisDesignV2ApiService } from '../../src/services/freeDiagnosisDesignV2ApiService';
+import { createAdminFreeDiagnosisDesignV2Router } from '../../src/routes/adminFreeDiagnosisDesignV2';
 
 /** Real PostgreSQL SQL/constraints/transactions in a disposable WASM database.
  * Same pattern as test/support/diagnosisHarness.ts. Only migration 027 is applied: the
@@ -53,6 +55,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDe
   const cases = new FreeDiagnosisRuleBasedCaseRepo(pool);
   const vs1 = new Vs1ReviewReportFeedbackRepo(pool);
   const designV2Persistence = new FreeDiagnosisDesignV2PersistenceRepo(pool);
+  const designV2Api = new FreeDiagnosisDesignV2ApiService(cases, designV2Persistence, vs1);
   const publicSelf = new PublicCustomerSelfSubmissionService(pool, new FreeDiagnosisDesignV2EntryAdapter(designV2Persistence));
   const staffAuth = new StaffAuthService('disposable-test-key-not-a-production-secret');
   const staffCookie = `staff_session=${staffAuth.issueSessionToken({ email: 'operator@atlib.jp' })}`;
@@ -62,6 +65,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDe
   app.use(express.json()); app.use(cookieParser());
   app.use('/api/public/it-management-kaizen/free-diagnosis-v1', createPublicCustomerSelfFreeDiagnosisRouter(publicSelf));
   app.use('/api/admin/free-diagnosis-v1', requireStaffAuth(staffAuth), createAdminFreeDiagnosisRuleBasedV1Router(launcher, cases, vs1));
+  app.use('/api/admin/free-diagnosis-v1', requireStaffAuth(staffAuth), createAdminFreeDiagnosisDesignV2Router(designV2Api));
   app.use('/admin', requireStaffAuth(staffAuth), express.static(path.join(root, 'public/admin')));
   app.use(express.static(path.join(root, 'public')));
   const server = app.listen(0, '127.0.0.1');
