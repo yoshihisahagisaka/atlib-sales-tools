@@ -12,4 +12,14 @@
 .flow-arrow{align-self:center;color:#64748b;font-size:14pt}
 .fact-candidate{border-left:4px solid #3155a6;padding-left:5mm}
 .report-document .lens-badge,.report-document .candidate-lenses,.report-document .candidate-lens-label{display:none}
+.next-decision-page .chapter-header{margin-bottom:4mm}
+.next-decision-lead{margin:0 0 5mm;font-size:11pt;line-height:1.75;color:#263b52}
+.service-options{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin:0 0 5mm}
+.service-option{padding:4mm 5mm;border:1px solid #c9d4df;background:#fff;break-inside:avoid}
+.service-option h3{margin:0;font-size:11pt;color:#17375e}
+.service-option h4{margin:1mm 0 2mm;font-size:10pt;color:#3155a6}
+.service-option p{margin:0;font-size:9.5pt;line-height:1.55}
+.kaizen-principle{padding-top:4mm;border-top:2px solid #3155a6}
+.kaizen-principle h3{margin:0 0 3mm;font-size:12pt;color:#17375e}
+.kaizen-principle p{margin:0 0 2.5mm;font-size:9.5pt;line-height:1.55}
 @media(max-width:700px){.assessment-flow{flex-direction:column}.flow-arrow{align-self:center;transform:rotate(90deg)}.flow-step{width:100%}}

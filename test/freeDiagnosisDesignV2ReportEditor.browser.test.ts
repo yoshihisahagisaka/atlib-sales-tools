@@ -20,7 +20,7 @@ const diagnosisMap = sections.map(section => ({ ...section, entries: section.ent
 const fact = { id: 'fact-1', whatToVerify: '共有内容', whyItMattersToFuture: '成長を支えるため', whatMayBecomeKnowable: '改善可能性', lenses: ['MANAGEMENT'], sourceRuleIds: ['rule-1'] };
 function draft() { return { id: reportId, version: 1, contentVersion: 1, status: 'REVIEW_REQUIRED', context: { currentState: { id: 'state-1' }, analysisResult: { id: 'analysis-1' }, generatedNarrative: { id: 'narrative-1' }, adoptedNarrative: { source: 'HUMAN_EDITED', id: 'edit-1' } }, content: { formatVersion: 'free-diagnosis-design-v2-report-2', recipient: { organizationDisplayName: 'テスト株式会社' }, diagnosisDate: '2026-10-12T00:00:00.000Z', issuer: { displayName: 'atLIB株式会社' }, sections, diagnosisMap, factCandidates: [fact], assessmentProposal: { status: 'NOT_SELECTED', source: 'ANALYSIS_FACT_CANDIDATES', candidates: [fact] } } }; }
 
-test('Report Presentation Revision 2 renders a deterministic prose summary, result-focused details, and Assessment', async ({ page }, testInfo) => {
+test('Report Presentation Revision 2 renders a deterministic prose summary and static next-decision page', async ({ page }) => {
   let data: any = draft(); let patchBody: any;
   await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, async route => { if (route.request().method() === 'GET') { await route.fulfill({ json: data }); return; } patchBody = route.request().postDataJSON(); data = { ...data, contentVersion: 2, content: patchBody }; await route.fulfill({ json: data }); });
   await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
@@ -30,7 +30,7 @@ test('Report Presentation Revision 2 renders a deterministic prose summary, resu
   await expect(page.locator('.summary-paragraph')).toHaveCount(3);
   await expect(page.locator('.summary-paragraph').first()).toContainText('少人数で成長する');
   await expect(page.locator('.summary-paragraph').nth(1)).toContainText('状況を一部把握している');
-  await expect(page.locator('.summary-paragraph').nth(2)).toContainText('共有内容');
+  await expect(page.locator('.summary-paragraph').nth(2)).toContainText('1件のテーマ');
   await expect(page.locator('.summary-item, .summary-result, .summary-premise, .summary-results')).toHaveCount(0);
   await expect(page.locator('.diagnosis-map, .map-grid, .map-result')).toHaveCount(0);
   for (const text of sections.slice(0, 4).map(section => section.title.replace(' ', ''))) await expect(page.locator('.report-document')).toContainText(text);
@@ -41,10 +41,13 @@ test('Report Presentation Revision 2 renders a deterministic prose summary, resu
   await expect(page.locator('.fact-candidate')).not.toContainText('確認すると何が分かりそうか');
   await expect(page.locator('.report-document')).not.toContainText('今回の無料診断で整理したこと');
   await expect(page.locator('.assessment-bridge')).toHaveCount(0);
-  await expect(page.locator('.report-document')).toContainText('設計Assessment');
-  await expect(page.locator('.report-document')).toContainText('診断結果を、経営判断に使える事実へ');
-  await expect(page.locator('.assessment-flow')).toHaveCSS('flex-direction', testInfo.project.name === 'mobile' ? 'column' : 'row');
-  await expect(page.locator('.assessment-flow .flow-step')).toHaveCount(4);
+  await expect(page.locator('.next-decision-page')).toContainText('診断結果を、次の経営判断へ');
+  await expect(page.locator('.service-option')).toHaveCount(4);
+  await expect(page.locator('.next-decision-page')).toContainText('IT経営KAIZEN 導入支援');
+  await expect(page.locator('.next-decision-page')).toContainText('当社への発注を前提とした診断ではありません');
+  await expect(page.locator('.next-decision-page')).toContainText('「技術」「運用」「管理」の3つの視点');
+  await expect(page.locator('.next-decision-page')).toContainText('最後に判断するのは経営者です');
+  await expect(page.locator('.assessment-flow, .assessment-bridge, .report-proposal, .proposal-facts')).toHaveCount(0);
   await expect(page.locator('.report-document')).not.toContainText('より詳しい診断');
   await expect(page.locator('.report-document')).not.toContainText('TECHNOLOGY');
   await expect(page.locator('.report-document')).not.toContainText('MANAGEMENT');
@@ -53,6 +56,9 @@ test('Report Presentation Revision 2 renders a deterministic prose summary, resu
   await page.locator('[data-candidate-id="fact-1"]').check(); await page.locator('[data-customer-expression="fact-1"]').fill('顧客向けの確認対象'); await page.locator('[data-reason="fact-1"]').fill('顧客向けの確認理由'); await page.locator('#durationText').fill('2〜4週間'); await page.locator('#priceExcludingTaxText').fill('個別にご相談のうえお見積り'); await page.getByRole('button', { name: '提案情報を保存' }).first().click();
   await expect.poll(() => patchBody?.assessmentProposal?.selectedCandidateIds).toEqual(['fact-1']);
   expect(patchBody.sections).toEqual(draft().content.sections); expect(patchBody.diagnosisMap).toEqual(draft().content.diagnosisMap); expect(Object.keys(patchBody.assessmentProposal.presentationByCandidateId)).toEqual(['fact-1']);
+  await expect(page.locator('.next-decision-page')).not.toContainText('顧客向けの確認対象');
+  await expect(page.locator('.next-decision-page')).not.toContainText('2〜4週間');
+  await expect(page.locator('.next-decision-page')).not.toContainText('個別にご相談のうえお見積り');
 });
 
 test('Report Presentation has no print, PDF, or Approval action', async ({ page }) => {
