@@ -82,30 +82,28 @@
     const issuer = ui.el('div', 'cover-issuer'); issuer.append(atlibLogo, paragraph('atLIB株式会社')); page.append(issuer); return page;
   }
 
-  function mapItems(content) {
-    if (Array.isArray(content.diagnosisMap)) return content.diagnosisMap;
-    return content.sections.map(section => ({ key: section.key, title: section.title, entries: section.entries.slice(0, 2), overflowCount: Math.max(0, section.entries.length - 2) }));
+  function summaryEntries(section, maximum = 2) {
+    return (section?.entries || []).slice(0, maximum);
   }
-  function renderMap(content) {
-    const page = bodyPage(2, []); const area = ui.el('section', 'diagnosis-map'); area.append(ui.el('h2', '', '今回の診断結果の地図'));
-    const items = new Map(mapItems(content).map(item => [item.key, item]));
-    const future = items.get('FUTURE'); const futureBox = ui.el('section', 'map-future'); futureBox.append(ui.el('h3', '', future?.title || '01 実現したい会社の未来'), paragraph('この未来を基準に考える', 'map-lens')); appendEntries(futureBox, future?.entries || []); if (future?.overflowCount) futureBox.append(paragraph(`ほか${future.overflowCount}件`, 'map-overflow')); area.append(futureBox);
-    const grid = ui.el('div', 'map-grid'); ['CURRENT_UNDERSTANDING', 'LENSES', 'UNKNOWNS', 'NEXT_FACTS'].forEach(key => { const item = items.get(key); const box = ui.el('section', 'map-result'); box.append(ui.el('h3', '', item?.title || '')); appendEntries(box, item?.entries || []); if (item?.overflowCount) box.append(paragraph(`ほか${item.overflowCount}件`, 'map-overflow')); grid.append(box); }); area.append(grid); page.insertBefore(area, page.lastChild); return page;
+  function renderExecutiveSummary(content) {
+    const sections = sectionMap(content); const page = bodyPage(2, []); const summary = ui.el('section', 'executive-summary');
+    summary.append(ui.el('h2', '', '診断結果サマリー'), paragraph('実現したい未来を基準に、現在の認識と、経営判断を進めるために確認する価値があることを整理しました。', 'summary-lead'));
+    const premise = ui.el('section', 'summary-premise'); premise.append(ui.el('h3', '', '診断の前提'));
+    [['FUTURE', '01 実現したい会社の未来'], ['CURRENT_UNDERSTANDING', '02 現在どこまで分かっているか']].forEach(([key, title]) => { const section = sections.get(key); const item = ui.el('div', 'summary-item'); item.append(ui.el('h4', '', title)); appendEntries(item, summaryEntries(section)); premise.append(item); }); summary.append(premise);
+    const results = ui.el('section', 'summary-results'); results.append(ui.el('h3', '', '診断結果'));
+    [['LENSES', '03 未来に向けて確認しておく価値があること'], ['UNKNOWNS', '04 現時点ではまだ判断できないこと']].forEach(([key, title]) => { const section = sections.get(key); const item = ui.el('div', 'summary-result'); item.append(ui.el('h4', '', title)); appendEntries(item, summaryEntries(section)); results.append(item); }); summary.append(results);
+    page.insertBefore(summary, page.lastChild); return page;
   }
 
   function detail(section, subtitle, note) { const node = chapter(section.title.slice(0, 2), section.title.slice(3), subtitle); if (note) node.append(paragraph(note, 'chapter-note')); appendEntries(node, section.entries); return node; }
   function renderFacts(content) {
-    const section = sectionMap(content).get('NEXT_FACTS'); const node = detail(section, '経営判断を進めるため、次に事実として確認する価値があること');
-    content.factCandidates.forEach((candidate, index) => { const item = ui.el('article', 'fact-candidate'); item.append(ui.el('span', 'candidate-number', `確認事項 ${String(index + 1).padStart(2, '0')}`), ui.el('h3', '', '確認すること'), paragraph(candidate.whatToVerify), ui.el('h3', '', 'なぜ確認する価値があるのか'), paragraph(candidate.whyItMattersToFuture), ui.el('h3', '', '確認すると何が分かりそうか'), paragraph(candidate.whatMayBecomeKnowable)); node.append(item); }); return node;
-  }
-  function renderCompletion() {
-    const node = chapter('', '今回の無料診断で整理したこと'); node.classList.add('completion-boundary');
-    node.append(paragraph('今回の無料診断では、実現したい会社の未来を起点に、ITについて現在どこまで分かっているかを整理しました。'), paragraph('そのうえで、未来に向けて確認しておく価値があること、現時点ではまだ判断できないこと、そして次に事実として確認する価値があることを明らかにしました。'), paragraph('ここまでが、今回の無料診断で整理した内容です。', 'completion-lead'), paragraph('次の段階では、これらの確認事項について実際の業務・IT・運用状況を確認することで、経営判断に必要な事実を明らかにできます。'));
-    return node;
+    const node = chapter('05', '経営判断を進めるために、次に確認したいこと', '無料診断で整理した問いを、次の確認につなげます。');
+    content.factCandidates.forEach((candidate, index) => { const item = ui.el('article', 'fact-candidate'); const title = `${String(index + 1).padStart(2, '0')}　${candidate.whatToVerify}`; item.append(ui.el('h3', '', title), paragraph(`${candidate.whyItMattersToFuture} ${candidate.whatMayBecomeKnowable}`)); node.append(item); });
+    const bridge = ui.el('section', 'assessment-bridge'); bridge.append(ui.el('h3', '', '次の段階で確認すること'), paragraph('設計Assessmentでは、ここに挙げた問いについて実際の業務・IT・運用・管理の状況を確認し、経営判断に使える事実と判断材料を整理します。')); node.append(bridge); return node;
   }
   function renderAssessment(content) {
-    const node = chapter('', '次のステップについて'); node.append(ui.el('h3', 'assessment-service-name', '設計Assessment'), paragraph('無料診断で明らかになった「次に確認する価値があること」について、実際の業務・IT・運用・管理の状況を確認し、経営判断に必要な事実と判断材料を整理するプロセスです。最終判断は人が行います。'));
-    const flow = ui.el('div', 'assessment-flow'); [['無料診断', '何を確認する価値があるか'], ['設計Assessment', '実際はどうなっているかを確認'], ['判断材料', '事実を整理'], ['経営判断', '人が判断']].forEach(([title, text], index) => { if (index) flow.append(ui.el('span', 'flow-arrow', '↓')); const step = ui.el('div', 'flow-step'); step.append(ui.el('strong', '', title), paragraph(text)); flow.append(step); }); node.append(flow);
+    const node = chapter('', '次のステップについて'); node.append(ui.el('h3', 'assessment-service-name', '設計Assessment'), ui.el('h4', 'assessment-value', '診断結果を、経営判断に使える事実へ'), paragraph('無料診断で整理した問いについて、実際の業務・IT・運用・管理の状況を確認し、経営判断に必要な事実と判断材料を整理するプロセスです。最終的な経営判断は人が行います。'));
+    const flow = ui.el('div', 'assessment-flow'); [['無料診断', '次に確認したいことを整理'], ['設計Assessment', '診断結果を、経営判断に使える事実へ'], ['判断材料', '事実と判断材料を整理'], ['経営判断', '人が行う']].forEach(([title, text], index) => { if (index) flow.append(ui.el('span', 'flow-arrow', '↓')); const step = ui.el('div', 'flow-step'); step.append(ui.el('strong', '', title), paragraph(text)); flow.append(step); }); node.append(flow);
     const selected = new Set(content.assessmentProposal.selectedCandidateIds || []), presentation = candidateMap(content), candidates = content.factCandidates.filter(item => selected.has(item.id));
     if (candidates.length) { node.append(ui.el('h3', 'document-subheading', '今回Assessmentで確認する対象')); candidates.forEach(candidate => { const item = ui.el('article', 'report-proposal'); item.append(ui.el('h4', '', presentation[candidate.id]?.customerExpression || candidate.whatToVerify), ui.el('p', 'proposal-label', '確認する理由'), paragraph(presentation[candidate.id]?.reason || candidate.whyItMattersToFuture)); node.append(item); }); }
     const facts = ui.el('div', 'proposal-facts'); if (content.assessmentProposal.durationText) facts.append(paragraph(`想定実施期間：${content.assessmentProposal.durationText}`)); if (content.assessmentProposal.priceExcludingTaxText) facts.append(paragraph(`ご提案金額（税別）：${content.assessmentProposal.priceExcludingTaxText}`)); if (facts.childNodes.length) node.append(facts); return node;
@@ -114,10 +112,10 @@
   function renderPreview() {
     if (!report) return; const content = editedContent(); const sections = sectionMap(content); const preview = byId('reportPreview'); preview.replaceChildren();
     preview.append(
-      renderCover(content), renderMap(content),
+      renderCover(content), renderExecutiveSummary(content),
       bodyPage(3, [detail(sections.get('FUTURE'), '今回の診断では、この未来を基準にITを考えました。', 'ITの一般的な良し悪しではなく、この未来に対して現在のITや仕事の進め方を確認しています。'), detail(sections.get('CURRENT_UNDERSTANDING'), '経営者として現在どこまで認識できているかを整理した結果')]),
       bodyPage(4, [detail(sections.get('LENSES'), '未来に向けて確認しておく価値があること'), detail(sections.get('UNKNOWNS'), '', '確認できていないことを、推測で結論づけません。')]),
-      bodyPage(5, [renderFacts(content)]), bodyPage(6, [renderCompletion(), renderAssessment(content)]),
+      bodyPage(5, [renderFacts(content)]), bodyPage(6, [renderAssessment(content)]),
     );
   }
 

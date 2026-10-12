@@ -20,21 +20,28 @@ const diagnosisMap = sections.map(section => ({ ...section, entries: section.ent
 const fact = { id: 'fact-1', whatToVerify: '共有内容', whyItMattersToFuture: '成長を支えるため', whatMayBecomeKnowable: '改善可能性', lenses: ['MANAGEMENT'], sourceRuleIds: ['rule-1'] };
 function draft() { return { id: reportId, version: 1, contentVersion: 1, status: 'REVIEW_REQUIRED', context: { currentState: { id: 'state-1' }, analysisResult: { id: 'analysis-1' }, generatedNarrative: { id: 'narrative-1' }, adoptedNarrative: { source: 'HUMAN_EDITED', id: 'edit-1' } }, content: { formatVersion: 'free-diagnosis-design-v2-report-2', recipient: { organizationDisplayName: 'テスト株式会社' }, diagnosisDate: '2026-10-12T00:00:00.000Z', issuer: { displayName: 'atLIB株式会社' }, sections, diagnosisMap, factCandidates: [fact], assessmentProposal: { status: 'NOT_SELECTED', source: 'ANALYSIS_FACT_CANDIDATES', candidates: [fact] } } }; }
 
-test('Report Presentation v2 renders cover, parallel map, 01-05 details, boundary, and Assessment', async ({ page }) => {
+test('Report Presentation Revision 2 renders an executive summary, result-focused details, and Assessment', async ({ page }) => {
   let data: any = draft(); let patchBody: any;
   await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, async route => { if (route.request().method() === 'GET') { await route.fulfill({ json: data }); return; } patchBody = route.request().postDataJSON(); data = { ...data, contentVersion: 2, content: patchBody }; await route.fulfill({ json: data }); });
   await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
   await expect(page.getByRole('heading', { name: '正式レポートの確認' })).toBeVisible();
   await expect(page.locator('.report-cover')).toContainText('会社の未来から、ITを考える。');
-  await expect(page.locator('.diagnosis-map')).toContainText('今回の診断結果の地図');
-  await expect(page.locator('.map-future')).toContainText('この未来を基準に考える');
-  await expect(page.locator('.map-result')).toHaveCount(4); await expect(page.locator('.map-overflow')).toContainText('ほか1件');
-  for (const text of sections.map(section => section.title)) await expect(page.locator('.report-document')).toContainText(text);
-  await expect(page.locator('.report-document')).toContainText('なぜ確認する価値があるのか');
-  await expect(page.locator('.report-document')).toContainText('確認すると何が分かりそうか');
-  await expect(page.locator('.report-document')).toContainText('今回の無料診断で整理したこと');
-  await expect(page.locator('.report-document')).toContainText('ここまでが、今回の無料診断で整理した内容です。');
+  await expect(page.locator('.executive-summary')).toContainText('診断結果サマリー');
+  await expect(page.locator('.executive-summary')).toContainText('診断の前提');
+  await expect(page.locator('.executive-summary')).toContainText('診断結果');
+  await expect(page.locator('.summary-item')).toHaveCount(2);
+  await expect(page.locator('.summary-result')).toHaveCount(2);
+  await expect(page.locator('.diagnosis-map, .map-grid, .map-result')).toHaveCount(0);
+  for (const text of sections.slice(0, 4).map(section => section.title)) await expect(page.locator('.report-document')).toContainText(text);
+  await expect(page.locator('.report-document')).toContainText('経営判断を進めるために、次に確認したいこと');
+  await expect(page.locator('.fact-candidate')).toContainText('共有内容');
+  await expect(page.locator('.fact-candidate')).not.toContainText('確認すること');
+  await expect(page.locator('.fact-candidate')).not.toContainText('なぜ確認する価値があるのか');
+  await expect(page.locator('.fact-candidate')).not.toContainText('確認すると何が分かりそうか');
+  await expect(page.locator('.report-document')).not.toContainText('今回の無料診断で整理したこと');
+  await expect(page.locator('.assessment-bridge')).toContainText('次の段階で確認すること');
   await expect(page.locator('.report-document')).toContainText('設計Assessment');
+  await expect(page.locator('.report-document')).toContainText('診断結果を、経営判断に使える事実へ');
   await expect(page.locator('.report-document')).not.toContainText('より詳しい診断');
   await expect(page.locator('.report-document')).not.toContainText('TECHNOLOGY');
   await expect(page.locator('.report-document')).not.toContainText('MANAGEMENT');

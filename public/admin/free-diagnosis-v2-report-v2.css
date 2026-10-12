@@ -1,16 +1,22 @@
 .cover-service{margin:34mm 0 2mm;font-size:14pt;letter-spacing:.08em;color:#334155}
 .cover-message{margin-top:12mm;font-size:13pt;color:#475569}
-.diagnosis-map>h2{margin:0 0 12mm;text-align:center;font-size:19pt;color:#17375e}
-.map-future{max-width:150mm;margin:0 auto 10mm;padding:8mm;border:2px solid #3155a6;background:#f5f8ff;text-align:center}
-.map-future h3,.map-result h3{margin:0 0 4mm;color:#17375e}
-.map-lens{font-weight:700;color:#3155a6}
-.map-grid{display:grid;grid-template-columns:1fr 1fr;gap:7mm}
-.map-result{border:1px solid #b9c8da;padding:6mm;background:#fff}
-.map-result .document-entry-list,.map-future .document-entry-list{font-size:10.5pt}
-.map-overflow{font-size:9.5pt;color:#64748b}
+.executive-summary>h2{margin:0 0 4mm;font-size:21pt;color:#17375e}
+.summary-lead{font-size:12.5pt;color:#42576d;margin:0 0 9mm}
+.summary-premise,.summary-results{border-top:2px solid #3155a6;padding-top:4mm;margin-top:7mm}
+.summary-premise>h3,.summary-results>h3{font-size:13pt;color:#17375e;margin:0 0 4mm}
+.summary-premise{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
+.summary-premise>h3{grid-column:1/-1}
+.summary-item{padding:4mm 5mm;background:#f7f9fc;border:1px solid #d5dee8}
+.summary-item h4,.summary-result h4{font-size:11pt;line-height:1.5;color:#17375e;margin:0 0 2mm}
+.summary-item .document-entry-list,.summary-result .document-entry-list{font-size:10.5pt}
+.summary-results{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
+.summary-results>h3{grid-column:1/-1}
+.summary-result{padding:5mm;border-left:3px solid #8098b5;background:#fff}
 .chapter-note{padding:4mm 5mm;border-left:3px solid #8098b5;background:#f7f9fc;color:#3f4f63}
-.completion-boundary{border:2px solid #3155a6;padding:8mm;background:#f7faff}
-.completion-lead{font-weight:700;color:#17375e}
+.assessment-bridge{margin-top:8mm;padding:6mm 7mm;border-top:2px solid #3155a6;background:#f7faff}
+.assessment-bridge h3{font-size:12pt;color:#17375e;margin:0 0 2mm}
+.assessment-bridge p{margin:0}
+.assessment-value{font-size:13pt;color:#3155a6;margin:0 0 4mm}
 .assessment-flow{display:grid;gap:2mm;justify-items:center;margin:7mm 0}
 .flow-step{width:80%;padding:3mm 5mm;border:1px solid #aab9ca;text-align:center;background:#fff}
 .flow-step strong{display:block;color:#17375e}
@@ -18,4 +24,4 @@
 .flow-arrow{color:#64748b;font-size:14pt}
 .fact-candidate{border-left:4px solid #3155a6;padding-left:5mm}
 .report-document .lens-badge,.report-document .candidate-lenses,.report-document .candidate-lens-label{display:none}
-@media(max-width:700px){.map-grid{grid-template-columns:1fr}.map-future{max-width:none}.flow-step{width:100%}}
+@media(max-width:700px){.summary-premise,.summary-results{grid-template-columns:1fr}.flow-step{width:100%}}
