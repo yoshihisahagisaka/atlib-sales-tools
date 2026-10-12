@@ -83,24 +83,40 @@ export class FreeDiagnosisSalesLauncherRepo {
 
   async listSalesActivities(filters: { acquisitionSourceName?: string; utmCampaign?: string }) {
     const { rows } = await this.pool.query<Record<string, unknown>>(
-      `SELECT s.*, c.name AS company_name, latest_case.id AS diagnosis_case_id, latest_case.status AS diagnosis_case_status,
-              latest_case.updated_at AS diagnosis_case_updated_at
+      `SELECT s.*, c.name AS company_name, contact.name AS contact_name,
+              latest_case.id AS diagnosis_case_id, latest_case.status AS diagnosis_case_status, latest_case.version AS diagnosis_case_version,
+              latest_case.created_at AS diagnosis_case_created_at, latest_case.updated_at AS diagnosis_case_updated_at,
+              design_v2_original.id AS design_v2_original_id, design_v2_original.entry_channel AS design_v2_entry_channel,
+              intake_origin.entry_channel AS v1_entry_channel,
+              latest_design_v2_report.id AS design_v2_report_id, latest_design_v2_report.version AS design_v2_report_version,
+              latest_design_v2_report.status AS design_v2_report_status
        FROM sales_activity s JOIN company c ON c.id=s.company_id
+       LEFT JOIN contact ON contact.id=s.primary_contact_id
        LEFT JOIN LATERAL (
-         SELECT id,status,updated_at FROM it_management_diagnosis_case_v2
+         SELECT id,status,version,created_at,updated_at FROM it_management_diagnosis_case_v2
          WHERE sales_activity_id=s.id ORDER BY created_at DESC LIMIT 1
        ) latest_case ON true
+       LEFT JOIN it_management_diagnosis_original_survey_snapshot_v2 design_v2_original
+         ON design_v2_original.case_id=latest_case.id
        LEFT JOIN LATERAL (
          SELECT raw_value_json->'provenance'->>'channel' AS entry_channel
          FROM hearing_intake_response_v2
          WHERE case_id=latest_case.id ORDER BY created_at ASC LIMIT 1
        ) intake_origin ON true
+       LEFT JOIN LATERAL (
+         SELECT id,version,status FROM diagnosis_reports
+          WHERE it_management_diagnosis_case_v2_id=latest_case.id AND policy_version='design-v2'
+          ORDER BY version DESC LIMIT 1
+       ) latest_design_v2_report ON true
        WHERE ($1::text IS NULL OR s.acquisition_source_name=$1) AND ($2::text IS NULL OR s.utm_campaign=$2)
        ORDER BY s.created_at DESC, s.id DESC LIMIT 100`, [filters.acquisitionSourceName ?? null, filters.utmCampaign ?? null],
     );
-    return rows.map(row => ({ id: row.id, companyName: row.company_name, selectedService: row.selected_service,
+    return rows.map(row => ({ id: row.id, companyName: row.company_name, contactName: row.contact_name ?? null, selectedService: row.selected_service,
       createdAt: row.created_at, updatedAt: row.diagnosis_case_updated_at ?? row.created_at,
       attribution: mapAttribution(row), diagnosisCaseId: row.diagnosis_case_id,
-      diagnosisCaseStatus: row.diagnosis_case_status, entryChannel: row.entry_channel ?? null }));
+      diagnosisCaseStatus: row.diagnosis_case_status, diagnosisCaseVersion: row.diagnosis_case_version,
+      receivedAt: row.diagnosis_case_created_at ?? row.created_at, isDesignV2: row.design_v2_original_id != null,
+      entryChannel: row.design_v2_entry_channel ?? row.v1_entry_channel ?? null,
+      latestDesignV2Report: row.design_v2_report_id ? { id: row.design_v2_report_id, version: row.design_v2_report_version, status: row.design_v2_report_status } : null }));
   }
 }

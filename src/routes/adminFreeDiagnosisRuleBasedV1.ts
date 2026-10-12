@@ -122,6 +122,12 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
     res.json(kase);
   }));
 
+  r.post('/cases/:id/design-v2/hearing/start', (req, res) => handle(res, async () => {
+    const parsed = expectedVersionSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    res.json(await cases.startDesignV2Hearing(req.params.id, parsed.data.expectedVersion, staffEmail(req)));
+  }));
+
   r.get('/cases/:id/hearing/units', (req, res) => handle(res, async () => {
     res.json({ items: await cases.hearingUnits(req.params.id) });
   }));

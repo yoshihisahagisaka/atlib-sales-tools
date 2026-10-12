@@ -56,6 +56,18 @@ describe('E4-C Staff Proxy to Design v2', () => {
     assert.deepEqual(await analysis(staff.caseId),await analysis(self.caseId));
   });
 
+  test('case list uses Original Survey provenance and Design v2 hearing starts without a legacy rule execution', async () => {
+    const created = await h.staffProxyDesignV2.submit(input('E4-D一覧株式会社'), 'operator@atlib.jp');
+    const listed = (await h.launcher.listSalesActivities({})).find((item: any) => item.diagnosisCaseId === created.caseId) as any;
+    assert.equal(listed.isDesignV2, true); assert.equal(listed.entryChannel, 'STAFF_PROXY'); assert.equal(listed.contactName, '営業ヒアリング担当');
+    const before = await h.cases.getCase(created.caseId); assert.ok(before);
+    const hearing = await h.cases.startDesignV2Hearing(created.caseId, before.version, 'operator@atlib.jp');
+    assert.equal(hearing.status, 'HEARING_IN_PROGRESS'); assert.equal(hearing.version, before.version + 2);
+    assert.equal((await h.pool.query('SELECT id FROM rule_analysis_execution WHERE case_id=$1', [created.caseId])).rowCount, 0);
+    const commands = (await h.pool.query<any>("SELECT command FROM it_management_diagnosis_case_v2_audit WHERE case_id=$1 AND command LIKE 'StartDesignV2%' ORDER BY created_at", [created.caseId])).rows.map((row: any) => row.command);
+    assert.deepEqual(commands, ['StartDesignV2Preparation', 'StartDesignV2Hearing']);
+  });
+
   test('analyzer failure rolls back Company, Contact, Activity, Case and Design v2 artifacts', async () => {
     const failing = new FreeDiagnosisDesignV2PersistenceRepo(h.pool, () => { throw new Error('injected analyzer failure'); });
     const service = new StaffProxyDesignV2SubmissionService(h.pool, new FreeDiagnosisDesignV2EntryAdapter(failing));

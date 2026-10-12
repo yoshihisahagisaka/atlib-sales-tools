@@ -1,8 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import { createFreeDiagnosisRuleBasedV1Harness } from './support/freeDiagnosisRuleBasedV1Harness';
 import { intakeAnswerEnvelopeSchema } from '../src/domain/freeDiagnosisRuleBasedV1';
 import { projectIntakeSemantics } from '../src/domain/intakeSemanticProjection';
 import { runInitialRule } from '../src/domain/initialRuleEngine';
+import { designV2SurveyAnswerSchema } from '../src/domain/publicCustomerSelfDesignV2';
 
 let h: Awaited<ReturnType<typeof createFreeDiagnosisRuleBasedV1Harness>>;
 test.beforeAll(async () => { h = await createFreeDiagnosisRuleBasedV1Harness({ includeDesignV2: true }); });
@@ -21,7 +23,7 @@ async function createCase(page: Page, name: string): Promise<void> {
   }, name);
   await page.click('#btnLoadCases');
   const row = page.locator('#caseList tbody tr').filter({ hasText: name });
-  await row.getByRole('button', { name: '開く' }).click();
+  await row.getByRole('button').click();
   await expect(page.locator('#view-intake')).toBeVisible();
 }
 
@@ -103,8 +105,12 @@ test('Public Customer Selfは事前アンケートから申込み・予約導線
   await expect(timerex).toHaveAttribute('target', '_blank'); await expect(timerex).toHaveAttribute('rel', 'noopener noreferrer');
   await expect(page).toHaveURL(/\/it-management-kaizen\/free-diagnosis\//); expect(await page.locator('iframe').count()).toBe(0);
   await expect(page.locator('body')).not.toContainText('48時間'); await expect(page.locator('body')).not.toContainText('14日間');
-  const saved: any = (await h.pool.query(`SELECT c.status,s.referral_person_name FROM it_management_public_self_submission p JOIN it_management_diagnosis_case_v2 c ON c.id=p.it_management_diagnosis_case_v2_id JOIN sales_activity s ON s.id=p.sales_activity_id WHERE p.contact_id=(SELECT id FROM contact WHERE email='public-ui@example.test')`)).rows[0];
+  const saved: any = (await h.pool.query(`SELECT c.id,c.status,s.referral_person_name FROM it_management_public_self_submission p JOIN it_management_diagnosis_case_v2 c ON c.id=p.it_management_diagnosis_case_v2_id JOIN sales_activity s ON s.id=p.sales_activity_id WHERE p.contact_id=(SELECT id FROM contact WHERE email='public-ui@example.test')`)).rows[0];
   expect(saved.status).toBe('BOOKING_PENDING'); expect(saved.referral_person_name).toBe('紹介 太郎');
+  await context.addCookies([{ name: 'staff_session', value: h.staffCookie.slice('staff_session='.length), url: h.url, httpOnly: true, sameSite: 'Lax' }]);
+  await page.goto(h.url + '/admin/free-diagnosis-v1.html'); await page.click('#btnLoadCases');
+  const listed = page.locator('#caseList tbody tr').filter({ hasText: '公開UI株式会社' });
+  await expect(listed).toContainText('本人回答'); await expect(listed).toContainText('日程調整');
   await context.close();
 });
 
@@ -253,7 +259,7 @@ test('PreparationからStructured Hearingを記録し、Final Ruleを自動実�
   await page.click('#btnCompleteHearing');
   await expect(page.locator('#view-review')).toBeVisible();
   await page.goto(h.url + '/admin/free-diagnosis-v1.html'); await page.click('#btnLoadCases');
-  const savedCase = page.locator('tr').filter({ hasText: 'Hearing確認株式会社' }); await savedCase.getByRole('button', { name: '開く' }).click();
+  const savedCase = page.locator('tr').filter({ hasText: 'Hearing確認株式会社' }); await savedCase.getByRole('button').click();
   await expect(page.locator('#view-review')).toBeVisible(); await expect(page.locator('#findingsList')).toBeVisible();
   await expect(page.getByRole('button', { name: '顧客向けレポート' })).toBeDisabled();
   await page.getByRole('button', { name: '60分診断', exact: true }).click(); await expect(page.locator('#view-hearing')).toBeVisible();
@@ -308,4 +314,42 @@ test('Admin UIでSales Activityの流入元を保存・表示・検索できる'
   await page.goto(h.url + '/admin/free-diagnosis-v1.html');
   await page.click('#btnLoadCases');
   await expect(page.locator('#caseList')).toContainText('交流会流入株式会社');
+});
+
+test('共通案件一覧はDesign v2本人回答と営業代理入力を正式provenanceで表示し後続画面へ接続する', async ({ page }) => {
+  const canonicalSurvey = designV2SurveyAnswerSchema.parse({
+    q1CompanyContext: { employeeRange: '31〜50人', siteRange: '1か所' }, q2Future: ['BUSINESS_GROWTH'],
+    q3ItExpectations: ['MANAGEMENT_DECISION_SUPPORT'], q4CurrentInterest: 'MANAGEMENT_DECISION', q5Visibility: 'VISIBLE_PARTIAL',
+    q6ManagementConnection: 'REPORTED_NOT_DECISION_USABLE', q7InterestThemes: ['AI'],
+  });
+  const self = await h.publicSelf.submit({ idempotencyKey: randomUUID(), company: { name: '一覧本人回答株式会社' },
+    contact: { name: '本人回答者', email: 'list-self@example.test', respondentRole: 'MANAGEMENT' }, survey: canonicalSurvey,
+    consent: { privacy: true, diagnosisUse: true, wordingVersion: 'it_management_public_self_consent_v1' },
+    attribution: { utmSource: 'newsletter', utmCampaign: 'design-v2-list' } });
+  const staff = await h.staffProxyDesignV2.submit({ idempotencyKey: randomUUID(), respondentRole: 'MANAGEMENT',
+    activity: { name: '一覧代理入力株式会社', contact: { name: '営業ヒアリング先' }, selectedService: 'IT_KAIZEN' }, survey: canonicalSurvey }, 'operator@atlib.jp');
+
+  await page.goto(h.url + '/admin/free-diagnosis-v1.html'); await page.click('#btnLoadCases');
+  const selfRow = page.locator('#caseList tbody tr').filter({ hasText: '一覧本人回答株式会社' });
+  await expect(selfRow).toContainText('本人回答'); await expect(selfRow).toContainText('日程調整');
+  await expect(selfRow).toContainText('獲得元未確定 / newsletter / design-v2-list');
+  const staffRow = page.locator('#caseList tbody tr').filter({ hasText: '一覧代理入力株式会社' });
+  await expect(staffRow).toContainText('営業ヒアリング先'); await expect(staffRow).toContainText('営業代理入力'); await expect(staffRow).toContainText('ヒアリング');
+  await expect(page.locator('#caseList')).not.toContainText('CUSTOMER_SELF'); await expect(page.locator('#caseList')).not.toContainText('STAFF_PROXY');
+  await staffRow.getByRole('button', { name: 'ヒアリング' }).click();
+  await expect(page).toHaveURL(new RegExp(`free-diagnosis-v2-hearing\\.html\\?caseId=${staff.caseId}`));
+  expect((await h.pool.query<any>('SELECT status FROM it_management_diagnosis_case_v2 WHERE id=$1', [staff.caseId])).rows[0].status).toBe('HEARING_IN_PROGRESS');
+  expect((await h.pool.query<any>('SELECT status FROM it_management_diagnosis_case_v2 WHERE id=$1', [self.caseId])).rows[0].status).toBe('BOOKING_PENDING');
+  const reportId = await page.evaluate(async caseId => {
+    const draftResponse = await fetch(`/api/admin/free-diagnosis-v1/cases/${caseId}/design-v2/report-drafts/ensure`, { method: 'POST' });
+    const draft = await draftResponse.json();
+    const approveResponse = await fetch(`/api/admin/free-diagnosis-v1/cases/${caseId}/design-v2/report-drafts/${draft.id}/approve`, { method: 'POST' });
+    if (!approveResponse.ok) throw new Error('approval failed');
+    return draft.id;
+  }, staff.caseId);
+  await page.goto(h.url + '/admin/free-diagnosis-v1.html'); await page.click('#btnLoadCases');
+  const approvedRow = page.locator('#caseList tbody tr').filter({ hasText: '一覧代理入力株式会社' });
+  await expect(approvedRow).toContainText('承認済みレポートを確認');
+  await approvedRow.getByRole('button', { name: '承認済みレポートを確認' }).click();
+  await expect(page).toHaveURL(new RegExp(`free-diagnosis-v2-report\\.html\\?caseId=${staff.caseId}&reportId=${reportId}`));
 });

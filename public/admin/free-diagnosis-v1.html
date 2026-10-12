@@ -344,6 +344,37 @@ function friendlyStatus(status) {
 function nextAction(status) {
   return ({ APPLICATION_STARTED:'事前アンケートを開始', INTAKE_IN_PROGRESS:'事前アンケートを完了', INTAKE_COMPLETED:'60分診断の準備を開始', BOOKING_PENDING:'日程を調整して診断準備へ', PREPARATION_IN_PROGRESS:'60分診断を開始', HEARING_IN_PROGRESS:'60分診断を続ける', HEARING_ORGANIZING:'確認内容を整理する', HEARING_COMPLETED:'診断内容を確認する', RULE_ANALYSIS_IN_PROGRESS:'診断内容を確認する', HUMAN_REVIEW_REQUIRED:'診断内容を確認する', REPORT_REVIEW_REQUIRED:'レポートを確認・承認', REPORT_APPROVED:'レポートを送付', FEEDBACK_PENDING:'経営フィードバックを記録', CLOSED:'完了済み' })[status] || '案件を開いて確認';
 }
+function entryChannelLabel(item) {
+  if (item.isDesignV2) return item.entryChannel === 'CUSTOMER_SELF' ? '本人回答' : item.entryChannel === 'STAFF_PROXY' ? '営業代理入力' : '未確認';
+  return item.entryChannel === 'SELF' ? '本人回答' : item.entryChannel === 'PROXY' ? '営業代理入力' : '未確認';
+}
+function attributionListLabel(attribution) {
+  if (!attribution) return '未設定';
+  const source = attribution.acquisitionSourceName || (attribution.utmSource ? `獲得元未確定 / ${attribution.utmSource}` : '獲得元未確定');
+  return attribution.utmCampaign ? `${source} / ${attribution.utmCampaign}` : source;
+}
+function designV2NextAction(item) {
+  if (['APPROVED','DELIVERED'].includes(item.latestDesignV2Report?.status)) return '承認済みレポートを確認';
+  if (item.latestDesignV2Report) return 'レポートを確認';
+  if (['HEARING_COMPLETED','RULE_ANALYSIS_IN_PROGRESS','HUMAN_REVIEW_REQUIRED'].includes(item.diagnosisCaseStatus)) return '診断結果を確認・整理';
+  if (item.diagnosisCaseStatus === 'BOOKING_PENDING') return '日程調整';
+  if (['INTAKE_COMPLETED','PREPARATION_IN_PROGRESS'].includes(item.diagnosisCaseStatus)) return 'ヒアリング';
+  if (['HEARING_IN_PROGRESS','HEARING_ORGANIZING'].includes(item.diagnosisCaseStatus)) return 'ヒアリング';
+  return nextAction(item.diagnosisCaseStatus);
+}
+function designV2OperationLabel(item) {
+  if (item.diagnosisCaseStatus === 'BOOKING_PENDING' && !item.latestDesignV2Report) return 'ヒアリングを開始';
+  return designV2NextAction(item);
+}
+async function openDesignV2Case(item) {
+  const caseId = encodeURIComponent(item.diagnosisCaseId);
+  if (item.latestDesignV2Report) { location.href=`/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${encodeURIComponent(item.latestDesignV2Report.id)}`; return; }
+  if (['HEARING_COMPLETED','RULE_ANALYSIS_IN_PROGRESS','HUMAN_REVIEW_REQUIRED','REPORT_REVIEW_REQUIRED','REPORT_APPROVED','FEEDBACK_PENDING','CLOSED'].includes(item.diagnosisCaseStatus)) { location.href=`/admin/free-diagnosis-v2-analysis.html?caseId=${caseId}`; return; }
+  if (['INTAKE_COMPLETED','BOOKING_PENDING','PREPARATION_IN_PROGRESS'].includes(item.diagnosisCaseStatus)) {
+    await call(`/cases/${item.diagnosisCaseId}/design-v2/hearing/start`,'POST',{expectedVersion:item.diagnosisCaseVersion});
+  }
+  location.href=`/admin/free-diagnosis-v2-hearing.html?caseId=${caseId}`;
+}
 async function openCase(caseId) {
   const detail = await call(`/cases/${caseId}`, 'GET');
   state.caseId = detail.case.id; state.version = detail.case.version; state.primaryFocus = detail.case.primaryFocus; state.secondaryFocus = detail.case.secondaryFocus;
@@ -370,15 +401,16 @@ async function loadCases() {
     const kaizen = items.filter(item => item.selectedService === 'IT_KAIZEN');
     if (!kaizen.length) { target.textContent = '表示できる案件はありません。'; return; }
     const table = document.createElement('table'); table.className = 'case-table';
-    table.innerHTML = '<thead><tr><th>会社名</th><th>現在の状況</th><th>次に行うこと</th><th>回答方法</th><th>最終更新</th><th>操作</th></tr></thead>';
+    table.innerHTML = '<thead><tr><th>会社名・顧客名</th><th>受付日時</th><th>回答方法</th><th>現在の状態</th><th>次に行うこと</th><th>流入元／キャンペーン</th><th>操作</th></tr></thead>';
     const body = document.createElement('tbody');
     for (const item of kaizen) {
       const row = document.createElement('tr'); const status = item.diagnosisCaseId ? friendlyStatus(item.diagnosisCaseStatus) : '診断を開始できます';
-      const entry = item.entryChannel === 'SELF' ? 'お客様ご本人による回答' : item.entryChannel === 'PROXY' ? '営業担当者による代理入力' : '未確認';
-      const action = document.createElement('button'); action.textContent = item.diagnosisCaseId ? '開く' : '開始';
-      action.onclick = async () => { try { if (item.diagnosisCaseId) await openCase(item.diagnosisCaseId); else { const kase = await call(`/sales-activities/${item.id}/cases`, 'POST', {}); state.caseId=kase.id; state.version=kase.version; state.companyName=item.companyName; state.attribution=item.attribution; state.entryChannel='PROXY'; state.respondentRole='MANAGEMENT'; state.intakeStep=-1; state.intake={}; state.responseStates={}; state.caseStatus=kase.status; state.reachableSteps=reachableSteps(kase.status); renderIntakeForm(); showView('intake'); } } catch(e) { setError(String(e.message||e)); } };
-      const values = [item.companyName, status, item.diagnosisCaseId ? nextAction(item.diagnosisCaseStatus) : '事前アンケートを開始', entry, item.updatedAt ? new Date(item.updatedAt).toLocaleString('ja-JP') : '-'];
-      values.forEach((value, index) => { const cell=document.createElement('td'); cell.textContent=value; if(index===2)cell.className='next-action'; row.append(cell); });
+      const entry = entryChannelLabel(item); const actionLabel = item.isDesignV2 ? designV2NextAction(item) : (item.diagnosisCaseId ? nextAction(item.diagnosisCaseStatus) : '事前アンケートを開始');
+      const action = document.createElement('button'); action.textContent = item.isDesignV2 ? designV2OperationLabel(item) : actionLabel;
+      action.onclick = async () => { try { if (item.isDesignV2) await openDesignV2Case(item); else if (item.diagnosisCaseId) await openCase(item.diagnosisCaseId); else { const kase = await call(`/sales-activities/${item.id}/cases`, 'POST', {}); state.caseId=kase.id; state.version=kase.version; state.companyName=item.companyName; state.attribution=item.attribution; state.entryChannel='PROXY'; state.respondentRole='MANAGEMENT'; state.intakeStep=-1; state.intake={}; state.responseStates={}; state.caseStatus=kase.status; state.reachableSteps=reachableSteps(kase.status); renderIntakeForm(); showView('intake'); } } catch(e) { setError(String(e.message||e)); } };
+      const customer = item.contactName ? `${item.companyName} / ${item.contactName}` : item.companyName;
+      const values = [customer, item.receivedAt ? new Date(item.receivedAt).toLocaleString('ja-JP') : '-', entry, status, actionLabel, attributionListLabel(item.attribution)];
+      values.forEach((value, index) => { const cell=document.createElement('td'); cell.textContent=value; if(index===4)cell.className='next-action'; row.append(cell); });
       const operation=document.createElement('td'); operation.append(action); row.append(operation); body.append(row);
     }
     table.append(body); target.append(table);

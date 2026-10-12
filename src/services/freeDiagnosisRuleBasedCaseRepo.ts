@@ -121,6 +121,58 @@ export class FreeDiagnosisRuleBasedCaseRepo {
     return this.transition(caseId, ['PREPARATION_IN_PROGRESS'], 'HEARING_IN_PROGRESS', expectedVersion);
   }
 
+  /** Design v2 already has its deterministic Analysis, so it advances through the
+   * existing preparation/hearing statuses without running the legacy V1 Initial Rule. */
+  async startDesignV2Hearing(caseId: string, expectedVersion: number, staffEmail: string): Promise<CaseRow> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const currentResult = await client.query<Record<string, unknown>>(
+        `SELECT c.* FROM it_management_diagnosis_case_v2 c
+          JOIN it_management_diagnosis_original_survey_snapshot_v2 original ON original.case_id=c.id
+         WHERE c.id=$1 FOR UPDATE OF c`, [caseId],
+      );
+      const current = currentResult.rows[0];
+      if (!current) throw new RuleBasedV1Error(404, 'DESIGN_V2_CASE_NOT_FOUND');
+      if (current.version !== expectedVersion) throw new RuleBasedV1Error(409, 'CASE_VERSION_CONFLICT_OR_INVALID_STATUS');
+      if (current.status === 'HEARING_IN_PROGRESS') { await client.query('COMMIT'); return mapCaseRow(current); }
+      if (!['INTAKE_COMPLETED', 'BOOKING_PENDING', 'PREPARATION_IN_PROGRESS'].includes(current.status as string)) {
+        throw new RuleBasedV1Error(409, 'CASE_VERSION_CONFLICT_OR_INVALID_STATUS');
+      }
+      let version = current.version as number;
+      let fromStatus = current.status as string;
+      if (fromStatus !== 'PREPARATION_IN_PROGRESS') {
+        const prepared = await client.query<Record<string, unknown>>(
+          `UPDATE it_management_diagnosis_case_v2 SET status='PREPARATION_IN_PROGRESS',version=version+1,updated_at=now()
+            WHERE id=$1 AND version=$2 RETURNING *`, [caseId, version],
+        );
+        if (!prepared.rows[0]) throw new RuleBasedV1Error(409, 'CASE_VERSION_CONFLICT_OR_INVALID_STATUS');
+        version += 1;
+        await client.query(
+          `INSERT INTO it_management_diagnosis_case_v2_audit(id,case_id,command,actor_user_id,detail_json)
+           VALUES($1,$2,'StartDesignV2Preparation',$3,$4)`,
+          [randomUUID(), caseId, staffEmail, JSON.stringify({ from_state: fromStatus, to_state: 'PREPARATION_IN_PROGRESS' })],
+        );
+        fromStatus = prepared.rows[0].status as string;
+      }
+      const hearing = await client.query<Record<string, unknown>>(
+        `UPDATE it_management_diagnosis_case_v2 SET status='HEARING_IN_PROGRESS',version=version+1,updated_at=now()
+          WHERE id=$1 AND version=$2 AND status='PREPARATION_IN_PROGRESS' RETURNING *`, [caseId, version],
+      );
+      if (!hearing.rows[0]) throw new RuleBasedV1Error(409, 'CASE_VERSION_CONFLICT_OR_INVALID_STATUS');
+      await client.query(
+        `INSERT INTO it_management_diagnosis_case_v2_audit(id,case_id,command,actor_user_id,detail_json)
+         VALUES($1,$2,'StartDesignV2Hearing',$3,$4)`,
+        [randomUUID(), caseId, staffEmail, JSON.stringify({ from_state: fromStatus, to_state: 'HEARING_IN_PROGRESS' })],
+      );
+      await client.query('COMMIT');
+      return mapCaseRow(hearing.rows[0]);
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally { client.release(); }
+  }
+
   async enterOrganizingMode(caseId: string, expectedVersion: number): Promise<CaseRow> {
     return this.transition(caseId, ['HEARING_IN_PROGRESS'], 'HEARING_ORGANIZING', expectedVersion);
   }

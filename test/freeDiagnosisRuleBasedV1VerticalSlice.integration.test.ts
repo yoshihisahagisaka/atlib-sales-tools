@@ -478,5 +478,5 @@ test('Case 3: Solution HypothesisはReportへ推薦せず、PARTIALな業務詳�
 test('Production server wiring injects the VS1 Report / Feedback repository into the Admin router', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '../src/server.ts'), 'utf8');
   assert.match(source, /const vs1ReviewReportFeedbackRepo = new Vs1ReviewReportFeedbackRepo\(pool\)/);
-  assert.match(source, /createAdminFreeDiagnosisRuleBasedV1Router\(freeDiagnosisSalesLauncherRepo, freeDiagnosisRuleBasedCaseRepo, vs1ReviewReportFeedbackRepo\)/);
+  assert.match(source, /createAdminFreeDiagnosisRuleBasedV1Router\(freeDiagnosisSalesLauncherRepo, freeDiagnosisRuleBasedCaseRepo, vs1ReviewReportFeedbackRepo, staffProxyDesignV2SubmissionService\)/);
 });
