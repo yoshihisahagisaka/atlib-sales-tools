@@ -107,6 +107,12 @@ export interface InitializeInput {
   enteredByUserId?: string | null;
   submittedAt?: Date;
   actor: string;
+  /**
+   * An entry adapter may advance only the existing VS1 intake lifecycle as
+   * part of the same transaction as initial Design v2 persistence.  Omitted
+   * for callers that only need the persisted Design v2 artifacts.
+   */
+  caseStatusTransitions?: Array<'INTAKE_COMPLETED' | 'BOOKING_PENDING'>;
 }
 
 export interface AppendStateInput {
@@ -288,6 +294,30 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
     return { analysis: mapAnalysis(analysisRow.rows[0]!), generated: mapGenerated(generatedRow.rows[0]!) };
   }
 
+  private async applyInitialCaseStatusTransitions(
+    client: PoolClient, caseId: string, transitions: Array<'INTAKE_COMPLETED' | 'BOOKING_PENDING'>,
+  ): Promise<void> {
+    const isValidInitialLifecycle = transitions.length === 0
+      || (transitions.length === 1 && transitions[0] === 'INTAKE_COMPLETED')
+      || (transitions.length === 2 && transitions[0] === 'INTAKE_COMPLETED' && transitions[1] === 'BOOKING_PENDING');
+    if (!isValidInitialLifecycle) {
+      throw new FreeDiagnosisDesignV2PersistenceError(422, 'INVALID_INITIAL_CASE_STATUS_TRANSITIONS');
+    }
+    let fromStatus = 'INTAKE_IN_PROGRESS';
+    for (const toStatus of transitions) {
+      const updated = await client.query(
+        `UPDATE it_management_diagnosis_case_v2
+            SET status=$1, version=version+1, updated_at=now()
+          WHERE id=$2 AND status=$3`,
+        [toStatus, caseId, fromStatus],
+      );
+      if (updated.rowCount !== 1) {
+        throw new FreeDiagnosisDesignV2PersistenceError(409, 'CASE_STATUS_TRANSITION_CONFLICT');
+      }
+      fromStatus = toStatus;
+    }
+  }
+
   async initializeDesignV2FromCompletedSurvey(input: InitializeInput): Promise<PostHearingAnalysisViewV2> {
     if (!input.surveyVersion.trim() || !input.answeredByRole.trim() || !input.actor.trim()) {
       throw new FreeDiagnosisDesignV2PersistenceError(422, 'INVALID_INITIALIZATION_METADATA');
@@ -320,6 +350,7 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
         current_state_id: current.id, revision_no: 1, source_type: current.sourceType,
         analysis_result_id: created.analysis.id, generated_narrative_id: created.generated.id,
       });
+      await this.applyInitialCaseStatusTransitions(client, input.caseId, input.caseStatusTransitions ?? []);
       return {
         originalSurvey: original, currentStructuredState: current, currentStateDiffFromOriginal: {},
         latestAnalysisResult: created.analysis, latestGeneratedNarrative: created.generated,
