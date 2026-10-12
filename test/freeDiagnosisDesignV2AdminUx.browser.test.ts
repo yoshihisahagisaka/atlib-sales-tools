@@ -75,6 +75,9 @@ test('Post-Hearing makes the five diagnostic results the primary Human Review', 
   for (const heading of ['01 実現したい会社の未来', '02 現在どこまで分かっているか', '03 未来に向けて確認しておく価値があること', '04 現時点ではまだ判断できないこと', '05 次に確認する価値があること']) {
     await expect(page.locator('#humanNarrative').getByRole('heading', { name: heading })).toBeVisible();
   }
+  await expect(page.getByRole('heading', { name: 'テーマ別ヒアリングメモ' })).toBeVisible();
+  await expect(page.locator('#humanNarrative .theme-badge').first()).toHaveText('情報が判断へ届く流れ');
+  await expect(page.locator('#humanNarrative')).not.toContainText('theme-1');
   await expect(page.getByText('分析から作成した元の文面')).toBeVisible();
   await expect(page.locator('body')).not.toContainText('Generated Narrative');
   await expect(page.locator('body')).not.toContainText('M01');
@@ -104,6 +107,7 @@ test('survey is a default-closed read-only reference and Q1 is its sole separate
   await expect(page.locator('#original')).toContainText('会社の状況'); await expect(page.locator('#original')).toContainText('関心のあるITテーマ');
   await page.locator('#openQ1Editor').click();
   await expect(page.locator('#q1Editor')).toBeVisible(); await expect(page.locator('#editor [data-field=q1CompanyContext]')).toHaveCount(1);
+  expect(await page.locator('.q1-choice-grid').evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(2);
   await expect(page.locator('#editor [data-field=q2Future], #editor [data-field=q3ItExpectations], #editor [data-field=q4CurrentInterest], #editor [data-field=q5Visibility], #editor [data-field=q6ManagementConnection], #editor [data-field=q7InterestThemes]')).toHaveCount(0);
 });
 
@@ -115,7 +119,11 @@ test('Q1 uses the preserved Current revision route without changing Original or 
   await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${state.value.case.id}`); const originalBefore = await page.locator('#original').textContent();
   await page.locator('#openQ1Editor').click(); await page.locator('[name="q1CompanyContext.employeeRange"][value=EMP_51_100]').check(); await page.locator('#saveAndAnalyze').click();
   await expect.poll(() => calls).toEqual(['save', 'reanalyze']); expect(saveBody.q1CompanyContext).toEqual({ employeeRange: 'EMP_51_100', siteRange: 'SITE_1' });
-  expect(saveBody.state).toEqual(workspace().currentStructuredState); await page.locator('#openAnswerReference').click(); expect(await page.locator('#original').textContent()).toBe(originalBefore);
+  expect(saveBody.state).toEqual(workspace().currentStructuredState); await page.locator('#openAnswerReference').click(); expect(await page.locator('#original').textContent()).not.toBe(originalBefore);
+  await expect(page.locator('#original .current-company-context')).toContainText('現在の企業基本情報');
+  await expect(page.locator('#original .original-card').first()).toContainText('従業員規模: 21〜50名');
+  await expect(page.locator('#original .current-company-context')).toContainText('従業員規模: 51〜100名');
+  await expect(page.locator('#original .current-company-context')).not.toContainText('拠点数: 1拠点');
 });
 
 test('stale analysis keeps edits guarded and hearing memo remains separate from analysis input', async ({ page }) => {
@@ -130,4 +138,5 @@ test('narrow viewport keeps the same Human Review and secondary survey behavior'
   await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${state.value.case.id}`);
   expect(await page.locator('.analysis-grid').evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(1);
   await expect(page.locator('#humanNarrative [data-section]')).toHaveCount(5); await expect(page.locator('#answerReference')).not.toHaveAttribute('open', ''); await page.locator('#openAnswerReference').click(); await expect(page.locator('#answerReference')).toBeVisible();
+  await page.locator('#openQ1Editor').click(); expect(await page.locator('.q1-choice-grid').evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(1);
 });

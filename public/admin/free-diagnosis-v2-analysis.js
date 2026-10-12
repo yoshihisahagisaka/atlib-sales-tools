@@ -31,8 +31,9 @@
     openAnswerReference.setAttribute('aria-expanded', String(expanded));
   }
   function themeInfo(id) {
-    const item = (ws.traceability?.viewpoints || []).find((value) => value.id === id);
-    const index = (ws.traceability?.viewpoints || []).findIndex((value) => value.id === id);
+    const viewpoints = ws.latestAnalysisResult?.analysis?.hearingViewpoints || [];
+    const index = viewpoints.findIndex((value) => value.id === id);
+    const item = viewpoints[index];
     return { id, label: item?.label || id, colorIndex: index < 0 ? 0 : index % 6 };
   }
   function themeTokens(ids) { return (ids || []).map(themeInfo); }
@@ -49,8 +50,10 @@
     const field = ui.el('fieldset', 'field compact-field');
     field.dataset.field = 'q1CompanyContext';
     field.append(ui.el('legend', '', ui.questions.q1CompanyContext));
+    const groups = ui.el('div', 'q1-choice-grid');
     for (const [part, codes] of Object.entries(ui.codeGroups.q1CompanyContext)) {
-      field.append(ui.el('strong', '', part === 'employeeRange' ? '従業員規模' : '拠点数'));
+      const group = ui.el('section', 'q1-choice-group');
+      group.append(ui.el('strong', '', part === 'employeeRange' ? '従業員規模' : '拠点数'));
       const choices = ui.el('div', 'choices');
       codes.forEach((code) => {
         const label = ui.el('label');
@@ -58,8 +61,10 @@
         input.type = 'radio'; input.name = `q1CompanyContext.${part}`; input.value = code; input.checked = value[part] === code;
         label.append(input, document.createTextNode(` ${ui.labels[code] || code}`)); choices.append(label);
       });
-      field.append(choices);
+      group.append(choices);
+      groups.append(group);
     }
+    field.append(groups);
     return field;
   }
   function renderQ1Editor() { document.querySelector('#editor').replaceChildren(q1Field(ws.currentCompanyContext)); }
@@ -111,7 +116,24 @@
     }
     const source = ws.humanEditedNarrativeStatus === 'CURRENT' ? ws.latestHumanEditedNarrative.content : latest; human.append(sectionEditor(source)); appendNarrativeReference(generated, latest, '分析から作成した元の文面'); if (ws.humanEditedNarrativeStatus === 'STALE_REVIEW_REQUIRED') appendNarrativeReference(human, ws.latestHumanEditedNarrative.content, '前回の編集文を参考表示');
   }
-  function renderReference() { ui.renderOriginal(document.querySelector('#original'), ws.originalSurvey.answers, {}); }
+  function renderReference() {
+    const target = document.querySelector('#original');
+    ui.renderOriginal(target, ws.originalSurvey.answers, {});
+    const original = ws.originalSurvey.answers.q1CompanyContext;
+    const current = ws.currentCompanyContext;
+    const changed = [
+      ['employeeRange', '従業員規模'],
+      ['siteRange', '拠点数'],
+    ].filter(([key]) => original[key] !== current[key]);
+    if (!changed.length) return;
+    const q1 = target.querySelector('.original-card');
+    const currentBlock = ui.el('section', 'current-company-context');
+    currentBlock.append(ui.el('strong', '', '現在の企業基本情報'));
+    const values = ui.el('div', 'answer-chips');
+    changed.forEach(([key, label]) => values.append(ui.el('span', 'answer-chip', `${label}: ${ui.labels[current[key]] || current[key]}`)));
+    currentBlock.append(values);
+    q1?.append(currentBlock);
+  }
   function renderHearingRecords() {
     const target = document.querySelector('#records'); target.replaceChildren(); const themes = ws.latestAnalysisResult?.analysis?.hearingViewpoints || [];
     themes.forEach((theme, index) => { const records = ws.hearingRecords.filter((record) => record.planItemRef === `design-v2-viewpoint:${theme.id}`); const block = ui.el('section', `theme-record theme-color-${index % 6}`), title = ui.el('div', 'viewpoint-title'); title.append(ui.el('span', 'viewpoint-number', String(index + 1)), ui.el('h3', '', theme.label)); block.append(title); const trace = (ws.traceability?.viewpoints || []).find((item) => item.id === theme.id); const related = ui.relatedBadges(trace?.relatedQuestionCodes || [], '関連Q'); if (related) block.append(related); block.append(ui.el('p', 'viewpoint-why', theme.whyUseful)); const recordList = ui.el('div', 'records'); ui.renderRecords(recordList, records); block.append(recordList); target.append(block); });
