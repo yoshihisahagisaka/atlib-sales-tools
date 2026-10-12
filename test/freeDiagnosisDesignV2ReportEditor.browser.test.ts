@@ -17,8 +17,8 @@ const sections = [
   { key: 'NEXT_FACTS', title: '05 次に確認する価値があること', entries: ['共有内容'] },
 ];
 const diagnosisMap = sections.map(section => ({ ...section, entries: section.entries.slice(0, 2), overflowCount: Math.max(0, section.entries.length - 2) }));
-const fact = { id: 'fact-1', whatToVerify: '共有内容', whyItMattersToFuture: '成長を支えるため', whatMayBecomeKnowable: '改善可能性', lenses: ['MANAGEMENT'], sourceRuleIds: ['rule-1'] };
-function draft() { return { id: reportId, version: 1, contentVersion: 1, status: 'REVIEW_REQUIRED', context: { currentState: { id: 'state-1' }, analysisResult: { id: 'analysis-1' }, generatedNarrative: { id: 'narrative-1' }, adoptedNarrative: { source: 'HUMAN_EDITED', id: 'edit-1' } }, content: { formatVersion: 'free-diagnosis-design-v2-report-2', recipient: { organizationDisplayName: 'テスト株式会社' }, diagnosisDate: '2026-10-12T00:00:00.000Z', issuer: { displayName: 'atLIB株式会社' }, sections, diagnosisMap, factCandidates: [fact], assessmentProposal: { status: 'NOT_SELECTED', source: 'ANALYSIS_FACT_CANDIDATES', candidates: [fact] } } }; }
+const facts = ['共有内容', '業務の流れ', 'ITの使われ方', '運用の状況', '管理の状況'].map((whatToVerify, index) => ({ id: `fact-${index + 1}`, whatToVerify, whyItMattersToFuture: '成長を支えるため', whatMayBecomeKnowable: '改善可能性', lenses: ['MANAGEMENT'], sourceRuleIds: ['rule-1'] }));
+function draft() { return { id: reportId, version: 1, contentVersion: 1, status: 'REVIEW_REQUIRED', context: { currentState: { id: 'state-1' }, analysisResult: { id: 'analysis-1' }, generatedNarrative: { id: 'narrative-1' }, adoptedNarrative: { source: 'HUMAN_EDITED', id: 'edit-1' } }, content: { formatVersion: 'free-diagnosis-design-v2-report-2', recipient: { organizationDisplayName: 'テスト株式会社' }, diagnosisDate: '2026-10-12T00:00:00.000Z', issuer: { displayName: 'atLIB株式会社' }, sections, diagnosisMap, factCandidates: facts, assessmentProposal: { status: 'NOT_SELECTED', source: 'ANALYSIS_FACT_CANDIDATES', candidates: facts } } }; }
 
 test('Report Presentation renders the fixed introduction, independent customer-result pages, and static next-decision page', async ({ page }) => {
   let data: any = draft(); let patchBody: any;
@@ -26,6 +26,7 @@ test('Report Presentation renders the fixed introduction, independent customer-r
   await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
   await expect(page.getByRole('heading', { name: '正式レポートの確認' })).toBeVisible();
   await expect(page.locator('.report-cover')).toContainText('会社の未来から、ITを考える。');
+  await expect(page.locator('.report-cover')).toHaveCSS('background-image', /report-cover-v1\.png/);
   await expect(page.locator('.report-page')).toHaveCount(8);
   const introduction = page.locator('.report-introduction-document');
   await expect(introduction).toContainText('このレポートをお読みいただく前に');
@@ -36,9 +37,10 @@ test('Report Presentation renders the fixed introduction, independent customer-r
   await expect(introduction.locator('.report-concept-diagram')).toContainText('02 現在どこまで分かっているか');
   await expect(introduction.locator('.report-concept-diagram')).toContainText('04 現時点ではまだ判断できないこと');
   await expect(introduction.locator('.report-concept-diagram')).toContainText('03 未来に向けて確認することで、改善が期待できること');
-  await expect(introduction.locator('.report-concept-diagram')).toContainText('技術 ｜ 運用 ｜ 管理');
+  for (const lens of ['技術', '運用', '管理']) await expect(introduction.locator('.report-concept-diagram')).toContainText(lens);
   await expect(introduction.locator('.report-concept-diagram')).toContainText('05 次に確認する価値があること');
   await expect(introduction.locator('.report-concept-diagram')).toContainText('次の経営判断へ');
+  await expect(introduction.locator('.report-concept-art')).toHaveAttribute('src', '/admin/assets/report-guide-v1.png');
   await expect(introduction).not.toContainText('少人数で成長する');
   await expect(introduction).not.toContainText('共有内容');
   await expect(page.locator('.executive-summary, .summary-paragraph, .summary-item, .summary-result, .summary-premise, .summary-results')).toHaveCount(0);
@@ -50,10 +52,13 @@ test('Report Presentation renders the fixed introduction, independent customer-r
   await expect(page.locator('.report-unknowns-page')).toContainText('業務の詳細');
   await expect(page.locator('.report-unknowns-page .report-interpretation')).toContainText('「分からない」を「判断できる」に変えることが、ここで確認する目的です。');
   await expect(page.locator('.report-facts-page')).toContainText('05次に確認する価値があること');
-  await expect(page.locator('.fact-candidate')).toContainText('共有内容');
-  await expect(page.locator('.fact-candidate')).not.toContainText('確認すること');
-  await expect(page.locator('.fact-candidate')).not.toContainText('なぜ確認する価値があるのか');
-  await expect(page.locator('.fact-candidate')).not.toContainText('確認すると何が分かりそうか');
+  await expect(page.locator('.fact-candidate').first()).toContainText('共有内容');
+  await expect(page.locator('.fact-candidate')).toHaveCount(5);
+  expect(await page.locator('.report-facts-page').evaluate(node => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
+  const factTexts = (await page.locator('.fact-candidate').allTextContents()).join('\n');
+  expect(factTexts).not.toContain('確認すること');
+  expect(factTexts).not.toContain('なぜ確認する価値があるのか');
+  expect(factTexts).not.toContain('確認すると何が分かりそうか');
   await expect(page.locator('.report-document')).not.toContainText('今回の無料診断で整理したこと');
   await expect(page.locator('.assessment-bridge')).toHaveCount(0);
   await expect(page.locator('.report-next-decision-document')).toContainText('診断結果を、次の経営判断へ');
@@ -75,6 +80,11 @@ test('Report Presentation renders the fixed introduction, independent customer-r
   await expect(page.locator('.report-next-decision-document')).not.toContainText('顧客向けの確認対象');
   await expect(page.locator('.report-next-decision-document')).not.toContainText('2〜4週間');
   await expect(page.locator('.report-next-decision-document')).not.toContainText('個別にご相談のうえお見積り');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('.report-cover')).toBeVisible();
+  await expect(page.locator('.report-concept-diagram')).toBeVisible();
+  await expect(page.locator('.report-facts-page')).toBeVisible();
+  expect(await page.locator('.report-concept-diagram').evaluate(node => node.getBoundingClientRect().width <= window.innerWidth)).toBe(true);
 });
 
 test('Report Presentation has no print, PDF, or Approval action', async ({ page }) => {

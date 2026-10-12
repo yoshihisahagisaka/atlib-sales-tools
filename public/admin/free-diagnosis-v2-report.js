@@ -82,8 +82,6 @@
     const issuer = ui.el('div', 'cover-issuer'); issuer.append(atlibLogo, paragraph('atLIB株式会社')); page.append(issuer); return page;
   }
 
-  function diagramNode(text, className = '') { return ui.el('div', `report-concept-node ${className}`.trim(), text); }
-  function diagramArrow(text = '↓') { return ui.el('div', 'report-concept-arrow', text); }
   function renderStaticIntroduction() {
     const node = chapter('', 'このレポートをお読みいただく前に'); node.classList.add('report-introduction-page');
     [
@@ -94,15 +92,19 @@
       '本レポートが、これからのITについて考え、経営として次の判断を行うための材料となれば幸いです。',
     ].forEach(text => node.append(paragraph(text, 'introduction-paragraph')));
     const diagram = ui.el('section', 'report-concept-diagram');
-    diagram.append(
-      diagramNode('01 実現したい会社の未来', 'diagram-future'),
-      diagramArrow('↓'),
-      ui.el('p', 'diagram-context', '未来を基準に、アンケート＋ヒアリングで現在を確認'),
-      diagramArrow('↓'),
-    );
-    const parallel = ui.el('div', 'diagram-parallel');
-    parallel.append(diagramNode('02 現在どこまで分かっているか'), diagramNode('04 現時点ではまだ判断できないこと'));
-    diagram.append(parallel, diagramArrow('↓'), diagramNode('03 未来に向けて確認することで、改善が期待できること', 'diagram-improvement'), diagramArrow('↓'), ui.el('p', 'diagram-lenses', '技術 ｜ 運用 ｜ 管理'), diagramArrow('↓'), diagramNode('05 次に確認する価値があること'), diagramArrow('↓'), ui.el('p', 'diagram-next-decision', '次の経営判断へ'));
+    const image = document.createElement('img'); image.src = '/admin/assets/report-guide-v1.png'; image.alt = ''; image.className = 'report-concept-art';
+    const labels = ui.el('div', 'report-concept-labels');
+    [
+      ['diagram-future', '01 実現したい会社の未来'],
+      ['diagram-context', '未来を基準に、アンケート＋ヒアリングで現在を確認'],
+      ['diagram-current', '02 現在どこまで分かっているか'],
+      ['diagram-unknown', '04 現時点ではまだ判断できないこと'],
+      ['diagram-improvement', '03 未来に向けて確認することで、改善が期待できること'],
+      ['diagram-technology', '技術'], ['diagram-operation', '運用'], ['diagram-management', '管理'],
+      ['diagram-facts', '05 次に確認する価値があること'],
+      ['diagram-next-decision', '次の経営判断へ'],
+    ].forEach(([className, text]) => labels.append(ui.el('p', `report-concept-label ${className}`, text)));
+    diagram.append(image, labels);
     node.append(diagram); return node;
   }
 

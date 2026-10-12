@@ -2,15 +2,20 @@
 .cover-message{margin-top:12mm;font-size:13pt;color:#475569}
 .report-introduction-page .chapter-header{margin-bottom:4mm}
 .introduction-paragraph{margin:0 0 3mm;font-size:9.5pt;line-height:1.7;color:#263b52}
-.report-concept-diagram{margin:5mm 0 0;padding:4mm 6mm;border-top:1px solid #bac8d6;border-bottom:1px solid #bac8d6;text-align:center;color:#263b52}
-.report-concept-node{display:inline-block;max-width:92mm;padding:2.5mm 5mm;border:1px solid #8fa3b8;background:#fff;font-size:9.5pt;font-weight:700;line-height:1.45;color:#17375e}
-.diagram-future{background:#f5f8fb}.diagram-improvement{max-width:105mm;background:#f7f9fc}
-.report-concept-arrow{height:4mm;line-height:4mm;color:#64748b;font-size:11pt}
-.diagram-context,.diagram-lenses,.diagram-next-decision{margin:0;font-size:9pt;line-height:1.45;color:#3f4f63}
-.diagram-lenses{font-weight:700;color:#3155a6}.diagram-next-decision{font-weight:700;color:#17375e}
-.diagram-parallel{display:grid;grid-template-columns:1fr 1fr;gap:6mm;max-width:166mm;margin:0 auto}.diagram-parallel .report-concept-node{max-width:none;display:flex;align-items:center;justify-content:center}
+.report-cover{background-image:url('/admin/assets/report-cover-v1.png');background-repeat:no-repeat;background-position:center bottom;background-size:100% auto}
+.report-concept-diagram{position:relative;max-width:176mm;margin:4mm auto 0;line-height:1.35}
+.report-concept-art{display:block;width:100%;height:auto}
+.report-concept-labels{position:absolute;inset:0;font-family:"Noto Sans JP",sans-serif;text-align:center;color:#17375e;font-weight:700}
+.report-concept-label{position:absolute;margin:0;display:flex;align-items:center;justify-content:center;padding:1.2% 2%;font-size:clamp(6.5pt,1.4vw,9.5pt);line-height:1.35}
+.diagram-future{left:25%;top:4%;width:50%;height:15%;color:#fff}
+.diagram-context{left:27%;top:23%;width:46%;height:6%;font-size:clamp(5.5pt,1.1vw,7.5pt);color:#31506b}
+.diagram-current{left:10%;top:31%;width:37%;height:11%}.diagram-unknown{left:53%;top:31%;width:37%;height:11%}
+.diagram-improvement{left:20%;top:45%;width:60%;height:10%}
+.diagram-technology{left:12%;top:59%;width:22%;height:10%}.diagram-operation{left:39%;top:59%;width:22%;height:10%}.diagram-management{left:66%;top:59%;width:22%;height:10%}
+.diagram-facts{left:30%;top:71%;width:40%;height:9%}.diagram-next-decision{left:25%;top:85%;width:50%;height:10%;color:#fff}
 .report-interpretation{margin-top:6mm;padding:4mm 5mm;border-left:3px solid #8098b5;background:#f7f9fc;color:#3f4f63}
 .report-interpretation h3{margin:0 0 2mm;font-size:10pt;color:#314861}.report-interpretation p{margin:0 0 4mm;font-size:9.5pt;line-height:1.65}.report-interpretation p:last-child{margin-bottom:0}
+.report-facts-page .chapter-header{margin-bottom:4mm}.report-facts-page .fact-candidate{padding:2.25mm 0}.report-facts-page .fact-candidate h3{margin:1.5mm 0 .75mm}.report-facts-page .fact-candidate p{margin:.5mm 0 0;line-height:1.55}.report-facts-page .report-interpretation{margin-top:3mm;padding:3mm 4mm}.report-facts-page .report-interpretation p{margin-bottom:2.5mm;line-height:1.5}
 .chapter-note{padding:4mm 5mm;border-left:3px solid #8098b5;background:#f7f9fc;color:#3f4f63}
 .assessment-value{font-size:13pt;color:#3155a6;margin:0 0 4mm}
 .assessment-flow{display:flex;align-items:stretch;justify-content:center;gap:2mm;margin:7mm 0}
@@ -30,4 +35,4 @@
 .kaizen-principle{padding-top:4mm;border-top:2px solid #3155a6}
 .kaizen-principle h3{margin:0 0 3mm;font-size:12pt;color:#17375e}
 .kaizen-principle p{margin:0 0 2.5mm;font-size:9.5pt;line-height:1.55}
-@media(max-width:700px){.assessment-flow{flex-direction:column}.flow-arrow{align-self:center;transform:rotate(90deg)}.flow-step{width:100%}.diagram-parallel{grid-template-columns:1fr;gap:3mm}.introduction-paragraph{font-size:10pt}.report-concept-node{max-width:100%}}
+@media(max-width:700px){.assessment-flow{flex-direction:column}.flow-arrow{align-self:center;transform:rotate(90deg)}.flow-step{width:100%}.introduction-paragraph{font-size:10pt}.report-concept-diagram{max-width:100%}.report-concept-label{font-size:clamp(6.5pt,2.25vw,9.5pt)}.diagram-context{font-size:clamp(5.5pt,1.8vw,7.5pt)}}
