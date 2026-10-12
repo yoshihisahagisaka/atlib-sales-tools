@@ -12,7 +12,7 @@ const caseId = '11111111-1111-4111-8111-111111111111'; const reportId = '2222222
 const sections = [
   { key: 'FUTURE', title: '01 実現したい会社の未来', entries: ['少人数で成長する', '顧客への価値提供を高める', '働きやすさを保つ'] },
   { key: 'CURRENT_UNDERSTANDING', title: '02 現在どこまで分かっているか', entries: ['状況を一部把握している'] },
-  { key: 'LENSES', title: '03 未来に向けて確認しておく価値があること', entries: ['情報の流れを確認する価値がある'] },
+  { key: 'LENSES', title: '03 未来に向けて確認することで、改善が期待できること', entries: ['情報の流れを確認する価値がある'] },
   { key: 'UNKNOWNS', title: '04 現時点ではまだ判断できないこと', entries: ['業務の詳細', '情報共有の実態'] },
   { key: 'NEXT_FACTS', title: '05 次に確認する価値があること', entries: ['共有内容'] },
 ];
@@ -20,27 +20,43 @@ const diagnosisMap = sections.map(section => ({ ...section, entries: section.ent
 const fact = { id: 'fact-1', whatToVerify: '共有内容', whyItMattersToFuture: '成長を支えるため', whatMayBecomeKnowable: '改善可能性', lenses: ['MANAGEMENT'], sourceRuleIds: ['rule-1'] };
 function draft() { return { id: reportId, version: 1, contentVersion: 1, status: 'REVIEW_REQUIRED', context: { currentState: { id: 'state-1' }, analysisResult: { id: 'analysis-1' }, generatedNarrative: { id: 'narrative-1' }, adoptedNarrative: { source: 'HUMAN_EDITED', id: 'edit-1' } }, content: { formatVersion: 'free-diagnosis-design-v2-report-2', recipient: { organizationDisplayName: 'テスト株式会社' }, diagnosisDate: '2026-10-12T00:00:00.000Z', issuer: { displayName: 'atLIB株式会社' }, sections, diagnosisMap, factCandidates: [fact], assessmentProposal: { status: 'NOT_SELECTED', source: 'ANALYSIS_FACT_CANDIDATES', candidates: [fact] } } }; }
 
-test('Report Presentation Revision 2 renders a deterministic prose summary and static next-decision page', async ({ page }) => {
+test('Report Presentation renders the fixed introduction, independent customer-result pages, and static next-decision page', async ({ page }) => {
   let data: any = draft(); let patchBody: any;
   await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, async route => { if (route.request().method() === 'GET') { await route.fulfill({ json: data }); return; } patchBody = route.request().postDataJSON(); data = { ...data, contentVersion: 2, content: patchBody }; await route.fulfill({ json: data }); });
   await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
   await expect(page.getByRole('heading', { name: '正式レポートの確認' })).toBeVisible();
   await expect(page.locator('.report-cover')).toContainText('会社の未来から、ITを考える。');
-  await expect(page.locator('.executive-summary')).toContainText('診断結果サマリー');
-  await expect(page.locator('.summary-paragraph')).toHaveCount(3);
-  await expect(page.locator('.summary-paragraph').first()).toContainText('少人数で成長する');
-  await expect(page.locator('.summary-paragraph').nth(1)).toContainText('状況を一部把握している');
-  await expect(page.locator('.summary-paragraph').nth(2)).toContainText('1件のテーマ');
-  await expect(page.locator('.summary-item, .summary-result, .summary-premise, .summary-results')).toHaveCount(0);
+  await expect(page.locator('.report-page')).toHaveCount(8);
+  const introduction = page.locator('.report-introduction-document');
+  await expect(introduction).toContainText('このレポートをお読みいただく前に');
+  await expect(introduction).toContainText('このたびは「IT経営KAIZEN 無料診断」をご利用いただき、ありがとうございます。');
+  await expect(introduction).toContainText('ITの「良し悪し」を採点する診断ではありません。');
+  await expect(introduction).toContainText('本レポートが、これからのITについて考え、経営として次の判断を行うための材料となれば幸いです。');
+  await expect(introduction.locator('.report-concept-diagram')).toContainText('01 実現したい会社の未来');
+  await expect(introduction.locator('.report-concept-diagram')).toContainText('02 現在どこまで分かっているか');
+  await expect(introduction.locator('.report-concept-diagram')).toContainText('04 現時点ではまだ判断できないこと');
+  await expect(introduction.locator('.report-concept-diagram')).toContainText('03 未来に向けて確認することで、改善が期待できること');
+  await expect(introduction.locator('.report-concept-diagram')).toContainText('技術 ｜ 運用 ｜ 管理');
+  await expect(introduction.locator('.report-concept-diagram')).toContainText('05 次に確認する価値があること');
+  await expect(introduction.locator('.report-concept-diagram')).toContainText('次の経営判断へ');
+  await expect(introduction).not.toContainText('少人数で成長する');
+  await expect(introduction).not.toContainText('共有内容');
+  await expect(page.locator('.executive-summary, .summary-paragraph, .summary-item, .summary-result, .summary-premise, .summary-results')).toHaveCount(0);
   await expect(page.locator('.diagnosis-map, .map-grid, .map-result')).toHaveCount(0);
-  for (const text of sections.slice(0, 4).map(section => section.title.replace(' ', ''))) await expect(page.locator('.report-document')).toContainText(text);
-  await expect(page.locator('.report-document')).toContainText('経営判断を進めるために、次に確認したいこと');
+  await expect(page.locator('.report-future-page')).toContainText('少人数で成長する');
+  await expect(page.locator('.report-current-page')).toContainText('状況を一部把握している');
+  await expect(page.locator('.report-improvement-page')).toContainText('情報の流れを確認する価値がある');
+  await expect(page.locator('.report-improvement-page .report-interpretation')).toContainText('現時点で「問題がある」と判断した項目ではありません。');
+  await expect(page.locator('.report-unknowns-page')).toContainText('業務の詳細');
+  await expect(page.locator('.report-unknowns-page .report-interpretation')).toContainText('「分からない」を「判断できる」に変えることが、ここで確認する目的です。');
+  await expect(page.locator('.report-facts-page')).toContainText('05次に確認する価値があること');
   await expect(page.locator('.fact-candidate')).toContainText('共有内容');
   await expect(page.locator('.fact-candidate')).not.toContainText('確認すること');
   await expect(page.locator('.fact-candidate')).not.toContainText('なぜ確認する価値があるのか');
   await expect(page.locator('.fact-candidate')).not.toContainText('確認すると何が分かりそうか');
   await expect(page.locator('.report-document')).not.toContainText('今回の無料診断で整理したこと');
   await expect(page.locator('.assessment-bridge')).toHaveCount(0);
+  await expect(page.locator('.report-next-decision-document')).toContainText('診断結果を、次の経営判断へ');
   await expect(page.locator('.next-decision-page')).toContainText('診断結果を、次の経営判断へ');
   await expect(page.locator('.service-option')).toHaveCount(4);
   await expect(page.locator('.next-decision-page')).toContainText('IT経営KAIZEN 導入支援');
@@ -56,9 +72,9 @@ test('Report Presentation Revision 2 renders a deterministic prose summary and s
   await page.locator('[data-candidate-id="fact-1"]').check(); await page.locator('[data-customer-expression="fact-1"]').fill('顧客向けの確認対象'); await page.locator('[data-reason="fact-1"]').fill('顧客向けの確認理由'); await page.locator('#durationText').fill('2〜4週間'); await page.locator('#priceExcludingTaxText').fill('個別にご相談のうえお見積り'); await page.getByRole('button', { name: '提案情報を保存' }).first().click();
   await expect.poll(() => patchBody?.assessmentProposal?.selectedCandidateIds).toEqual(['fact-1']);
   expect(patchBody.sections).toEqual(draft().content.sections); expect(patchBody.diagnosisMap).toEqual(draft().content.diagnosisMap); expect(Object.keys(patchBody.assessmentProposal.presentationByCandidateId)).toEqual(['fact-1']);
-  await expect(page.locator('.next-decision-page')).not.toContainText('顧客向けの確認対象');
-  await expect(page.locator('.next-decision-page')).not.toContainText('2〜4週間');
-  await expect(page.locator('.next-decision-page')).not.toContainText('個別にご相談のうえお見積り');
+  await expect(page.locator('.report-next-decision-document')).not.toContainText('顧客向けの確認対象');
+  await expect(page.locator('.report-next-decision-document')).not.toContainText('2〜4週間');
+  await expect(page.locator('.report-next-decision-document')).not.toContainText('個別にご相談のうえお見積り');
 });
 
 test('Report Presentation has no print, PDF, or Approval action', async ({ page }) => {

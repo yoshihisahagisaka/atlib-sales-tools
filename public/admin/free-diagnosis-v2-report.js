@@ -72,7 +72,7 @@
   function chapter(number, title, subtitle) { const node = ui.el('section', 'document-chapter'); const header = ui.el('header', 'chapter-header'); header.append(ui.el('p', 'chapter-number', number), ui.el('h2', '', title)); if (subtitle) header.append(ui.el('p', 'chapter-subtitle', subtitle)); node.append(header); return node; }
   function paragraph(text, className = '') { return ui.el('p', className, text); }
   function appendEntries(parent, entries) { const list = ui.el('ul', 'document-entry-list'); entries.forEach(entry => list.append(ui.el('li', '', entry))); parent.append(list); }
-  function bodyPage(pageNo, chapters) { const page = reportPage(); page.append(documentHeader(), ...chapters.filter(Boolean), documentFooter(pageNo)); return page; }
+  function bodyPage(pageNo, chapters, className = '') { const page = reportPage(className); page.append(documentHeader(), ...chapters.filter(Boolean), documentFooter(pageNo)); return page; }
 
   function renderCover(content) {
     const page = reportPage('report-cover'); const logo = document.createElement('img'); logo.className = 'report-logo'; logo.src = '/admin/assets/it-management-kaizen-logo-v1.png'; logo.alt = 'IT経営KAIZEN';
@@ -82,25 +82,39 @@
     const issuer = ui.el('div', 'cover-issuer'); issuer.append(atlibLogo, paragraph('atLIB株式会社')); page.append(issuer); return page;
   }
 
-  function summarySource(entries, maximum = 2) {
-    const values = (entries || []).slice(0, maximum);
-    if (!values.length) return '';
-    return `${values.join('、')}${(entries || []).length > maximum ? 'など' : ''}`;
-  }
-  function renderExecutiveSummary(content) {
-    const sections = sectionMap(content); const page = bodyPage(2, []); const summary = ui.el('section', 'executive-summary');
-    const future = summarySource(sections.get('FUTURE')?.entries, 1); const current = summarySource(sections.get('CURRENT_UNDERSTANDING')?.entries, 1); const factCount = content.factCandidates.length;
-    summary.append(ui.el('h2', '', '診断結果サマリー'));
-    summary.append(paragraph(`今回の無料診断では、${future || '会社が目指す未来'}を基準に、ITについて考えました。ITの一般的な良し悪しではなく、その未来に向けて現在何を理解し、何を確認する価値があるかを整理しています。`, 'summary-paragraph'));
-    summary.append(paragraph(`現在は、${current || '現在のITや仕事の進め方についての認識'}という理解が共有されています。今回の診断では、現時点で分かっていることと、これから確認することで経営判断に役立つことを整理しました。`, 'summary-paragraph'));
-    summary.append(paragraph(`確認できていないことは、現時点の情報だけで問題と決めつけません。会社の未来に向けた経営判断を進めるため、${factCount ? `次に事実として確認したい${factCount}件のテーマ` : '次に事実として確認したいテーマ'}を整理しました。`, 'summary-paragraph'));
-    page.insertBefore(summary, page.lastChild); return page;
+  function diagramNode(text, className = '') { return ui.el('div', `report-concept-node ${className}`.trim(), text); }
+  function diagramArrow(text = '↓') { return ui.el('div', 'report-concept-arrow', text); }
+  function renderStaticIntroduction() {
+    const node = chapter('', 'このレポートをお読みいただく前に'); node.classList.add('report-introduction-page');
+    [
+      'このたびは「IT経営KAIZEN 無料診断」をご利用いただき、ありがとうございます。',
+      'IT経営KAIZEN 無料診断は、ITの「良し悪し」を採点する診断ではありません。会社が実現したい未来を起点に、ITについて今どこまで分かっているのかを整理し、経営判断のために次に何を詳しく確認する価値があるのかを明らかにする診断です。',
+      'ITについて「分からないこと」があること自体を、問題とは考えていません。大切なのは、分かっていることと、まだ分かっていないことを分け、何を確認すれば経営として判断できるのかを明らかにすることです。',
+      'そのため、このレポートでは特定のシステムやAIの導入を前提とせず、今回のアンケートとヒアリングをもとに、貴社が実現したい未来、現在どこまで分かっているか、確認する価値があること、現時点ではまだ判断できないこと、次に確認したい事実を整理しています。',
+      '本レポートが、これからのITについて考え、経営として次の判断を行うための材料となれば幸いです。',
+    ].forEach(text => node.append(paragraph(text, 'introduction-paragraph')));
+    const diagram = ui.el('section', 'report-concept-diagram');
+    diagram.append(
+      diagramNode('01 実現したい会社の未来', 'diagram-future'),
+      diagramArrow('↓'),
+      ui.el('p', 'diagram-context', '未来を基準に、アンケート＋ヒアリングで現在を確認'),
+      diagramArrow('↓'),
+    );
+    const parallel = ui.el('div', 'diagram-parallel');
+    parallel.append(diagramNode('02 現在どこまで分かっているか'), diagramNode('04 現時点ではまだ判断できないこと'));
+    diagram.append(parallel, diagramArrow('↓'), diagramNode('03 未来に向けて確認することで、改善が期待できること', 'diagram-improvement'), diagramArrow('↓'), ui.el('p', 'diagram-lenses', '技術 ｜ 運用 ｜ 管理'), diagramArrow('↓'), diagramNode('05 次に確認する価値があること'), diagramArrow('↓'), ui.el('p', 'diagram-next-decision', '次の経営判断へ'));
+    node.append(diagram); return node;
   }
 
   function detail(section, subtitle, note) { const node = chapter(section.title.slice(0, 2), section.title.slice(3), subtitle); if (note) node.append(paragraph(note, 'chapter-note')); appendEntries(node, section.entries); return node; }
   function renderFacts(content) {
-    const node = chapter('05', '経営判断を進めるために、次に確認したいこと', '無料診断で整理した問いを、次の確認につなげます。');
+    const node = chapter('05', '次に確認する価値があること');
     content.factCandidates.forEach((candidate, index) => { const item = ui.el('article', 'fact-candidate'); const title = `${String(index + 1).padStart(2, '0')}　${candidate.whatToVerify}`; item.append(ui.el('h3', '', title), paragraph(`${candidate.whyItMattersToFuture} ${candidate.whatMayBecomeKnowable}`)); node.append(item); });
+    return node;
+  }
+  function renderInterpretation(firstText, secondText) {
+    const node = ui.el('section', 'report-interpretation');
+    node.append(ui.el('h3', '', 'この診断結果が表していること'), paragraph(firstText), ui.el('h3', '', '確認することで、こんな判断につながる可能性があります'), paragraph(secondText));
     return node;
   }
   function renderNextDecisionPage() {
@@ -127,10 +141,14 @@
   function renderPreview() {
     if (!report) return; const content = editedContent(); const sections = sectionMap(content); const preview = byId('reportPreview'); preview.replaceChildren();
     preview.append(
-      renderCover(content), renderExecutiveSummary(content),
-      bodyPage(3, [detail(sections.get('FUTURE'), '今回の診断では、この未来を基準にITを考えました。', 'ITの一般的な良し悪しではなく、この未来に対して現在のITや仕事の進め方を確認しています。'), detail(sections.get('CURRENT_UNDERSTANDING'), '経営者として現在どこまで認識できているかを整理した結果')]),
-      bodyPage(4, [detail(sections.get('LENSES'), '未来に向けて確認しておく価値があること'), detail(sections.get('UNKNOWNS'), '', '確認できていないことを、推測で結論づけません。')]),
-      bodyPage(5, [renderFacts(content)]), bodyPage(6, [renderNextDecisionPage()]),
+      renderCover(content),
+      bodyPage(2, [renderStaticIntroduction()], 'report-introduction-document'),
+      bodyPage(3, [detail(sections.get('FUTURE'))], 'report-future-page'),
+      bodyPage(4, [detail(sections.get('CURRENT_UNDERSTANDING'))], 'report-current-page'),
+      bodyPage(5, [detail(sections.get('LENSES')), renderInterpretation('ここに示しているのは、現時点で「問題がある」と判断した項目ではありません。貴社が実現したい未来と、アンケート・ヒアリングで確認した現在の状況を照らし合わせ、技術・運用・管理の視点から、さらに確認することで改善の可能性を検討できるテーマを整理したものです。', '実際の業務やITの状況を確認することで、システムを変えるべきなのか、仕事の進め方や運用を見直すべきなのか、経営として把握・管理する仕組みを整えるべきなのかなど、どこに改善の余地があり、何を優先して取り組む価値があるのかを判断する材料につながります。')], 'report-improvement-page'),
+      bodyPage(6, [detail(sections.get('UNKNOWNS')), renderInterpretation('ここに示しているのは、今回の無料診断だけでは、まだ事実として確認できていないことです。分からないことがあること自体を、問題とは判断していません。貴社が実現したい未来に向けて経営判断を行ううえで、現時点では判断材料が十分ではないテーマを整理しています。', '必要な事実を確認することで、現在のままでよいのか、改善する必要があるのか、今は対応しなくてよいのかを判断できるようになります。「分からない」を「判断できる」に変えることが、ここで確認する目的です。')], 'report-unknowns-page'),
+      bodyPage(7, [renderFacts(content), renderInterpretation('ここに示しているのは、今回の診断結果から、次の経営判断に進むために事実として確認する価値があることです。すべてを確認する必要があるという意味ではありません。貴社が今後どの判断を行いたいかに応じて、必要なものを選んで確認していくためのテーマです。', '実際の業務、情報の流れ、ITの使われ方、運用や管理の状況を確認することで、改善の必要性や優先順位、取り得る選択肢を具体化し、何をするか、何をしないかを経営として判断するための材料につながります。')], 'report-facts-page'),
+      bodyPage(8, [renderNextDecisionPage()], 'report-next-decision-document'),
     );
   }
 

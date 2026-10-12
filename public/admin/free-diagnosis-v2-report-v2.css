@@ -1,8 +1,16 @@
 .cover-service{margin:34mm 0 2mm;font-size:14pt;letter-spacing:.08em;color:#334155}
 .cover-message{margin-top:12mm;font-size:13pt;color:#475569}
-.executive-summary>h2{margin:0 0 4mm;font-size:21pt;color:#17375e}
-.summary-paragraph{margin:0;padding:6mm 0;border-top:1px solid #d5dee8;font-size:12pt;line-height:2;color:#263b52}
-.summary-paragraph:last-child{border-bottom:1px solid #d5dee8}
+.report-introduction-page .chapter-header{margin-bottom:4mm}
+.introduction-paragraph{margin:0 0 3mm;font-size:9.5pt;line-height:1.7;color:#263b52}
+.report-concept-diagram{margin:5mm 0 0;padding:4mm 6mm;border-top:1px solid #bac8d6;border-bottom:1px solid #bac8d6;text-align:center;color:#263b52}
+.report-concept-node{display:inline-block;max-width:92mm;padding:2.5mm 5mm;border:1px solid #8fa3b8;background:#fff;font-size:9.5pt;font-weight:700;line-height:1.45;color:#17375e}
+.diagram-future{background:#f5f8fb}.diagram-improvement{max-width:105mm;background:#f7f9fc}
+.report-concept-arrow{height:4mm;line-height:4mm;color:#64748b;font-size:11pt}
+.diagram-context,.diagram-lenses,.diagram-next-decision{margin:0;font-size:9pt;line-height:1.45;color:#3f4f63}
+.diagram-lenses{font-weight:700;color:#3155a6}.diagram-next-decision{font-weight:700;color:#17375e}
+.diagram-parallel{display:grid;grid-template-columns:1fr 1fr;gap:6mm;max-width:166mm;margin:0 auto}.diagram-parallel .report-concept-node{max-width:none;display:flex;align-items:center;justify-content:center}
+.report-interpretation{margin-top:6mm;padding:4mm 5mm;border-left:3px solid #8098b5;background:#f7f9fc;color:#3f4f63}
+.report-interpretation h3{margin:0 0 2mm;font-size:10pt;color:#314861}.report-interpretation p{margin:0 0 4mm;font-size:9.5pt;line-height:1.65}.report-interpretation p:last-child{margin-bottom:0}
 .chapter-note{padding:4mm 5mm;border-left:3px solid #8098b5;background:#f7f9fc;color:#3f4f63}
 .assessment-value{font-size:13pt;color:#3155a6;margin:0 0 4mm}
 .assessment-flow{display:flex;align-items:stretch;justify-content:center;gap:2mm;margin:7mm 0}
@@ -22,4 +30,4 @@
 .kaizen-principle{padding-top:4mm;border-top:2px solid #3155a6}
 .kaizen-principle h3{margin:0 0 3mm;font-size:12pt;color:#17375e}
 .kaizen-principle p{margin:0 0 2.5mm;font-size:9.5pt;line-height:1.55}
-@media(max-width:700px){.assessment-flow{flex-direction:column}.flow-arrow{align-self:center;transform:rotate(90deg)}.flow-step{width:100%}}
+@media(max-width:700px){.assessment-flow{flex-direction:column}.flow-arrow{align-self:center;transform:rotate(90deg)}.flow-step{width:100%}.diagram-parallel{grid-template-columns:1fr;gap:3mm}.introduction-paragraph{font-size:10pt}.report-concept-node{max-width:100%}}
