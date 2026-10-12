@@ -102,7 +102,8 @@
       const related = ui.relatedBadges(themeTokens(ws.traceability?.narrativeSectionThemes?.[key] || [])); if (related) block.append(related);
       const area = document.createElement('textarea'); area.dataset.section = key; area.value = content[key].entries.join('\n'); area.rows = 1; area.addEventListener('input', () => autoGrow(area)); block.append(area); wrap.append(block); requestAnimationFrame(() => autoGrow(area));
     });
-    const saveBar = ui.el('div', 'report-save-bar'); const save = document.createElement('button'); save.type = 'button'; save.id = 'saveNarrative'; save.textContent = '顧客向け文面を保存'; save.disabled = ws.analysisFreshness !== 'CURRENT'; saveBar.append(save); wrap.append(saveBar);
+    const save = document.createElement('button'); save.type = 'button'; save.id = 'saveNarrative'; save.textContent = '顧客向け文面を保存'; save.disabled = ws.analysisFreshness !== 'CURRENT';
+    const saveAction = document.querySelector('#narrativeSaveAction'); saveAction.replaceChildren(save); saveAction.classList.remove('hidden');
     if (ws.analysisFreshness !== 'CURRENT') wrap.append(ui.el('p', 'status warning', '現在の分析を確認してから文面を編集してください。'));
     if (ws.humanEditedNarrativeStatus === 'STALE_REVIEW_REQUIRED') wrap.append(ui.el('p', 'status warning', '前回の編集文は、現在の分析より前の内容です。確認してください。'));
     save.addEventListener('click', saveNarrative); return wrap;
@@ -112,7 +113,7 @@
     reviewSections.forEach(([key, title]) => { const section = content[key]; if (!section) return; const block = ui.el('div', 'narrative-block'); block.append(ui.el('h4', '', title)); const related = ui.relatedBadges(themeTokens(ws.traceability?.narrativeSectionThemes?.[key] || [])); if (related) block.append(related); const list = ui.el('ul'); section.entries.forEach((entry) => list.append(ui.el('li', '', entry))); block.append(list); body.append(block); }); reference.append(body); target.append(reference);
   }
   function renderNarratives() {
-    const generated = document.querySelector('#generated'), human = document.querySelector('#humanNarrative'); generated.replaceChildren(); human.replaceChildren(); const latest = ws.latestGeneratedNarrative?.content;
+    const generated = document.querySelector('#generated'), human = document.querySelector('#humanNarrative'), saveAction = document.querySelector('#narrativeSaveAction'); generated.replaceChildren(); human.replaceChildren(); saveAction.replaceChildren(); saveAction.classList.add('hidden'); const latest = ws.latestGeneratedNarrative?.content;
     if (!latest) {
       if (ws.analysisFreshness !== 'CURRENT') human.append(ui.el('p', 'status warning', '現在の分析を確認してください。'));
       if (ws.humanEditedNarrativeStatus === 'STALE_REVIEW_REQUIRED' && ws.latestHumanEditedNarrative) {

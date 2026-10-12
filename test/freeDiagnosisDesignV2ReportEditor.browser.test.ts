@@ -25,6 +25,8 @@ test('Report Presentation renders the fixed introduction, independent customer-r
   await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, async route => { if (route.request().method() === 'GET') { await route.fulfill({ json: data }); return; } patchBody = route.request().postDataJSON(); data = { ...data, contentVersion: 2, content: patchBody }; await route.fulfill({ json: data }); });
   await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
   await expect(page.getByRole('heading', { name: '正式レポートの確認' })).toBeVisible();
+  await expect(page.locator('.report-action-bar')).toHaveCSS('position', 'sticky');
+  await expect(page.locator('.report-action-bar')).toContainText('提案情報を保存');
   await expect(page.locator('.report-cover')).toContainText('会社の未来から、ITを考える。');
   await expect(page.locator('.report-cover')).toHaveCSS('background-image', /report-cover-v1\.png/);
   await expect(page.locator('.report-page')).toHaveCount(8);
@@ -41,6 +43,9 @@ test('Report Presentation renders the fixed introduction, independent customer-r
   await expect(introduction.locator('.report-concept-diagram')).toContainText('05 次に確認する価値があること');
   await expect(introduction.locator('.report-concept-diagram')).toContainText('次の経営判断へ');
   await expect(introduction.locator('.report-concept-art')).toHaveAttribute('src', '/admin/assets/report-guide-v1.png');
+  for (const label of ['.diagram-future', '.diagram-current', '.diagram-unknown', '.diagram-improvement', '.diagram-facts']) {
+    await expect(introduction.locator(label)).toBeVisible();
+  }
   await expect(introduction).not.toContainText('少人数で成長する');
   await expect(introduction).not.toContainText('共有内容');
   await expect(page.locator('.executive-summary, .summary-paragraph, .summary-item, .summary-result, .summary-premise, .summary-results')).toHaveCount(0);
@@ -54,6 +59,9 @@ test('Report Presentation renders the fixed introduction, independent customer-r
   await expect(page.locator('.report-facts-page')).toContainText('05次に確認する価値があること');
   await expect(page.locator('.fact-candidate').first()).toContainText('共有内容');
   await expect(page.locator('.fact-candidate')).toHaveCount(5);
+  await expect(page.locator('.fact-candidate-number')).toHaveCount(5);
+  await expect(page.locator('.fact-candidate-number').first()).toHaveText('01');
+  await expect(page.locator('.fact-candidate h3').first()).toHaveCSS('grid-template-columns', /.+/);
   expect(await page.locator('.report-facts-page').evaluate(node => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
   const factTexts = (await page.locator('.fact-candidate').allTextContents()).join('\n');
   expect(factTexts).not.toContain('確認すること');
@@ -83,6 +91,7 @@ test('Report Presentation renders the fixed introduction, independent customer-r
   await expect(page.locator('.report-next-decision-document')).not.toContainText('個別にご相談のうえお見積り');
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator('.report-cover')).toBeVisible();
+  expect(await page.locator('.report-action-row').evaluate((node) => getComputedStyle(node).flexDirection)).toBe('column');
   await expect(page.locator('.report-concept-diagram')).toBeVisible();
   await expect(page.locator('.report-facts-page')).toBeVisible();
   expect(await page.locator('.report-concept-diagram').evaluate(node => node.getBoundingClientRect().width <= window.innerWidth)).toBe(true);

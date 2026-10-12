@@ -71,6 +71,9 @@ test('Post-Hearing makes the five diagnostic results the primary Human Review', 
   const state = { value: workspace() }; await routeWorkspace(page, state);
   await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${state.value.case.id}`);
   await expect(page.getByRole('heading', { name: '診断結果の確認・整理' })).toBeVisible();
+  await expect(page.locator('.analysis-action-bar')).toHaveCSS('position', 'sticky');
+  await expect(page.locator('.analysis-action-bar #saveNarrative')).toBeVisible();
+  await expect(page.locator('#humanNarrative #saveNarrative')).toHaveCount(0);
   await expect(page.locator('#humanNarrative [data-section]')).toHaveCount(5);
   for (const heading of ['01 実現したい会社の未来', '02 現在どこまで分かっているか', '03 未来に向けて確認しておく価値があること', '04 現時点ではまだ判断できないこと', '05 次に確認する価値があること']) {
     await expect(page.locator('#humanNarrative').getByRole('heading', { name: heading })).toBeVisible();
@@ -173,6 +176,8 @@ test('narrow viewport keeps the same Human Review and secondary survey behavior'
   await page.setViewportSize({ width: 390, height: 844 }); const state = { value: workspace() }; await routeWorkspace(page, state);
   await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${state.value.case.id}`);
   expect(await page.locator('.analysis-grid').evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(1);
+  await expect(page.locator('.analysis-action-bar')).toHaveCSS('position', 'sticky');
+  expect(await page.locator('.analysis-action-row').evaluate((node) => getComputedStyle(node).flexDirection)).toBe('column');
   await expect(page.locator('#humanNarrative [data-section]')).toHaveCount(5); await expect(page.locator('#answerReference')).not.toHaveAttribute('open', ''); await page.locator('#openAnswerReference').click(); await expect(page.locator('#answerReference')).toBeVisible();
   await page.locator('#openQ1Editor').click(); expect(await page.locator('.q1-choice-grid').evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(1);
 });

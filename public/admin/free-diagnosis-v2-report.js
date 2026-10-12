@@ -148,7 +148,7 @@
   function detail(section, subtitle, note) { const node = chapter(section.title.slice(0, 2), section.title.slice(3), subtitle); if (note) node.append(paragraph(note, 'chapter-note')); appendEntries(node, section.entries); return node; }
   function renderFacts(content) {
     const node = chapter('05', '次に確認する価値があること');
-    content.factCandidates.forEach((candidate, index) => { const item = ui.el('article', 'fact-candidate'); const title = `${String(index + 1).padStart(2, '0')}　${candidate.whatToVerify}`; item.append(ui.el('h3', '', title), paragraph(`${candidate.whyItMattersToFuture} ${candidate.whatMayBecomeKnowable}`)); node.append(item); });
+    content.factCandidates.forEach((candidate, index) => { const item = ui.el('article', 'fact-candidate'); const title = ui.el('h3'); title.append(ui.el('span', 'fact-candidate-number', String(index + 1).padStart(2, '0')), ui.el('span', 'fact-candidate-title', candidate.whatToVerify)); item.append(title, paragraph(`${candidate.whyItMattersToFuture} ${candidate.whatMayBecomeKnowable}`)); node.append(item); });
     return node;
   }
   function renderInterpretation(firstText, secondText) {
