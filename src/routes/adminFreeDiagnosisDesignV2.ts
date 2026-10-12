@@ -63,6 +63,7 @@ const reportContentSchema = z.object({
   diagnosisDate: z.string().trim().min(1).max(100),
   issuer: z.object({ displayName: z.literal('atLIB株式会社') }).strict(),
   sections: z.array(z.object({ key: z.enum(['FUTURE','CURRENT_UNDERSTANDING','LENSES','UNKNOWNS','NEXT_FACTS']), title: z.string().trim().min(1).max(200), entries: z.array(reportEntrySchema).max(100) }).strict()).length(5),
+  diagnosisMap: z.array(z.object({ key: z.enum(['FUTURE','CURRENT_UNDERSTANDING','LENSES','UNKNOWNS','NEXT_FACTS']), title: z.string().trim().min(1).max(200), entries: z.array(reportEntrySchema).max(2), overflowCount: z.number().int().min(0) }).strict()).length(5),
   factCandidates: z.array(z.object({ id: z.string().min(1), whatToVerify: z.string(), whyItMattersToFuture: z.string(), whatMayBecomeKnowable: z.string(), lenses: z.array(z.enum(['TECHNOLOGY','OPERATION','MANAGEMENT'])), sourceRuleIds: z.array(z.string()) }).strict()).max(100),
   assessmentProposal: z.object({
     status: z.literal('NOT_SELECTED'), source: z.literal('ANALYSIS_FACT_CANDIDATES'),

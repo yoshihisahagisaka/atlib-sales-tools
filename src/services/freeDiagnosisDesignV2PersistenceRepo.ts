@@ -735,8 +735,9 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
       || candidate.assessmentProposal.candidates.some(item => !sameCandidate(item, originalProposalFacts.get(item.id)))) {
       throw new FreeDiagnosisDesignV2PersistenceError(422, 'DESIGN_V2_REPORT_SOURCE_MUTATION_FORBIDDEN');
     }
-    if (candidate.sections.length !== 5 || candidate.sections.some((section, index) => section.key !== original.sections[index]?.key || section.title !== original.sections[index]?.title || !Array.isArray(section.entries))) {
-      throw new FreeDiagnosisDesignV2PersistenceError(422, 'DESIGN_V2_REPORT_PRESENTATION_INVALID');
+    if (JSON.stringify(candidate.sections) !== JSON.stringify(original.sections)
+      || JSON.stringify(candidate.diagnosisMap) !== JSON.stringify(original.diagnosisMap)) {
+      throw new FreeDiagnosisDesignV2PersistenceError(422, 'DESIGN_V2_REPORT_SOURCE_MUTATION_FORBIDDEN');
     }
     const selected = candidate.assessmentProposal?.selectedCandidateIds ?? [];
     if (new Set(selected).size !== selected.length || selected.some(id => !originalFacts.has(id))) {

@@ -1,42 +1,140 @@
 (() => {
-  const ui=window.DesignV2UI;const params=new URLSearchParams(location.search);const caseId=params.get('caseId');const reportId=params.get('reportId');const apiBase='/api/admin/free-diagnosis-v1/cases/';let report;
-  const message=document.querySelector('#reportMessage'),workspace=document.querySelector('#reportWorkspace'),unavailable=document.querySelector('#reportUnavailable');
-  const byId=id=>document.querySelector(`#${id}`);const safeDate=value=>/^\d{4}-\d{2}-\d{2}/.test(value||'')?value.slice(0,10):'';
-  function showMessage(text,type=''){message.textContent=text;message.className=`status${type?' '+type:''}`}
-  function hidden(node,value){node.classList.toggle('hidden',value)}
-  function autoGrow(area){area.style.height='auto';area.style.height=`${area.scrollHeight}px`}
-  function textArea(value){const area=document.createElement('textarea');area.value=value||'';area.rows=2;area.addEventListener('input',()=>{autoGrow(area);renderPreview()});requestAnimationFrame(()=>autoGrow(area));return area}
-  function candidateMap(content){return content.assessmentProposal.presentationByCandidateId||{}}
-  function selectedIds(content){return new Set(content.assessmentProposal.selectedCandidateIds||[])}
-  function selectedCandidateIdsFromForm(){return [...document.querySelectorAll('[data-candidate-id]:checked')].map(input=>input.dataset.candidateId)}
-  function presentationFromEditors(){const presentation={};document.querySelectorAll('[data-customer-expression]').forEach(area=>{const id=area.dataset.customerExpression;presentation[id]={customerExpression:area.value,reason:document.querySelector(`[data-reason="${id}"]`)?.value||''}});return presentation}
-  function renderSelectedCandidateEditors(content,ids,pending={}){const selected=byId('assessmentSelectedEditors'),existing=candidateMap(content);selected.replaceChildren(ui.el('h4','','今回の主な確認対象'));if(!ids.length){selected.append(ui.el('p','editor-note','候補を選択すると、顧客向けの表現と確認する理由を編集できます。'));return}content.factCandidates.filter(candidate=>ids.includes(candidate.id)).forEach((candidate,index)=>{const item=ui.el('section','candidate-presentation-editor');item.append(ui.el('p','candidate-source',`元の確認候補 ${index+1}`),ui.el('p','candidate-source-text',candidate.whatToVerify));const expression=ui.el('label','','確認対象の顧客向け表現');const expr=textArea(pending[candidate.id]?.customerExpression??existing[candidate.id]?.customerExpression??candidate.whatToVerify);expr.dataset.customerExpression=candidate.id;expression.append(expr);const reasonLabel=ui.el('label','','確認する理由');const reason=textArea(pending[candidate.id]?.reason??existing[candidate.id]?.reason??candidate.whyItMattersToFuture);reason.dataset.reason=candidate.id;reasonLabel.append(reason);item.append(expression,reasonLabel);selected.append(item)})}
-  function renderForm(){const content=report.content;byId('recipientCompany').value=content.recipient.organizationDisplayName||'';byId('recipientRole').value=content.recipient.role||'';byId('recipientName').value=content.recipient.name||'';byId('diagnosisDate').value=safeDate(content.diagnosisDate);
-    ['recipientCompany','recipientRole','recipientName','diagnosisDate','durationText','priceExcludingTaxText'].forEach(id=>byId(id).addEventListener('input',renderPreview));
-    const editor=byId('sectionEditors');editor.replaceChildren();content.sections.forEach(section=>{const wrap=ui.el('section','edit-group report-section-editor');const heading=ui.el('h3','',section.title);const area=textArea(section.entries.join('\n'));area.dataset.sectionKey=section.key;wrap.append(heading,area);editor.append(wrap)});
-    byId('durationText').value=content.assessmentProposal.durationText||'';byId('priceExcludingTaxText').value=content.assessmentProposal.priceExcludingTaxText||'';
-    const candidates=byId('assessmentCandidates');candidates.replaceChildren();const selected=selectedIds(content);content.factCandidates.forEach((candidate,index)=>{const label=ui.el('label','candidate-selector');const check=document.createElement('input');check.type='checkbox';check.checked=selected.has(candidate.id);check.dataset.candidateId=candidate.id;label.append(check,ui.el('span','',`${index+1}. ${candidate.whatToVerify}`));check.addEventListener('change',()=>{const pending=presentationFromEditors();renderSelectedCandidateEditors(content,selectedCandidateIdsFromForm(),pending);renderPreview()});candidates.append(label)});renderSelectedCandidateEditors(content,[...selected]);
+  const ui = window.DesignV2UI;
+  const params = new URLSearchParams(location.search);
+  const caseId = params.get('caseId');
+  const reportId = params.get('reportId');
+  const apiBase = '/api/admin/free-diagnosis-v1/cases/';
+  let report;
+  const byId = id => document.querySelector(`#${id}`);
+  const message = byId('reportMessage');
+  const workspace = byId('reportWorkspace');
+  const unavailable = byId('reportUnavailable');
+  const safeDate = value => /^\d{4}-\d{2}-\d{2}/.test(value || '') ? value.slice(0, 10) : '';
+  const sectionMap = content => new Map(content.sections.map(section => [section.key, section]));
+  const candidateMap = content => content.assessmentProposal.presentationByCandidateId || {};
+  const selectedIds = content => new Set(content.assessmentProposal.selectedCandidateIds || []);
+
+  function showMessage(text, type = '') { message.textContent = text; message.className = `status${type ? ` ${type}` : ''}`; }
+  function hidden(node, value) { node.classList.toggle('hidden', value); }
+  function autoGrow(area) { area.style.height = 'auto'; area.style.height = `${area.scrollHeight}px`; }
+  function textArea(value) { const area = document.createElement('textarea'); area.value = value || ''; area.rows = 2; area.addEventListener('input', () => { autoGrow(area); renderPreview(); }); requestAnimationFrame(() => autoGrow(area)); return area; }
+  function selectedCandidateIdsFromForm() { return [...document.querySelectorAll('[data-candidate-id]:checked')].map(input => input.dataset.candidateId); }
+  function presentationFromEditors() { const presentation = {}; document.querySelectorAll('[data-customer-expression]').forEach(area => { const id = area.dataset.customerExpression; presentation[id] = { customerExpression: area.value, reason: document.querySelector(`[data-reason="${id}"]`)?.value || '' }; }); return presentation; }
+
+  function renderSelectedCandidateEditors(content, ids, pending = {}) {
+    const selected = byId('assessmentSelectedEditors'); const existing = candidateMap(content);
+    selected.replaceChildren(ui.el('h4', '', '今回Assessmentで確認する対象'));
+    if (!ids.length) { selected.append(ui.el('p', 'editor-note', '候補を選択すると、顧客向けの表現と確認する理由を編集できます。')); return; }
+    content.factCandidates.filter(candidate => ids.includes(candidate.id)).forEach((candidate, index) => {
+      const item = ui.el('section', 'candidate-presentation-editor');
+      item.append(ui.el('p', 'candidate-source', `元の確認候補 ${index + 1}`), ui.el('p', 'candidate-source-text', candidate.whatToVerify));
+      const expressionLabel = ui.el('label', '', '確認対象の顧客向け表現');
+      const expression = textArea(pending[candidate.id]?.customerExpression ?? existing[candidate.id]?.customerExpression ?? candidate.whatToVerify);
+      expression.dataset.customerExpression = candidate.id; expressionLabel.append(expression);
+      const reasonLabel = ui.el('label', '', '確認する理由');
+      const reason = textArea(pending[candidate.id]?.reason ?? existing[candidate.id]?.reason ?? candidate.whyItMattersToFuture);
+      reason.dataset.reason = candidate.id; reasonLabel.append(reason);
+      item.append(expressionLabel, reasonLabel); selected.append(item);
+    });
   }
-  function editedContent(){const base=structuredClone(report.content);base.recipient={organizationDisplayName:byId('recipientCompany').value.trim(),...(byId('recipientRole').value.trim()?{role:byId('recipientRole').value.trim()}:{}),...(byId('recipientName').value.trim()?{name:byId('recipientName').value.trim()}:{} )};base.diagnosisDate=byId('diagnosisDate').value||base.diagnosisDate;const values=new Map([...document.querySelectorAll('[data-section-key]')].map(area=>[area.dataset.sectionKey,area.value.split('\n').map(v=>v.trim()).filter(Boolean)]));base.sections=base.sections.map(section=>({...section,entries:values.get(section.key)||[]}));const ids=selectedCandidateIdsFromForm();const presentation={};ids.forEach(id=>{presentation[id]={customerExpression:document.querySelector(`[data-customer-expression="${id}"]`).value.trim(),reason:document.querySelector(`[data-reason="${id}"]`).value.trim()}});base.assessmentProposal={...base.assessmentProposal,selectedCandidateIds:ids,presentationByCandidateId:presentation,durationText:byId('durationText').value.trim(),priceExcludingTaxText:byId('priceExcludingTaxText').value.trim()};return base}
-  function createReportPage(className=''){return ui.el('section',`report-page ${className}`.trim())}
-  function createDocumentHeader(){return ui.el('div','document-header','IT経営KAIZEN 無料診断レポート')}
-  function createDocumentFooter(pageNo){const footer=ui.el('footer','document-footer');footer.append(ui.el('span','','atLIB株式会社'),ui.el('span','',String(pageNo)));return footer}
-  function createChapterHeader(number,title,subtitle){const header=ui.el('header','chapter-header');header.append(ui.el('p','chapter-number',number),ui.el('h2','',title));if(subtitle)header.append(ui.el('p','chapter-subtitle',subtitle));return header}
-  function createParagraph(text,className=''){return ui.el('p',className,text)}
-  function appendEntries(parent,entries){if(!entries.length)return;const list=ui.el('ul','document-entry-list');entries.forEach(entry=>list.append(ui.el('li','',entry)));parent.append(list)}
-  function renderCover(content){const page=createReportPage('report-cover');const logo=document.createElement('img');logo.className='report-logo';logo.src='/admin/assets/it-management-kaizen-logo-v1.png';logo.alt='IT経営KAIZEN';const atlibLogo=document.createElement('img');atlibLogo.className='cover-atlib-logo';atlibLogo.src='/admin/assets/atlib-corporate-logo.png';atlibLogo.alt='atLIB';page.append(logo,ui.el('div','cover-rule'),ui.el('h1','','IT経営KAIZEN 無料診断レポート'));const recipient=ui.el('div','report-recipient');recipient.append(ui.el('strong','',content.recipient.organizationDisplayName));if(content.recipient.role)recipient.append(createParagraph(content.recipient.role));if(content.recipient.name)recipient.append(createParagraph(`${content.recipient.name} 様`));recipient.append(createParagraph(`診断実施日：${content.diagnosisDate||'未記入'}`));page.append(recipient);const issuer=ui.el('div','cover-issuer');issuer.append(atlibLogo,ui.el('p','','atLIB株式会社'));page.append(issuer);return page}
-  function createChapter(number,title,subtitle){const chapter=ui.el('section','document-chapter');chapter.append(createChapterHeader(number,title,subtitle));return chapter}
-  function renderIntroduction(){const chapter=createChapter('1','このレポートについて');const intro=ui.el('div','document-introduction');intro.append(createParagraph('このレポートは、ITの「良し悪し」を採点するものではありません。','introduction-lead'),createParagraph('経営として実現したい未来を起点に、ITについて現在どこまで分かっているかを整理し、次に何を詳しく確認する価値があるのかを明らかにするものです。'),createParagraph('現時点で確認できていないことを推測で補わず、「まだ分からないこと」として明確にしています。'),createParagraph('本レポートを、今後のIT投資や改善について経営判断するための出発点としてご活用ください。'));chapter.append(intro);return chapter}
-  function renderFuture(section){if(!section.entries.length)return null;const chapter=createChapter('2','実現したい会社の未来','今回の診断で見えている、実現したい未来');appendEntries(chapter,section.entries);return chapter}
-  function renderCurrentUnderstanding(section){if(!section.entries.length)return null;const chapter=createChapter('3','現在どこまで分かっているか','今回確認できたこと');appendEntries(chapter,section.entries);return chapter}
-  function renderLensFindings(section){if(!section.entries.length)return null;const chapter=createChapter('4','技術・運用・管理から見た確認ポイントと改善可能性');const guide=ui.el('div','lens-guide');[['技術','仕組み・IT'],['運用','仕事の進め方'],['管理','把握・共有・判断']].forEach(([title,text])=>{const item=ui.el('div','lens-guide-item');item.append(ui.el('strong','',title),ui.el('span','',text));guide.append(item)});chapter.append(guide,ui.el('h3','document-subheading','今回の確認ポイントと改善可能性'));appendEntries(chapter,section.entries);return chapter}
-  function renderUnknowns(section){if(!section.entries.length)return null;const chapter=createChapter('5','まだ確認できていないこと');section.entries.forEach((entry,index)=>{const item=ui.el('article','unknown-item');item.append(ui.el('span','unknown-number',String(index+1).padStart(2,'0')),ui.el('p','unknown-label','確認できていないこと'),createParagraph(entry));chapter.append(item)});return chapter}
-  function lensLabel(lens){return {TECHNOLOGY:'技術',OPERATION:'運用',MANAGEMENT:'管理'}[lens]||lens}
-  function renderFactCandidates(content){if(!content.factCandidates.length)return null;const chapter=createChapter('6','次に確認する価値があること');content.factCandidates.forEach((candidate,index)=>{const item=ui.el('article','fact-candidate');item.append(ui.el('span','candidate-number',String(index+1).padStart(2,'0')),ui.el('h3','', '確認すること'),createParagraph(candidate.whatToVerify),ui.el('h3','', '確認する価値'),createParagraph(candidate.whyItMattersToFuture),ui.el('h3','', '確認すると分かりそうなこと'),createParagraph(candidate.whatMayBecomeKnowable));const lenses=ui.el('div','candidate-lenses');candidate.lenses.forEach(lens=>lenses.append(ui.el('span','lens-badge',lensLabel(lens))));item.append(ui.el('p','candidate-lens-label','関連する観点'),lenses);chapter.append(item)});return chapter}
-  function renderAssessmentProposal(content){const chapter=createChapter('7','今後のご提案');chapter.append(ui.el('h3','assessment-service-name','IT経営KAIZEN 設計Assessment'),createParagraph('今回の無料診断で整理した「次に確認する価値があること」について、実際の業務・IT・運用・管理の状況を確認し、経営判断に必要な事実と判断材料を整理します。'));const selected=new Set(content.assessmentProposal.selectedCandidateIds||[]),presentation=candidateMap(content),candidates=content.factCandidates.filter(item=>selected.has(item.id));if(candidates.length){chapter.append(ui.el('h3','document-subheading','今回の主な確認対象'));candidates.forEach(candidate=>{const item=ui.el('article','report-proposal');item.append(ui.el('h4','',presentation[candidate.id]?.customerExpression||candidate.whatToVerify),ui.el('p','proposal-label','確認する理由'),createParagraph(presentation[candidate.id]?.reason||candidate.whyItMattersToFuture));chapter.append(item)})}const facts=ui.el('div','proposal-facts');if(content.assessmentProposal.durationText)facts.append(ui.el('p','',`想定実施期間：${content.assessmentProposal.durationText}`));if(content.assessmentProposal.priceExcludingTaxText)facts.append(ui.el('p','',`ご提案金額（税別）：${content.assessmentProposal.priceExcludingTaxText}`));if(facts.childNodes.length)chapter.append(facts);return chapter}
-  function createBodyPage(pageNo,chapters){const page=createReportPage();page.append(createDocumentHeader(),...chapters.filter(Boolean),createDocumentFooter(pageNo));return page}
-  function renderPreview(){if(!report)return;const content=editedContent(),preview=byId('reportPreview');preview.replaceChildren();const sections=new Map(content.sections.map(section=>[section.key,section]));const pages=[renderCover(content),createBodyPage(2,[renderIntroduction(),renderFuture(sections.get('FUTURE'))]),createBodyPage(3,[renderCurrentUnderstanding(sections.get('CURRENT_UNDERSTANDING')),renderLensFindings(sections.get('LENSES'))]),createBodyPage(4,[renderUnknowns(sections.get('UNKNOWNS')),renderFactCandidates(content)]),createBodyPage(5,[renderAssessmentProposal(content)])];preview.append(...pages)}
-  async function load(){if(!caseId||!reportId){hidden(unavailable,false);return}byId('backToAnalysis').href=`/admin/free-diagnosis-v2-analysis.html?caseId=${encodeURIComponent(caseId)}`;const response=await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/report-drafts/${encodeURIComponent(reportId)}`);if(!response.ok){hidden(unavailable,false);return}report=await response.json();renderForm();renderPreview();hidden(workspace,false)}
-  async function save(event){event?.preventDefault();if(!byId('reportForm').reportValidity())return;const button=byId('saveReport');button.disabled=true;try{const response=await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/report-drafts/${encodeURIComponent(reportId)}`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify(editedContent())});if(!response.ok){showMessage('レポートを保存できませんでした。内容を確認してください。','error');return}report=await response.json();renderForm();renderPreview();showMessage('レポートを保存しました。')}finally{button.disabled=false}}
-  byId('reportForm').addEventListener('submit',save);byId('saveReport').addEventListener('click',save);load().catch(()=>hidden(unavailable,false));
+
+  function renderForm() {
+    const content = report.content;
+    byId('recipientCompany').value = content.recipient.organizationDisplayName || '';
+    byId('recipientRole').value = content.recipient.role || '';
+    byId('recipientName').value = content.recipient.name || '';
+    byId('diagnosisDate').value = safeDate(content.diagnosisDate);
+    byId('durationText').value = content.assessmentProposal.durationText || '';
+    byId('priceExcludingTaxText').value = content.assessmentProposal.priceExcludingTaxText || '';
+    ['recipientCompany', 'recipientRole', 'recipientName', 'diagnosisDate', 'durationText', 'priceExcludingTaxText'].forEach(id => byId(id).addEventListener('input', renderPreview));
+    const candidates = byId('assessmentCandidates'); candidates.replaceChildren(); const selected = selectedIds(content);
+    content.factCandidates.forEach((candidate, index) => {
+      const label = ui.el('label', 'candidate-selector'); const check = document.createElement('input'); check.type = 'checkbox'; check.checked = selected.has(candidate.id); check.dataset.candidateId = candidate.id;
+      label.append(check, ui.el('span', '', `${index + 1}. ${candidate.whatToVerify}`));
+      check.addEventListener('change', () => { const pending = presentationFromEditors(); renderSelectedCandidateEditors(content, selectedCandidateIdsFromForm(), pending); renderPreview(); }); candidates.append(label);
+    });
+    renderSelectedCandidateEditors(content, [...selected]);
+  }
+
+  function editedContent() {
+    const base = structuredClone(report.content);
+    base.recipient = { organizationDisplayName: byId('recipientCompany').value.trim(), ...(byId('recipientRole').value.trim() ? { role: byId('recipientRole').value.trim() } : {}), ...(byId('recipientName').value.trim() ? { name: byId('recipientName').value.trim() } : {}) };
+    base.diagnosisDate = byId('diagnosisDate').value || base.diagnosisDate;
+    const ids = selectedCandidateIdsFromForm(); const presentation = {};
+    ids.forEach(id => { presentation[id] = { customerExpression: document.querySelector(`[data-customer-expression="${id}"]`).value.trim(), reason: document.querySelector(`[data-reason="${id}"]`).value.trim() }; });
+    base.assessmentProposal = { ...base.assessmentProposal, selectedCandidateIds: ids, presentationByCandidateId: presentation, durationText: byId('durationText').value.trim(), priceExcludingTaxText: byId('priceExcludingTaxText').value.trim() };
+    return base;
+  }
+
+  function reportPage(className = '') { return ui.el('section', `report-page ${className}`.trim()); }
+  function documentHeader() { return ui.el('div', 'document-header', 'IT経営KAIZEN 無料診断　診断結果レポート'); }
+  function documentFooter(pageNo) { const footer = ui.el('footer', 'document-footer'); footer.append(ui.el('span', '', 'atLIB株式会社'), ui.el('span', '', String(pageNo))); return footer; }
+  function chapter(number, title, subtitle) { const node = ui.el('section', 'document-chapter'); const header = ui.el('header', 'chapter-header'); header.append(ui.el('p', 'chapter-number', number), ui.el('h2', '', title)); if (subtitle) header.append(ui.el('p', 'chapter-subtitle', subtitle)); node.append(header); return node; }
+  function paragraph(text, className = '') { return ui.el('p', className, text); }
+  function appendEntries(parent, entries) { const list = ui.el('ul', 'document-entry-list'); entries.forEach(entry => list.append(ui.el('li', '', entry))); parent.append(list); }
+  function bodyPage(pageNo, chapters) { const page = reportPage(); page.append(documentHeader(), ...chapters.filter(Boolean), documentFooter(pageNo)); return page; }
+
+  function renderCover(content) {
+    const page = reportPage('report-cover'); const logo = document.createElement('img'); logo.className = 'report-logo'; logo.src = '/admin/assets/it-management-kaizen-logo-v1.png'; logo.alt = 'IT経営KAIZEN';
+    const atlibLogo = document.createElement('img'); atlibLogo.className = 'cover-atlib-logo'; atlibLogo.src = '/admin/assets/atlib-corporate-logo.png'; atlibLogo.alt = 'atLIB';
+    page.append(logo, ui.el('div', 'cover-rule'), ui.el('p', 'cover-service', 'IT経営KAIZEN 無料診断'), ui.el('h1', '', '診断結果レポート'), paragraph('会社の未来から、ITを考える。', 'cover-message'));
+    const recipient = ui.el('div', 'report-recipient'); recipient.append(ui.el('strong', '', content.recipient.organizationDisplayName)); if (content.recipient.role) recipient.append(paragraph(content.recipient.role)); if (content.recipient.name) recipient.append(paragraph(`${content.recipient.name} 様`)); recipient.append(paragraph(`診断日：${content.diagnosisDate || '未記入'}`)); page.append(recipient);
+    const issuer = ui.el('div', 'cover-issuer'); issuer.append(atlibLogo, paragraph('atLIB株式会社')); page.append(issuer); return page;
+  }
+
+  function mapItems(content) {
+    if (Array.isArray(content.diagnosisMap)) return content.diagnosisMap;
+    return content.sections.map(section => ({ key: section.key, title: section.title, entries: section.entries.slice(0, 2), overflowCount: Math.max(0, section.entries.length - 2) }));
+  }
+  function renderMap(content) {
+    const page = bodyPage(2, []); const area = ui.el('section', 'diagnosis-map'); area.append(ui.el('h2', '', '今回の診断結果の地図'));
+    const items = new Map(mapItems(content).map(item => [item.key, item]));
+    const future = items.get('FUTURE'); const futureBox = ui.el('section', 'map-future'); futureBox.append(ui.el('h3', '', future?.title || '01 実現したい会社の未来'), paragraph('この未来を基準に考える', 'map-lens')); appendEntries(futureBox, future?.entries || []); if (future?.overflowCount) futureBox.append(paragraph(`ほか${future.overflowCount}件`, 'map-overflow')); area.append(futureBox);
+    const grid = ui.el('div', 'map-grid'); ['CURRENT_UNDERSTANDING', 'LENSES', 'UNKNOWNS', 'NEXT_FACTS'].forEach(key => { const item = items.get(key); const box = ui.el('section', 'map-result'); box.append(ui.el('h3', '', item?.title || '')); appendEntries(box, item?.entries || []); if (item?.overflowCount) box.append(paragraph(`ほか${item.overflowCount}件`, 'map-overflow')); grid.append(box); }); area.append(grid); page.insertBefore(area, page.lastChild); return page;
+  }
+
+  function detail(section, subtitle, note) { const node = chapter(section.title.slice(0, 2), section.title.slice(3), subtitle); if (note) node.append(paragraph(note, 'chapter-note')); appendEntries(node, section.entries); return node; }
+  function renderFacts(content) {
+    const section = sectionMap(content).get('NEXT_FACTS'); const node = detail(section, '経営判断を進めるため、次に事実として確認する価値があること');
+    content.factCandidates.forEach((candidate, index) => { const item = ui.el('article', 'fact-candidate'); item.append(ui.el('span', 'candidate-number', `確認事項 ${String(index + 1).padStart(2, '0')}`), ui.el('h3', '', '確認すること'), paragraph(candidate.whatToVerify), ui.el('h3', '', 'なぜ確認する価値があるのか'), paragraph(candidate.whyItMattersToFuture), ui.el('h3', '', '確認すると何が分かりそうか'), paragraph(candidate.whatMayBecomeKnowable)); node.append(item); }); return node;
+  }
+  function renderCompletion() {
+    const node = chapter('', '今回の無料診断で整理したこと'); node.classList.add('completion-boundary');
+    node.append(paragraph('今回の無料診断では、実現したい会社の未来を起点に、ITについて現在どこまで分かっているかを整理しました。'), paragraph('そのうえで、未来に向けて確認しておく価値があること、現時点ではまだ判断できないこと、そして次に事実として確認する価値があることを明らかにしました。'), paragraph('ここまでが、今回の無料診断で整理した内容です。', 'completion-lead'), paragraph('次の段階では、これらの確認事項について実際の業務・IT・運用状況を確認することで、経営判断に必要な事実を明らかにできます。'));
+    return node;
+  }
+  function renderAssessment(content) {
+    const node = chapter('', '次のステップについて'); node.append(ui.el('h3', 'assessment-service-name', '設計Assessment'), paragraph('無料診断で明らかになった「次に確認する価値があること」について、実際の業務・IT・運用・管理の状況を確認し、経営判断に必要な事実と判断材料を整理するプロセスです。最終判断は人が行います。'));
+    const flow = ui.el('div', 'assessment-flow'); [['無料診断', '何を確認する価値があるか'], ['設計Assessment', '実際はどうなっているかを確認'], ['判断材料', '事実を整理'], ['経営判断', '人が判断']].forEach(([title, text], index) => { if (index) flow.append(ui.el('span', 'flow-arrow', '↓')); const step = ui.el('div', 'flow-step'); step.append(ui.el('strong', '', title), paragraph(text)); flow.append(step); }); node.append(flow);
+    const selected = new Set(content.assessmentProposal.selectedCandidateIds || []), presentation = candidateMap(content), candidates = content.factCandidates.filter(item => selected.has(item.id));
+    if (candidates.length) { node.append(ui.el('h3', 'document-subheading', '今回Assessmentで確認する対象')); candidates.forEach(candidate => { const item = ui.el('article', 'report-proposal'); item.append(ui.el('h4', '', presentation[candidate.id]?.customerExpression || candidate.whatToVerify), ui.el('p', 'proposal-label', '確認する理由'), paragraph(presentation[candidate.id]?.reason || candidate.whyItMattersToFuture)); node.append(item); }); }
+    const facts = ui.el('div', 'proposal-facts'); if (content.assessmentProposal.durationText) facts.append(paragraph(`想定実施期間：${content.assessmentProposal.durationText}`)); if (content.assessmentProposal.priceExcludingTaxText) facts.append(paragraph(`ご提案金額（税別）：${content.assessmentProposal.priceExcludingTaxText}`)); if (facts.childNodes.length) node.append(facts); return node;
+  }
+
+  function renderPreview() {
+    if (!report) return; const content = editedContent(); const sections = sectionMap(content); const preview = byId('reportPreview'); preview.replaceChildren();
+    preview.append(
+      renderCover(content), renderMap(content),
+      bodyPage(3, [detail(sections.get('FUTURE'), '今回の診断では、この未来を基準にITを考えました。', 'ITの一般的な良し悪しではなく、この未来に対して現在のITや仕事の進め方を確認しています。'), detail(sections.get('CURRENT_UNDERSTANDING'), '経営者として現在どこまで認識できているかを整理した結果')]),
+      bodyPage(4, [detail(sections.get('LENSES'), '未来に向けて確認しておく価値があること'), detail(sections.get('UNKNOWNS'), '', '確認できていないことを、推測で結論づけません。')]),
+      bodyPage(5, [renderFacts(content)]), bodyPage(6, [renderCompletion(), renderAssessment(content)]),
+    );
+  }
+
+  async function load() {
+    if (!caseId || !reportId) { hidden(unavailable, false); return; }
+    byId('backToAnalysis').href = `/admin/free-diagnosis-v2-analysis.html?caseId=${encodeURIComponent(caseId)}`;
+    const response = await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/report-drafts/${encodeURIComponent(reportId)}`);
+    if (!response.ok) { hidden(unavailable, false); return; }
+    report = await response.json(); renderForm(); renderPreview(); hidden(workspace, false);
+  }
+  async function save() {
+    const content = editedContent();
+    const response = await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/report-drafts/${encodeURIComponent(reportId)}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(content) });
+    if (!response.ok) { showMessage('提案情報を保存できませんでした。', 'error'); return; }
+    report = await response.json(); renderForm(); renderPreview(); showMessage('提案情報を保存しました。');
+  }
+  byId('reportForm').addEventListener('submit', event => { event.preventDefault(); save(); });
+  byId('saveReport').addEventListener('click', save);
+  load().catch(() => hidden(unavailable, false));
 })();

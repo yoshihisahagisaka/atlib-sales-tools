@@ -13,6 +13,7 @@ import { FreeDiagnosisDesignV2ApiService } from '../src/services/freeDiagnosisDe
 import { FreeDiagnosisDesignV2PersistenceRepo, type DesignV2CurrentStateFields } from '../src/services/freeDiagnosisDesignV2PersistenceRepo';
 import { StaffAuthService } from '../src/services/staffAuthService';
 import { createFreeDiagnosisRuleBasedV1Harness } from './support/freeDiagnosisRuleBasedV1Harness';
+import { projectDesignV2DiagnosisMap } from '../src/domain/freeDiagnosisDesignV2Report';
 
 const root = path.resolve(__dirname, '..');
 
@@ -29,6 +30,20 @@ function fields(value: CurrentStructuredStateV2): DesignV2CurrentStateFields {
   const { q1CompanyContext: _q1, ...state } = value;
   return state;
 }
+
+test('Report map projection is deterministic, preserves source order, and reports overflow', () => {
+  const source = [
+    { key: 'FUTURE' as const, title: '01 実現したい会社の未来', entries: ['一番目', '二番目', '三番目'] },
+    { key: 'CURRENT_UNDERSTANDING' as const, title: '02 現在どこまで分かっているか', entries: ['現在'] },
+  ];
+  const first = projectDesignV2DiagnosisMap(source, 2, 90);
+  const second = projectDesignV2DiagnosisMap(source, 2, 90);
+  assert.deepEqual(first, second);
+  assert.deepEqual(first[0]?.entries, ['一番目', '二番目']);
+  assert.equal(first[0]?.overflowCount, 1);
+  assert.equal(first[0]?.key, 'FUTURE');
+  assert.equal(first[1]?.key, 'CURRENT_UNDERSTANDING');
+});
 
 test('E1 Design v2 Report Draft uses only latest canonical sources and creates a VS1-owned version', async t => {
   const h = await createFreeDiagnosisRuleBasedV1Harness();
@@ -97,9 +112,10 @@ test('E1 Design v2 Report Draft uses only latest canonical sources and creates a
       assert.equal(first.context.currentState.id, latest.current.id);
       assert.equal(first.context.analysisResult.id, latest.analysis.id);
       assert.equal(first.context.generatedNarrative.id, latest.generated.id);
-      assert.equal(first.content.formatVersion, 'free-diagnosis-design-v2-report-1');
+      assert.equal(first.content.formatVersion, 'free-diagnosis-design-v2-report-2');
       assert.deepEqual(first.content.factCandidates, latest.analysis.analysis.factCandidates);
       assert.equal(first.content.assessmentProposal.status, 'NOT_SELECTED');
+      assert.deepEqual(first.content.diagnosisMap, projectDesignV2DiagnosisMap(first.content.sections));
     });
 
     const currentContent = structuredClone(latest.generated.content) as FreeDiagnosisNarrativeV2;
@@ -150,7 +166,6 @@ test('E1 Design v2 Report Draft uses only latest canonical sources and creates a
       const content = structuredClone(draft.content);
       content.recipient = { organizationDisplayName: 'E2 顧客株式会社', role: '代表取締役', name: '山田 太郎' };
       content.diagnosisDate = '2026-10-12';
-      content.sections[0].entries = ['顧客向けに整えた未来の表現'];
       const candidate = content.factCandidates[0]!;
       content.assessmentProposal = {
         ...content.assessmentProposal,
@@ -178,6 +193,10 @@ test('E1 Design v2 Report Draft uses only latest canonical sources and creates a
       content.factCandidates[0].whatToVerify = 'analysis source must not be changed';
       const invalid = await patch(`/cases/${kase.id}/design-v2/report-drafts/${second.id}`, content);
       assert.equal(invalid.status, 422);
+      const sectionMutation = structuredClone(updated.content) as any;
+      sectionMutation.sections[0].entries = ['Report画面からの診断結果変更は禁止'];
+      const invalidSection = await patch(`/cases/${kase.id}/design-v2/report-drafts/${second.id}`, sectionMutation);
+      assert.equal(invalidSection.status, 422);
     });
   } finally {
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
