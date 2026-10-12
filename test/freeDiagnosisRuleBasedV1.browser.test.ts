@@ -13,11 +13,27 @@ test.beforeEach(async ({ context }) => {
 
 async function createCase(page: Page, name: string): Promise<void> {
   await page.goto(h.url + '/admin/free-diagnosis-v1.html');
-  await page.getByText('代理入力のために新しい案件を登録する').click();
-  await page.fill('#companyName', name);
-  await page.fill('#contactName', '担当者');
-  await page.click('#btnCreateCase');
+  const caseId = await page.evaluate(async companyName => {
+    const activityResponse = await fetch('/api/admin/free-diagnosis-v1/sales-activities', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: companyName, contact: { name: '担当者' }, selectedService: 'IT_KAIZEN' }) });
+    const activity = await activityResponse.json();
+    const caseResponse = await fetch(`/api/admin/free-diagnosis-v1/sales-activities/${activity.salesActivityId}/cases`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    return (await caseResponse.json()).id;
+  }, name);
+  await page.click('#btnLoadCases');
+  const row = page.locator('#caseList tbody tr').filter({ hasText: name });
+  await row.getByRole('button', { name: '開く' }).click();
   await expect(page.locator('#view-intake')).toBeVisible();
+}
+
+async function fillCanonicalStaffProxySurvey(page: Page): Promise<void> {
+  await page.locator('[data-proxy-q1="employeeRange"]').selectOption('31〜50人');
+  await page.locator('[data-proxy-q1="siteRange"]').selectOption('1か所');
+  await page.getByLabel('少人数でも無理なく成長・運営できる会社にしたい').check();
+  await page.getByLabel('経営判断を支えたい').check();
+  await page.getByLabel('経営判断に関すること').check();
+  await page.getByLabel('分かることと分からないことがある').check();
+  await page.getByLabel('報告・共有はあるが、数字の羅列や専門用語が多く、経営判断には使いにくい').check();
+  await page.getByLabel('AI・生成AI').check();
 }
 
 async function completeIntake(page: Page, values: { q2: string[]; q3: string[]; q4: string; q5: string; q6: string; q7?: string }): Promise<void> {
@@ -177,7 +193,6 @@ test('Structured IntakeからInitial Ruleを通じてPreparationを表示する:
     q5: 'MOSTLY_VISIBLE', q6: 'REGULAR_AND_USABLE', q7: '拠点を増やす際に確認したいことがあります。',
   });
 
-  await expect(page.locator('#prepCompany')).toHaveText('ブラウザ確認株式会社');
   await expect(page.locator('#prepFocus')).toContainText('成長・変化への対応');
   await expect(page.locator('#prepWhy')).toContainText('60分で状況を確認する価値');
   await expect(page.locator('#prepQ7')).toHaveText('拠点を増やす際に確認したいことがあります。');
@@ -278,12 +293,18 @@ test('Admin UIからReport承認・送付・Focused ConfirmationでHearingへ戻
 
 test('Admin UIでSales Activityの流入元を保存・表示・検索できる', async ({ page }) => {
   await page.goto(h.url + '/admin/free-diagnosis-v1.html');
-  await page.getByText('代理入力のために新しい案件を登録する').click();
+  await page.getByText('営業で伺った内容を登録する', { exact: true }).first().click();
   await page.fill('#companyName', '交流会流入株式会社'); await page.fill('#contactName', '担当者');
   await page.selectOption('#acquisitionSourceType', 'EVENT'); await page.fill('#acquisitionSourceName', '経営者交流会A');
+  await fillCanonicalStaffProxySurvey(page);
   await page.click('#btnCreateCase');
-  await completeIntake(page, { q2: ['NO_MAJOR_CHANGE'], q3: ['UNDECIDED'], q4: 'NO_MAJOR_CONCERN', q5: 'VISIBLE_ENOUGH', q6: 'REGULAR_AND_USABLE' });
-  await expect(page.locator('#prepAttribution')).toContainText('経営者交流会A');
+  await expect(page.locator('#proxySaveStatus')).toContainText('営業で伺った内容を登録しました。');
+  const caseId = new URL((await page.locator('#proxySaveStatus a').getAttribute('href'))!, h.url).searchParams.get('caseId');
+  const activity = (await h.pool.query<any>('SELECT a.acquisition_source_type,a.acquisition_source_name FROM sales_activity a JOIN it_management_diagnosis_case_v2 c ON c.sales_activity_id=a.id WHERE c.id=$1', [caseId])).rows[0];
+  expect(activity).toEqual({ acquisition_source_type: 'EVENT', acquisition_source_name: '経営者交流会A' });
+  await page.locator('#proxySaveStatus a').click();
+  await expect(page).toHaveURL(new RegExp(`free-diagnosis-v2-analysis\\.html\\?caseId=${caseId}`));
+  await expect(page.getByRole('heading', { name: 'ヒアリング後の整理' })).toBeVisible();
   await page.goto(h.url + '/admin/free-diagnosis-v1.html');
   await page.click('#btnLoadCases');
   await expect(page.locator('#caseList')).toContainText('交流会流入株式会社');

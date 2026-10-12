@@ -37,16 +37,21 @@ const attributionSchema = z.object({
   if ((value.acquisitionSourceType == null) !== (value.acquisitionSourceName == null)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'PUBLIC_ACQUISITION_SOURCE_PAIR_REQUIRED' });
 });
 
+export const designV2SurveyAnswerSchema = z.object({
+  q1CompanyContext: z.object({ employeeRange: z.enum(Q1_EMPLOYEE_RANGES_V2), siteRange: z.enum(Q1_SITE_RANGES_V2) }).strict(),
+  q2Future: z.array(z.enum(FUTURE_CODES_V2)).min(1), q3ItExpectations: z.array(z.enum(IT_EXPECTATION_CODES_V2)).min(1).max(2),
+  q4CurrentInterest: z.enum(CURRENT_INTEREST_CODES_V2), q5Visibility: z.enum(VISIBILITY_CODES_V2), q6ManagementConnection: z.enum(MANAGEMENT_CONNECTION_CODES_V2),
+  q7InterestThemes: z.array(z.enum(INTEREST_THEME_CODES_V2)).min(1).max(3),
+}).strict().superRefine((value, ctx) => {
+  try { projectFreeDiagnosisSemanticV2(value as CurrentStructuredStateV2); }
+  catch { ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'INVALID_DESIGN_V2_SURVEY' }); }
+});
+
 export const publicCustomerSelfDesignV2SubmissionSchema = z.object({
   idempotencyKey: z.string().uuid(),
   company: z.object({ name: z.string().trim().min(1).max(200), corporateNumber: optionalText(50) }).strict(),
   contact: z.object({ name: z.string().trim().min(1).max(200), email: z.string().trim().email().max(320), phone: optionalText(50), jobTitle: optionalText(100), respondentRole: z.enum(RESPONDENT_ROLE) }).strict(),
-  survey: z.object({
-    q1CompanyContext: z.object({ employeeRange: z.enum(Q1_EMPLOYEE_RANGES_V2), siteRange: z.enum(Q1_SITE_RANGES_V2) }).strict(),
-    q2Future: z.array(z.enum(FUTURE_CODES_V2)).min(1), q3ItExpectations: z.array(z.enum(IT_EXPECTATION_CODES_V2)).min(1).max(2),
-    q4CurrentInterest: z.enum(CURRENT_INTEREST_CODES_V2), q5Visibility: z.enum(VISIBILITY_CODES_V2), q6ManagementConnection: z.enum(MANAGEMENT_CONNECTION_CODES_V2),
-    q7InterestThemes: z.array(z.enum(INTEREST_THEME_CODES_V2)).min(1).max(3),
-  }).strict(),
+  survey: designV2SurveyAnswerSchema,
   consent: z.object({ privacy: z.literal(true), diagnosisUse: z.literal(true), wordingVersion: z.literal('it_management_public_self_consent_v1') }).strict(),
   referralPersonName: optionalText(200), attribution: attributionSchema,
 }).strict().superRefine((value, ctx) => {

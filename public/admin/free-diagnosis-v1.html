@@ -81,8 +81,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <div class="view active" id="view-entry"><h3>案件一覧</h3>
 <p class="hint">公開申込み済みのお客様を選び、現在の工程から作業を再開します。</p>
-<div class="row"><button id="btnLoadCases" class="secondary">案件一覧を更新</button><button id="btnOpenProxyEntry" class="secondary">代理入力の案件を登録</button></div><div id="caseList" class="case-list"></div>
-<details id="proxyEntry"><summary>代理入力のために新しい案件を登録する</summary><div class="entry-form">
+<div class="row"><button id="btnLoadCases" class="secondary">案件一覧を更新</button><button id="btnOpenProxyEntry" class="secondary">営業で伺った内容を登録する</button></div><div id="caseList" class="case-list"></div>
+<details id="proxyEntry"><summary>営業で伺った内容を登録する</summary><div class="entry-form">
 <div class="row"><label for="companyName">会社名</label><input id="companyName" type="text" placeholder="サンプル株式会社"></div>
 <div class="row"><label for="contactName">担当者名</label><input id="contactName" type="text" placeholder="山田太郎"></div>
 <div class="row"><label for="contactEmail">メール（任意）</label><input id="contactEmail" type="email"></div>
@@ -90,7 +90,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><label for="acquisitionSourceType">きっかけ</label><select id="acquisitionSourceType"><option value="">（未設定）</option><option value="EVENT">経営者交流会・イベント</option><option value="REFERRAL">紹介</option><option value="WEB">Web</option><option value="OUTBOUND">営業活動</option><option value="PARTNER">パートナー</option><option value="EXISTING_CUSTOMER">既存顧客</option><option value="OTHER">その他</option></select></div>
 <div class="row"><label for="acquisitionSourceName">きっかけの名称（任意）</label><input id="acquisitionSourceName" type="text" maxlength="200" placeholder="例：新成会"></div>
 <div class="row"><label for="referralPersonName">ご紹介者（任意）</label><input id="referralPersonName" type="text" maxlength="200" placeholder="例：山田太郎さん"></div>
-<div class="row"><button id="btnCreateCase">登録して事前アンケートへ</button></div>
+<div class="row"><label for="proxyRespondentRole">今回の回答者の立場</label><select id="proxyRespondentRole"><option value="MANAGEMENT">経営者・役員</option><option value="IT_DECISION_OWNER">ITの意思決定を担当</option><option value="IT_OR_BUSINESS_STAFF">ITまたは業務の担当</option></select></div>
+<div id="proxyDesignV2Survey"></div>
+<div class="row"><button id="btnCreateCase">営業で伺った内容を登録する</button></div>
+<p id="proxySaveStatus" class="hint" role="status"></p>
 </div></details>
 </div>
 
@@ -295,21 +298,44 @@ for (const [code, label] of Object.entries(FOCUS_LABELS)) {
   el('secondaryFocus').add(new Option(label, code));
 }
 
+let proxySurveyContract = null;
+let proxySubmissionKey = crypto.randomUUID();
+function renderProxyDesignV2Survey(contract) {
+  const target = el('proxyDesignV2Survey'); target.replaceChildren();
+  for (const question of contract.questions) {
+    const fieldset = document.createElement('fieldset'); fieldset.dataset.questionCode = question.code;
+    const legend = document.createElement('legend'); legend.textContent = `${question.code} ${question.label}`; fieldset.append(legend);
+    if (question.type === 'COMPANY_CONTEXT') {
+      for (const [field, label, options] of [['employeeRange','従業員数',question.employeeOptions],['siteRange','主な拠点数',question.siteOptions]]) {
+        const wrapper=document.createElement('label'); wrapper.textContent=label; const select=document.createElement('select'); select.dataset.proxyQ1=field;
+        select.add(new Option('選択してください','')); for(const option of options)select.add(new Option(option.label,option.value)); wrapper.append(select); fieldset.append(wrapper);
+      }
+    } else {
+      for (const option of question.options) { const label=document.createElement('label'); label.className='answer-choice'; const input=document.createElement('input'); input.type=question.type==='MULTI_SELECT'?'checkbox':'radio'; input.name=`proxy-${question.code}`; input.value=option.value; label.append(input,document.createTextNode(option.label)); fieldset.append(label); }
+    }
+    target.append(fieldset);
+  }
+}
+function collectProxyDesignV2Survey() {
+  if (!proxySurveyContract) throw new Error('質問を読み込めませんでした。');
+  const answer={ q1CompanyContext:{ employeeRange:document.querySelector('[data-proxy-q1="employeeRange"]').value, siteRange:document.querySelector('[data-proxy-q1="siteRange"]').value } };
+  if (!answer.q1CompanyContext.employeeRange || !answer.q1CompanyContext.siteRange) throw new Error('Q1を選択してください。');
+  const keys={Q2:'q2Future',Q3:'q3ItExpectations',Q4:'q4CurrentInterest',Q5:'q5Visibility',Q6:'q6ManagementConnection',Q7:'q7InterestThemes'};
+  for(const question of proxySurveyContract.questions.filter(item=>item.code!=='Q1')) { const values=[...document.querySelectorAll(`input[name="proxy-${question.code}"]:checked`)].map(input=>input.value); if(!values.length)throw new Error(`${question.code}を選択してください。`); if(question.maxSelections&&values.length>question.maxSelections)throw new Error(`${question.code}は${question.maxSelections}件までです。`); if(question.exclusiveValues?.some(value=>values.includes(value))&&values.length!==1)throw new Error(`${question.code}の選択内容を確認してください。`); answer[keys[question.code]]=question.type==='MULTI_SELECT'?values:values[0]; }
+  return answer;
+}
+fetch('/api/public/it-management-kaizen/free-diagnosis-v1/survey-contract').then(response=>response.ok?response.json():Promise.reject()).then(contract=>{proxySurveyContract=contract;renderProxyDesignV2Survey(contract);}).catch(()=>{el('proxySaveStatus').textContent='質問を読み込めませんでした。';});
+
 el('btnCreateCase').onclick = async () => {
-  setError('');
+  setError(''); el('proxySaveStatus').textContent=''; const button=el('btnCreateCase'); button.disabled=true;
   try {
     const attribution = { acquisitionSourceType: el('acquisitionSourceType').value || null, acquisitionSourceName: el('acquisitionSourceName').value.trim() || null };
     if ((attribution.acquisitionSourceType == null) !== (attribution.acquisitionSourceName == null)) throw new Error('きっかけを記録する場合は、種別と名称を両方入力してください。');
-    const activity = await call('/sales-activities', 'POST', {
-      name: el('companyName').value, contact: { name: el('contactName').value, email: el('contactEmail').value || null }, selectedService: 'IT_KAIZEN',
-      referralPersonName: el('referralPersonName').value.trim() || undefined,
-      attribution: attribution.acquisitionSourceType ? attribution : undefined,
-    });
-    const kase = await call(`/sales-activities/${activity.salesActivityId}/cases`, 'POST', {});
-    state.caseId = kase.id; state.version = kase.version; state.companyName = el('companyName').value; state.attribution = activity.attribution; state.entryChannel = 'PROXY'; state.respondentRole = 'MANAGEMENT'; state.intakeStep = -1; state.intake = {}; state.responseStates = {}; state.caseStatus = kase.status; state.reachableSteps = reachableSteps(kase.status);
-    renderIntakeForm();
-    showView('intake');
-  } catch (e) { setError(String(e.message || e)); }
+    const result=await call('/design-v2/staff-proxy-submissions','POST',{idempotencyKey:proxySubmissionKey,respondentRole:el('proxyRespondentRole').value,
+      activity:{name:el('companyName').value,contact:{name:el('contactName').value,email:el('contactEmail').value||null},selectedService:'IT_KAIZEN',referralPersonName:el('referralPersonName').value.trim()||undefined,attribution:attribution.acquisitionSourceType?attribution:undefined},survey:collectProxyDesignV2Survey()});
+    el('proxySaveStatus').replaceChildren(document.createTextNode('営業で伺った内容を登録しました。 ')); const link=document.createElement('a'); link.href=`/admin/free-diagnosis-v2-analysis.html?caseId=${encodeURIComponent(result.caseId)}`; link.textContent='作成した案件を確認'; el('proxySaveStatus').append(link);
+    await loadCases();
+  } catch (e) { button.disabled=false; el('proxySaveStatus').textContent='登録できませんでした。入力内容を確認して、もう一度お試しください。'; }
 };
 
 function friendlyStatus(status) {

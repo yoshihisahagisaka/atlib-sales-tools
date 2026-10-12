@@ -4,8 +4,12 @@ import type { FreeDiagnosisSalesLauncherRepo } from '../services/freeDiagnosisSa
 import type { FreeDiagnosisRuleBasedCaseRepo } from '../services/freeDiagnosisRuleBasedCaseRepo';
 import type { Vs1ReviewReportFeedbackRepo } from '../services/vs1ReviewReportFeedbackRepo';
 import {
-  createCompanySchema, focusSelectionObjectSchema, intakeAnswerSchema, recordStatementSchema, RuleBasedV1Error,
+  createCompanySchema, focusSelectionObjectSchema, intakeAnswerSchema, recordStatementSchema, RESPONDENT_ROLE, RuleBasedV1Error,
 } from '../domain/freeDiagnosisRuleBasedV1';
+import { designV2SurveyAnswerSchema } from '../domain/publicCustomerSelfDesignV2';
+import { FreeDiagnosisDesignV2EntryAdapterError } from '../services/freeDiagnosisDesignV2EntryAdapter';
+import { FreeDiagnosisDesignV2PersistenceError } from '../services/freeDiagnosisDesignV2PersistenceRepo';
+import { StaffProxyDesignV2SubmissionError, type StaffProxyDesignV2SubmissionService } from '../services/staffProxyDesignV2SubmissionService';
 
 function staffEmail(req: Request): string {
   return req.staffEmail ?? 'unknown-staff';
@@ -13,7 +17,7 @@ function staffEmail(req: Request): string {
 
 function handle(res: Response, fn: () => Promise<void>): void {
   fn().catch(err => {
-    if (err instanceof RuleBasedV1Error) { res.status(err.status).json({ error: err.code }); return; }
+    if (err instanceof RuleBasedV1Error || err instanceof StaffProxyDesignV2SubmissionError || err instanceof FreeDiagnosisDesignV2EntryAdapterError || err instanceof FreeDiagnosisDesignV2PersistenceError) { res.status(err.status).json({ error: err.code }); return; }
     res.status(500).json({ error: 'INTERNAL_ERROR' });
   });
 }
@@ -24,6 +28,7 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
   launcher: FreeDiagnosisSalesLauncherRepo,
   cases: FreeDiagnosisRuleBasedCaseRepo,
   vs1?: Vs1ReviewReportFeedbackRepo,
+  staffProxyDesignV2?: StaffProxyDesignV2SubmissionService,
 ): Router {
   const r = Router();
 
@@ -46,6 +51,17 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
     const parsed = z.object({ acquisitionSourceName: z.string().trim().min(1).max(200).optional(), utmCampaign: z.string().trim().min(1).max(200).optional() }).strict().safeParse(req.query);
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
     res.json({ items: await launcher.listSalesActivities(parsed.data) });
+  }));
+
+  r.post('/design-v2/staff-proxy-submissions', (req, res) => handle(res, async () => {
+    if (!staffProxyDesignV2) { res.status(404).json({ error: 'DESIGN_V2_STAFF_PROXY_NOT_CONFIGURED' }); return; }
+    const parsed = z.object({ idempotencyKey: z.string().uuid(), activity: createCompanySchema,
+      survey: designV2SurveyAnswerSchema, respondentRole: z.enum(RESPONDENT_ROLE) }).strict()
+      .superRefine((value, ctx) => { if (value.activity.selectedService !== 'IT_KAIZEN') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['activity', 'selectedService'], message: 'IT_KAIZEN_REQUIRED' }); })
+      .safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    const result = await staffProxyDesignV2.submit(parsed.data, staffEmail(req));
+    res.status(result.created ? 201 : 200).json(result);
   }));
 
   r.get('/cases/:id', (req, res) => handle(res, async () => {

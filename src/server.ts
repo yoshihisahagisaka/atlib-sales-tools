@@ -68,6 +68,7 @@ import { PublicCustomerSelfSubmissionService } from './services/publicCustomerSe
 import { createPublicCustomerSelfFreeDiagnosisRouter } from './routes/publicCustomerSelfFreeDiagnosis';
 import { FreeDiagnosisDesignV2PersistenceRepo } from './services/freeDiagnosisDesignV2PersistenceRepo';
 import { FreeDiagnosisDesignV2EntryAdapter } from './services/freeDiagnosisDesignV2EntryAdapter';
+import { StaffProxyDesignV2SubmissionService } from './services/staffProxyDesignV2SubmissionService';
 import { FreeDiagnosisDesignV2ApiService } from './services/freeDiagnosisDesignV2ApiService';
 import { createAdminFreeDiagnosisDesignV2Router } from './routes/adminFreeDiagnosisDesignV2';
 import { FreeDiagnosisDesignV2ReportPdfService } from './services/freeDiagnosisDesignV2ReportPdf';
@@ -89,7 +90,9 @@ async function main(): Promise<void> {
   const freeDiagnosisRuleBasedCaseRepo = new FreeDiagnosisRuleBasedCaseRepo(pool);
   const vs1ReviewReportFeedbackRepo = new Vs1ReviewReportFeedbackRepo(pool);
   const freeDiagnosisDesignV2PersistenceRepo = new FreeDiagnosisDesignV2PersistenceRepo(pool);
-  const publicCustomerSelfSubmissionService = new PublicCustomerSelfSubmissionService(pool, new FreeDiagnosisDesignV2EntryAdapter(freeDiagnosisDesignV2PersistenceRepo));
+  const freeDiagnosisDesignV2EntryAdapter = new FreeDiagnosisDesignV2EntryAdapter(freeDiagnosisDesignV2PersistenceRepo);
+  const publicCustomerSelfSubmissionService = new PublicCustomerSelfSubmissionService(pool, freeDiagnosisDesignV2EntryAdapter);
+  const staffProxyDesignV2SubmissionService = new StaffProxyDesignV2SubmissionService(pool, freeDiagnosisDesignV2EntryAdapter);
   const freeDiagnosisDesignV2ReportPdfService = new FreeDiagnosisDesignV2ReportPdfService(pool);
   const freeDiagnosisDesignV2ApiService = new FreeDiagnosisDesignV2ApiService(freeDiagnosisRuleBasedCaseRepo, freeDiagnosisDesignV2PersistenceRepo, vs1ReviewReportFeedbackRepo, freeDiagnosisDesignV2ReportPdfService);
   const kaizenAssessmentRepo = new KaizenAssessmentRepo(pool);
@@ -228,7 +231,7 @@ async function main(): Promise<void> {
   app.use(
     '/api/admin/free-diagnosis-v1',
     ...adminAuthGate,
-    createAdminFreeDiagnosisRuleBasedV1Router(freeDiagnosisSalesLauncherRepo, freeDiagnosisRuleBasedCaseRepo, vs1ReviewReportFeedbackRepo),
+    createAdminFreeDiagnosisRuleBasedV1Router(freeDiagnosisSalesLauncherRepo, freeDiagnosisRuleBasedCaseRepo, vs1ReviewReportFeedbackRepo, staffProxyDesignV2SubmissionService),
   );
   app.use(
     '/api/admin/free-diagnosis-v1',
