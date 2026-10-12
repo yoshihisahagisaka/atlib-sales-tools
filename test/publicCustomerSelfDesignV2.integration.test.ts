@@ -33,7 +33,8 @@ test('public contract is the canonical Design v2 Q1–Q7 projection', () => {
 test('public route serves the same canonical survey contract', async () => {
   const response = await fetch(h.url + '/api/public/it-management-kaizen/free-diagnosis-v1/survey-contract');
   assert.equal(response.status, 200);
-  assert.deepEqual((await response.json()).questions.map((question: { code: string }) => question.code), ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']);
+  const contract = await response.json() as { questions: Array<{ code: string }> };
+  assert.deepEqual(contract.questions.map(question => question.code), ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']);
 });
 
 test('Customer Self atomically creates Design v2 artifacts, booking state, consent and UTM-only sales attribution', async () => {
