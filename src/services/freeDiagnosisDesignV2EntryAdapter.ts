@@ -1,4 +1,5 @@
 import type { CurrentStructuredStateV2 } from '../domain/freeDiagnosisDesignV2';
+import type { PoolClient } from 'pg';
 import {
   FreeDiagnosisDesignV2PersistenceRepo,
   type PostHearingAnalysisViewV2,
@@ -40,6 +41,30 @@ export class FreeDiagnosisDesignV2EntryAdapter {
   constructor(private readonly persistence: FreeDiagnosisDesignV2PersistenceRepo) {}
 
   async complete(input: CompleteDesignV2EntryInput): Promise<CompleteDesignV2EntryResult> {
+    this.validate(input);
+    const { caseStatusTransitions, caseStatus } = this.initialStatus(input.entryChannel);
+    const workspace = await this.persistence.initializeDesignV2FromCompletedSurvey({
+      caseId: input.caseId, answers: input.answers, surveyVersion: input.surveyVersion,
+      entryChannel: input.entryChannel, answeredByRole: input.answeredByRole,
+      enteredByUserId: input.enteredByUserId, submittedAt: input.submittedAt, actor: input.actor,
+      caseStatusTransitions,
+    });
+    return { workspace, caseStatus };
+  }
+
+  async completeInTransaction(client: PoolClient, input: CompleteDesignV2EntryInput): Promise<CompleteDesignV2EntryResult> {
+    this.validate(input);
+    const { caseStatusTransitions, caseStatus } = this.initialStatus(input.entryChannel);
+    const workspace = await this.persistence.initializeDesignV2FromCompletedSurveyInTransaction(client, {
+      caseId: input.caseId, answers: input.answers, surveyVersion: input.surveyVersion,
+      entryChannel: input.entryChannel, answeredByRole: input.answeredByRole,
+      enteredByUserId: input.enteredByUserId, submittedAt: input.submittedAt, actor: input.actor,
+      caseStatusTransitions,
+    });
+    return { workspace, caseStatus };
+  }
+
+  private validate(input: CompleteDesignV2EntryInput): void {
     if (input.entryChannel !== 'CUSTOMER_SELF' && input.entryChannel !== 'STAFF_PROXY') {
       throw new FreeDiagnosisDesignV2EntryAdapterError(422, 'INVALID_ENTRY_CHANNEL');
     }
@@ -50,23 +75,18 @@ export class FreeDiagnosisDesignV2EntryAdapter {
       throw new FreeDiagnosisDesignV2EntryAdapterError(422, 'STAFF_PROXY_REQUIRES_AUTHENTICATED_ENTERED_BY_USER');
     }
 
-    const caseStatusTransitions: Array<'INTAKE_COMPLETED' | 'BOOKING_PENDING'> = input.entryChannel === 'CUSTOMER_SELF'
+  }
+
+  private initialStatus(entryChannel: DesignV2EntryChannel): {
+    caseStatusTransitions: Array<'INTAKE_COMPLETED' | 'BOOKING_PENDING'>;
+    caseStatus: 'INTAKE_COMPLETED' | 'BOOKING_PENDING';
+  } {
+    const caseStatusTransitions: Array<'INTAKE_COMPLETED' | 'BOOKING_PENDING'> = entryChannel === 'CUSTOMER_SELF'
       ? ['INTAKE_COMPLETED', 'BOOKING_PENDING']
       : ['INTAKE_COMPLETED'];
-    const caseStatus: 'INTAKE_COMPLETED' | 'BOOKING_PENDING' = input.entryChannel === 'CUSTOMER_SELF'
+    const caseStatus: 'INTAKE_COMPLETED' | 'BOOKING_PENDING' = entryChannel === 'CUSTOMER_SELF'
       ? 'BOOKING_PENDING'
       : 'INTAKE_COMPLETED';
-    const workspace = await this.persistence.initializeDesignV2FromCompletedSurvey({
-      caseId: input.caseId,
-      answers: input.answers,
-      surveyVersion: input.surveyVersion,
-      entryChannel: input.entryChannel,
-      answeredByRole: input.answeredByRole,
-      enteredByUserId: input.enteredByUserId,
-      submittedAt: input.submittedAt,
-      actor: input.actor,
-      caseStatusTransitions: [...caseStatusTransitions],
-    });
-    return { workspace, caseStatus };
+    return { caseStatusTransitions, caseStatus };
   }
 }

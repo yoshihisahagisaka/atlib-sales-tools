@@ -13,12 +13,14 @@ import { StaffAuthService } from '../../src/services/staffAuthService';
 import { requireStaffAuth } from '../../src/middleware/staffAuth';
 import { PublicCustomerSelfSubmissionService } from '../../src/services/publicCustomerSelfSubmissionService';
 import { createPublicCustomerSelfFreeDiagnosisRouter } from '../../src/routes/publicCustomerSelfFreeDiagnosis';
+import { FreeDiagnosisDesignV2PersistenceRepo } from '../../src/services/freeDiagnosisDesignV2PersistenceRepo';
+import { FreeDiagnosisDesignV2EntryAdapter } from '../../src/services/freeDiagnosisDesignV2EntryAdapter';
 
 /** Real PostgreSQL SQL/constraints/transactions in a disposable WASM database.
  * Same pattern as test/support/diagnosisHarness.ts. Only migration 027 is applied: the
  * Rule-Based v1 tables have no foreign key into any legacy table.
  */
-export async function createFreeDiagnosisRuleBasedV1Harness() {
+export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDesignV2?: boolean } = {}) {
   const db = new PGlite();
   await db.waitReady;
   const root = path.resolve(__dirname, '../..');
@@ -31,6 +33,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness() {
   await db.exec(fs.readFileSync(path.join(root, 'migrations/030_sales_activity_marketing_attribution.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/031_public_customer_self_submission.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/032_sales_activity_referral_person_name.sql'), 'utf8'));
+  if (options.includeDesignV2) await db.exec(fs.readFileSync(path.join(root, 'migrations/033_free_diagnosis_design_v2_persistence.sql'), 'utf8'));
 
   let tail = Promise.resolve();
   async function acquire() {
@@ -49,7 +52,8 @@ export async function createFreeDiagnosisRuleBasedV1Harness() {
   const launcher = new FreeDiagnosisSalesLauncherRepo(pool);
   const cases = new FreeDiagnosisRuleBasedCaseRepo(pool);
   const vs1 = new Vs1ReviewReportFeedbackRepo(pool);
-  const publicSelf = new PublicCustomerSelfSubmissionService(pool);
+  const designV2Persistence = new FreeDiagnosisDesignV2PersistenceRepo(pool);
+  const publicSelf = new PublicCustomerSelfSubmissionService(pool, new FreeDiagnosisDesignV2EntryAdapter(designV2Persistence));
   const staffAuth = new StaffAuthService('disposable-test-key-not-a-production-secret');
   const staffCookie = `staff_session=${staffAuth.issueSessionToken({ email: 'operator@atlib.jp' })}`;
 
@@ -65,7 +69,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness() {
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
   return {
-    db, pool, launcher, cases, vs1, publicSelf, url, staffCookie,
+    db, pool, launcher, cases, vs1, publicSelf, designV2Persistence, url, staffCookie,
     close: async () => { await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve())); await db.close(); },
   };
 }

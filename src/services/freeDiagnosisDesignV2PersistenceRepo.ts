@@ -322,7 +322,19 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
     if (!input.surveyVersion.trim() || !input.answeredByRole.trim() || !input.actor.trim()) {
       throw new FreeDiagnosisDesignV2PersistenceError(422, 'INVALID_INITIALIZATION_METADATA');
     }
-    return this.tx(async client => {
+    return this.tx(client => this.initializeDesignV2FromCompletedSurveyInTransaction(client, input));
+  }
+
+  /**
+   * Uses the caller's transaction for entry adapters which must atomically
+   * create their Sales Launcher records and their Design v2 workspace.
+   */
+  async initializeDesignV2FromCompletedSurveyInTransaction(
+    client: PoolClient, input: InitializeInput,
+  ): Promise<PostHearingAnalysisViewV2> {
+    if (!input.surveyVersion.trim() || !input.answeredByRole.trim() || !input.actor.trim()) {
+      throw new FreeDiagnosisDesignV2PersistenceError(422, 'INVALID_INITIALIZATION_METADATA');
+    }
       await this.lockCase(client, input.caseId);
       const normalized = projectFreeDiagnosisSemanticV2(input.answers);
       const existing = await client.query('SELECT id FROM it_management_diagnosis_original_survey_snapshot_v2 WHERE case_id=$1', [input.caseId]);
@@ -356,7 +368,6 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
         latestAnalysisResult: created.analysis, latestGeneratedNarrative: created.generated,
         latestHumanEditedNarrative: null, humanEditedNarrativeStatus: 'NONE',
       };
-    });
   }
 
   async appendDesignV2CurrentStateAndReanalyze(input: AppendStateInput): Promise<PostHearingAnalysisViewV2> {

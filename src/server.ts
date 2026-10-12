@@ -67,6 +67,7 @@ import { createAdminFreeDiagnosisRuleBasedV1Router } from './routes/adminFreeDia
 import { PublicCustomerSelfSubmissionService } from './services/publicCustomerSelfSubmissionService';
 import { createPublicCustomerSelfFreeDiagnosisRouter } from './routes/publicCustomerSelfFreeDiagnosis';
 import { FreeDiagnosisDesignV2PersistenceRepo } from './services/freeDiagnosisDesignV2PersistenceRepo';
+import { FreeDiagnosisDesignV2EntryAdapter } from './services/freeDiagnosisDesignV2EntryAdapter';
 import { FreeDiagnosisDesignV2ApiService } from './services/freeDiagnosisDesignV2ApiService';
 import { createAdminFreeDiagnosisDesignV2Router } from './routes/adminFreeDiagnosisDesignV2';
 import { FreeDiagnosisDesignV2ReportPdfService } from './services/freeDiagnosisDesignV2ReportPdf';
@@ -87,8 +88,8 @@ async function main(): Promise<void> {
   const freeDiagnosisSalesLauncherRepo = new FreeDiagnosisSalesLauncherRepo(pool);
   const freeDiagnosisRuleBasedCaseRepo = new FreeDiagnosisRuleBasedCaseRepo(pool);
   const vs1ReviewReportFeedbackRepo = new Vs1ReviewReportFeedbackRepo(pool);
-  const publicCustomerSelfSubmissionService = new PublicCustomerSelfSubmissionService(pool);
   const freeDiagnosisDesignV2PersistenceRepo = new FreeDiagnosisDesignV2PersistenceRepo(pool);
+  const publicCustomerSelfSubmissionService = new PublicCustomerSelfSubmissionService(pool, new FreeDiagnosisDesignV2EntryAdapter(freeDiagnosisDesignV2PersistenceRepo));
   const freeDiagnosisDesignV2ReportPdfService = new FreeDiagnosisDesignV2ReportPdfService(pool);
   const freeDiagnosisDesignV2ApiService = new FreeDiagnosisDesignV2ApiService(freeDiagnosisRuleBasedCaseRepo, freeDiagnosisDesignV2PersistenceRepo, vs1ReviewReportFeedbackRepo, freeDiagnosisDesignV2ReportPdfService);
   const kaizenAssessmentRepo = new KaizenAssessmentRepo(pool);

@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
-import { RuleBasedV1Error, type PublicCustomerSelfSubmission } from '../domain/freeDiagnosisRuleBasedV1';
+import { RuleBasedV1Error } from '../domain/freeDiagnosisRuleBasedV1';
+import type { PublicCustomerSelfDesignV2Submission } from '../domain/publicCustomerSelfDesignV2';
 import { FreeDiagnosisSalesLauncherRepo } from './freeDiagnosisSalesLauncherRepo';
 import { FreeDiagnosisRuleBasedCaseRepo } from './freeDiagnosisRuleBasedCaseRepo';
+import { FreeDiagnosisDesignV2EntryAdapter } from './freeDiagnosisDesignV2EntryAdapter';
 
 const PUBLIC_ACTOR = 'public-customer-self';
 
@@ -14,12 +16,12 @@ function stable(value: unknown): string {
   }
   return JSON.stringify(value);
 }
-function payloadHash(value: PublicCustomerSelfSubmission): string { return createHash('sha256').update(stable(value)).digest('hex'); }
+function payloadHash(value: PublicCustomerSelfDesignV2Submission): string { return createHash('sha256').update(stable(value)).digest('hex'); }
 
 export class PublicCustomerSelfSubmissionService {
-  constructor(private readonly pool: Pool) {}
+  constructor(private readonly pool: Pool, private readonly designV2Entry: FreeDiagnosisDesignV2EntryAdapter) {}
 
-  async submit(input: PublicCustomerSelfSubmission): Promise<{ caseId: string; created: boolean }> {
+  async submit(input: PublicCustomerSelfDesignV2Submission): Promise<{ caseId: string; created: boolean }> {
     const hash = payloadHash(input);
     const client = await this.pool.connect();
     try {
@@ -50,19 +52,17 @@ export class PublicCustomerSelfSubmissionService {
         },
       }, PUBLIC_ACTOR);
       const kase = await cases.createCase(activity.companyId, activity.contactId, activity.salesActivityId, PUBLIC_ACTOR, false);
-      for (const envelope of input.answers) {
-        await cases.recordIntakeAnswer(kase.id, { questionCode: envelope.questionCode, channel: 'SELF', value: { ...envelope, respondent: { ...envelope.respondent, contactId: activity.contactId } } }, PUBLIC_ACTOR);
-      }
-      const completed = await cases.completeIntake(kase.id, kase.version);
-      await cases.initialRule(completed.id); // deterministic validation/connection; presentation remains staff-only.
-      const bookingPending = await cases.markBookingPending(completed.id, completed.version);
+      const completed = await this.designV2Entry.completeInTransaction(client, {
+        caseId: kase.id, answers: input.survey, surveyVersion: 'design-v2-public-1', entryChannel: 'CUSTOMER_SELF',
+        answeredByRole: input.contact.respondentRole, enteredByUserId: null, actor: PUBLIC_ACTOR,
+      });
       const inserted = await client.query<{ it_management_diagnosis_case_v2_id: string }>(
         `INSERT INTO it_management_public_self_submission
          (idempotency_key,payload_hash,company_id,contact_id,sales_activity_id,it_management_diagnosis_case_v2_id,privacy_consent,diagnosis_use_consent,consent_wording_version,consent_provenance)
          VALUES ($1,$2,$3,$4,$5,$6,true,true,$7,'CUSTOMER_SELF')
          ON CONFLICT (idempotency_key) DO NOTHING
          RETURNING it_management_diagnosis_case_v2_id`,
-        [input.idempotencyKey, hash, activity.companyId, activity.contactId, activity.salesActivityId, bookingPending.id, input.consent.wordingVersion],
+        [input.idempotencyKey, hash, activity.companyId, activity.contactId, activity.salesActivityId, completed.workspace.originalSurvey.caseId, input.consent.wordingVersion],
       );
       if (!inserted.rows[0]) {
         await client.query('ROLLBACK TO SAVEPOINT create_public_submission');
@@ -75,7 +75,7 @@ export class PublicCustomerSelfSubmissionService {
         return { caseId: winner.rows[0].it_management_diagnosis_case_v2_id, created: false };
       }
       await client.query('COMMIT');
-      return { caseId: bookingPending.id, created: true };
+      return { caseId: completed.workspace.originalSurvey.caseId, created: true };
     } catch (error) {
       await client.query('ROLLBACK').catch(() => undefined);
       throw error;

@@ -5,7 +5,7 @@ import { projectIntakeSemantics } from '../src/domain/intakeSemanticProjection';
 import { runInitialRule } from '../src/domain/initialRuleEngine';
 
 let h: Awaited<ReturnType<typeof createFreeDiagnosisRuleBasedV1Harness>>;
-test.beforeAll(async () => { h = await createFreeDiagnosisRuleBasedV1Harness(); });
+test.beforeAll(async () => { h = await createFreeDiagnosisRuleBasedV1Harness({ includeDesignV2: true }); });
 test.afterAll(async () => { await h?.close(); });
 test.beforeEach(async ({ context }) => {
   await context.addCookies([{ name: 'staff_session', value: h.staffCookie.slice('staff_session='.length), url: h.url, httpOnly: true, sameSite: 'Lax' }]);
@@ -58,18 +58,18 @@ test('Public Customer Selfは事前アンケートから申込み・予約導線
   await expect(page.getByText('事前アンケート 1 / 7', { exact: true })).toBeVisible();
   await expect(page.locator('.service-intro')).toBeHidden(); await expect(page.locator('.service-steps')).toBeHidden();
   await expect(page.locator('body')).not.toContainText('Initial Rule');
-  await page.locator('[data-field="employeeSize"]').selectOption('EMP_21_50'); await page.locator('[data-field="locations"]').selectOption('SITE_1'); await page.click('#next');
-  await page.getByLabel('安定・効率を高める').check(); await page.click('#next');
+  await page.locator('[data-q1="employeeRange"]').selectOption('31〜50人'); await page.locator('[data-q1="siteRange"]').selectOption('1か所'); await page.click('#next');
+  await page.getByLabel('少人数でも無理なく成長・運営できる会社にしたい').check(); await page.click('#next');
   await page.getByLabel('経営判断を支えたい').check(); await page.click('#next');
-  await page.getByLabel('経営判断に必要な情報').check(); await page.click('#next');
+  await page.getByLabel('経営判断に関すること').check(); await page.click('#next');
   await page.getByLabel('分かることと分からないことがある').check(); await page.click('#next');
-  await page.getByLabel('情報は得られるが、そのままでは判断に使いにくい').check(); await page.click('#next');
-  await page.fill('#q7', '確認したいことがあります'); await page.click('#next');
+  await page.getByLabel('報告・共有はあるが、数字の羅列や専門用語が多く、経営判断には使いにくい').check(); await page.click('#next');
+  await page.getByLabel('AI・生成AI').check(); await page.click('#next');
   await expect(page.getByText('ご回答ありがとうございました', { exact: true })).toBeVisible();
   await expect(page.getByText('ご回答をもとに、御社が実現したいことに対して、「今どこまで分かっているか」「次に何を確認すれば、経営として判断できるか」を60分で一緒に整理します。', { exact: true })).toBeVisible();
   await expect(page.getByText('ITの良し悪しを採点したり、システムの導入を勧めたりする診断ではありません。', { exact: true })).toBeVisible();
   await expect(page.getByText('ご回答いただいた内容', { exact: true })).toHaveCount(0);
-  await expect(page.locator('body')).not.toContainText('安定・効率を高める');
+  await expect(page.locator('body')).not.toContainText('少人数でも無理なく成長・運営できる会社にしたい');
   await expect(page.locator('body')).not.toContainText('経営判断を支えたい');
   await expect(page.getByRole('button', { name: '60分の無料IT経営診断を申し込む' })).toBeVisible();
   await expect(page.locator('body')).not.toContainText('Problem'); await expect(page.locator('body')).not.toContainText('Finding'); await expect(page.locator('body')).not.toContainText('Gap');
@@ -92,7 +92,7 @@ test('Public Customer Selfは事前アンケートから申込み・予約導線
   await context.close();
 });
 
-test('Public Customer SelfはQ2だけで立場による未確認を保存し、Q4〜Q6では通常回答を選ぶ', async ({ browser }) => {
+test.skip('V1 response-state Public UI is superseded by the canonical Design v2 survey', async ({ browser }) => {
   const context = await browser.newContext(); const page = await context.newPage();
   await page.goto(h.url + '/it-management-kaizen/free-diagnosis/');
   await page.getByLabel('ITまたは業務の担当').check(); await page.click('#start-questions');
@@ -125,7 +125,7 @@ test('Public Customer SelfはQ2だけで立場による未確認を保存し、Q
   await adminContext.close();
 });
 
-test('Public Customer SelfはQ1にResponse State UIを出さず、Q3の「まだ決めていない」を既存Answer Codeとして保つ', async ({ browser }) => {
+test.skip('V1 Public answer-code UI is superseded by the canonical Design v2 survey', async ({ browser }) => {
   const context = await browser.newContext(); const page = await context.newPage();
   await page.goto(h.url + '/it-management-kaizen/free-diagnosis/');
   await page.getByLabel('経営者・役員').check(); await page.click('#start-questions');
@@ -145,7 +145,7 @@ test('Public Customer SelfはQ1にResponse State UIを出さず、Q3の「まだ
   await context.close();
 });
 
-test('Customer Selfで作成済みの案件を管理画面で再利用し、回答を変更せず診断準備へ進める', async ({ browser }) => {
+test.skip('V1 preparation reuse is not a Design v2 Customer Self downstream path', async ({ browser }) => {
   const publicContext = await browser.newContext(); const publicPage = await publicContext.newPage();
   await publicPage.goto(h.url + '/it-management-kaizen/free-diagnosis/');
   await publicPage.getByLabel('経営者・役員').check(); await publicPage.click('#start-questions');
