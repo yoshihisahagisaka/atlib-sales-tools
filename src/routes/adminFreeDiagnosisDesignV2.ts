@@ -18,7 +18,7 @@ function actor(req: Request): string {
 function handle(res: Response, operation: () => Promise<void>): void {
   operation().catch(error => {
     if (error instanceof FreeDiagnosisDesignV2ApiError) {
-      res.status(error.status).json({ error: error.code });
+      res.status(error.status).json({ error: error.code, ...(error.userMessage ? { message: error.userMessage } : {}) });
       return;
     }
     res.status(500).json({ error: 'INTERNAL_ERROR' });
@@ -112,6 +112,9 @@ export function createAdminFreeDiagnosisDesignV2Router(service: FreeDiagnosisDes
     const parsed = reportContentSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
     res.json(await service.updateReportDraftPresentation(req.params.id, req.params.reportId, parsed.data as DesignV2ReportContent, actor(req)));
+  }));
+  router.post('/cases/:id/design-v2/report-drafts/:reportId/approve', (req, res) => handle(res, async () => {
+    res.json(await service.approveReportDraft(req.params.id, req.params.reportId, actor(req)));
   }));
 
   return router;

@@ -99,10 +99,52 @@ test('proposal save failure never shows the success state', async ({ page }) => 
   await expect(page.locator('#reportMessage')).not.toContainText('提案情報を保存しました。');
 });
 
-test('Report Presentation has no print, PDF, or Approval action', async ({ page }) => {
+test('current Draft can be approved and becomes read-only without a PDF action', async ({ page }) => {
   const source = readFileSync(path.resolve(__dirname, '../public/admin/free-diagnosis-v2-report.js'), 'utf8'); expect(source).not.toContain('window.print()');
-  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, route => route.fulfill({ json: draft() })); await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
-  await expect(page.getByText(/PDF|承認/)).toHaveCount(0);
+  let data: any = draft(); let approvalCalls = 0;
+  data.context.adoptedNarrative = { source: 'HUMAN_EDITED', id: 'edit-1', generatedNarrativeId: 'narrative-1', contentHash: 'edit-hash' };
+  await page.route('**/design-v2/post-hearing-analysis', route => route.fulfill({ json: {
+    latestGeneratedNarrative: { id: 'narrative-1', contentHash: 'generated-hash' },
+    latestHumanEditedNarrative: { id: 'edit-1', generatedNarrativeId: 'narrative-1', contentHash: 'edit-hash' },
+    humanEditedNarrativeStatus: 'CURRENT',
+  } }));
+  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}/approve`, async route => {
+    approvalCalls++; data = { ...data, status: 'APPROVED' }; await route.fulfill({ json: data });
+  });
+  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, async route => {
+    if (route.request().method() === 'GET') { await route.fulfill({ json: data }); return; }
+    await route.fulfill({ json: data });
+  });
+  await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
+  await expect(page.getByRole('button', { name: 'この内容で承認する' })).toBeVisible();
+  await expect(page.locator('#approvalNotice')).toHaveText('承認すると、このレポートの内容が確定されます。');
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: 'この内容で承認する' }).click();
+  await expect.poll(() => approvalCalls).toBe(1);
+  await expect(page.locator('#reportMessage')).toHaveText('レポートを承認しました。');
+  await expect(page.locator('#approvalStatus')).toHaveText('承認済み');
+  await expect(page.locator('#approvalNotice')).toHaveText('このレポートの内容は確定されています。');
+  await expect(page.getByRole('button', { name: '提案情報を保存' })).toBeHidden();
+  await expect(page.locator('#recipientCompany')).toBeDisabled();
+  await expect(page.locator('#reportPreview')).toBeVisible();
+  await expect(page.getByText(/PDF/)).toHaveCount(0);
+});
+
+test('stale Draft shows the refresh guidance and cannot be approved from the editor', async ({ page }) => {
+  const data: any = draft();
+  data.context.adoptedNarrative = { source: 'SYSTEM_GENERATED', id: 'old-narrative', contentHash: 'old-hash' };
+  let approvalCalls = 0;
+  await page.route('**/design-v2/post-hearing-analysis', route => route.fulfill({ json: {
+    latestGeneratedNarrative: { id: 'narrative-1', contentHash: 'generated-hash' }, latestHumanEditedNarrative: null, humanEditedNarrativeStatus: 'NONE',
+  } }));
+  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, async route => {
+    if (route.request().method() === 'POST') approvalCalls++;
+    await route.fulfill({ json: data });
+  });
+  await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
+  await expect(page.getByRole('button', { name: 'この内容で承認する' })).toBeHidden();
+  await expect(page.locator('#approvalNotice')).toHaveText('レポート作成後に顧客向け文面が更新されています。最新の内容でレポートを更新してから承認してください。');
+  expect(approvalCalls).toBe(0);
 });
 
 test('Post-Hearing opens the reusable Draft without creating a report version per click', async ({ page }) => {

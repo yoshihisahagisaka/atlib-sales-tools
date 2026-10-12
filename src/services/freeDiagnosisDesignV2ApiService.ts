@@ -8,12 +8,14 @@ import {
   type DesignV2CurrentStateFields,
   type FreeDiagnosisDesignV2PersistenceRepo,
 } from './freeDiagnosisDesignV2PersistenceRepo';
+import { RuleBasedV1Error } from '../domain/freeDiagnosisRuleBasedV1';
+import type { Vs1ReviewReportFeedbackRepo } from './vs1ReviewReportFeedbackRepo';
 
 export type AnalysisFreshnessV2 = 'CURRENT' | 'REANALYSIS_REQUIRED';
 export type FieldDiffStatusV2 = 'UNCHANGED' | 'CHANGED' | 'ADDED' | 'REMOVED';
 
 export class FreeDiagnosisDesignV2ApiError extends Error {
-  constructor(public readonly status: number, public readonly code: string) {
+  constructor(public readonly status: number, public readonly code: string, public readonly userMessage?: string) {
     super(code);
     this.name = 'FreeDiagnosisDesignV2ApiError';
   }
@@ -109,6 +111,7 @@ export class FreeDiagnosisDesignV2ApiService {
   constructor(
     private readonly cases: FreeDiagnosisRuleBasedCaseRepo,
     private readonly persistence: FreeDiagnosisDesignV2PersistenceRepo,
+    private readonly approvals?: Pick<Vs1ReviewReportFeedbackRepo, 'approve'>,
   ) {}
 
   private async requireCase(caseId: string) {
@@ -242,5 +245,41 @@ export class FreeDiagnosisDesignV2ApiService {
     await this.requireCase(caseId);
     try { return await this.persistence.updateDesignV2ReportDraftPresentation(caseId, reportId, content, actor); }
     catch (error) { return this.mapPersistenceError(error); }
+  }
+
+  async approveReportDraft(caseId: string, reportId: string, actor: string) {
+    await this.requireCase(caseId);
+    if (!this.approvals) throw new FreeDiagnosisDesignV2ApiError(501, 'DESIGN_V2_REPORT_APPROVAL_NOT_CONFIGURED');
+    try {
+      const report = await this.persistence.getDesignV2ReportDraft(caseId, reportId);
+      if (report.status !== 'REVIEW_REQUIRED') {
+        throw new FreeDiagnosisDesignV2ApiError(409, 'DESIGN_V2_REPORT_NOT_REVIEWABLE');
+      }
+      const adopted = report.context.adoptedNarrative;
+      if (!adopted || typeof adopted !== 'object') {
+        throw new FreeDiagnosisDesignV2ApiError(409, 'DESIGN_V2_REPORT_STALE', 'レポート作成後に顧客向け文面が更新されています。最新の内容でレポートを更新してから承認してください。');
+      }
+      const provenance = adopted as Record<string, unknown>;
+      const workspace = await this.persistence.getDesignV2PersistenceWorkspace(caseId);
+      const generated = workspace?.latestGeneratedNarrative;
+      const humanEdit = workspace?.latestHumanEditedNarrative;
+      const currentHumanEdit = humanEdit && generated && humanEdit.generatedNarrativeId === generated.id ? humanEdit : null;
+      const isCurrent = currentHumanEdit
+        ? provenance.source === 'HUMAN_EDITED' && provenance.id === currentHumanEdit.id
+          && provenance.generatedNarrativeId === currentHumanEdit.generatedNarrativeId
+          && provenance.contentHash === currentHumanEdit.contentHash
+        : generated != null
+          && provenance.source === 'SYSTEM_GENERATED' && provenance.id === generated.id
+          && provenance.contentHash === generated.contentHash;
+      if (!isCurrent) {
+        throw new FreeDiagnosisDesignV2ApiError(409, 'DESIGN_V2_REPORT_STALE', 'レポート作成後に顧客向け文面が更新されています。最新の内容でレポートを更新してから承認してください。');
+      }
+      await this.approvals.approve(caseId, reportId, actor);
+      return await this.persistence.getDesignV2ReportDraft(caseId, reportId);
+    } catch (error) {
+      if (error instanceof FreeDiagnosisDesignV2ApiError) throw error;
+      if (error instanceof RuleBasedV1Error) throw new FreeDiagnosisDesignV2ApiError(error.status, error.code);
+      return this.mapPersistenceError(error);
+    }
   }
 }

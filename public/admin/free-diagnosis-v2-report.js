@@ -5,6 +5,7 @@
   const reportId = params.get('reportId');
   const apiBase = '/api/admin/free-diagnosis-v1/cases/';
   let report;
+  let postHearingWorkspace;
   const byId = id => document.querySelector(`#${id}`);
   const message = byId('reportMessage');
   const workspace = byId('reportWorkspace');
@@ -13,6 +14,7 @@
   const sectionMap = content => new Map(content.sections.map(section => [section.key, section]));
   const candidateMap = content => content.assessmentProposal.presentationByCandidateId || {};
   const selectedIds = content => new Set(content.assessmentProposal.selectedCandidateIds || []);
+  const staleApprovalMessage = 'レポート作成後に顧客向け文面が更新されています。最新の内容でレポートを更新してから承認してください。';
 
   function showMessage(text, type = '') { message.textContent = text; message.className = `status${type ? ` ${type}` : ''}`; }
   function hidden(node, value) { node.classList.toggle('hidden', value); }
@@ -20,6 +22,41 @@
   function textArea(value) { const area = document.createElement('textarea'); area.value = value || ''; area.rows = 2; area.addEventListener('input', () => { autoGrow(area); renderPreview(); }); requestAnimationFrame(() => autoGrow(area)); return area; }
   function selectedCandidateIdsFromForm() { return [...document.querySelectorAll('[data-candidate-id]:checked')].map(input => input.dataset.candidateId); }
   function presentationFromEditors() { const presentation = {}; document.querySelectorAll('[data-customer-expression]').forEach(area => { const id = area.dataset.customerExpression; presentation[id] = { customerExpression: area.value, reason: document.querySelector(`[data-reason="${id}"]`)?.value || '' }; }); return presentation; }
+
+  function approvalCurrent() {
+    const adopted = report?.context?.adoptedNarrative;
+    if (!adopted || !postHearingWorkspace?.latestGeneratedNarrative) return false;
+    const human = postHearingWorkspace.latestHumanEditedNarrative;
+    const generated = postHearingWorkspace.latestGeneratedNarrative;
+    const humanIsCurrent = human && postHearingWorkspace.humanEditedNarrativeStatus === 'CURRENT';
+    if (humanIsCurrent) return adopted.source === 'HUMAN_EDITED' && adopted.id === human.id && adopted.generatedNarrativeId === human.generatedNarrativeId && adopted.contentHash === human.contentHash;
+    return adopted.source === 'SYSTEM_GENERATED' && adopted.id === generated.id && adopted.contentHash === generated.contentHash;
+  }
+
+  function setReadonly(readonly) {
+    const form = byId('reportForm');
+    form.classList.toggle('is-readonly', readonly);
+    form.querySelectorAll('input, textarea, button').forEach(element => { element.disabled = readonly; });
+    hidden(byId('saveReport'), readonly);
+  }
+
+  function renderApprovalState() {
+    const status = byId('approvalStatus'); const notice = byId('approvalNotice'); const approve = byId('approveReport');
+    const approved = report.status === 'APPROVED';
+    setReadonly(approved);
+    status.textContent = approved ? '承認済み' : '';
+    hidden(status, !approved);
+    if (approved) {
+      notice.textContent = 'このレポートの内容は確定されています。'; hidden(notice, false); hidden(approve, true); return;
+    }
+    if (report.status === 'REVIEW_REQUIRED' && approvalCurrent()) {
+      notice.textContent = '承認すると、このレポートの内容が確定されます。'; hidden(notice, false); hidden(approve, false);
+    } else if (report.status === 'REVIEW_REQUIRED') {
+      notice.textContent = staleApprovalMessage; hidden(notice, false); hidden(approve, true);
+    } else {
+      hidden(notice, true); hidden(approve, true);
+    }
+  }
 
   function renderSelectedCandidateEditors(content, ids, pending = {}) {
     const selected = byId('assessmentSelectedEditors'); const existing = candidateMap(content);
@@ -157,9 +194,13 @@
   async function load() {
     if (!caseId || !reportId) { hidden(unavailable, false); return; }
     byId('backToAnalysis').href = `/admin/free-diagnosis-v2-analysis.html?caseId=${encodeURIComponent(caseId)}`;
-    const response = await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/report-drafts/${encodeURIComponent(reportId)}`);
+    const [response, workspaceResponse] = await Promise.all([
+      fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/report-drafts/${encodeURIComponent(reportId)}`),
+      fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/post-hearing-analysis`),
+    ]);
     if (!response.ok) { hidden(unavailable, false); return; }
-    report = await response.json(); renderForm(); renderPreview(); hidden(workspace, false);
+    report = await response.json(); postHearingWorkspace = workspaceResponse.ok ? await workspaceResponse.json() : null;
+    renderForm(); renderPreview(); renderApprovalState(); hidden(workspace, false);
   }
   async function save() {
     const content = editedContent();
@@ -167,7 +208,21 @@
     if (!response.ok) { showMessage('提案情報を保存できませんでした。もう一度お試しください。', 'error'); return; }
     report = await response.json(); renderForm(); renderPreview(); showMessage('提案情報を保存しました。');
   }
+  async function approve() {
+    if (!window.confirm('この内容でレポートを承認します。承認後は、このレポートの内容を変更できません。よろしいですか？')) return;
+    const button = byId('approveReport'); button.disabled = true;
+    try {
+      const response = await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/report-drafts/${encodeURIComponent(reportId)}/approve`, { method: 'POST' });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        showMessage(body?.message || 'レポートを承認できませんでした。もう一度お試しください。', 'error');
+        return;
+      }
+      await load(); showMessage('レポートを承認しました。');
+    } finally { button.disabled = false; }
+  }
   byId('reportForm').addEventListener('submit', event => { event.preventDefault(); save(); });
   byId('saveReport').addEventListener('click', save);
+  byId('approveReport').addEventListener('click', approve);
   load().catch(() => hidden(unavailable, false));
 })();

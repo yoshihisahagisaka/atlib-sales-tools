@@ -14,6 +14,7 @@ import { FreeDiagnosisDesignV2PersistenceRepo, type DesignV2CurrentStateFields }
 import { StaffAuthService } from '../src/services/staffAuthService';
 import { createFreeDiagnosisRuleBasedV1Harness } from './support/freeDiagnosisRuleBasedV1Harness';
 import { projectDesignV2DiagnosisMap } from '../src/domain/freeDiagnosisDesignV2Report';
+import { contentHash } from '../src/domain/diagnosisReport';
 
 const root = path.resolve(__dirname, '..');
 
@@ -48,7 +49,7 @@ test('Report map projection is deterministic, preserves source order, and report
 test('E1 Design v2 Report Draft uses only latest canonical sources and creates a VS1-owned version', async t => {
   const h = await createFreeDiagnosisRuleBasedV1Harness();
   const persistence = new FreeDiagnosisDesignV2PersistenceRepo(h.pool);
-  const service = new FreeDiagnosisDesignV2ApiService(h.cases, persistence);
+  const service = new FreeDiagnosisDesignV2ApiService(h.cases, persistence, h.vs1);
   const auth = new StaffAuthService('design-v2-e1-test-key');
   const cookie = `staff_session=${auth.issueSessionToken({ email: 'e1-operator@atlib.jp' })}`;
   const app = express(); app.use(express.json()); app.use(cookieParser());
@@ -214,6 +215,72 @@ test('E1 Design v2 Report Draft uses only latest canonical sources and creates a
       sectionMutation.sections[0].entries = ['Report画面からの診断結果変更は禁止'];
       const invalidSection = await patch(`/cases/${kase.id}/design-v2/report-drafts/${second.id}`, sectionMutation);
       assert.equal(invalidSection.status, 422);
+    });
+
+    await t.test('E3 approves only the latest Design v2 narrative and freezes the approved version', async () => {
+      const newerContent = structuredClone(latest.generated.content) as FreeDiagnosisNarrativeV2;
+      newerContent.currentUnderstanding = { ...newerContent.currentUnderstanding, entries: ['APPROVAL MUST USE THE LATEST HUMAN EDIT'] };
+      const newerEditResponse = await post(`/cases/${kase.id}/design-v2/narrative-edits`, {
+        generatedNarrativeId: latest.generated.id, content: newerContent, editReason: 'approval freshness',
+      });
+      assert.equal(newerEditResponse.status, 201);
+
+      const stale = await post(`/cases/${kase.id}/design-v2/report-drafts/${second.id}/approve`);
+      assert.equal(stale.status, 409);
+      assert.deepEqual(await stale.json(), {
+        error: 'DESIGN_V2_REPORT_STALE',
+        message: 'レポート作成後に顧客向け文面が更新されています。最新の内容でレポートを更新してから承認してください。',
+      });
+      const staleRow = (await h.pool.query<any>('SELECT status,snapshot_json FROM diagnosis_reports WHERE id=$1', [second.id])).rows[0];
+      assert.equal(staleRow.status, 'REVIEW_REQUIRED');
+      assert.equal(staleRow.snapshot_json, null);
+      const staleAudit = await h.pool.query<any>(
+        `SELECT count(*)::text AS count FROM it_management_diagnosis_case_v2_audit
+          WHERE case_id=$1 AND command='ApproveReport' AND detail_json->>'report_id'=$2`, [kase.id, second.id],
+      );
+      assert.equal(staleAudit.rows[0].count, '0');
+
+      const freshResponse = await post(`/cases/${kase.id}/design-v2/report-drafts`);
+      assert.equal(freshResponse.status, 201);
+      const fresh = await freshResponse.json() as any;
+      assert.equal(fresh.context.adoptedNarrative.source, 'HUMAN_EDITED');
+      const approved = await post(`/cases/${kase.id}/design-v2/report-drafts/${fresh.id}/approve`);
+      assert.equal(approved.status, 200);
+      const approvedReport = await approved.json() as any;
+      assert.equal(approvedReport.status, 'APPROVED');
+      const approvedRow = (await h.pool.query<any>(
+        'SELECT status,content_json,snapshot_json,approved_by_user_id,approved_at FROM diagnosis_reports WHERE id=$1', [fresh.id],
+      )).rows[0];
+      const snapshot = typeof approvedRow.snapshot_json === 'string' ? JSON.parse(approvedRow.snapshot_json) : approvedRow.snapshot_json;
+      assert.equal(approvedRow.status, 'APPROVED');
+      assert.equal(snapshot.content_hash, contentHash(approvedRow.content_json));
+      assert.equal(snapshot.context.adoptedNarrative.id, fresh.context.adoptedNarrative.id);
+      assert.equal(approvedRow.approved_by_user_id, 'e1-operator@atlib.jp');
+      assert.ok(approvedRow.approved_at);
+      assert.equal((await h.cases.getCase(kase.id))?.status, 'REPORT_APPROVED');
+      const approvalAudit = await h.pool.query<any>(
+        `SELECT actor_user_id,detail_json FROM it_management_diagnosis_case_v2_audit
+          WHERE case_id=$1 AND command='ApproveReport' AND detail_json->>'report_id'=$2`, [kase.id, fresh.id],
+      );
+      assert.equal(approvalAudit.rows.length, 1);
+      assert.equal(approvalAudit.rows[0].actor_user_id, 'e1-operator@atlib.jp');
+      assert.ok(approvalAudit.rows[0].detail_json.approval_snapshot_hash);
+
+      const postApprovalEdit = await patch(`/cases/${kase.id}/design-v2/report-drafts/${fresh.id}`, approvedReport.content);
+      assert.equal(postApprovalEdit.status, 409);
+      await assert.rejects(h.pool.query('UPDATE diagnosis_reports SET content_json=$2 WHERE id=$1', [fresh.id, JSON.stringify({ proposal: 'must remain frozen' })]));
+      await assert.rejects(h.pool.query('DELETE FROM diagnosis_reports WHERE id=$1', [fresh.id]));
+      const repeatApproval = await post(`/cases/${kase.id}/design-v2/report-drafts/${fresh.id}/approve`);
+      assert.equal(repeatApproval.status, 409);
+
+      const otherActivity = await h.launcher.createSalesActivity({ name: 'cross case', contact: { name: 'Operator' }, selectedService: 'IT_KAIZEN' }, 'operator@atlib.jp');
+      const otherCase = await h.cases.createCase(otherActivity.companyId, otherActivity.contactId, otherActivity.salesActivityId, 'operator@atlib.jp');
+      const crossCase = await post(`/cases/${otherCase.id}/design-v2/report-drafts/${fresh.id}/approve`);
+      assert.equal(crossCase.status, 404);
+
+      const nonDesignV2 = await h.vs1.draft(kase.id, 'e1-operator@atlib.jp');
+      const nonDesignV2Approval = await post(`/cases/${kase.id}/design-v2/report-drafts/${nonDesignV2.id}/approve`);
+      assert.equal(nonDesignV2Approval.status, 404);
     });
   } finally {
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));

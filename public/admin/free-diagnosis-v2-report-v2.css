@@ -36,3 +36,4 @@
 .kaizen-principle h3{margin:0 0 3mm;font-size:12pt;color:#17375e}
 .kaizen-principle p{margin:0 0 2.5mm;font-size:9.5pt;line-height:1.55}
 @media(max-width:700px){.assessment-flow{flex-direction:column}.flow-arrow{align-self:center;transform:rotate(90deg)}.flow-step{width:100%}.introduction-paragraph{font-size:10pt}.report-concept-diagram{max-width:100%}.report-concept-label{font-size:clamp(6.5pt,2.25vw,9.5pt)}.diagram-context{font-size:clamp(5.5pt,1.8vw,7.5pt)}}
+.approval-status{display:inline-flex;align-items:center;padding:7px 10px;border:1px solid #8db49b;border-radius:4px;background:#f1f8f2;color:#245b36;font-size:.84rem;font-weight:700}.approval-notice{margin:0 0 16px;padding:10px 12px;border-left:3px solid #7890a7;background:#f6f8fb;color:#35485a;font-size:.9rem}.report-form.is-readonly{background:#f8fafc}.report-form.is-readonly input,.report-form.is-readonly textarea{background:#f1f5f9;color:#4b5563}.report-form.is-readonly .editor-save-bar{display:none}
