@@ -69,6 +69,7 @@ import { createPublicCustomerSelfFreeDiagnosisRouter } from './routes/publicCust
 import { FreeDiagnosisDesignV2PersistenceRepo } from './services/freeDiagnosisDesignV2PersistenceRepo';
 import { FreeDiagnosisDesignV2ApiService } from './services/freeDiagnosisDesignV2ApiService';
 import { createAdminFreeDiagnosisDesignV2Router } from './routes/adminFreeDiagnosisDesignV2';
+import { FreeDiagnosisDesignV2ReportPdfService } from './services/freeDiagnosisDesignV2ReportPdf';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -88,7 +89,8 @@ async function main(): Promise<void> {
   const vs1ReviewReportFeedbackRepo = new Vs1ReviewReportFeedbackRepo(pool);
   const publicCustomerSelfSubmissionService = new PublicCustomerSelfSubmissionService(pool);
   const freeDiagnosisDesignV2PersistenceRepo = new FreeDiagnosisDesignV2PersistenceRepo(pool);
-  const freeDiagnosisDesignV2ApiService = new FreeDiagnosisDesignV2ApiService(freeDiagnosisRuleBasedCaseRepo, freeDiagnosisDesignV2PersistenceRepo, vs1ReviewReportFeedbackRepo);
+  const freeDiagnosisDesignV2ReportPdfService = new FreeDiagnosisDesignV2ReportPdfService(pool);
+  const freeDiagnosisDesignV2ApiService = new FreeDiagnosisDesignV2ApiService(freeDiagnosisRuleBasedCaseRepo, freeDiagnosisDesignV2PersistenceRepo, vs1ReviewReportFeedbackRepo, freeDiagnosisDesignV2ReportPdfService);
   const kaizenAssessmentRepo = new KaizenAssessmentRepo(pool);
   const kaizenAssessmentAiService = new KaizenAssessmentAiService(config.aiAssist.anthropicApiKey);
   const marketRateRepo = new MarketRateRepo(pool);

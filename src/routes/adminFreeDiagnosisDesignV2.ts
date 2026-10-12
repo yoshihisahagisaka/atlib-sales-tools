@@ -116,6 +116,16 @@ export function createAdminFreeDiagnosisDesignV2Router(service: FreeDiagnosisDes
   router.post('/cases/:id/design-v2/report-drafts/:reportId/approve', (req, res) => handle(res, async () => {
     res.json(await service.approveReportDraft(req.params.id, req.params.reportId, actor(req)));
   }));
+  router.get('/cases/:id/design-v2/reports/:reportId/pdf', (req, res) => handle(res, async () => {
+    const reportId = z.string().uuid().safeParse(req.params.reportId);
+    if (!reportId.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    const pdf = await service.getApprovedReportPdf(req.params.id, reportId.data);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', pdf.contentDisposition);
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(pdf.bytes);
+  }));
 
   return router;
 }

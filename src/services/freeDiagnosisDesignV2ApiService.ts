@@ -10,6 +10,7 @@ import {
 } from './freeDiagnosisDesignV2PersistenceRepo';
 import { RuleBasedV1Error } from '../domain/freeDiagnosisRuleBasedV1';
 import type { Vs1ReviewReportFeedbackRepo } from './vs1ReviewReportFeedbackRepo';
+import { FreeDiagnosisDesignV2ReportPdfError, type ApprovedDesignV2ReportPdf, type FreeDiagnosisDesignV2ReportPdfService } from './freeDiagnosisDesignV2ReportPdf';
 
 export type AnalysisFreshnessV2 = 'CURRENT' | 'REANALYSIS_REQUIRED';
 export type FieldDiffStatusV2 = 'UNCHANGED' | 'CHANGED' | 'ADDED' | 'REMOVED';
@@ -112,6 +113,7 @@ export class FreeDiagnosisDesignV2ApiService {
     private readonly cases: FreeDiagnosisRuleBasedCaseRepo,
     private readonly persistence: FreeDiagnosisDesignV2PersistenceRepo,
     private readonly approvals?: Pick<Vs1ReviewReportFeedbackRepo, 'approve'>,
+    private readonly pdfs?: Pick<FreeDiagnosisDesignV2ReportPdfService, 'generate'>,
   ) {}
 
   private async requireCase(caseId: string) {
@@ -280,6 +282,15 @@ export class FreeDiagnosisDesignV2ApiService {
       if (error instanceof FreeDiagnosisDesignV2ApiError) throw error;
       if (error instanceof RuleBasedV1Error) throw new FreeDiagnosisDesignV2ApiError(error.status, error.code);
       return this.mapPersistenceError(error);
+    }
+  }
+
+  async getApprovedReportPdf(caseId: string, reportId: string): Promise<ApprovedDesignV2ReportPdf> {
+    if (!this.pdfs) throw new FreeDiagnosisDesignV2ApiError(501, 'DESIGN_V2_REPORT_PDF_NOT_CONFIGURED');
+    try { return await this.pdfs.generate(caseId, reportId); }
+    catch (error) {
+      if (error instanceof FreeDiagnosisDesignV2ReportPdfError) throw new FreeDiagnosisDesignV2ApiError(error.status, error.code);
+      throw error;
     }
   }
 }

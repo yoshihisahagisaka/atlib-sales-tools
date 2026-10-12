@@ -41,14 +41,16 @@
   }
 
   function renderApprovalState() {
-    const status = byId('approvalStatus'); const notice = byId('approvalNotice'); const approve = byId('approveReport');
+    const status = byId('approvalStatus'); const notice = byId('approvalNotice'); const approve = byId('approveReport'); const pdf = byId('viewPdf');
     const approved = report.status === 'APPROVED';
     setReadonly(approved);
     status.textContent = approved ? '承認済み' : '';
     hidden(status, !approved);
     if (approved) {
-      notice.textContent = 'このレポートの内容は確定されています。'; hidden(notice, false); hidden(approve, true); return;
+      pdf.href = `${apiBase}${encodeURIComponent(caseId)}/design-v2/reports/${encodeURIComponent(reportId)}/pdf`;
+      notice.textContent = 'このレポートの内容は確定されています。'; hidden(notice, false); hidden(approve, true); hidden(pdf, false); return;
     }
+    hidden(pdf, true);
     if (report.status === 'REVIEW_REQUIRED' && approvalCurrent()) {
       notice.textContent = '承認すると、このレポートの内容が確定されます。'; hidden(notice, false); hidden(approve, false);
     } else if (report.status === 'REVIEW_REQUIRED') {

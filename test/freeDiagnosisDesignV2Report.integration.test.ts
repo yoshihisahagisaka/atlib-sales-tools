@@ -15,6 +15,7 @@ import { StaffAuthService } from '../src/services/staffAuthService';
 import { createFreeDiagnosisRuleBasedV1Harness } from './support/freeDiagnosisRuleBasedV1Harness';
 import { projectDesignV2DiagnosisMap } from '../src/domain/freeDiagnosisDesignV2Report';
 import { contentHash } from '../src/domain/diagnosisReport';
+import { FreeDiagnosisDesignV2ReportPdfService } from '../src/services/freeDiagnosisDesignV2ReportPdf';
 
 const root = path.resolve(__dirname, '..');
 
@@ -49,7 +50,8 @@ test('Report map projection is deterministic, preserves source order, and report
 test('E1 Design v2 Report Draft uses only latest canonical sources and creates a VS1-owned version', async t => {
   const h = await createFreeDiagnosisRuleBasedV1Harness();
   const persistence = new FreeDiagnosisDesignV2PersistenceRepo(h.pool);
-  const service = new FreeDiagnosisDesignV2ApiService(h.cases, persistence, h.vs1);
+  const pdfService = new FreeDiagnosisDesignV2ReportPdfService(h.pool, async html => Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.from(html)]));
+  const service = new FreeDiagnosisDesignV2ApiService(h.cases, persistence, h.vs1, pdfService);
   const auth = new StaffAuthService('design-v2-e1-test-key');
   const cookie = `staff_session=${auth.issueSessionToken({ email: 'e1-operator@atlib.jp' })}`;
   const app = express(); app.use(express.json()); app.use(cookieParser());
@@ -270,6 +272,20 @@ test('E1 Design v2 Report Draft uses only latest canonical sources and creates a
       assert.equal(postApprovalEdit.status, 409);
       await assert.rejects(h.pool.query('UPDATE diagnosis_reports SET content_json=$2 WHERE id=$1', [fresh.id, JSON.stringify({ proposal: 'must remain frozen' })]));
       await assert.rejects(h.pool.query('DELETE FROM diagnosis_reports WHERE id=$1', [fresh.id]));
+      const pdfPath = `/cases/${kase.id}/design-v2/reports/${fresh.id}/pdf`;
+      const unauthenticatedPdf = await fetch(base + pdfPath);
+      assert.equal(unauthenticatedPdf.status, 401);
+      const pdf = await get(pdfPath);
+      assert.equal(pdf.status, 200);
+      assert.equal(pdf.headers.get('content-type'), 'application/pdf');
+      assert.match(pdf.headers.get('content-disposition') ?? '', /^inline;/);
+      assert.equal(pdf.headers.get('cache-control'), 'no-store');
+      assert.equal(pdf.headers.get('x-content-type-options'), 'nosniff');
+      const firstPdf = Buffer.from(await pdf.arrayBuffer());
+      assert.equal(firstPdf.subarray(0, 5).toString('ascii'), '%PDF-');
+      assert.ok(firstPdf.length > 1_000);
+      const reviewRequiredPdf = await get(`/cases/${kase.id}/design-v2/reports/${second.id}/pdf`);
+      assert.equal(reviewRequiredPdf.status, 409);
       const repeatApproval = await post(`/cases/${kase.id}/design-v2/report-drafts/${fresh.id}/approve`);
       assert.equal(repeatApproval.status, 409);
 
@@ -277,10 +293,14 @@ test('E1 Design v2 Report Draft uses only latest canonical sources and creates a
       const otherCase = await h.cases.createCase(otherActivity.companyId, otherActivity.contactId, otherActivity.salesActivityId, 'operator@atlib.jp');
       const crossCase = await post(`/cases/${otherCase.id}/design-v2/report-drafts/${fresh.id}/approve`);
       assert.equal(crossCase.status, 404);
+      const crossCasePdf = await get(`/cases/${otherCase.id}/design-v2/reports/${fresh.id}/pdf`);
+      assert.equal(crossCasePdf.status, 404);
 
       const nonDesignV2 = await h.vs1.draft(kase.id, 'e1-operator@atlib.jp');
       const nonDesignV2Approval = await post(`/cases/${kase.id}/design-v2/report-drafts/${nonDesignV2.id}/approve`);
       assert.equal(nonDesignV2Approval.status, 404);
+      const nonDesignV2Pdf = await get(`/cases/${kase.id}/design-v2/reports/${nonDesignV2.id}/pdf`);
+      assert.equal(nonDesignV2Pdf.status, 404);
     });
   } finally {
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));

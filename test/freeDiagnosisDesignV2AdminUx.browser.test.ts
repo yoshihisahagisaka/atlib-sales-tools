@@ -136,7 +136,7 @@ test('explicit report refresh creates one new draft and leaves the old-report li
   expect(refreshCalls).toBe(1);
 });
 
-test('survey is a default-closed read-only reference and Q1 is its sole separate editor', async ({ page }) => {
+test('survey is a default-closed read-only reference and Q1 is its sole separate editor', async ({ page }, testInfo) => {
   const state = { value: workspace() }; await routeWorkspace(page, state);
   await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${state.value.case.id}`);
   await expect(page.locator('#answerReference')).not.toHaveAttribute('open', ''); await expect(page.locator('#openAnswerReference')).toBeVisible();
@@ -146,7 +146,7 @@ test('survey is a default-closed read-only reference and Q1 is its sole separate
   await expect(page.locator('#original')).toContainText('会社の状況'); await expect(page.locator('#original')).toContainText('関心のあるITテーマ');
   await page.locator('#openQ1Editor').click();
   await expect(page.locator('#q1Editor')).toBeVisible(); await expect(page.locator('#editor [data-field=q1CompanyContext]')).toHaveCount(1);
-  expect(await page.locator('.q1-choice-grid').evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(2);
+  expect(await page.locator('.q1-choice-grid').evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(testInfo.project.name === 'desktop' ? 2 : 1);
   await expect(page.locator('#editor [data-field=q2Future], #editor [data-field=q3ItExpectations], #editor [data-field=q4CurrentInterest], #editor [data-field=q5Visibility], #editor [data-field=q6ManagementConnection], #editor [data-field=q7InterestThemes]')).toHaveCount(0);
 });
 

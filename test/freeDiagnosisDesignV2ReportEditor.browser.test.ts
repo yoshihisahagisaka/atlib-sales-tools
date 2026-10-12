@@ -108,7 +108,7 @@ test('proposal save failure never shows the success state', async ({ page }) => 
   await expect(page.locator('#reportMessage')).not.toContainText('提案情報を保存しました。');
 });
 
-test('current Draft can be approved and becomes read-only without a PDF action', async ({ page }) => {
+test('current Draft can be approved and exposes the approved PDF action', async ({ page }) => {
   const source = readFileSync(path.resolve(__dirname, '../public/admin/free-diagnosis-v2-report.js'), 'utf8'); expect(source).not.toContain('window.print()');
   let data: any = draft(); let approvalCalls = 0;
   data.context.adoptedNarrative = { source: 'HUMAN_EDITED', id: 'edit-1', generatedNarrativeId: 'narrative-1', contentHash: 'edit-hash' };
@@ -136,7 +136,10 @@ test('current Draft can be approved and becomes read-only without a PDF action',
   await expect(page.getByRole('button', { name: '提案情報を保存' })).toBeHidden();
   await expect(page.locator('#recipientCompany')).toBeDisabled();
   await expect(page.locator('#reportPreview')).toBeVisible();
-  await expect(page.getByText(/PDF/)).toHaveCount(0);
+  const pdf = page.getByRole('link', { name: 'PDFで表示' });
+  await expect(pdf).toBeVisible();
+  await expect(pdf).toHaveAttribute('target', '_blank');
+  await expect(pdf).toHaveAttribute('href', new RegExp(`/cases/${caseId}/design-v2/reports/${reportId}/pdf$`));
 });
 
 test('stale Draft shows the refresh guidance and cannot be approved from the editor', async ({ page }) => {
