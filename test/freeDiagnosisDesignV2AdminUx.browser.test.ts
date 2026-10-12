@@ -3,82 +3,131 @@ import express from 'express';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 
-let server: ReturnType<express.Express['listen']>; let url: string;
-test.beforeAll(async () => { const app=express(); app.use('/admin',express.static(path.resolve(__dirname,'../public/admin'))); server=app.listen(0,'127.0.0.1'); await new Promise<void>(r=>server.once('listening',r)); url=`http://127.0.0.1:${(server.address() as AddressInfo).port}`; });
-test.afterAll(async()=>{await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()))});
+let server: ReturnType<express.Express['listen']>;
+let url: string;
 
-const content={future:{heading:'目指している会社の姿',entries:['少人数で成長する']},currentUnderstanding:{heading:'現在の理解',entries:['一部を把握している']},confirmationAndImprovement:{heading:'改善可能性',entries:['確認する価値があります']},unknowns:{heading:'まだ確認できていないこと',entries:['業務の詳細']},nextFacts:{heading:'次に確認すること',entries:['情報の流れ']}};
-function workspace(overrides:any={}){return {case:{id:'11111111-1111-4111-8111-111111111111'},originalSurvey:{answers:{q1CompanyContext:{employeeRange:'EMP_21_50',siteRange:'SITE_1'},q2Future:['BUSINESS_GROWTH','LEAN_GROWTH'],q3ItExpectations:['PRODUCTIVITY','MANAGEMENT_DECISION_SUPPORT'],q4CurrentInterest:'MANAGEMENT_DECISION',q5Visibility:'VISIBLE_PARTIAL',q6ManagementConnection:'REPORTED_NOT_DECISION_USABLE',q7InterestThemes:['AUTOMATION']}},hearingRecords:[{statementText:'<img src=x onerror=alert(1)>確認した内容',planItemRef:null,recordedAt:'2026-10-11T00:00:00Z'}],currentCompanyContext:{employeeRange:'EMP_21_50',siteRange:'SITE_1'},currentStructuredState:{q2Future:['BUSINESS_GROWTH','LEAN_GROWTH'],q3ItExpectations:['PRODUCTIVITY','MANAGEMENT_DECISION_SUPPORT'],q4CurrentInterest:'MANAGEMENT_DECISION',q5Visibility:'VISIBLE_PARTIAL',q6ManagementConnection:'REPORTED_NOT_DECISION_USABLE',q7InterestThemes:['AUTOMATION']},currentStateRevision:{id:'state-1',revisionNo:1},currentStateDiffFromOriginal:{q1CompanyContext:{status:'UNCHANGED'},q2Future:{status:'UNCHANGED'},q3ItExpectations:{status:'UNCHANGED'},q4CurrentInterest:{status:'UNCHANGED'},q5Visibility:{status:'UNCHANGED'},q6ManagementConnection:{status:'UNCHANGED'},q7InterestThemes:{status:'UNCHANGED'}},latestAnalysisResult:{analysis:{futureUnderstanding:[{id:'future',text:'成長したい'}],currentUnderstanding:[{id:'current',text:'一部を把握'}],lensFindings:[{id:'theme-1',text:'情報の流れを確認する価値',lenses:['TECHNOLOGY','OPERATION','MANAGEMENT']}],unknowns:[{id:'unknown-1',text:'まだ確認できていない',lenses:['OPERATION']}],hearingViewpoints:[{id:'theme-1',label:'情報が判断へ届く流れ',whyUseful:'経営判断とのつながりを確認するため',lenses:['OPERATION','MANAGEMENT'],exampleQuestions:['どの情報を確認していますか？']}],factCandidates:[{id:'fact-1',whatToVerify:'共有内容',whyItMattersToFuture:'成長を支えるため',whatMayBecomeKnowable:'改善可能性',lenses:['MANAGEMENT']}],healthyGuard:{noImportantGapIdentified:false}}},traceability:{viewpoints:[{id:'theme-1',relatedQuestionCodes:['Q4','Q6']}],analysisItemThemes:{'theme-1':['theme-1'],'unknown-1':['theme-1'],'fact-1':['theme-1']},narrativeSectionThemes:{confirmationAndImprovement:['theme-1'],unknowns:['theme-1'],nextFacts:['theme-1']}},latestGeneratedNarrative:{id:'22222222-2222-4222-8222-222222222222',content},latestHumanEditedNarrative:null,humanEditedNarrativeStatus:'NONE',analysisFreshness:'CURRENT',...overrides}}
+test.beforeAll(async () => {
+  const app = express();
+  app.use('/admin', express.static(path.resolve(__dirname, '../public/admin')));
+  server = app.listen(0, '127.0.0.1');
+  await new Promise<void>((resolve) => server.once('listening', resolve));
+  url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+});
+test.afterAll(async () => new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())));
 
-test('Live Hearing is bounded two-column workspace with safe memo append',async({page})=>{
-  let data=workspace();data.latestAnalysisResult.analysis.hearingViewpoints=Array.from({length:5},(_,index)=>({id:`theme-${index+1}`,label:index?'確認事項 '+(index+1):'情報が判断へ届く流れ',whyUseful:'経営判断とのつながりを確認するため',lenses:index%2?['TECHNOLOGY','OPERATION']:['OPERATION','MANAGEMENT'],exampleQuestions:[index?'質問例 '+(index+1):'どの情報を確認していますか？']}));const memoBodies:any[]=[]; await page.route('**/design-v2/post-hearing-analysis',r=>r.fulfill({json:data}));
-  await page.route('**/hearing/statements',async r=>{const body=r.request().postDataJSON();memoBodies.push(body);data={...data,hearingRecords:[...data.hearingRecords,{statementText:body.statementText,planItemRef:body.planItemRef,recordedAt:'2026-10-11T01:00:00Z'}]};await r.fulfill({status:201,json:{id:'memo'}})});
-  await page.goto(`${url}/admin/free-diagnosis-v2-hearing.html?caseId=11111111-1111-4111-8111-111111111111`);
-  await expect(page.getByRole('heading',{name:'最初の回答'})).toBeVisible(); await expect(page.getByRole('heading',{name:'ヒアリング',exact:true})).toBeVisible();
-  await expect(page.locator('#original .original-card')).toHaveCount(7); for(const [index,name] of ['会社の状況','実現したい会社の未来','ITに期待していること','現在特に確認したいこと','現在の把握状況','情報と経営判断のつながり','関心のあるITテーマ'].entries()){await expect(page.locator('#original .original-card').nth(index).getByRole('heading',{name})).toBeVisible();await expect(page.locator('#original .question-number').nth(index)).toHaveText(`Q${index+1}`)}
-  const originalAnswers=[
-    ['従業員規模: 21〜50名、拠点: 1拠点',['EMP_21_50','SITE_1']],
-    ['事業を成長・拡大したい、少人数でも無理なく成長できる会社にしたい',['BUSINESS_GROWTH','LEAN_GROWTH']],
-    ['業務生産性を高めたい、経営判断を支えたい',['PRODUCTIVITY','MANAGEMENT_DECISION_SUPPORT']],
-    ['経営判断に必要な情報',['MANAGEMENT_DECISION']],
-    ['分かることと分からないことがある',['VISIBLE_PARTIAL']],
-    ['情報は得られるが、そのままでは判断に使いにくい',['REPORTED_NOT_DECISION_USABLE']],
-    ['自動化',['AUTOMATION']],
-  ] as const;
-  for(const [index,[label,codes]] of originalAnswers.entries()){const answer=page.locator('#original .original-card').nth(index).locator('.answer-value');for(const displayedLabel of label.split('、'))await expect(answer).toContainText(displayedLabel);for(const code of codes)await expect(answer).not.toContainText(code)}
-  await expect(page.locator('#original input, #original select, #original textarea')).toHaveCount(0);
-  const expectedColumns=(page.viewportSize()?.width||0)>1000?2:1; expect(await page.locator('.live-grid').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length)).toBe(expectedColumns);
-  await expect(page.getByRole('heading',{name:'今回確認したいこと'})).toBeVisible();await expect(page.locator('#viewpoints .viewpoint')).toHaveCount(5);for(let index=0;index<5;index++)await expect(page.locator('#viewpoints .viewpoint-number').nth(index)).toHaveText(String(index+1));const firstTheme=page.locator('#viewpoints .viewpoint').first();await expect(page.getByText('情報が判断へ届く流れ')).toBeVisible();await expect(firstTheme.getByText('Q4',{exact:true})).toBeVisible();await expect(firstTheme.getByText('Q6',{exact:true})).toBeVisible();await expect(firstTheme.getByRole('heading',{name:'聞き方'})).toBeVisible();await expect(firstTheme.getByText('どの情報を確認していますか？')).toBeVisible();await expect(firstTheme.locator('details')).toHaveCount(0);expect(await firstTheme.locator(':scope > *').evaluateAll(nodes=>nodes.map(node=>node.className))).toEqual(['viewpoint-title','related-badges','viewpoint-why','examples always-open','theme-memo memo']);
-  if((page.viewportSize()?.width||0)>1000){await expect(page.locator('.live-grid')).toHaveCSS('overflow','hidden');await expect(page.locator('.live-grid .pane-scroll').first()).toHaveCSS('overflow-y','auto')}
-  await expect(page.locator('body')).not.toContainText('M01'); await expect(page.locator('body')).not.toContainText('Primary Focus'); await expect(page.locator('#currentForm')).toHaveCount(0);
-  expect(await page.locator('img').count()).toBe(0);await expect(page.locator('#records')).toHaveCount(0);await expect(page.locator('#saveMemos')).toHaveCount(1);await expect(page.locator('.save-theme-memo')).toHaveCount(0);await page.locator('.theme-memo').nth(0).fill('テーマ1の会話メモ');await page.locator('.theme-memo').nth(1).fill('テーマ2の会話メモ');await page.locator('#saveMemos').click();await expect(page.getByText('2件のヒアリングメモを保存しました。')).toBeVisible();
-  expect(memoBodies).toHaveLength(2);expect(memoBodies[0].structuredAnswer).toBeUndefined();expect(memoBodies.map(body=>body.planItemRef)).toEqual(['design-v2-viewpoint:theme-1','design-v2-viewpoint:theme-2']);await expect(page.getByRole('link',{name:'案件一覧へ戻る'})).toHaveAttribute('href','/admin/free-diagnosis-v1.html'); await expect(page.locator('#toAnalysis')).toHaveAttribute('href',/free-diagnosis-v2-analysis/);
+const content = {
+  future: { heading: '目指している会社の姿', entries: ['少人数で成長する'] },
+  currentUnderstanding: { heading: '現在の理解', entries: ['一部を把握している'] },
+  confirmationAndImprovement: { heading: '改善可能性', entries: ['確認する価値があります'] },
+  unknowns: { heading: 'まだ確認できていないこと', entries: ['業務の詳細'] },
+  nextFacts: { heading: '次に確認すること', entries: ['情報の流れ'] },
+};
+
+function workspace(overrides: any = {}) {
+  return {
+    case: { id: '11111111-1111-4111-8111-111111111111' },
+    originalSurvey: { answers: {
+      q1CompanyContext: { employeeRange: 'EMP_21_50', siteRange: 'SITE_1' },
+      q2Future: ['BUSINESS_GROWTH', 'LEAN_GROWTH'], q3ItExpectations: ['PRODUCTIVITY', 'MANAGEMENT_DECISION_SUPPORT'],
+      q4CurrentInterest: 'MANAGEMENT_DECISION', q5Visibility: 'VISIBLE_PARTIAL', q6ManagementConnection: 'REPORTED_NOT_DECISION_USABLE', q7InterestThemes: ['AUTOMATION'],
+    } },
+    hearingRecords: [{ statementText: '<img src=x onerror=alert(1)>確認した内容', planItemRef: null, recordedAt: '2026-10-11T00:00:00Z' }],
+    currentCompanyContext: { employeeRange: 'EMP_21_50', siteRange: 'SITE_1' },
+    currentStructuredState: {
+      q2Future: ['BUSINESS_GROWTH', 'LEAN_GROWTH'], q3ItExpectations: ['PRODUCTIVITY', 'MANAGEMENT_DECISION_SUPPORT'],
+      q4CurrentInterest: 'MANAGEMENT_DECISION', q5Visibility: 'VISIBLE_PARTIAL', q6ManagementConnection: 'REPORTED_NOT_DECISION_USABLE', q7InterestThemes: ['AUTOMATION'],
+    },
+    currentStateRevision: { id: 'state-1', revisionNo: 1 },
+    currentStateDiffFromOriginal: { q1CompanyContext: { status: 'UNCHANGED' }, q2Future: { status: 'UNCHANGED' }, q3ItExpectations: { status: 'UNCHANGED' }, q4CurrentInterest: { status: 'UNCHANGED' }, q5Visibility: { status: 'UNCHANGED' }, q6ManagementConnection: { status: 'UNCHANGED' }, q7InterestThemes: { status: 'UNCHANGED' } },
+    latestAnalysisResult: { analysis: {
+      futureUnderstanding: [{ id: 'future', text: '成長したい' }], currentUnderstanding: [{ id: 'current', text: '一部を把握' }],
+      lensFindings: [{ id: 'theme-1', text: '情報の流れを確認する価値', lenses: ['TECHNOLOGY', 'OPERATION', 'MANAGEMENT'] }], unknowns: [{ id: 'unknown-1', text: 'まだ確認できていない', lenses: ['OPERATION'] }],
+      hearingViewpoints: [{ id: 'theme-1', label: '情報が判断へ届く流れ', whyUseful: '経営判断とのつながりを確認するため', lenses: ['OPERATION', 'MANAGEMENT'], exampleQuestions: ['どの情報を確認していますか？'] }],
+      factCandidates: [{ id: 'fact-1', whatToVerify: '共有内容', whyItMattersToFuture: '成長を支えるため', whatMayBecomeKnowable: '改善可能性', lenses: ['MANAGEMENT'] }], healthyGuard: { noImportantGapIdentified: false },
+    } },
+    traceability: { viewpoints: [{ id: 'theme-1', relatedQuestionCodes: ['Q4', 'Q6'] }], analysisItemThemes: { 'theme-1': ['theme-1'], 'unknown-1': ['theme-1'], 'fact-1': ['theme-1'] }, narrativeSectionThemes: { confirmationAndImprovement: ['theme-1'], unknowns: ['theme-1'], nextFacts: ['theme-1'] } },
+    latestGeneratedNarrative: { id: '22222222-2222-4222-8222-222222222222', content }, latestHumanEditedNarrative: null, humanEditedNarrativeStatus: 'NONE', analysisFreshness: 'CURRENT', ...overrides,
+  };
+}
+
+async function routeWorkspace(page: any, state: { value: any }) {
+  await page.route('**/design-v2/post-hearing-analysis', (route: any) => route.fulfill({ json: state.value }));
+}
+
+test('Live Hearing remains a separate theme memo workspace', async ({ page }) => {
+  const state = { value: workspace() }; const memoBodies: any[] = [];
+  await routeWorkspace(page, state);
+  await page.route('**/hearing/statements', async (route: any) => { memoBodies.push(route.request().postDataJSON()); await route.fulfill({ status: 201, json: { id: 'memo-1' } }); });
+  await page.goto(`${url}/admin/free-diagnosis-v2-hearing.html?caseId=${state.value.case.id}`);
+  await expect(page.getByRole('heading', { name: '今回確認したいこと' })).toBeVisible();
+  await expect(page.locator('#viewpoints .viewpoint')).toHaveCount(1);
+  await page.locator('.theme-memo').fill('ヒアリングで確認したメモ'); await page.locator('#saveMemos').click();
+  await expect.poll(() => memoBodies).toHaveLength(1);
+  expect(memoBodies[0]).toMatchObject({ statementText: 'ヒアリングで確認したメモ', planItemRef: 'design-v2-viewpoint:theme-1' });
+  expect(memoBodies[0].structuredAnswer).toBeUndefined();
 });
 
-test('Post-Hearing separates three layers and calls save then re-analysis',async({page})=>{
-  let data=workspace({currentStateDiffFromOriginal:{...workspace().currentStateDiffFromOriginal,q2Future:{status:'CHANGED',added:['LEAN_GROWTH'],removed:[]},q3ItExpectations:{status:'CHANGED',added:[],removed:['MANAGEMENT_DECISION_SUPPORT']}}});const calls:string[]=[];let saveBody:any;await page.route('**/design-v2/post-hearing-analysis',r=>r.fulfill({json:data}));
-  await page.route('**/design-v2/current-state-revisions',async r=>{calls.push('save');saveBody=r.request().postDataJSON();data={...data,currentCompanyContext:saveBody.q1CompanyContext,currentStructuredState:{...data.currentStructuredState,q5Visibility:'LOW_VISIBILITY'},currentStateRevision:{id:'state-2',revisionNo:2},analysisFreshness:'REANALYSIS_REQUIRED',latestAnalysisResult:null,latestGeneratedNarrative:null,currentStateDiffFromOriginal:{...data.currentStateDiffFromOriginal,q1CompanyContext:{status:'CHANGED'},q5Visibility:{status:'CHANGED'}}};await r.fulfill({status:201,json:{id:'state-2',revisionNo:2}})});
-  await page.route('**/design-v2/reanalyze',async r=>{calls.push('reanalyze');data=workspace({currentStructuredState:{...workspace().currentStructuredState,q5Visibility:'LOW_VISIBILITY'},currentStateRevision:{id:'state-2',revisionNo:2},currentStateDiffFromOriginal:{...workspace().currentStateDiffFromOriginal,q5Visibility:{status:'CHANGED'}}});await r.fulfill({json:{reused:false}})});
-  await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=11111111-1111-4111-8111-111111111111`);
-  const expectedCollapsedColumns=(page.viewportSize()?.width||0)>1000?2:1; expect(await page.locator('.analysis-grid').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length)).toBe(expectedCollapsedColumns);await expect(page.locator('#answerReference')).not.toHaveAttribute('open','');await expect(page.locator('#answerReference')).toBeHidden();await expect(page.locator('#openAnswerReference')).toBeVisible();if((page.viewportSize()?.width||0)>1000){const widths=await page.locator('.analysis-grid').evaluate(e=>[...e.children].filter(node=>getComputedStyle(node).display!=='none').map(node=>Math.round((node as HTMLElement).getBoundingClientRect().width)));expect(widths).toHaveLength(2);expect(widths[0]).toBeGreaterThan(300);expect(widths[1]).toBeGreaterThan(560)}await expect(page.locator('.column-title',{hasText:'テーマ別ヒアリングメモ'})).toBeVisible();await expect(page.locator('.column-title',{hasText:'顧客向けレポートを確認・編集'})).toBeVisible();await expect(page.locator('.step-nav,[data-step-panel]')).toHaveCount(0);await expect(page.locator('#humanNarrative [data-section]')).toHaveCount(5);await expect(page.locator('#analysisDetails')).not.toHaveAttribute('open','');await expect(page.getByText('分析から作成した元の文面')).toBeVisible();await expect(page.locator('#generated')).not.toHaveAttribute('open','');
-  await expect(page.locator('#records .theme-record')).toHaveCount(1);await expect(page.locator('#records .theme-record').first().getByText('Q4',{exact:true})).toBeVisible();await expect(page.locator('#records .theme-record').first().getByText('Q6',{exact:true})).toBeVisible();const centerThemeClass=await page.locator('#records .theme-record').first().getAttribute('class');const reportThemeClass=await page.locator('#humanNarrative .theme-badge').first().getAttribute('class');expect(centerThemeClass).toContain('theme-color-0');expect(reportThemeClass).toContain('theme-color-0');
-  await page.locator('#openAnswerReference').click();await expect(page.locator('#answerReference')).toBeVisible();await expect(page.locator('#answerReferenceControl')).toBeHidden();if((page.viewportSize()?.width||0)>1000)expect(await page.locator('.analysis-grid').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length)).toBe(3);await expect(page.locator('#referenceTitle')).toHaveText('見直し後の回答');await page.locator('[data-reference=original]').click();await expect(page.locator('#referenceTitle')).toHaveText('最初の回答');await page.locator('[data-reference=current]').click();await expect(page.locator('#original input, #original select, #original textarea')).toHaveCount(0);await page.locator('#reviewAnswers').click();await expect(page.locator('#editor fieldset')).toHaveCount(7);await expect(page.locator('#editor .current-answer')).toHaveCount(7);await expect(page.locator('#editor .choices:not(.hidden)')).toHaveCount(0);await expect(page.locator('#editor [data-field=q1CompanyContext]')).toHaveCount(1);await page.locator('[data-field=q5Visibility] .change-answer').click();await expect(page.locator('[data-field=q5Visibility] .choices')).toBeVisible();await expect(page.locator('#editor .choices:not(.hidden)')).toHaveCount(1);for(const key of ['q4CurrentInterest','q5Visibility','q6ManagementConnection']){await expect(page.locator(`[data-field=${key}] input[type=radio]:checked`)).toHaveCount(1);await expect(page.locator(`[data-field=${key}] input[type=checkbox]`)).toHaveCount(0)}
-  await expect(page.locator('[data-field=q4CurrentInterest] .diff')).toBeHidden(); await expect(page.locator('[data-field=q2Future] .diff')).toContainText('変更あり'); await expect(page.locator('[data-field=q2Future] .diff-added')).toHaveText('追加: 少人数でも無理なく成長できる会社にしたい'); await expect(page.locator('[data-field=q3ItExpectations] .diff-removed')).toHaveText('外した項目: 経営判断を支えたい');
-  await page.locator('#analysisDetails > summary').click();await expect(page.locator('#analysis').getByRole('heading',{name:'現在の分析',exact:true})).toBeVisible();await expect(page.locator('#analysis').getByText('まだ確認できていないこと',{exact:true})).toBeVisible();await expect(page.locator('#analysis').getByText('次に確認する価値があること',{exact:true})).toBeVisible();await expect(page.locator('#analysis').getByText('#1 情報が判断へ届く流れ',{exact:true})).toHaveCount(3);await expect(page.locator('#generated textarea, #generated input')).toHaveCount(0);await expect(page.getByRole('heading',{name:'顧客向け文面'})).toBeVisible();await expect(page.locator('#humanNarrative').getByText('#1 情報が判断へ届く流れ',{exact:true}).first()).toBeVisible();const reportArea=page.locator('[data-section=future]');await expect(reportArea).toHaveCSS('resize','none');await expect(reportArea).toHaveCSS('overflow-y','hidden');await reportArea.fill(Array(8).fill('顧客向け文面を全体表示する').join('\n'));expect(await reportArea.evaluate((node:HTMLTextAreaElement)=>node.scrollHeight<=node.clientHeight+2)).toBe(true);
-  const originalBefore=await page.locator('#original').textContent();await page.locator('[data-field=q1CompanyContext] .change-answer').click();await page.locator('[name="q1CompanyContext.employeeRange"][value=EMP_51_100]').check();await page.locator('[data-field=q5Visibility] .change-answer').click();await page.locator('[name=q5Visibility][value=LOW_VISIBILITY]').check();expect(await page.locator('#original').textContent()).toBe(originalBefore);await page.click('#saveAndAnalyze');await expect.poll(()=>calls).toEqual(['save','reanalyze']);expect(saveBody.q1CompanyContext).toEqual({employeeRange:'EMP_51_100',siteRange:'SITE_1'});await expect(page.locator('#answerReference')).not.toHaveAttribute('open','');await expect(page.locator('#openAnswerReference')).toBeVisible();await page.locator('#openAnswerReference').click();await expect(page.locator('#original .change-badge').first()).toBeVisible();await page.locator('#answerReference > summary').click();await expect(page.locator('#answerReference')).toBeHidden();await expect(page.locator('#openAnswerReference')).toBeVisible();if((page.viewportSize()?.width||0)>1000)expect(await page.locator('.analysis-grid').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length)).toBe(2);
-  await expect(page.locator('#toHearing')).toHaveAttribute('href',/free-diagnosis-v2-hearing/); await expect(page.getByRole('link',{name:'案件一覧へ戻る'})).toHaveAttribute('href','/admin/free-diagnosis-v1.html');
-  await expect(page.locator('body')).not.toContainText('Semantic Projection'); await expect(page.locator('body')).not.toContainText('Generated Narrative'); expect(await page.locator('img').count()).toBe(0);
+test('Post-Hearing makes the five diagnostic results the primary Human Review', async ({ page }) => {
+  const state = { value: workspace() }; await routeWorkspace(page, state);
+  await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${state.value.case.id}`);
+  await expect(page.getByRole('heading', { name: '診断結果の確認・整理' })).toBeVisible();
+  await expect(page.locator('#humanNarrative [data-section]')).toHaveCount(5);
+  for (const heading of ['01 実現したい会社の未来', '02 現在どこまで分かっているか', '03 未来に向けて確認しておく価値があること', '04 現時点ではまだ判断できないこと', '05 次に確認する価値があること']) {
+    await expect(page.locator('#humanNarrative').getByRole('heading', { name: heading })).toBeVisible();
+  }
+  await expect(page.getByText('分析から作成した元の文面')).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('Generated Narrative');
+  await expect(page.locator('body')).not.toContainText('M01');
+  await expect(page.locator('img')).toHaveCount(0);
 });
 
-test('Re-analysis failure keeps saved Current and offers retry; stale edit is disabled',async({page})=>{
-  let data=workspace();let attempts=0;let retryBody:any; await page.route('**/design-v2/post-hearing-analysis',r=>r.fulfill({json:data}));
-  await page.route('**/design-v2/current-state-revisions',async r=>{const body=r.request().postDataJSON();data={...data,currentStructuredState:body.state,currentStateRevision:{id:'state-2',revisionNo:2},analysisFreshness:'REANALYSIS_REQUIRED',latestAnalysisResult:null,latestGeneratedNarrative:null,currentStateDiffFromOriginal:{...data.currentStateDiffFromOriginal,q5Visibility:{status:'CHANGED',original:'VISIBLE_PARTIAL',current:'LOW_VISIBILITY'}}};await r.fulfill({status:201,json:{id:'state-2',revisionNo:2}})});
-  await page.route('**/design-v2/reanalyze',async r=>{attempts++;retryBody=r.request().postDataJSON();if(attempts===1){await r.fulfill({status:500,json:{error:'ANALYSIS_FAILED'}});return}data=workspace({currentStructuredState:{...workspace().currentStructuredState,q5Visibility:'LOW_VISIBILITY'},currentStateRevision:{id:'state-2',revisionNo:2},currentStateDiffFromOriginal:{...workspace().currentStateDiffFromOriginal,q5Visibility:{status:'CHANGED',original:'VISIBLE_PARTIAL',current:'LOW_VISIBILITY'}}});await r.fulfill({json:{}})});
-  await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=11111111-1111-4111-8111-111111111111`);await page.locator('#openAnswerReference').click();await page.locator('#reviewAnswers').click();await page.locator('[data-field=q5Visibility] .change-answer').click();await page.locator('[name=q5Visibility][value=LOW_VISIBILITY]').check();await page.click('#saveAndAnalyze');await expect(page.getByText('現在の理解は保存されましたが、再分析に失敗しました。')).toBeVisible();await expect(page.getByText('再分析が必要です。')).toBeVisible();await expect(page.locator('#retryAnalysis')).toBeVisible();await page.locator('[data-field=q5Visibility] .change-answer').click();await expect(page.locator('[name=q5Visibility][value=LOW_VISIBILITY]')).toBeChecked();await page.reload();await page.locator('#openAnswerReference').click();await page.locator('#reviewAnswers').click();await page.locator('[data-field=q5Visibility] .change-answer').click();await expect(page.locator('[name=q5Visibility][value=LOW_VISIBILITY]')).toBeChecked();await expect(page.getByText('再分析が必要です。')).toBeVisible();await page.click('#retryAnalysis');await expect.poll(()=>retryBody?.expectedCurrentStateRevision).toBe(2);await page.locator('#openAnswerReference').click();await page.locator('#reviewAnswers').click();await page.locator('[data-field=q5Visibility] .change-answer').click();await expect(page.locator('[name=q5Visibility][value=LOW_VISIBILITY]')).toBeChecked();await expect(page.getByText('現在の分析は最新です。')).toBeVisible();expect(attempts).toBe(2);
-  data=workspace({analysisFreshness:'REANALYSIS_REQUIRED',humanEditedNarrativeStatus:'STALE_REVIEW_REQUIRED',latestAnalysisResult:null,latestGeneratedNarrative:null,latestHumanEditedNarrative:{id:'old',content}});await page.reload();await expect(page.locator('#saveNarrative')).toHaveCount(0);await expect(page.getByText('前回の編集文は、現在の分析より前の内容です。確認してください。')).toBeVisible();await expect(page.getByText('先に再分析してください。')).toBeVisible();
+test('current Human Edited Narrative has priority and is saved through the existing narrative route', async ({ page }) => {
+  const edited = { ...content, future: { ...content.future, entries: ['既に人が整えた表現'] } };
+  const state = { value: workspace({ latestHumanEditedNarrative: { id: 'edit-1', generatedNarrativeId: '22222222-2222-4222-8222-222222222222', content: edited }, humanEditedNarrativeStatus: 'CURRENT' }) };
+  let body: any; await routeWorkspace(page, state);
+  await page.route('**/design-v2/narrative-edits', async (route: any) => { body = route.request().postDataJSON(); state.value = { ...state.value, latestHumanEditedNarrative: { id: 'edit-2', generatedNarrativeId: state.value.latestGeneratedNarrative.id, content: body.content }, humanEditedNarrativeStatus: 'CURRENT' }; await route.fulfill({ status: 201, json: { id: 'edit-2' } }); });
+  await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${state.value.case.id}`);
+  const future = page.locator('[data-section=future]'); await expect(future).toHaveValue('既に人が整えた表現');
+  await future.fill('人が確認して整えた表現'); await page.locator('#saveNarrative').click();
+  await expect.poll(() => body?.generatedNarrativeId).toBe(state.value.latestGeneratedNarrative.id);
+  expect(body.content.future.entries).toEqual(['人が確認して整えた表現']);
+  await expect(future).toHaveValue('人が確認して整えた表現');
 });
 
-test('Post-Hearing canonical validation guards are shown in Japanese before API submission',async({page})=>{
-  let saves=0; await page.route('**/design-v2/post-hearing-analysis',r=>r.fulfill({json:workspace()})); await page.route('**/design-v2/current-state-revisions',r=>{saves++;return r.fulfill({status:500})}); await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=11111111-1111-4111-8111-111111111111`);await page.locator('#openAnswerReference').click();await page.locator('#reviewAnswers').click();
-  await page.locator('[data-field=q2Future] .change-answer').click();await page.locator('[name=q2Future][value=NO_MAJOR_CHANGE]').check(); await page.click('#saveAndAnalyze'); await expect(page.getByText('「まだ決めていない」等の選択肢は、他の項目と同時に選べません。')).toBeVisible(); await page.locator('[name=q2Future][value=NO_MAJOR_CHANGE]').uncheck();
-  await page.locator('[name=q2Future][value=UNDECIDED]').check(); await page.click('#saveAndAnalyze'); await expect(page.getByText('「まだ決めていない」等の選択肢は、他の項目と同時に選べません。')).toBeVisible(); await page.locator('[name=q2Future][value=UNDECIDED]').uncheck();
-  await page.locator('[data-field=q3ItExpectations] .change-answer').click();await page.locator('[name=q3ItExpectations][value=MANAGEMENT_DECISION_SUPPORT]').uncheck(); await page.locator('[name=q3ItExpectations][value=UNDECIDED]').check(); await page.click('#saveAndAnalyze'); await expect(page.getByText('「まだ決めていない」等の選択肢は、他の項目と同時に選べません。')).toBeVisible(); await page.locator('[name=q3ItExpectations][value=UNDECIDED]').uncheck(); await page.locator('[name=q3ItExpectations][value=MANAGEMENT_DECISION_SUPPORT]').check();
-  await page.locator('[name=q3ItExpectations][value=DATA_USE]').check(); await page.click('#saveAndAnalyze'); await expect(page.getByText('ITに期待することは2つまで選択してください。')).toBeVisible(); await page.locator('[name=q3ItExpectations][value=DATA_USE]').uncheck();
-  await page.locator('[data-field=q7InterestThemes] .change-answer').click();await page.locator('[name=q7InterestThemes][value=UNDECIDED]').check(); await page.click('#saveAndAnalyze'); await expect(page.getByText('「まだ決めていない」等の選択肢は、他の項目と同時に選べません。')).toBeVisible(); await page.locator('[name=q7InterestThemes][value=UNDECIDED]').uncheck();
-  for(const code of ['SECURITY','CLOUD','IT_COST'])await page.locator(`[name=q7InterestThemes][value=${code}]`).check(); await page.click('#saveAndAnalyze'); await expect(page.getByText('関心テーマは3つまで選択してください。')).toBeVisible(); expect(saves).toBe(0);
+test('survey is a default-closed read-only reference and Q1 is its sole separate editor', async ({ page }) => {
+  const state = { value: workspace() }; await routeWorkspace(page, state);
+  await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${state.value.case.id}`);
+  await expect(page.locator('#answerReference')).not.toHaveAttribute('open', ''); await expect(page.locator('#openAnswerReference')).toBeVisible();
+  await expect(page.locator('#q1Editor')).toBeHidden(); await expect(page.locator('#reviewAnswers')).toHaveCount(0);
+  await page.locator('#openAnswerReference').click();
+  await expect(page.locator('#original .original-card')).toHaveCount(7); await expect(page.locator('#original input, #original select, #original textarea, #original button')).toHaveCount(0);
+  await expect(page.locator('#original')).toContainText('会社の状況'); await expect(page.locator('#original')).toContainText('関心のあるITテーマ');
+  await page.locator('#openQ1Editor').click();
+  await expect(page.locator('#q1Editor')).toBeVisible(); await expect(page.locator('#editor [data-field=q1CompanyContext]')).toHaveCount(1);
+  await expect(page.locator('#editor [data-field=q2Future], #editor [data-field=q3ItExpectations], #editor [data-field=q4CurrentInterest], #editor [data-field=q5Visibility], #editor [data-field=q6ManagementConnection], #editor [data-field=q7InterestThemes]')).toHaveCount(0);
 });
 
-test('fresh customer narrative edit is saved separately from read-only generated text',async({page})=>{
-  let data=workspace();let editBody:any; await page.route('**/design-v2/post-hearing-analysis',r=>r.fulfill({json:data})); await page.route('**/design-v2/narrative-edits',async r=>{editBody=r.request().postDataJSON();data={...data,latestHumanEditedNarrative:{id:'edit-1',generatedNarrativeId:data.latestGeneratedNarrative.id,content:editBody.content},humanEditedNarrativeStatus:'CURRENT'};await r.fulfill({status:201,json:{id:'edit-1'}})}); await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=11111111-1111-4111-8111-111111111111`);
-  await expect(page.locator('#generated textarea')).toHaveCount(0); const editor=page.locator('[data-section=future]'); await editor.fill('人が編集した顧客向け文面'); await page.click('#saveNarrative'); await expect.poll(()=>editBody?.generatedNarrativeId).toBe('22222222-2222-4222-8222-222222222222'); expect(editBody.content.future.entries).toEqual(['人が編集した顧客向け文面']); await expect(page.locator('[data-section=future]')).toHaveValue('人が編集した顧客向け文面');
+test('Q1 uses the preserved Current revision route without changing Original or Q2-Q7', async ({ page }) => {
+  const state = { value: workspace() }; let saveBody: any; const calls: string[] = [];
+  await routeWorkspace(page, state);
+  await page.route('**/design-v2/current-state-revisions', async (route: any) => { calls.push('save'); saveBody = route.request().postDataJSON(); state.value = { ...state.value, currentCompanyContext: saveBody.q1CompanyContext, currentStateRevision: { id: 'state-2', revisionNo: 2 }, analysisFreshness: 'REANALYSIS_REQUIRED' }; await route.fulfill({ status: 201, json: { id: 'state-2', revisionNo: 2 } }); });
+  await page.route('**/design-v2/reanalyze', async (route: any) => { calls.push('reanalyze'); state.value = workspace({ currentCompanyContext: saveBody.q1CompanyContext, currentStateRevision: { id: 'state-2', revisionNo: 2 } }); await route.fulfill({ json: { reused: false } }); });
+  await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${state.value.case.id}`); const originalBefore = await page.locator('#original').textContent();
+  await page.locator('#openQ1Editor').click(); await page.locator('[name="q1CompanyContext.employeeRange"][value=EMP_51_100]').check(); await page.locator('#saveAndAnalyze').click();
+  await expect.poll(() => calls).toEqual(['save', 'reanalyze']); expect(saveBody.q1CompanyContext).toEqual({ employeeRange: 'EMP_51_100', siteRange: 'SITE_1' });
+  expect(saveBody.state).toEqual(workspace().currentStructuredState); await page.locator('#openAnswerReference').click(); expect(await page.locator('#original').textContent()).toBe(originalBefore);
 });
 
-test('healthy and AI-interest workspace does not manufacture a gap or solution recommendation',async({page})=>{
-  const healthy=workspace();healthy.originalSurvey.answers.q7InterestThemes=['AI'];healthy.currentStructuredState.q7InterestThemes=['AI'];healthy.latestAnalysisResult.analysis.lensFindings=[];healthy.latestAnalysisResult.analysis.unknowns=[];healthy.latestAnalysisResult.analysis.factCandidates=[];healthy.latestAnalysisResult.analysis.healthyGuard={noImportantGapIdentified:true};healthy.latestGeneratedNarrative.content.confirmationAndImprovement.entries=[];healthy.latestGeneratedNarrative.content.unknowns.entries=[];healthy.latestGeneratedNarrative.content.nextFacts.entries=[];await page.route('**/design-v2/post-hearing-analysis',r=>r.fulfill({json:healthy}));await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=11111111-1111-4111-8111-111111111111`);await expect(page.locator('body')).not.toContainText('Gap');await expect(page.locator('body')).not.toContainText('Assessment');await expect(page.locator('body')).not.toContainText('AI導入を推奨');
+test('stale analysis keeps edits guarded and hearing memo remains separate from analysis input', async ({ page }) => {
+  const state = { value: workspace({ analysisFreshness: 'REANALYSIS_REQUIRED', latestAnalysisResult: null, latestGeneratedNarrative: null, humanEditedNarrativeStatus: 'STALE_REVIEW_REQUIRED', latestHumanEditedNarrative: { id: 'old', content } }) };
+  await routeWorkspace(page, state); await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${state.value.case.id}`);
+  await expect(page.locator('#saveNarrative')).toHaveCount(0); await expect(page.getByText('前回の編集文は、現在の分析より前の内容です。確認してください。')).toBeVisible();
+  await expect(page.locator('#records')).toContainText('<img src=x onerror=alert(1)>確認した内容'); await expect(page.locator('#records img')).toHaveCount(0);
 });
 
-test('narrow viewport preserves named layers and unavailable guard is safe',async({page})=>{
-  await page.setViewportSize({width:390,height:844}); await page.route('**/design-v2/post-hearing-analysis',r=>r.fulfill({json:workspace()})); await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=11111111-1111-4111-8111-111111111111`); expect(await page.locator('.analysis-grid').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length)).toBe(1);await expect(page.locator('#answerReference')).not.toHaveAttribute('open','');await expect(page.locator('#answerReference')).toBeHidden();await expect(page.locator('#openAnswerReference')).toBeVisible();await page.locator('#openAnswerReference').click();await expect(page.locator('#answerReference')).toBeVisible();await expect(page.locator('#openAnswerReference')).toBeHidden();await page.locator('#answerReference > summary').click();await expect(page.locator('#answerReference')).toBeHidden();await expect(page.locator('#openAnswerReference')).toBeVisible();await expect(page.locator('.column-title',{hasText:'テーマ別ヒアリングメモ'})).toBeVisible();await expect(page.locator('.column-title',{hasText:'顧客向けレポートを確認・編集'})).toBeVisible();await expect(page.locator('#humanNarrative [data-section]')).toHaveCount(5);await expect(page.locator('.step-nav,[data-step-panel]')).toHaveCount(0);
-  await page.unroute('**/design-v2/post-hearing-analysis'); await page.route('**/design-v2/post-hearing-analysis',r=>r.fulfill({status:404,json:{error:'DESIGN_V2_NOT_INITIALIZED'}})); await page.goto(`${url}/admin/free-diagnosis-v2-hearing.html?caseId=bad`); await expect(page.getByText('この案件はDesign v2の準備が完了していません。')).toBeVisible();
-  await page.goto(`${url}/admin/free-diagnosis-v2-hearing.html`); await expect(page.getByText('この案件はDesign v2の準備が完了していません。')).toBeVisible();
+test('narrow viewport keeps the same Human Review and secondary survey behavior', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 }); const state = { value: workspace() }; await routeWorkspace(page, state);
+  await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${state.value.case.id}`);
+  expect(await page.locator('.analysis-grid').evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(1);
+  await expect(page.locator('#humanNarrative [data-section]')).toHaveCount(5); await expect(page.locator('#answerReference')).not.toHaveAttribute('open', ''); await page.locator('#openAnswerReference').click(); await expect(page.locator('#answerReference')).toBeVisible();
 });

@@ -1,37 +1,147 @@
 (() => {
-  const ui=window.DesignV2UI;const params=new URLSearchParams(location.search);const caseId=params.get('caseId');const apiBase='/api/admin/free-diagnosis-v1/cases/';let ws;let lastSavedRevision=null;let referenceMode='current';
-  const notice=document.querySelector('#notice'),root=document.querySelector('#workspace'),message=document.querySelector('#message'),retry=document.querySelector('#retryAnalysis'),answerReference=document.querySelector('#answerReference'),answerReferenceControl=document.querySelector('#answerReferenceControl'),openAnswerReference=document.querySelector('#openAnswerReference'),answerReview=document.querySelector('#answerReview');
-  function unavailable(){notice.classList.remove('hidden');root.classList.add('hidden')}
-  function msg(text,type=''){message.textContent=text;message.className=`status${type?' '+type:''}`}
-  function syncAnswerReferencePane(){const expanded=answerReference.open;root.classList.toggle('answers-expanded',expanded);answerReferenceControl.classList.toggle('hidden',expanded);openAnswerReference.setAttribute('aria-expanded',String(expanded))}
-  function themeInfo(id){const items=ws.latestAnalysisResult?.analysis?.hearingViewpoints||[];const index=items.findIndex(item=>item.id===id);return index<0?{label:id,colorIndex:0}:{label:`#${index+1} ${items[index].label}`,colorIndex:index%6}}
-  function themeTokens(ids){return (ids||[]).map(themeInfo)}
-  function renderDiff(diff,multi){const wrap=ui.el('div','diff');if(!diff||diff.status==='UNCHANGED'){wrap.classList.add('hidden');return wrap}wrap.append(ui.el('span','change-badge','変更あり'));if(multi&&diff.added?.length)wrap.append(ui.el('span','diff-added',`追加: ${diff.added.map(v=>ui.labels[v]||'未確認').join('、')}`));if(multi&&diff.removed?.length)wrap.append(ui.el('span','diff-removed',`外した項目: ${diff.removed.map(v=>ui.labels[v]||'未確認').join('、')}`));return wrap}
-  function fieldInput(key,value){const field=ui.el('fieldset','field compact-field');field.dataset.field=key;field.append(ui.el('legend','',ui.questions[key]));const multi=['q2Future','q3ItExpectations','q7InterestThemes'].includes(key),summary=ui.el('div','current-answer answer-chips');ui.answerValues(value).forEach(label=>summary.append(ui.el('span','answer-chip',label)));const change=document.createElement('button');change.type='button';change.className='secondary change-answer';change.textContent='変更する';change.setAttribute('aria-expanded','false');const choices=ui.el('div','choices hidden');if(key==='q1CompanyContext'){for(const [part,codes] of Object.entries(ui.codeGroups[key])){choices.append(ui.el('strong','',part==='employeeRange'?'従業員規模':'拠点数'));codes.forEach(code=>{const label=ui.el('label');const input=document.createElement('input');input.type='radio';input.name=`${key}.${part}`;input.value=code;input.checked=value[part]===code;label.append(input,document.createTextNode(` ${ui.labels[code]||code}`));choices.append(label)})}}else ui.codeGroups[key].forEach(code=>{const label=ui.el('label');const input=document.createElement('input');input.type=multi?'checkbox':'radio';input.name=key;input.value=code;input.checked=multi?value.includes(code):value===code;label.append(input,document.createTextNode(` ${ui.labels[code]||code}`));choices.append(label)});change.addEventListener('click',()=>{document.querySelectorAll('.compact-field .choices').forEach(node=>{if(node!==choices)node.classList.add('hidden')});document.querySelectorAll('.change-answer').forEach(node=>{if(node!==change)node.setAttribute('aria-expanded','false')});const opening=choices.classList.contains('hidden');choices.classList.toggle('hidden',!opening);change.setAttribute('aria-expanded',String(opening));change.textContent=opening?'閉じる':'変更する'});field.append(summary,renderDiff(ws.currentStateDiffFromOriginal[key],multi),change,choices);return field}
-  function renderEditor(){const target=document.querySelector('#editor');target.replaceChildren();const append=(key,value)=>{const field=fieldInput(key,value),code=key==='q1CompanyContext'?'Q1':key.match(/^q(\d)/)?.[0].toUpperCase(),themeIds=(ws.traceability?.viewpoints||[]).filter(item=>item.relatedQuestionCodes.includes(code)).map(item=>item.id),related=ui.relatedBadges(themeTokens(themeIds));if(related)field.append(related);target.append(field)};append('q1CompanyContext',ws.currentCompanyContext);Object.keys(ui.codeGroups).filter(k=>k!=='q1CompanyContext').forEach(k=>append(k,ws.currentStructuredState[k]))}
-  function selected(key){const nodes=[...document.querySelectorAll(`[name="${key}"]:checked`)];return ['q2Future','q3ItExpectations','q7InterestThemes'].includes(key)?nodes.map(n=>n.value):(nodes[0]?.value||'')}
-  function validate(state){if(!state.q2Future.length||!state.q3ItExpectations.length||!state.q7InterestThemes.length)return 'すべての項目を選択してください。';if(state.q3ItExpectations.length>2)return 'ITに期待することは2つまで選択してください。';if(state.q7InterestThemes.length>3)return '関心テーマは3つまで選択してください。';for(const [key,special] of [['q2Future',['NO_MAJOR_CHANGE','UNDECIDED']],['q3ItExpectations',['UNDECIDED']],['q7InterestThemes',['UNDECIDED']]])if(special.some(v=>state[key].includes(v))&&state[key].length>1)return '「まだ決めていない」等の選択肢は、他の項目と同時に選べません。';return null}
-  function currentState(){return {q2Future:selected('q2Future'),q3ItExpectations:selected('q3ItExpectations'),q4CurrentInterest:selected('q4CurrentInterest'),q5Visibility:selected('q5Visibility'),q6ManagementConnection:selected('q6ManagementConnection'),q7InterestThemes:selected('q7InterestThemes')}}
-  function currentQ1(){return {employeeRange:selected('q1CompanyContext.employeeRange'),siteRange:selected('q1CompanyContext.siteRange')}}
-  function lenses(node,values){const row=ui.el('div','lenses');values.forEach(v=>row.append(ui.el('span','badge',ui.labels[v]||v)));node.append(row)}
-  function appendThemes(node,id){const badges=ui.relatedBadges(themeTokens(ws.traceability?.analysisItemThemes?.[id]||[]));if(badges)node.append(badges)}
-  function renderAnalysis(){const target=document.querySelector('#analysis');target.replaceChildren();const result=ws.latestAnalysisResult?.analysis;if(!result)return;target.append(ui.el('h2','column-title','現在の分析'));const sections=[['実現したい会社の未来',result.futureUnderstanding],['現在どこまで分かっているか',result.currentUnderstanding],['技術・運用・管理から見た確認ポイント',result.lensFindings],['まだ確認できていないこと',result.unknowns]];sections.forEach(([title,items])=>{const section=document.createElement('details');section.className='analysis-section';section.append(ui.el('summary','',title));items.forEach(item=>{const row=ui.el('article','analysis-item');row.append(ui.el('p','',item.text));if(item.lenses)lenses(row,item.lenses);appendThemes(row,item.id);section.append(row)});target.append(section)});const facts=document.createElement('details');facts.className='analysis-section';facts.append(ui.el('summary','','次に確認する価値があること'));result.factCandidates.forEach(item=>{const row=ui.el('article','analysis-item');row.append(ui.el('p','',`確認すること: ${item.whatToVerify}`),ui.el('p','',`なぜ確認するか: ${item.whyItMattersToFuture}`),ui.el('p','',`確認すると分かりそうなこと: ${item.whatMayBecomeKnowable}`));lenses(row,item.lenses);appendThemes(row,item.id);facts.append(row)});target.append(facts)}
-  function autoGrow(area){area.style.height='auto';area.style.height=`${area.scrollHeight}px`}
-  function sectionEditor(content){const wrap=ui.el('section','narrative-editor');wrap.append(ui.el('h3','','顧客向け文面'));const keys=['future','currentUnderstanding','confirmationAndImprovement','unknowns','nextFacts'];keys.forEach(key=>{const block=ui.el('div','narrative-block');block.append(ui.el('h4','',content[key].heading));const related=ui.relatedBadges(themeTokens(ws.traceability?.narrativeSectionThemes?.[key]||[]));if(related)block.append(related);const area=document.createElement('textarea');area.dataset.section=key;area.value=content[key].entries.join('\n');area.rows=1;area.addEventListener('input',()=>autoGrow(area));block.append(area);wrap.append(block);requestAnimationFrame(()=>autoGrow(area))});const saveBar=ui.el('div','report-save-bar');const save=document.createElement('button');save.type='button';save.id='saveNarrative';save.textContent='顧客向け文面を保存';save.disabled=ws.analysisFreshness!=='CURRENT';saveBar.append(save);wrap.append(saveBar);if(ws.analysisFreshness!=='CURRENT')wrap.append(ui.el('p','status warning','先に再分析してください。'));if(ws.humanEditedNarrativeStatus==='STALE_REVIEW_REQUIRED')wrap.append(ui.el('p','status warning','前回の編集文は、現在の分析より前の内容です。確認してください。'));save.addEventListener('click',saveNarrative);return wrap}
-  function renderNarratives(){const generated=document.querySelector('#generated'),human=document.querySelector('#humanNarrative');generated.replaceChildren();human.replaceChildren();const latest=ws.latestGeneratedNarrative?.content;if(!latest){if(ws.analysisFreshness!=='CURRENT')human.append(ui.el('p','status warning','先に再分析してください。'));if(ws.humanEditedNarrativeStatus==='STALE_REVIEW_REQUIRED'&&ws.latestHumanEditedNarrative){human.append(ui.el('p','status warning','前回の編集文は、現在の分析より前の内容です。確認してください。'));const old=ui.el('details','generated-reference');old.append(ui.el('summary','','前回の編集文を参考表示'),ui.el('pre','',ui.narrativeToText(ws.latestHumanEditedNarrative.content)));human.append(old)}return}const source=ws.humanEditedNarrativeStatus==='CURRENT'?ws.latestHumanEditedNarrative.content:latest;human.append(sectionEditor(source));const reference=document.createElement('details');reference.className='generated-reference';reference.append(ui.el('summary','','分析から作成した元の文面'));const generatedBody=ui.el('div','generated-body');for(const [key,section] of Object.entries(latest)){const block=ui.el('div','narrative-block');block.append(ui.el('h4','',section.heading));const related=ui.relatedBadges(themeTokens(ws.traceability?.narrativeSectionThemes?.[key]||[]));if(related)block.append(related);const list=ui.el('ul');section.entries.forEach(entry=>list.append(ui.el('li','',entry)));block.append(list);generatedBody.append(block)}reference.append(generatedBody);generated.append(reference);if(ws.humanEditedNarrativeStatus==='STALE_REVIEW_REQUIRED'){const old=ui.el('details','generated-reference');old.append(ui.el('summary','','前回の編集文を参考表示'),ui.el('pre','',ui.narrativeToText(ws.latestHumanEditedNarrative.content)));human.append(old)}}
-  function renderReference(){const current={...ws.originalSurvey.answers,...ws.currentStructuredState,q1CompanyContext:ws.currentCompanyContext},isCurrent=referenceMode==='current';document.querySelector('#referenceTitle').textContent=isCurrent?'見直し後の回答':'最初の回答';ui.renderOriginal(document.querySelector('#original'),isCurrent?current:ws.originalSurvey.answers,isCurrent?ws.currentStateDiffFromOriginal:{});document.querySelectorAll('[data-reference]').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.reference===referenceMode)))}
-  function renderHearingRecords(){const target=document.querySelector('#records');target.replaceChildren();const themes=ws.latestAnalysisResult?.analysis?.hearingViewpoints||[];themes.forEach((theme,index)=>{const records=ws.hearingRecords.filter(record=>record.planItemRef===`design-v2-viewpoint:${theme.id}`);const block=ui.el('section',`theme-record theme-color-${index%6}`),title=ui.el('div','viewpoint-title');title.append(ui.el('span','viewpoint-number',String(index+1)),ui.el('h3','',theme.label));block.append(title);const trace=(ws.traceability?.viewpoints||[]).find(item=>item.id===theme.id);const related=ui.relatedBadges(trace?.relatedQuestionCodes||[],'関連Q');if(related)block.append(related);block.append(ui.el('p','viewpoint-why',theme.whyUseful));const recordList=ui.el('div','records');ui.renderRecords(recordList,records);block.append(recordList);target.append(block)});const general=ws.hearingRecords.filter(record=>!record.planItemRef?.startsWith('design-v2-viewpoint:'));if(general.length){const block=ui.el('details','supporting-details');block.append(ui.el('summary','','その他メモ'));const records=ui.el('div','records');ui.renderRecords(records,general);block.append(records);target.append(block)}if(!target.children.length)target.append(ui.el('p','hint','まだ記録はありません。'))}
-  function render(){renderReference();renderHearingRecords();renderEditor();document.querySelector('#freshness').textContent=ws.analysisFreshness==='CURRENT'?'現在の分析は最新です。':'再分析が必要です。';retry.classList.toggle('hidden',ws.analysisFreshness==='CURRENT');renderAnalysis();renderNarratives();syncAnswerReferencePane();root.classList.remove('hidden')}
-  async function load(){if(!caseId){unavailable();return}document.querySelector('#toHearing').href=`/admin/free-diagnosis-v2-hearing.html?caseId=${encodeURIComponent(caseId)}`;const response=await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/post-hearing-analysis`);if(!response.ok){unavailable();return}ws=await response.json();render()}
-  async function reanalyze(revision){const response=await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/reanalyze`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({expectedCurrentStateRevision:revision})});if(!response.ok){msg('現在の理解は保存されましたが、再分析に失敗しました。','error');retry.classList.remove('hidden');return false}await load();answerReference.open=false;syncAnswerReferencePane();answerReview.classList.add('hidden');document.querySelector('#reviewAnswers').setAttribute('aria-expanded','false');msg('現在の理解を保存し、再分析しました。');document.querySelector('#reportPane').scrollIntoView({block:'start'});return true}
-  async function openReport(){const button=document.querySelector('#toReport');button.disabled=true;try{const response=await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/report-drafts/ensure`,{method:'POST'});if(!response.ok){msg('レポートの下書きを開けませんでした。先に現在の理解を確認してください。','error');return}const report=await response.json();location.href=`/admin/free-diagnosis-v2-report.html?caseId=${encodeURIComponent(caseId)}&reportId=${encodeURIComponent(report.id)}`}finally{button.disabled=false}}
-  document.querySelector('#currentForm').addEventListener('submit',async event=>{event.preventDefault();const state=currentState(),q1CompanyContext=currentQ1(),error=validate(state);if(error){msg(error,'error');return}const response=await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/current-state-revisions`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({expectedRevision:ws.currentStateRevision.revisionNo,state,q1CompanyContext,changeReason:document.querySelector('#changeReason').value||null})});if(!response.ok){msg('現在の理解を保存できませんでした。','error');return}const saved=await response.json();lastSavedRevision=saved.revisionNo;await load();await reanalyze(saved.revisionNo)});
-  retry.addEventListener('click',()=>reanalyze(lastSavedRevision||ws.currentStateRevision.revisionNo));
-  document.querySelector('#toReport').addEventListener('click',openReport);
-  openAnswerReference.addEventListener('click',()=>{answerReference.open=true;syncAnswerReferencePane()});
-  answerReference.addEventListener('toggle',syncAnswerReferencePane);
-  async function saveNarrative(){if(ws.analysisFreshness!=='CURRENT')return;const content={};document.querySelectorAll('#humanNarrative [data-section]').forEach(area=>{const key=area.dataset.section;content[key]={heading:ws.latestGeneratedNarrative.content[key].heading,entries:area.value.split('\n').map(v=>v.trim()).filter(Boolean)}});const response=await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/narrative-edits`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({generatedNarrativeId:ws.latestGeneratedNarrative.id,content})});if(!response.ok){msg('顧客向け文面を保存できませんでした。先に再分析してください。','error');return}await load();msg('顧客向け文面を保存しました。')}
-  document.querySelector('#reviewAnswers').addEventListener('click',event=>{const opening=answerReview.classList.contains('hidden');answerReview.classList.toggle('hidden',!opening);event.currentTarget.setAttribute('aria-expanded',String(opening));event.currentTarget.textContent=opening?'回答の見直しを閉じる':'回答を見直す'});
-  document.querySelectorAll('[data-reference]').forEach(button=>button.addEventListener('click',()=>{referenceMode=button.dataset.reference;renderReference()}));
-  load().catch(()=>unavailable());
+  const ui = window.DesignV2UI;
+  const params = new URLSearchParams(location.search);
+  const caseId = params.get('caseId');
+  const apiBase = '/api/admin/free-diagnosis-v1/cases/';
+  const reviewSections = [
+    ['future', '01 実現したい会社の未来'],
+    ['currentUnderstanding', '02 現在どこまで分かっているか'],
+    ['confirmationAndImprovement', '03 未来に向けて確認しておく価値があること'],
+    ['unknowns', '04 現時点ではまだ判断できないこと'],
+    ['nextFacts', '05 次に確認する価値があること'],
+  ];
+  let ws;
+
+  const notice = document.querySelector('#notice');
+  const root = document.querySelector('#workspace');
+  const message = document.querySelector('#message');
+  const answerReference = document.querySelector('#answerReference');
+  const answerReferenceControl = document.querySelector('#answerReferenceControl');
+  const openAnswerReference = document.querySelector('#openAnswerReference');
+  const openQ1Editor = document.querySelector('#openQ1Editor');
+  const q1Editor = document.querySelector('#q1Editor');
+
+  function unavailable() { notice.classList.remove('hidden'); root.classList.add('hidden'); }
+  function msg(text, type = '') { message.textContent = text; message.className = `status${type ? ` ${type}` : ''}`; }
+  function syncAnswerReferencePane() {
+    const expanded = answerReference.open;
+    root.classList.toggle('answers-expanded', expanded);
+    answerReferenceControl.classList.remove('hidden');
+    openAnswerReference.classList.toggle('hidden', expanded);
+    openAnswerReference.setAttribute('aria-expanded', String(expanded));
+  }
+  function themeInfo(id) {
+    const item = (ws.traceability?.viewpoints || []).find((value) => value.id === id);
+    const index = (ws.traceability?.viewpoints || []).findIndex((value) => value.id === id);
+    return { id, label: item?.label || id, colorIndex: index < 0 ? 0 : index % 6 };
+  }
+  function themeTokens(ids) { return (ids || []).map(themeInfo); }
+  function lenses(node, values) {
+    const row = ui.el('div', 'lenses');
+    values.forEach((value) => row.append(ui.el('span', 'badge', ui.labels[value] || value)));
+    node.append(row);
+  }
+  function appendThemes(node, id) {
+    const badges = ui.relatedBadges(themeTokens(ws.traceability?.analysisItemThemes?.[id] || []));
+    if (badges) node.append(badges);
+  }
+  function q1Field(value) {
+    const field = ui.el('fieldset', 'field compact-field');
+    field.dataset.field = 'q1CompanyContext';
+    field.append(ui.el('legend', '', ui.questions.q1CompanyContext));
+    for (const [part, codes] of Object.entries(ui.codeGroups.q1CompanyContext)) {
+      field.append(ui.el('strong', '', part === 'employeeRange' ? '従業員規模' : '拠点数'));
+      const choices = ui.el('div', 'choices');
+      codes.forEach((code) => {
+        const label = ui.el('label');
+        const input = document.createElement('input');
+        input.type = 'radio'; input.name = `q1CompanyContext.${part}`; input.value = code; input.checked = value[part] === code;
+        label.append(input, document.createTextNode(` ${ui.labels[code] || code}`)); choices.append(label);
+      });
+      field.append(choices);
+    }
+    return field;
+  }
+  function renderQ1Editor() { document.querySelector('#editor').replaceChildren(q1Field(ws.currentCompanyContext)); }
+  function currentState() {
+    return {
+      q2Future: [...ws.currentStructuredState.q2Future], q3ItExpectations: [...ws.currentStructuredState.q3ItExpectations],
+      q4CurrentInterest: ws.currentStructuredState.q4CurrentInterest, q5Visibility: ws.currentStructuredState.q5Visibility,
+      q6ManagementConnection: ws.currentStructuredState.q6ManagementConnection, q7InterestThemes: [...ws.currentStructuredState.q7InterestThemes],
+    };
+  }
+  function selected(name, fallback) { return document.querySelector(`[name="${name}"]:checked`)?.value || fallback; }
+  function currentQ1() { return { employeeRange: selected('q1CompanyContext.employeeRange', ws.currentCompanyContext.employeeRange), siteRange: selected('q1CompanyContext.siteRange', ws.currentCompanyContext.siteRange) }; }
+  function renderAnalysis() {
+    const target = document.querySelector('#analysis'); target.replaceChildren(); const result = ws.latestAnalysisResult?.analysis; if (!result) return;
+    target.append(ui.el('h2', 'column-title', '分析の詳細'));
+    [['実現したい会社の未来', result.futureUnderstanding], ['現在どこまで分かっているか', result.currentUnderstanding], ['未来に向けて確認しておく価値があること', result.lensFindings], ['現時点ではまだ判断できないこと', result.unknowns]].forEach(([title, items]) => {
+      const section = document.createElement('details'); section.className = 'analysis-section'; section.append(ui.el('summary', '', title));
+      items.forEach((item) => { const row = ui.el('article', 'analysis-item'); row.append(ui.el('p', '', item.text)); if (item.lenses) lenses(row, item.lenses); appendThemes(row, item.id); section.append(row); }); target.append(section);
+    });
+    const facts = document.createElement('details'); facts.className = 'analysis-section'; facts.append(ui.el('summary', '', '次に確認する価値があること'));
+    result.factCandidates.forEach((item) => { const row = ui.el('article', 'analysis-item'); row.append(ui.el('p', '', `確認すること: ${item.whatToVerify}`), ui.el('p', '', `なぜ確認するか: ${item.whyItMattersToFuture}`), ui.el('p', '', `確認すると分かりそうなこと: ${item.whatMayBecomeKnowable}`)); lenses(row, item.lenses); appendThemes(row, item.id); facts.append(row); }); target.append(facts);
+  }
+  function autoGrow(area) { area.style.height = 'auto'; area.style.height = `${area.scrollHeight}px`; }
+  function sectionEditor(content) {
+    const wrap = ui.el('section', 'narrative-editor'); wrap.append(ui.el('h3', '', '診断結果を確認・整理する'));
+    reviewSections.forEach(([key, title]) => {
+      const block = ui.el('div', 'narrative-block'); block.append(ui.el('h4', '', title));
+      const related = ui.relatedBadges(themeTokens(ws.traceability?.narrativeSectionThemes?.[key] || [])); if (related) block.append(related);
+      const area = document.createElement('textarea'); area.dataset.section = key; area.value = content[key].entries.join('\n'); area.rows = 1; area.addEventListener('input', () => autoGrow(area)); block.append(area); wrap.append(block); requestAnimationFrame(() => autoGrow(area));
+    });
+    const saveBar = ui.el('div', 'report-save-bar'); const save = document.createElement('button'); save.type = 'button'; save.id = 'saveNarrative'; save.textContent = '顧客向け文面を保存'; save.disabled = ws.analysisFreshness !== 'CURRENT'; saveBar.append(save); wrap.append(saveBar);
+    if (ws.analysisFreshness !== 'CURRENT') wrap.append(ui.el('p', 'status warning', '現在の分析を確認してから文面を編集してください。'));
+    if (ws.humanEditedNarrativeStatus === 'STALE_REVIEW_REQUIRED') wrap.append(ui.el('p', 'status warning', '前回の編集文は、現在の分析より前の内容です。確認してください。'));
+    save.addEventListener('click', saveNarrative); return wrap;
+  }
+  function appendNarrativeReference(target, content, summary) {
+    const reference = document.createElement('details'); reference.className = 'generated-reference'; reference.append(ui.el('summary', '', summary)); const body = ui.el('div', 'generated-body');
+    reviewSections.forEach(([key, title]) => { const section = content[key]; if (!section) return; const block = ui.el('div', 'narrative-block'); block.append(ui.el('h4', '', title)); const related = ui.relatedBadges(themeTokens(ws.traceability?.narrativeSectionThemes?.[key] || [])); if (related) block.append(related); const list = ui.el('ul'); section.entries.forEach((entry) => list.append(ui.el('li', '', entry))); block.append(list); body.append(block); }); reference.append(body); target.append(reference);
+  }
+  function renderNarratives() {
+    const generated = document.querySelector('#generated'), human = document.querySelector('#humanNarrative'); generated.replaceChildren(); human.replaceChildren(); const latest = ws.latestGeneratedNarrative?.content;
+    if (!latest) {
+      if (ws.analysisFreshness !== 'CURRENT') human.append(ui.el('p', 'status warning', '現在の分析を確認してください。'));
+      if (ws.humanEditedNarrativeStatus === 'STALE_REVIEW_REQUIRED' && ws.latestHumanEditedNarrative) {
+        human.append(ui.el('p', 'status warning', '前回の編集文は、現在の分析より前の内容です。確認してください。'));
+        appendNarrativeReference(human, ws.latestHumanEditedNarrative.content, '前回の編集文を参考表示');
+      }
+      return;
+    }
+    const source = ws.humanEditedNarrativeStatus === 'CURRENT' ? ws.latestHumanEditedNarrative.content : latest; human.append(sectionEditor(source)); appendNarrativeReference(generated, latest, '分析から作成した元の文面'); if (ws.humanEditedNarrativeStatus === 'STALE_REVIEW_REQUIRED') appendNarrativeReference(human, ws.latestHumanEditedNarrative.content, '前回の編集文を参考表示');
+  }
+  function renderReference() { ui.renderOriginal(document.querySelector('#original'), ws.originalSurvey.answers, {}); }
+  function renderHearingRecords() {
+    const target = document.querySelector('#records'); target.replaceChildren(); const themes = ws.latestAnalysisResult?.analysis?.hearingViewpoints || [];
+    themes.forEach((theme, index) => { const records = ws.hearingRecords.filter((record) => record.planItemRef === `design-v2-viewpoint:${theme.id}`); const block = ui.el('section', `theme-record theme-color-${index % 6}`), title = ui.el('div', 'viewpoint-title'); title.append(ui.el('span', 'viewpoint-number', String(index + 1)), ui.el('h3', '', theme.label)); block.append(title); const trace = (ws.traceability?.viewpoints || []).find((item) => item.id === theme.id); const related = ui.relatedBadges(trace?.relatedQuestionCodes || [], '関連Q'); if (related) block.append(related); block.append(ui.el('p', 'viewpoint-why', theme.whyUseful)); const recordList = ui.el('div', 'records'); ui.renderRecords(recordList, records); block.append(recordList); target.append(block); });
+    const general = ws.hearingRecords.filter((record) => !record.planItemRef?.startsWith('design-v2-viewpoint:')); if (general.length) { const block = ui.el('details', 'supporting-details'); block.append(ui.el('summary', '', 'その他メモ')); const records = ui.el('div', 'records'); ui.renderRecords(records, general); block.append(records); target.append(block); } if (!target.children.length) target.append(ui.el('p', 'hint', 'まだ記録はありません。'));
+  }
+  function render() { renderReference(); renderHearingRecords(); renderQ1Editor(); renderAnalysis(); renderNarratives(); syncAnswerReferencePane(); root.classList.remove('hidden'); }
+  async function load() {
+    if (!caseId) { unavailable(); return; }
+    document.querySelector('#toHearing').href = `/admin/free-diagnosis-v2-hearing.html?caseId=${encodeURIComponent(caseId)}`;
+    const response = await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/post-hearing-analysis`); if (!response.ok) { unavailable(); return; } ws = await response.json(); render();
+  }
+  async function reanalyze(revision) {
+    const response = await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/reanalyze`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ expectedCurrentStateRevision: revision }) });
+    if (!response.ok) { msg('企業基本情報は保存されましたが、再分析に失敗しました。', 'error'); return false; }
+    await load(); q1Editor.classList.add('hidden'); openQ1Editor.setAttribute('aria-expanded', 'false'); msg('企業基本情報を保存しました。'); document.querySelector('#reportPane').scrollIntoView({ block: 'start' }); return true;
+  }
+  async function openReport() { const button = document.querySelector('#toReport'); button.disabled = true; try { const response = await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/report-drafts/ensure`, { method: 'POST' }); if (!response.ok) { msg('レポートの下書きを開けませんでした。先に現在の理解を確認してください。', 'error'); return; } const report = await response.json(); location.href = `/admin/free-diagnosis-v2-report.html?caseId=${encodeURIComponent(caseId)}&reportId=${encodeURIComponent(report.id)}`; } finally { button.disabled = false; } }
+  async function saveQ1(event) {
+    event.preventDefault(); const response = await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/current-state-revisions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ expectedRevision: ws.currentStateRevision.revisionNo, state: currentState(), q1CompanyContext: currentQ1(), changeReason: document.querySelector('#changeReason').value || null }) });
+    if (!response.ok) { msg('企業基本情報を保存できませんでした。', 'error'); return; } const saved = await response.json(); await load(); await reanalyze(saved.revisionNo);
+  }
+  async function saveNarrative() {
+    if (ws.analysisFreshness !== 'CURRENT') return; const content = {}; document.querySelectorAll('#humanNarrative [data-section]').forEach((area) => { const key = area.dataset.section; content[key] = { heading: ws.latestGeneratedNarrative.content[key].heading, entries: area.value.split('\n').map((value) => value.trim()).filter(Boolean) }; });
+    const response = await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/narrative-edits`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ generatedNarrativeId: ws.latestGeneratedNarrative.id, content }) });
+    if (!response.ok) { msg('顧客向け文面を保存できませんでした。現在の分析を確認してください。', 'error'); return; } await load(); msg('顧客向け文面を保存しました。');
+  }
+  document.querySelector('#currentForm').addEventListener('submit', saveQ1);
+  document.querySelector('#toReport').addEventListener('click', openReport);
+  openAnswerReference.addEventListener('click', () => { answerReference.open = true; syncAnswerReferencePane(); });
+  answerReference.addEventListener('toggle', syncAnswerReferencePane);
+  openQ1Editor.addEventListener('click', () => { const opening = q1Editor.classList.contains('hidden'); q1Editor.classList.toggle('hidden', !opening); openQ1Editor.setAttribute('aria-expanded', String(opening)); if (opening) q1Editor.scrollIntoView({ block: 'nearest' }); });
+  load().catch(unavailable);
 })();
