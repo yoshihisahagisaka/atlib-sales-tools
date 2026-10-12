@@ -76,6 +76,7 @@ test('Report Presentation renders the fixed introduction, independent customer-r
   await expect(page.getByRole('link', { name: '診断結果の整理に戻る' })).toHaveAttribute('href', new RegExp(`caseId=${caseId}`));
   await page.locator('[data-candidate-id="fact-1"]').check(); await page.locator('[data-customer-expression="fact-1"]').fill('顧客向けの確認対象'); await page.locator('[data-reason="fact-1"]').fill('顧客向けの確認理由'); await page.locator('#durationText').fill('2〜4週間'); await page.locator('#priceExcludingTaxText').fill('個別にご相談のうえお見積り'); await page.getByRole('button', { name: '提案情報を保存' }).first().click();
   await expect.poll(() => patchBody?.assessmentProposal?.selectedCandidateIds).toEqual(['fact-1']);
+  await expect(page.locator('#reportMessage')).toHaveText('提案情報を保存しました。');
   expect(patchBody.sections).toEqual(draft().content.sections); expect(patchBody.diagnosisMap).toEqual(draft().content.diagnosisMap); expect(Object.keys(patchBody.assessmentProposal.presentationByCandidateId)).toEqual(['fact-1']);
   await expect(page.locator('.report-next-decision-document')).not.toContainText('顧客向けの確認対象');
   await expect(page.locator('.report-next-decision-document')).not.toContainText('2〜4週間');
@@ -85,6 +86,17 @@ test('Report Presentation renders the fixed introduction, independent customer-r
   await expect(page.locator('.report-concept-diagram')).toBeVisible();
   await expect(page.locator('.report-facts-page')).toBeVisible();
   expect(await page.locator('.report-concept-diagram').evaluate(node => node.getBoundingClientRect().width <= window.innerWidth)).toBe(true);
+});
+
+test('proposal save failure never shows the success state', async ({ page }) => {
+  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, async route => {
+    if (route.request().method() === 'GET') { await route.fulfill({ json: draft() }); return; }
+    await route.fulfill({ status: 500, json: { error: 'FAILED' } });
+  });
+  await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
+  await page.getByRole('button', { name: '提案情報を保存' }).first().click();
+  await expect(page.locator('#reportMessage')).toHaveText('提案情報を保存できませんでした。もう一度お試しください。');
+  await expect(page.locator('#reportMessage')).not.toContainText('提案情報を保存しました。');
 });
 
 test('Report Presentation has no print, PDF, or Approval action', async ({ page }) => {

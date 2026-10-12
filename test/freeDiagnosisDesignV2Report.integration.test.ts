@@ -96,6 +96,7 @@ test('E1 Design v2 Report Draft uses only latest canonical sources and creates a
     const firstDraft = await post(`/cases/${kase.id}/design-v2/report-drafts`);
     assert.equal(firstDraft.status, 201);
     const first = await firstDraft.json() as any;
+    const firstStoredContent = structuredClone(first.content);
     await t.test('stale Human Edit is not adopted, and Hearing memo is not an input', async () => {
       assert.equal(first.context.adoptedNarrative.source, 'SYSTEM_GENERATED');
       assert.equal(first.context.generatedNarrative.id, latest.generated.id);
@@ -125,6 +126,9 @@ test('E1 Design v2 Report Draft uses only latest canonical sources and creates a
     });
     assert.equal(currentEdit.status, 201);
     const currentEditBody = await currentEdit.json() as any;
+    const staleWorkspace = await get(`/cases/${kase.id}/design-v2/post-hearing-analysis`);
+    assert.equal(staleWorkspace.status, 200);
+    assert.deepEqual((await staleWorkspace.json() as any).reportState, { exists: true, needsRefresh: true });
     const secondDraft = await post(`/cases/${kase.id}/design-v2/report-drafts`);
     assert.equal(secondDraft.status, 201);
     const second = await secondDraft.json() as any;
@@ -134,11 +138,17 @@ test('E1 Design v2 Report Draft uses only latest canonical sources and creates a
       assert.equal(second.context.adoptedNarrative.id, currentEditBody.id);
       assert.equal(second.context.adoptedNarrative.generatedNarrativeId, latest.generated.id);
       assert.deepEqual(second.content.sections.find((section: any) => section.key === 'CURRENT_UNDERSTANDING')?.entries, ['CURRENT HUMAN EDIT IS ADOPTED']);
+      const oldReport = await get(`/cases/${kase.id}/design-v2/report-drafts/${first.id}`);
+      assert.equal(oldReport.status, 200);
+      assert.deepEqual((await oldReport.json() as any).content, firstStoredContent);
       const audit = await h.pool.query<any>(
         `SELECT detail_json FROM it_management_diagnosis_case_v2_audit
           WHERE case_id=$1 AND command='CreateDesignV2ReportDraft' ORDER BY created_at DESC LIMIT 1`, [kase.id],
       );
       assert.equal(audit.rows[0].detail_json.human_edited_narrative_id, currentEditBody.id);
+      const currentWorkspace = await get(`/cases/${kase.id}/design-v2/post-hearing-analysis`);
+      assert.equal(currentWorkspace.status, 200);
+      assert.deepEqual((await currentWorkspace.json() as any).reportState, { exists: true, needsRefresh: false });
     });
     await t.test('E2 reuses the existing editable Draft and only saves customer-facing presentation', async () => {
       const ensuredOnce = await post(`/cases/${kase.id}/design-v2/report-drafts/ensure`);
@@ -163,6 +173,9 @@ test('E1 Design v2 Report Draft uses only latest canonical sources and creates a
           (SELECT count(*) FROM it_management_diagnosis_generated_narrative_v2 WHERE case_id=$1)::text AS generated,
           (SELECT count(*) FROM it_management_diagnosis_human_edited_narrative_v2 WHERE case_id=$1)::text AS edited`, [kase.id],
       );
+      const reportCountBeforePresentation = await h.pool.query<{ count: string }>(
+        'SELECT count(*) FROM diagnosis_reports WHERE it_management_diagnosis_case_v2_id=$1', [kase.id],
+      );
       const content = structuredClone(draft.content);
       content.recipient = { organizationDisplayName: 'E2 顧客株式会社', role: '代表取締役', name: '山田 太郎' };
       content.diagnosisDate = '2026-10-12';
@@ -183,6 +196,10 @@ test('E1 Design v2 Report Draft uses only latest canonical sources and creates a
       assert.deepEqual(updated.content.assessmentProposal.candidates, draft.content.assessmentProposal.candidates);
       assert.equal(updated.content.recipient.name, '山田 太郎');
       assert.equal(updated.content.assessmentProposal.selectedCandidateIds[0], candidate.id);
+      assert.deepEqual(
+        await h.pool.query<{ count: string }>('SELECT count(*) FROM diagnosis_reports WHERE it_management_diagnosis_case_v2_id=$1', [kase.id]),
+        reportCountBeforePresentation,
+      );
       assert.deepEqual((await h.pool.query(
         `SELECT
           (SELECT count(*) FROM it_management_diagnosis_current_state_revision_v2 WHERE case_id=$1)::text AS current,

@@ -20,9 +20,16 @@
   const openAnswerReference = document.querySelector('#openAnswerReference');
   const openQ1Editor = document.querySelector('#openQ1Editor');
   const q1Editor = document.querySelector('#q1Editor');
+  const reportRefreshState = document.querySelector('#reportRefreshState');
+  const refreshReport = document.querySelector('#refreshReport');
 
   function unavailable() { notice.classList.remove('hidden'); root.classList.add('hidden'); }
-  function msg(text, type = '') { message.textContent = text; message.className = `status${type ? ` ${type}` : ''}`; }
+  function msg(text, type = '', detail = '') {
+    message.replaceChildren(ui.el('strong', '', text));
+    if (detail) message.append(ui.el('span', 'status-detail', detail));
+    message.className = `status${type ? ` ${type}` : ''}`;
+  }
+  function renderReportRefreshState() { reportRefreshState.classList.toggle('hidden', !ws.reportState?.needsRefresh); }
   function syncAnswerReferencePane() {
     const expanded = answerReference.open;
     root.classList.toggle('answers-expanded', expanded);
@@ -139,7 +146,7 @@
     themes.forEach((theme, index) => { const records = ws.hearingRecords.filter((record) => record.planItemRef === `design-v2-viewpoint:${theme.id}`); const block = ui.el('section', `theme-record theme-color-${index % 6}`), title = ui.el('div', 'viewpoint-title'); title.append(ui.el('span', 'viewpoint-number', String(index + 1)), ui.el('h3', '', theme.label)); block.append(title); const trace = (ws.traceability?.viewpoints || []).find((item) => item.id === theme.id); const related = ui.relatedBadges(trace?.relatedQuestionCodes || [], '関連Q'); if (related) block.append(related); block.append(ui.el('p', 'viewpoint-why', theme.whyUseful)); const recordList = ui.el('div', 'records'); ui.renderRecords(recordList, records); block.append(recordList); target.append(block); });
     const general = ws.hearingRecords.filter((record) => !record.planItemRef?.startsWith('design-v2-viewpoint:')); if (general.length) { const block = ui.el('details', 'supporting-details'); block.append(ui.el('summary', '', 'その他メモ')); const records = ui.el('div', 'records'); ui.renderRecords(records, general); block.append(records); target.append(block); } if (!target.children.length) target.append(ui.el('p', 'hint', 'まだ記録はありません。'));
   }
-  function render() { renderReference(); renderHearingRecords(); renderQ1Editor(); renderAnalysis(); renderNarratives(); syncAnswerReferencePane(); root.classList.remove('hidden'); }
+  function render() { renderReference(); renderHearingRecords(); renderQ1Editor(); renderAnalysis(); renderNarratives(); renderReportRefreshState(); syncAnswerReferencePane(); root.classList.remove('hidden'); }
   async function load() {
     if (!caseId) { unavailable(); return; }
     document.querySelector('#toHearing').href = `/admin/free-diagnosis-v2-hearing.html?caseId=${encodeURIComponent(caseId)}`;
@@ -151,6 +158,15 @@
     await load(); q1Editor.classList.add('hidden'); openQ1Editor.setAttribute('aria-expanded', 'false'); msg('企業基本情報を保存しました。'); document.querySelector('#reportPane').scrollIntoView({ block: 'start' }); return true;
   }
   async function openReport() { const button = document.querySelector('#toReport'); button.disabled = true; try { const response = await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/report-drafts/ensure`, { method: 'POST' }); if (!response.ok) { msg('レポートの下書きを開けませんでした。先に現在の理解を確認してください。', 'error'); return; } const report = await response.json(); location.href = `/admin/free-diagnosis-v2-report.html?caseId=${encodeURIComponent(caseId)}&reportId=${encodeURIComponent(report.id)}`; } finally { button.disabled = false; } }
+  async function refreshReportDraft() {
+    refreshReport.disabled = true;
+    try {
+      const response = await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/report-drafts`, { method: 'POST' });
+      if (!response.ok) { msg('最新の内容でレポートを更新できませんでした。現在の理解を確認してください。', 'error'); return; }
+      const report = await response.json();
+      location.href = `/admin/free-diagnosis-v2-report.html?caseId=${encodeURIComponent(caseId)}&reportId=${encodeURIComponent(report.id)}`;
+    } finally { refreshReport.disabled = false; }
+  }
   async function saveQ1(event) {
     event.preventDefault(); const response = await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/current-state-revisions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ expectedRevision: ws.currentStateRevision.revisionNo, state: currentState(), q1CompanyContext: currentQ1(), changeReason: document.querySelector('#changeReason').value || null }) });
     if (!response.ok) { msg('企業基本情報を保存できませんでした。', 'error'); return; } const saved = await response.json(); await load(); await reanalyze(saved.revisionNo);
@@ -158,10 +174,11 @@
   async function saveNarrative() {
     if (ws.analysisFreshness !== 'CURRENT') return; const content = {}; document.querySelectorAll('#humanNarrative [data-section]').forEach((area) => { const key = area.dataset.section; content[key] = { heading: ws.latestGeneratedNarrative.content[key].heading, entries: area.value.split('\n').map((value) => value.trim()).filter(Boolean) }; });
     const response = await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/narrative-edits`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ generatedNarrativeId: ws.latestGeneratedNarrative.id, content }) });
-    if (!response.ok) { msg('顧客向け文面を保存できませんでした。現在の分析を確認してください。', 'error'); return; } await load(); msg('顧客向け文面を保存しました。');
+    if (!response.ok) { msg('顧客向け文面を保存できませんでした。現在の分析を確認してください。', 'error'); return; } await load(); msg('顧客向け文面を保存しました。', '', ws.reportState?.needsRefresh ? 'レポートにはまだ反映されていません。' : '');
   }
   document.querySelector('#currentForm').addEventListener('submit', saveQ1);
   document.querySelector('#toReport').addEventListener('click', openReport);
+  refreshReport.addEventListener('click', refreshReportDraft);
   openAnswerReference.addEventListener('click', () => { answerReference.open = true; syncAnswerReferencePane(); });
   answerReference.addEventListener('toggle', syncAnswerReferencePane);
   openQ1Editor.addEventListener('click', () => { const opening = q1Editor.classList.contains('hidden'); q1Editor.classList.toggle('hidden', !opening); openQ1Editor.setAttribute('aria-expanded', String(opening)); if (opening) q1Editor.scrollIntoView({ block: 'nearest' }); });

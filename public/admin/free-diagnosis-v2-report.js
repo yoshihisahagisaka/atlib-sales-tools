@@ -164,7 +164,7 @@
   async function save() {
     const content = editedContent();
     const response = await fetch(`${apiBase}${encodeURIComponent(caseId)}/design-v2/report-drafts/${encodeURIComponent(reportId)}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(content) });
-    if (!response.ok) { showMessage('提案情報を保存できませんでした。', 'error'); return; }
+    if (!response.ok) { showMessage('提案情報を保存できませんでした。もう一度お試しください。', 'error'); return; }
     report = await response.json(); renderForm(); renderPreview(); showMessage('提案情報を保存しました。');
   }
   byId('reportForm').addEventListener('submit', event => { event.preventDefault(); save(); });

@@ -46,7 +46,7 @@ function workspace(overrides: any = {}) {
       factCandidates: [{ id: 'fact-1', whatToVerify: '共有内容', whyItMattersToFuture: '成長を支えるため', whatMayBecomeKnowable: '改善可能性', lenses: ['MANAGEMENT'] }], healthyGuard: { noImportantGapIdentified: false },
     } },
     traceability: { viewpoints: [{ id: 'theme-1', relatedQuestionCodes: ['Q4', 'Q6'] }], analysisItemThemes: { 'theme-1': ['theme-1'], 'unknown-1': ['theme-1'], 'fact-1': ['theme-1'] }, narrativeSectionThemes: { confirmationAndImprovement: ['theme-1'], unknowns: ['theme-1'], nextFacts: ['theme-1'] } },
-    latestGeneratedNarrative: { id: '22222222-2222-4222-8222-222222222222', content }, latestHumanEditedNarrative: null, humanEditedNarrativeStatus: 'NONE', analysisFreshness: 'CURRENT', ...overrides,
+    latestGeneratedNarrative: { id: '22222222-2222-4222-8222-222222222222', content }, latestHumanEditedNarrative: null, humanEditedNarrativeStatus: 'NONE', analysisFreshness: 'CURRENT', reportState: { exists: false, needsRefresh: false }, ...overrides,
   };
 }
 
@@ -95,6 +95,42 @@ test('current Human Edited Narrative has priority and is saved through the exist
   await expect.poll(() => body?.generatedNarrativeId).toBe(state.value.latestGeneratedNarrative.id);
   expect(body.content.future.entries).toEqual(['人が確認して整えた表現']);
   await expect(future).toHaveValue('人が確認して整えた表現');
+});
+
+test('Human Review save clearly identifies a Report that needs an explicit refresh', async ({ page }) => {
+  const state = { value: workspace({
+    latestHumanEditedNarrative: { id: 'edit-1', generatedNarrativeId: '22222222-2222-4222-8222-222222222222', content },
+    humanEditedNarrativeStatus: 'CURRENT', reportState: { exists: true, needsRefresh: false },
+  }) };
+  await routeWorkspace(page, state);
+  await page.route('**/design-v2/narrative-edits', async route => {
+    const body = route.request().postDataJSON();
+    state.value = { ...state.value, latestHumanEditedNarrative: { id: 'edit-2', generatedNarrativeId: state.value.latestGeneratedNarrative.id, content: body.content }, reportState: { exists: true, needsRefresh: true } };
+    await route.fulfill({ status: 201, json: { id: 'edit-2' } });
+  });
+  await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${state.value.case.id}`);
+  await expect(page.locator('#refreshReport')).toBeHidden();
+  await page.locator('[data-section=currentUnderstanding]').fill('保存後の顧客向け表現');
+  await page.locator('#saveNarrative').click();
+  await expect(page.locator('#message')).toContainText('顧客向け文面を保存しました。');
+  await expect(page.locator('#message')).toContainText('レポートにはまだ反映されていません。');
+  await expect(page.locator('#reportRefreshState')).toContainText('レポート作成後に顧客向け文面が更新されています。');
+  await expect(page.locator('#refreshReport')).toBeVisible();
+});
+
+test('explicit report refresh creates one new draft and leaves the old-report link available', async ({ page }) => {
+  const state = { value: workspace({ reportState: { exists: true, needsRefresh: true } }) };
+  let refreshCalls = 0;
+  await routeWorkspace(page, state);
+  await page.route('**/design-v2/report-drafts', async route => {
+    refreshCalls += 1;
+    await route.fulfill({ status: 201, json: { id: 'new-report-id', version: 2 } });
+  });
+  await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${state.value.case.id}`);
+  await expect(page.getByRole('button', { name: 'レポートを確認' })).toBeVisible();
+  await page.locator('#refreshReport').click();
+  await expect(page).toHaveURL(/reportId=new-report-id/);
+  expect(refreshCalls).toBe(1);
 });
 
 test('survey is a default-closed read-only reference and Q1 is its sole separate editor', async ({ page }) => {

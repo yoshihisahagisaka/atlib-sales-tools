@@ -167,6 +167,11 @@ export interface DesignV2StoredReportDraft {
   context: Record<string, unknown>;
 }
 
+export interface LatestDesignV2ReportReference {
+  id: string;
+  adoptedHumanEditId: string | null;
+}
+
 function asJson<T>(value: T | string): T {
   return typeof value === 'string' ? JSON.parse(value) as T : value;
 }
@@ -530,6 +535,25 @@ export class FreeDiagnosisDesignV2PersistenceRepo {
       latestAnalysisResult: analysis,
       latestGeneratedNarrative: generatedRows.rows[0] ? mapGenerated(generatedRows.rows[0]) : null,
       latestHumanEditedNarrative: edits.rows[0] ? mapHumanEdit(edits.rows[0]) : null,
+    };
+  }
+
+  /** Provenance only: this never compares or changes Report content. */
+  async getLatestDesignV2ReportReference(caseId: string): Promise<LatestDesignV2ReportReference | null> {
+    const result = await this.pool.query<Record<string, unknown>>(
+      `SELECT id,context_json FROM diagnosis_reports
+        WHERE it_management_diagnosis_case_v2_id=$1 AND policy_version='design-v2'
+        ORDER BY version DESC LIMIT 1`,
+      [caseId],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    const context = asJson<Record<string, unknown>>(row.context_json as Record<string, unknown>);
+    const adopted = context.adoptedNarrative;
+    const narrative = adopted != null && typeof adopted === 'object' ? adopted as Record<string, unknown> : null;
+    return {
+      id: row.id as string,
+      adoptedHumanEditId: narrative?.source === 'HUMAN_EDITED' && typeof narrative.id === 'string' ? narrative.id : null,
     };
   }
 

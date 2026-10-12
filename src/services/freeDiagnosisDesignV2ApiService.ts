@@ -130,9 +130,10 @@ export class FreeDiagnosisDesignV2ApiService {
 
   async getWorkspace(caseId: string) {
     const kase = await this.requireCase(caseId);
-    const [workspace, hearingRecords] = await Promise.all([
+    const [workspace, hearingRecords, latestReport] = await Promise.all([
       this.persistence.getDesignV2PersistenceWorkspace(caseId),
       this.persistence.listDesignV2HearingRecords(caseId),
+      this.persistence.getLatestDesignV2ReportReference(caseId),
     ]);
     if (!workspace) throw new FreeDiagnosisDesignV2ApiError(404, 'DESIGN_V2_NOT_INITIALIZED');
     const analysisFreshness: AnalysisFreshnessV2 = workspace.latestAnalysisResult && workspace.latestGeneratedNarrative
@@ -142,6 +143,9 @@ export class FreeDiagnosisDesignV2ApiService {
       : analysisFreshness === 'CURRENT'
         && workspace.latestGeneratedNarrative?.id === workspace.latestHumanEditedNarrative.generatedNarrativeId
         ? 'CURRENT' : 'STALE_REVIEW_REQUIRED';
+    const reportNeedsRefresh = latestReport != null
+      && humanEditedNarrativeStatus === 'CURRENT'
+      && latestReport.adoptedHumanEditId !== workspace.latestHumanEditedNarrative?.id;
     const currentQ1 = currentCompanyContext(workspace.originalSurvey.answers.q1CompanyContext, workspace.currentStructuredState.supplement);
     return {
       case: kase,
@@ -166,6 +170,7 @@ export class FreeDiagnosisDesignV2ApiService {
       latestHumanEditedNarrative: workspace.latestHumanEditedNarrative,
       humanEditedNarrativeStatus,
       analysisFreshness,
+      reportState: { exists: latestReport != null, needsRefresh: reportNeedsRefresh },
       traceability: workspace.latestAnalysisResult ? traceability(workspace.latestAnalysisResult.analysis) : null,
     };
   }
