@@ -71,6 +71,7 @@ test('Public Customer Selfは事前アンケートから申込み・予約導線
   const context = await browser.newContext(); const page = await context.newPage();
   const before = Number((await h.pool.query('SELECT count(*)::int AS count FROM it_management_public_self_submission')).rows[0].count);
   await page.goto(h.url + '/it-management-kaizen/free-diagnosis/?acquisition_source_type=EVENT&acquisition_source_name=SHINSEIKAI&utm_source=shinseikai&utm_medium=flyer_qr&utm_campaign=it_management_kaizen_free_diagnosis');
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex,follow');
   await expect(page.getByText('今回の回答者のお立場を教えてください', { exact: true })).toBeVisible();
   await page.getByLabel('経営者・役員').check(); await page.click('#start-questions');
   await expect(page.getByText('事前アンケート 1 / 7', { exact: true })).toBeVisible();

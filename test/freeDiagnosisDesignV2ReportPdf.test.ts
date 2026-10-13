@@ -110,3 +110,38 @@ test('approved Design v2 PDF service rejects invalid lifecycle and snapshot stat
     (error: unknown) => error instanceof FreeDiagnosisDesignV2ReportPdfError && error.status === 500 && error.code === 'DESIGN_V2_PDF_RENDER_FAILED',
   );
 });
+
+test('approved Design v2 PDF service limits each instance to two concurrent renderers and releases capacity after failure', async () => {
+  const content = reportContent('CAPACITY');
+  let release: (() => void) | undefined;
+  const waitForRelease = new Promise<void>(resolve => { release = resolve; });
+  let rendererCalls = 0;
+  const blockingRenderer = async () => {
+    rendererCalls += 1;
+    await waitForRelease;
+    return Buffer.from('%PDF-1.4\nvalid');
+  };
+  const pdfService = service([approvedRow(content)], blockingRenderer);
+  const first = pdfService.generate('case-1', 'report-1');
+  const second = pdfService.generate('case-1', 'report-1');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(rendererCalls, 2);
+  await assert.rejects(
+    pdfService.generate('case-1', 'report-1'),
+    (error: unknown) => error instanceof FreeDiagnosisDesignV2ReportPdfError && error.status === 503 && error.code === 'DESIGN_V2_PDF_CAPACITY_EXCEEDED',
+  );
+  release?.();
+  await Promise.all([first, second]);
+
+  let failOnce = true;
+  const recoveryService = service([approvedRow(content)], async () => {
+    if (failOnce) { failOnce = false; throw new Error('renderer exploded'); }
+    return Buffer.from('%PDF-1.4\nvalid');
+  });
+  await assert.rejects(
+    recoveryService.generate('case-1', 'report-1'),
+    (error: unknown) => error instanceof FreeDiagnosisDesignV2ReportPdfError && error.status === 500 && error.code === 'DESIGN_V2_PDF_RENDER_FAILED',
+  );
+  const recovered = await recoveryService.generate('case-1', 'report-1');
+  assert.equal(recovered.bytes.subarray(0, 5).toString('ascii'), '%PDF-');
+});

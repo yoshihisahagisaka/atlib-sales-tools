@@ -22,6 +22,24 @@ export interface ApprovedDesignV2ReportPdf {
 
 type PdfRenderer = (html: string) => Promise<Buffer>;
 
+export class DesignV2PdfConcurrencyLimiter {
+  private active = 0;
+
+  constructor(private readonly maximum = 2) {}
+
+  async run<T>(operation: () => Promise<T>): Promise<T> {
+    if (this.active >= this.maximum) {
+      throw new FreeDiagnosisDesignV2ReportPdfError(503, 'DESIGN_V2_PDF_CAPACITY_EXCEEDED');
+    }
+    this.active += 1;
+    try {
+      return await operation();
+    } finally {
+      this.active -= 1;
+    }
+  }
+}
+
 interface StoredApprovedReport {
   id: string;
   version: number;
@@ -224,7 +242,11 @@ export function inlinePdfContentDisposition(filename: { ascii: string; utf8: str
 }
 
 export class FreeDiagnosisDesignV2ReportPdfService {
-  constructor(private readonly pool: Pool, private readonly render: PdfRenderer = renderApprovedDesignV2ReportPdf) {}
+  constructor(
+    private readonly pool: Pool,
+    private readonly render: PdfRenderer = renderApprovedDesignV2ReportPdf,
+    private readonly limiter = new DesignV2PdfConcurrencyLimiter(),
+  ) {}
 
   async generate(caseId: string, reportId: string): Promise<ApprovedDesignV2ReportPdf> {
     const { rows } = await this.pool.query<StoredApprovedReport>(
@@ -242,7 +264,7 @@ export class FreeDiagnosisDesignV2ReportPdfService {
     }
     const startedAt = Date.now();
     try {
-      const bytes = await this.render(renderApprovedDesignV2ReportHtml(content));
+      const bytes = await this.limiter.run(() => this.render(renderApprovedDesignV2ReportHtml(content)));
       if (bytes.subarray(0, 5).toString('ascii') !== '%PDF-') throw new Error('DESIGN_V2_PDF_INVALID_OUTPUT');
       const filename = designV2ReportPdfFilename(content);
       return {
