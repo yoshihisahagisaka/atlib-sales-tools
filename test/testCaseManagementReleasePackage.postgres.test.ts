@@ -40,15 +40,15 @@ test('PostgreSQL 16 rehearsal applies 035 once and preserves audit/KPI contracts
     const first: object[] = []; await runMigrations(pool, target, event => first.push(event)); assert.deepEqual(first, [{ event: 'migration_applied', filename: '035_it_management_test_case_designation.sql' }]);
     const second: object[] = []; await runMigrations(pool, target, event => second.push(event)); assert.deepEqual(second, [{ event: 'migration_skipped', filename: '035_it_management_test_case_designation.sql' }]);
     assert.deepEqual((await pool.query('SELECT * FROM it_management_diagnosis_case_v2 WHERE id=$1', [ids.case])).rows[0], beforeCase);
-    const initiatives = new MarketingInitiativeRepo(pool); assert.equal((await initiatives.list())[0].kpi.applications, 1);
+    const initiatives = new MarketingInitiativeRepo(pool); assert.equal((await initiatives.list())[0]!.kpi.applications, 1);
     await pool.query("UPDATE it_management_diagnosis_case_v2 SET is_internal_test=true WHERE id=$1", [ids.case]);
     await pool.query("INSERT INTO it_management_diagnosis_test_case_designation_audit(id,case_id,action,actor_user_id,reason) VALUES('10000000-0000-4000-8000-000000000006',$1,'DESIGNATED','operator','PostgreSQL 16 rehearsal')", [ids.case]);
-    assert.equal((await initiatives.list())[0].kpi.applications, 0);
+    assert.equal((await initiatives.list())[0]!.kpi.applications, 0);
     await pool.query('BEGIN'); await assert.rejects(pool.query("UPDATE it_management_diagnosis_test_case_designation_audit SET reason='mutated' WHERE case_id=$1", [ids.case]), /append-only/); await pool.query('ROLLBACK');
     assert.equal((await pool.query('SELECT reason FROM it_management_diagnosis_test_case_designation_audit WHERE case_id=$1', [ids.case])).rows[0].reason, 'PostgreSQL 16 rehearsal');
     await pool.query("UPDATE it_management_diagnosis_case_v2 SET is_internal_test=false WHERE id=$1", [ids.case]);
     await pool.query("INSERT INTO it_management_diagnosis_test_case_designation_audit(id,case_id,action,actor_user_id,reason) VALUES('10000000-0000-4000-8000-000000000007',$1,'RELEASED','operator','PostgreSQL 16 rehearsal complete')", [ids.case]);
-    assert.equal((await initiatives.list())[0].kpi.applications, 1);
+    assert.equal((await initiatives.list())[0]!.kpi.applications, 1);
     const client = await pool.connect(); try { await client.query('BEGIN READ ONLY'); const result = await verifier.collect(client); assert.equal(result.appendOnlyTrigger, true); assert.equal(result.runtimePrivileges, true); await client.query('ROLLBACK'); } finally { client.release(); }
   } finally { await pool.end(); fs.rmSync(baseline, { recursive: true, force: true }); fs.rmSync(target, { recursive: true, force: true }); fs.rmSync(release, { recursive: true, force: true }); }
 });

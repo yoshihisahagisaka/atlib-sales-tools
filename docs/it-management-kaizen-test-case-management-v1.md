@@ -20,6 +20,10 @@ Test Case management v1 does not physically delete a Case. The normal list defau
 
 No delete API or delete button is part of this scope. Public Customer Self and Staff Proxy entry remain unchanged and cannot self-designate a Case as test data. Physical deletion is outside the development scope of v1; the existing Retention / Deletion Canonical is not changed by this decision.
 
+## Canonical backlog: user and role management
+
+A future, separately reviewed Admin feature may manage roles for employees authenticated through the existing Google Workspace flow. Initial role semantics are `ADMIN` for administrator-only operations and user/role management, and `STAFF` for normal sales and Case operations. Authorization must be decided server-side. The feature must reject any change that would leave zero active administrators and must retain an append-only audit of every role grant and revocation. Test Case Management v1 does not implement this backlog item and continues to use the fail-closed environment allowlist.
+
 ## Production release sequence
 
 1. Source review migration 035 and runtime changes.

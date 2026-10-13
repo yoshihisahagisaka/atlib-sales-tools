@@ -43,6 +43,6 @@ The read-only verifier requires migrations 027–035 exactly once, no 036+, migr
 
 ## Runtime allowlist and ordering
 
-`TEST_CASE_ADMIN_EMAILS` is a comma-separated Production environment setting derived from an independently approved administrator list. Existing Staff OAuth supplies the actor. Missing or empty configuration fails closed. Addresses are never committed to source. Configure it only under separate approval, after Migration 035 succeeds and before runtime Human Acceptance.
+`TEST_CASE_ADMIN_EMAILS` is a comma-separated Production environment setting derived from an independently approved administrator list. The approved initial value is one administrator only: `yoshihisa.hagisaka@atlib.jp`. Existing Staff OAuth supplies the actor. Missing or empty configuration fails closed. The address is release configuration, not application code. Configure it only under separate approval, after Migration 035 succeeds and before runtime Human Acceptance.
 
 Do not route the new runtime before Migration 035 post-verification passes. Existing Production runtime remains compatible with the additive schema. There is no automatic down migration; Cloud Run rollback and Cloud SQL recovery remain separate decisions.
