@@ -29,7 +29,8 @@ function verifyRuntimeBuild(root){for(const file of ['dist/db/migrateCli.js','di
 function build(root,manifestPath,output,reviewedSha){
  const manifest=readManifest(root,manifestPath);verifyReleaseRevision(root,manifest,reviewedSha);verifyRuntimeBuild(root);
  if(fs.existsSync(output))fail('OUTPUT_EXISTS');const temporary=`${output}.tmp-${process.pid}`;
- try{fs.mkdirSync(path.join(temporary,'migrations'),{recursive:true});const entry=manifest.migrations[0];fs.writeFileSync(path.join(temporary,'migrations',entry.filename),readGitBlob(root,manifest.application_rc_sha,entry.filename));fs.copyFileSync(manifestPath,path.join(temporary,'manifest.json'));
+ try{fs.mkdirSync(path.join(temporary,'migrations'),{recursive:true});fs.mkdirSync(path.join(temporary,'scripts','migration'),{recursive:true});const entry=manifest.migrations[0];fs.writeFileSync(path.join(temporary,'migrations',entry.filename),readGitBlob(root,manifest.application_rc_sha,entry.filename));fs.copyFileSync(manifestPath,path.join(temporary,'manifest.json'));
+  for(const file of ['buildTestCaseManagementReleaseArtifact.cjs','preflightTestCaseManagementProduction.cjs','verifyTestCaseManagementProduction.cjs'])fs.copyFileSync(path.join(root,'scripts','migration',file),path.join(temporary,'scripts','migration',file));
   for(const file of ['package.json','package-lock.json'])fs.copyFileSync(path.join(root,file),path.join(temporary,file));fs.copyFileSync(path.join(root,'Dockerfile.migration-release-allowlist'),path.join(temporary,'Dockerfile'));fs.cpSync(path.join(root,'dist'),path.join(temporary,'dist'),{recursive:true});fs.renameSync(temporary,output);
   return {reviewedSha,applicationRcSha:manifest.application_rc_sha,filenames:[entry.filename]};
  }catch(error){fs.rmSync(temporary,{recursive:true,force:true});throw error;}

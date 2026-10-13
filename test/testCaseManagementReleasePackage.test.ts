@@ -39,6 +39,9 @@ test('035 Job template is inert and pins the one-task safety contract', () => {
   assert.match(job, /taskCount: 1/); assert.match(job, /parallelism: 1/); assert.match(job, /maxRetries: 0/);
   assert.match(job, /MIGRATION_035_IMMUTABLE_IMAGE_DIGEST_REQUIRED/);
   assert.doesNotMatch(job, /sha256:[a-f0-9]{64}/);
+  const preflightJob = readFileSync(path.join(root, 'release', 'cloud-run-jobs', 'sales-tools-prod-test-case-management-v1-035-preflight.yaml'), 'utf8');
+  assert.match(preflightJob, /PREFLIGHT_READ_ONLY, value: 'true'/); assert.match(preflightJob, /PACKAGED_ARTIFACT, value: 'true'/);
+  assert.match(preflightJob, /taskCount: 1/); assert.match(preflightJob, /parallelism: 1/); assert.match(preflightJob, /maxRetries: 0/);
 });
 
 test('035 verifier requires SELECT and INSERT but rejects mutable runtime privileges', () => {

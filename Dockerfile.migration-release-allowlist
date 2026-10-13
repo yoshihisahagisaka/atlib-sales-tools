@@ -14,6 +14,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY dist ./dist
 RUN test -f ./dist/db/migrateCli.js && node -e "require('./dist/db/migrateCli.js')"
 COPY migrations ./migrations
+COPY scripts ./scripts
 COPY manifest.json ./migration-release-manifest.json
 USER node
 CMD ["node", "dist/db/migrateCli.js"]
