@@ -15,11 +15,16 @@ This is an evidence record for the Design v2 release gate, not a new legal or pr
 
 The checked repository contracts and release-readiness documents contain no formal approval stating that Staff Proxy registration may proceed without a customer-consent record. They also do not define who captures the consent, which wording/version applies, or where that evidence is retained.
 
-## Required business decision before Production enablement
+## Confirmed business decision and implementation
 
-The accountable business/privacy owner must decide and record one of the following under the existing governance process:
+Staff Proxy registration is permitted only after the responsible sales staff member has explained the IT経営KAIZEN無料診断 purpose and personal-information handling to the customer and confirmed the customer's consent. Oral consent is permitted.
 
-1. Staff Proxy may be used only after the staff member has obtained the specified customer consent, with the required operational evidence and retention location; or
-2. Staff Proxy is not enabled in Production until an approved product/data-record change captures the required consent.
+The Staff Proxy form requires this exact, unedited confirmation before registration:
 
-Until that decision exists, this is a Production Release Blocker for Staff Proxy. It does not change Customer Self, the Design v2 data model, or the current code.
+> 顧客にIT経営KAIZEN無料診断の目的と個人情報の取扱いについて説明し、顧客の同意を得たうえで入力しています。
+
+The API requires `consentConfirmed: true`; missing, false, or malformed values are rejected before Company, Contact, Sales Activity, Case, or Design v2 artifacts are created.
+
+The existing append-only `it_management_diagnosis_case_v2_audit` table records one `RecordDesignV2StaffProxyConsent` entry in the same transaction as the registration. Its Case key, authenticated staff actor, server-created timestamp, `consent_confirmed: true`, and fixed `consent_wording_version: STAFF_PROXY_CONSENT_V1` provide Case-level traceability. Client actor and timestamp values are not accepted.
+
+If this audit write fails, the entire Staff Proxy registration is rolled back. Reuse of the same idempotency key returns the original Case and does not add a second consent record.

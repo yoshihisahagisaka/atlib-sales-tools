@@ -92,7 +92,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><label for="referralPersonName">ご紹介者（任意）</label><input id="referralPersonName" type="text" maxlength="200" placeholder="例：山田太郎さん"></div>
 <div class="row"><label for="proxyRespondentRole">今回の回答者の立場</label><select id="proxyRespondentRole"><option value="MANAGEMENT">経営者・役員</option><option value="IT_DECISION_OWNER">ITの意思決定を担当</option><option value="IT_OR_BUSINESS_STAFF">ITまたは業務の担当</option></select></div>
 <div id="proxyDesignV2Survey"></div>
-<div class="row"><button id="btnCreateCase">営業で伺った内容を登録する</button></div>
+<div class="row"><label for="proxyConsentConfirmed" style="max-width:54rem"><input id="proxyConsentConfirmed" type="checkbox"> 顧客にIT経営KAIZEN無料診断の目的と個人情報の取扱いについて説明し、顧客の同意を得たうえで入力しています。</label></div>
+<div class="row"><button id="btnCreateCase" disabled>営業で伺った内容を登録する</button></div>
 <p id="proxySaveStatus" class="hint" role="status"></p>
 </div></details>
 </div>
@@ -325,17 +326,19 @@ function collectProxyDesignV2Survey() {
   return answer;
 }
 fetch('/api/public/it-management-kaizen/free-diagnosis-v1/survey-contract').then(response=>response.ok?response.json():Promise.reject()).then(contract=>{proxySurveyContract=contract;renderProxyDesignV2Survey(contract);}).catch(()=>{el('proxySaveStatus').textContent='質問を読み込めませんでした。';});
+el('proxyConsentConfirmed').onchange = () => { el('btnCreateCase').disabled = !el('proxyConsentConfirmed').checked; };
 
 el('btnCreateCase').onclick = async () => {
   setError(''); el('proxySaveStatus').textContent=''; const button=el('btnCreateCase'); button.disabled=true;
   try {
     const attribution = { acquisitionSourceType: el('acquisitionSourceType').value || null, acquisitionSourceName: el('acquisitionSourceName').value.trim() || null };
     if ((attribution.acquisitionSourceType == null) !== (attribution.acquisitionSourceName == null)) throw new Error('きっかけを記録する場合は、種別と名称を両方入力してください。');
-    const result=await call('/design-v2/staff-proxy-submissions','POST',{idempotencyKey:proxySubmissionKey,respondentRole:el('proxyRespondentRole').value,
+    if (!el('proxyConsentConfirmed').checked) throw new Error('同意確認にチェックしてください。');
+    const result=await call('/design-v2/staff-proxy-submissions','POST',{idempotencyKey:proxySubmissionKey,respondentRole:el('proxyRespondentRole').value,consentConfirmed:true,
       activity:{name:el('companyName').value,contact:{name:el('contactName').value,email:el('contactEmail').value||null},selectedService:'IT_KAIZEN',referralPersonName:el('referralPersonName').value.trim()||undefined,attribution:attribution.acquisitionSourceType?attribution:undefined},survey:collectProxyDesignV2Survey()});
     el('proxySaveStatus').replaceChildren(document.createTextNode('営業で伺った内容を登録しました。 ')); const link=document.createElement('a'); link.href=`/admin/free-diagnosis-v2-analysis.html?caseId=${encodeURIComponent(result.caseId)}`; link.textContent='作成した案件を確認'; el('proxySaveStatus').append(link);
     await loadCases();
-  } catch (e) { button.disabled=false; el('proxySaveStatus').textContent='登録できませんでした。入力内容を確認して、もう一度お試しください。'; }
+  } catch (e) { button.disabled=!el('proxyConsentConfirmed').checked; el('proxySaveStatus').textContent='登録できませんでした。入力内容を確認して、もう一度お試しください。'; }
 };
 
 function friendlyStatus(status) {

@@ -15,7 +15,10 @@ export interface StaffProxyDesignV2SubmissionInput {
   activity: CreateCompanyInput;
   survey: CurrentStructuredStateV2;
   respondentRole: (typeof RESPONDENT_ROLE)[number];
+  consentConfirmed: true;
 }
+
+export const STAFF_PROXY_CONSENT_WORDING_VERSION = 'STAFF_PROXY_CONSENT_V1';
 
 function stable(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
@@ -28,6 +31,7 @@ export class StaffProxyDesignV2SubmissionService {
 
   async submit(input: StaffProxyDesignV2SubmissionInput, authenticatedStaff: string): Promise<{ caseId: string; created: boolean }> {
     if (!authenticatedStaff.trim()) throw new StaffProxyDesignV2SubmissionError(401, 'STAFF_AUTH_REQUIRED');
+    if (input.consentConfirmed !== true) throw new StaffProxyDesignV2SubmissionError(422, 'STAFF_PROXY_CONSENT_REQUIRED');
     const payloadHash = createHash('sha256').update(stable(input)).digest('hex');
     const client = await this.pool.connect();
     try {
@@ -49,6 +53,15 @@ export class StaffProxyDesignV2SubmissionService {
       const cases = new FreeDiagnosisRuleBasedCaseRepo(client as unknown as Pool);
       const activity = await launcher.createSalesActivity(input.activity, authenticatedStaff);
       const kase = await cases.createCase(activity.companyId, activity.contactId, activity.salesActivityId, authenticatedStaff, false);
+      await client.query(
+        `INSERT INTO it_management_diagnosis_case_v2_audit(id,case_id,command,actor_user_id,detail_json)
+         VALUES($1,$2,'RecordDesignV2StaffProxyConsent',$3,$4)`,
+        [randomUUID(), kase.id, authenticatedStaff, JSON.stringify({
+          consent_confirmed: true,
+          consent_wording_version: STAFF_PROXY_CONSENT_WORDING_VERSION,
+          confirmation_recorded_at: 'SERVER_CREATED_AT',
+        })],
+      );
       const completed = await this.entry.completeInTransaction(client, {
         caseId: kase.id, answers: input.survey, surveyVersion: 'design-v2-staff-proxy-1',
         entryChannel: 'STAFF_PROXY', answeredByRole: input.respondentRole,

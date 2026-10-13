@@ -16,7 +16,7 @@ const survey: CurrentStructuredStateV2 = {
   q6ManagementConnection: 'REPORTED_NOT_DECISION_USABLE', q7InterestThemes: ['AI'],
 };
 const input = (name: string, key = randomUUID()): StaffProxyDesignV2SubmissionInput => ({ idempotencyKey: key, respondentRole: 'MANAGEMENT',
-  activity: { name, contact: { name: '営業ヒアリング担当', email: 'proxy@example.test' }, selectedService: 'IT_KAIZEN' as const }, survey: structuredClone(survey) });
+  activity: { name, contact: { name: '営業ヒアリング担当', email: 'proxy@example.test' }, selectedService: 'IT_KAIZEN' as const }, survey: structuredClone(survey), consentConfirmed: true });
 
 describe('E4-C Staff Proxy to Design v2', () => {
   const hPromise = createFreeDiagnosisRuleBasedV1Harness({ includeDesignV2: true });
@@ -27,6 +27,11 @@ describe('E4-C Staff Proxy to Design v2', () => {
 
   test('requires Staff authentication', async () => { assert.equal((await post(input('Unauthorized'), false)).status, 401); });
 
+  test('requires explicit Staff Proxy consent before any Company or Case is created', async () => {
+    for (const body of [{ ...input('E4-C同意false株式会社'), consentConfirmed: false }, (() => { const value: any = input('E4-C同意欠落株式会社'); delete value.consentConfirmed; return value; })(), { ...input('E4-C同意不正株式会社'), consentConfirmed: 'true' }]) assert.equal((await post(body)).status, 400);
+    for (const name of ['E4-C同意false株式会社','E4-C同意欠落株式会社','E4-C同意不正株式会社']) assert.equal((await h.pool.query('SELECT id FROM company WHERE name=$1',[name])).rowCount, 0);
+  });
+
   test('creates one canonical Staff Proxy workspace and intake-completed Case', async () => {
     const response = await post(input('E4-C正常株式会社')); assert.equal(response.status, 201); const result = await response.json() as { caseId: string };
     const kase = (await h.pool.query<any>('SELECT status FROM it_management_diagnosis_case_v2 WHERE id=$1', [result.caseId])).rows[0]; assert.equal(kase.status, 'INTAKE_COMPLETED');
@@ -34,6 +39,8 @@ describe('E4-C Staff Proxy to Design v2', () => {
     assert.deepEqual(original, { entry_channel: 'STAFF_PROXY', entered_by_user_id: 'operator@atlib.jp', answered_by_role: 'MANAGEMENT' });
     for (const table of ['it_management_diagnosis_current_state_revision_v2','it_management_diagnosis_analysis_result_v2','it_management_diagnosis_generated_narrative_v2']) assert.equal((await h.pool.query(`SELECT id FROM ${table} WHERE case_id=$1`, [result.caseId])).rowCount, 1);
     assert.equal((await h.pool.query('SELECT id FROM hearing_intake_response_v2 WHERE case_id=$1', [result.caseId])).rowCount, 0);
+    const consent = (await h.pool.query<any>("SELECT actor_user_id,detail_json,created_at FROM it_management_diagnosis_case_v2_audit WHERE case_id=$1 AND command='RecordDesignV2StaffProxyConsent'", [result.caseId])).rows[0];
+    assert.equal(consent.actor_user_id, 'operator@atlib.jp'); assert.ok(consent.created_at); assert.deepEqual(consent.detail_json, { consent_confirmed: true, consent_wording_version: 'STAFF_PROXY_CONSENT_V1', confirmation_recorded_at: 'SERVER_CREATED_AT' });
     const workspace = await fetch(h.url + `/api/admin/free-diagnosis-v1/cases/${result.caseId}/design-v2/post-hearing-analysis`, { headers: { Cookie: h.staffCookie } }); assert.equal(workspace.status, 200);
   });
 
@@ -73,5 +80,12 @@ describe('E4-C Staff Proxy to Design v2', () => {
     const service = new StaffProxyDesignV2SubmissionService(h.pool, new FreeDiagnosisDesignV2EntryAdapter(failing));
     await assert.rejects(service.submit(input('E4-Cロールバック株式会社'), 'operator@atlib.jp'), /injected analyzer failure/);
     assert.equal((await h.pool.query("SELECT id FROM company WHERE name='E4-Cロールバック株式会社'")).rowCount,0);
+  });
+
+  test('consent audit failure rolls back the complete Staff Proxy registration', async () => {
+    await h.db.exec(`CREATE FUNCTION reject_staff_proxy_consent() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.command='RecordDesignV2StaffProxyConsent' THEN RAISE EXCEPTION 'consent audit failed'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_staff_proxy_consent BEFORE INSERT ON it_management_diagnosis_case_v2_audit FOR EACH ROW EXECUTE FUNCTION reject_staff_proxy_consent();`);
+    try { await assert.rejects(h.staffProxyDesignV2.submit(input('E4-C同意ロールバック株式会社'), 'operator@atlib.jp'), /consent audit failed/); }
+    finally { await h.db.exec('DROP TRIGGER reject_staff_proxy_consent ON it_management_diagnosis_case_v2_audit; DROP FUNCTION reject_staff_proxy_consent();'); }
+    assert.equal((await h.pool.query("SELECT id FROM company WHERE name='E4-C同意ロールバック株式会社'")).rowCount, 0);
   });
 });

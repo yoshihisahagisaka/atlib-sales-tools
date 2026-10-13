@@ -56,7 +56,7 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
   r.post('/design-v2/staff-proxy-submissions', (req, res) => handle(res, async () => {
     if (!staffProxyDesignV2) { res.status(404).json({ error: 'DESIGN_V2_STAFF_PROXY_NOT_CONFIGURED' }); return; }
     const parsed = z.object({ idempotencyKey: z.string().uuid(), activity: createCompanySchema,
-      survey: designV2SurveyAnswerSchema, respondentRole: z.enum(RESPONDENT_ROLE) }).strict()
+      survey: designV2SurveyAnswerSchema, respondentRole: z.enum(RESPONDENT_ROLE), consentConfirmed: z.literal(true) }).strict()
       .superRefine((value, ctx) => { if (value.activity.selectedService !== 'IT_KAIZEN') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['activity', 'selectedService'], message: 'IT_KAIZEN_REQUIRED' }); })
       .safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }

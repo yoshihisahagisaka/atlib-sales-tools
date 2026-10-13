@@ -303,6 +303,8 @@ test('Admin UIでSales Activityの流入元を保存・表示・検索できる'
   await page.fill('#companyName', '交流会流入株式会社'); await page.fill('#contactName', '担当者');
   await page.selectOption('#acquisitionSourceType', 'EVENT'); await page.fill('#acquisitionSourceName', '経営者交流会A');
   await fillCanonicalStaffProxySurvey(page);
+  await expect(page.locator('#btnCreateCase')).toBeDisabled();
+  await page.check('#proxyConsentConfirmed');
   await page.click('#btnCreateCase');
   await expect(page.locator('#proxySaveStatus')).toContainText('営業で伺った内容を登録しました。');
   const caseId = new URL((await page.locator('#proxySaveStatus a').getAttribute('href'))!, h.url).searchParams.get('caseId');
@@ -327,7 +329,7 @@ test('共通案件一覧はDesign v2本人回答と営業代理入力を正式pr
     consent: { privacy: true, diagnosisUse: true, wordingVersion: 'it_management_public_self_consent_v1' },
     attribution: { utmSource: 'newsletter', utmCampaign: 'design-v2-list' } });
   const staff = await h.staffProxyDesignV2.submit({ idempotencyKey: randomUUID(), respondentRole: 'MANAGEMENT',
-    activity: { name: '一覧代理入力株式会社', contact: { name: '営業ヒアリング先' }, selectedService: 'IT_KAIZEN' }, survey: canonicalSurvey }, 'operator@atlib.jp');
+    activity: { name: '一覧代理入力株式会社', contact: { name: '営業ヒアリング先' }, selectedService: 'IT_KAIZEN' }, survey: canonicalSurvey, consentConfirmed: true }, 'operator@atlib.jp');
 
   await page.goto(h.url + '/admin/free-diagnosis-v1.html'); await page.click('#btnLoadCases');
   const selfRow = page.locator('#caseList tbody tr').filter({ hasText: '一覧本人回答株式会社' });
