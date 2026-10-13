@@ -127,7 +127,8 @@ export class FreeDiagnosisSalesLauncherRepo {
        ) latest_test_event ON true
        WHERE ($1::text IS NULL OR s.acquisition_source_name=$1) AND ($2::text IS NULL OR s.utm_campaign=$2)
          AND ($3::uuid IS NULL OR matched_initiative.initiative_id=$3)
-         AND ($4::text IS NULL OR ($4='TEST' AND latest_case.is_internal_test=true) OR ($4='NORMAL' AND latest_case.is_internal_test=false))
+         AND ($4::text IS NULL OR ($4='TEST' AND latest_case.is_internal_test=true)
+           OR ($4='NORMAL' AND (latest_case.id IS NULL OR latest_case.is_internal_test=false)))
        ORDER BY s.created_at DESC, s.id DESC LIMIT 100`,
       [filters.acquisitionSourceName ?? null, filters.utmCampaign ?? null, filters.initiativeId ?? null, filters.testStatus ?? null],
     );

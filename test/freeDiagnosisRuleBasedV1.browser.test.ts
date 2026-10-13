@@ -21,6 +21,7 @@ async function createCase(page: Page, name: string): Promise<void> {
     const caseResponse = await fetch(`/api/admin/free-diagnosis-v1/sales-activities/${activity.salesActivityId}/cases`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     return (await caseResponse.json()).id;
   }, name);
+  await page.selectOption('#testStatusFilter', 'ALL');
   await page.click('#btnLoadCases');
   const row = page.locator('#caseList tbody tr').filter({ hasText: name });
   await row.locator('.case-governance > button').first().click();
@@ -296,7 +297,7 @@ test('PreparationからStructured Hearingを記録し、Final Ruleを自動実�
   await expect(page.locator('#statementList')).toContainText('一部、追加確認が必要');
   await page.click('#btnCompleteHearing');
   await expect(page.locator('#view-review')).toBeVisible();
-  await page.goto(h.url + '/admin/free-diagnosis-v1.html'); await page.click('#btnLoadCases');
+  await page.goto(h.url + '/admin/free-diagnosis-v1.html'); await page.selectOption('#testStatusFilter', 'ALL'); await page.click('#btnLoadCases');
   const savedCase = page.locator('tr').filter({ hasText: 'Hearing確認株式会社' }); await savedCase.locator('.case-governance > button').first().click();
   await expect(page.locator('#view-review')).toBeVisible(); await expect(page.locator('#findingsList')).toBeVisible();
   await expect(page.getByRole('button', { name: '顧客向けレポート' })).toBeDisabled();
@@ -471,10 +472,13 @@ test('管理権限者は案件一覧でテスト指定・解除し、通常・�
   await h.cases.createCase(activity.companyId, activity.contactId, activity.salesActivityId, 'operator@atlib.jp', false);
   await page.goto(h.url + '/admin/free-diagnosis-v1.html'); await page.click('#btnLoadCases');
   let row = page.locator('#caseList tbody tr').filter({ hasText: 'テスト指定確認株式会社' });
+  await expect(page.locator('#testStatusFilter')).toHaveValue('NORMAL'); await expect(row).toBeVisible();
   let dialogs = 0; page.on('dialog', async dialog => { dialogs += 1; await dialog.accept(dialog.type() === 'prompt' ? 'Human Acceptance用の確認案件として指定' : undefined); });
   await row.getByRole('button', { name: 'テスト案件に指定' }).click();
-  row = page.locator('#caseList tbody tr').filter({ hasText: 'テスト指定確認株式会社' }); await expect(row).toContainText('テスト案件');
-  await page.selectOption('#testStatusFilter', 'TEST'); await expect(row).toBeVisible();
+  row = page.locator('#caseList tbody tr').filter({ hasText: 'テスト指定確認株式会社' }); await expect(row).toHaveCount(0);
+  await page.selectOption('#testStatusFilter', 'TEST'); row = page.locator('#caseList tbody tr').filter({ hasText: 'テスト指定確認株式会社' }); await expect(row).toContainText('テスト案件');
+  await page.selectOption('#testStatusFilter', 'ALL'); await expect(row).toBeVisible();
+  await page.selectOption('#testStatusFilter', 'TEST');
   await row.getByRole('button', { name: 'テスト指定を解除' }).click();
   await page.selectOption('#testStatusFilter', 'NORMAL'); row = page.locator('#caseList tbody tr').filter({ hasText: 'テスト指定確認株式会社' });
   await expect(row).toContainText('通常案件'); expect(dialogs).toBe(4);

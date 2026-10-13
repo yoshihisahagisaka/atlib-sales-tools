@@ -49,10 +49,16 @@ test('test designation excludes all initiative KPIs and release restores them', 
   const confirmation = { caseId: kase.id, companyName: String(listed.companyName), receivedAt: new Date(listed.receivedAt as string).toISOString() };
   await h.testCases.setDesignation({ caseId: kase.id, designate: true, reason: '自動テスト対象として指定するため', actor: 'operator@atlib.jp', confirmation });
   kpi = (await h.initiatives.list())[0]!.kpi; assert.deepEqual(kpi, { applications: 0, customerSelf: 0, staffProxy: 0, hearingCompleted: 0, reportCreated: 0, reportApproved: 0 });
+  const defaultList = await fetch(`${h.url}/api/admin/free-diagnosis-v1/sales-activities`, { headers: { cookie: h.staffCookie } });
+  assert.equal(((await defaultList.json()) as { items: unknown[] }).items.length, 0);
+  const allList = await fetch(`${h.url}/api/admin/free-diagnosis-v1/sales-activities?testStatus=ALL`, { headers: { cookie: h.staffCookie } });
+  assert.equal(((await allList.json()) as { items: unknown[] }).items.length, 1);
   assert.equal((await h.launcher.listSalesActivities({ testStatus: 'TEST' })).length, 1);
   assert.equal((await h.launcher.listSalesActivities({ testStatus: 'NORMAL' })).length, 0);
   await h.testCases.setDesignation({ caseId: kase.id, designate: false, reason: '自動テスト指定を解除するため', actor: 'operator@atlib.jp', confirmation });
   assert.equal((await h.initiatives.list())[0]!.kpi.applications, 1);
+  const restoredList = await fetch(`${h.url}/api/admin/free-diagnosis-v1/sales-activities`, { headers: { cookie: h.staffCookie } });
+  assert.equal(((await restoredList.json()) as { items: unknown[] }).items.length, 1);
 });
 
 test('case list exposes designation controls but no runtime delete action', async () => {

@@ -51,9 +51,9 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
   }));
 
   r.get('/sales-activities', (req, res) => handle(res, async () => {
-    const parsed = z.object({ acquisitionSourceName: z.string().trim().min(1).max(200).optional(), utmCampaign: z.string().trim().min(1).max(200).optional(), initiativeId: z.string().uuid().optional(), testStatus: z.enum(['TEST','NORMAL']).optional() }).strict().safeParse(req.query);
+    const parsed = z.object({ acquisitionSourceName: z.string().trim().min(1).max(200).optional(), utmCampaign: z.string().trim().min(1).max(200).optional(), initiativeId: z.string().uuid().optional(), testStatus: z.enum(['TEST','NORMAL','ALL']).default('NORMAL') }).strict().safeParse(req.query);
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
-    res.json({ items: await launcher.listSalesActivities(parsed.data), canManageTestCases: testCaseAdminEmails.has(staffEmail(req).toLowerCase()) });
+    res.json({ items: await launcher.listSalesActivities({ ...parsed.data, testStatus: parsed.data.testStatus === 'ALL' ? undefined : parsed.data.testStatus }), canManageTestCases: testCaseAdminEmails.has(staffEmail(req).toLowerCase()) });
   }));
 
   r.post('/cases/:id/test-designation', (req, res) => handle(res, async () => {

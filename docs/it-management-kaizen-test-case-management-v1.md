@@ -14,17 +14,11 @@ The one-time Production Cleanup package is reusable as the dependency and lock r
 
 The audit table `it_management_diagnosis_test_case_designation_audit` is append-only and records `DESIGNATED` or `RELEASED`, actor, reason, and server timestamp. Case status and entry channel are unchanged.
 
-## Deletion gate
+## Logical exclusion is the completed v1 contract
 
-Deleting a designated test Case requires a later, independent package that:
+Test Case management v1 does not physically delete a Case. The normal list defaults to non-test Cases, while dedicated filters expose test Cases or all Cases. Designation excludes the Case from all six Marketing Initiative KPIs; release restores it to the normal list and KPI dynamically. Both transitions remain in the append-only audit.
 
-1. exports the exact designated Case and related-ID graph into an immutable manifest;
-2. proves no shared Company, Contact, Sales Activity, retention hold, or deletion-request conflict;
-3. records a separate approver and executor (self-approval is forbidden);
-4. rehearses against PostgreSQL 16, including locks, rollback, trigger restoration, and rerun rejection;
-5. runs as a one-use migration-owner Job with backup/PITR evidence and a read-only post-verifier.
-
-Designation alone is never deletion authorization.
+No delete API or delete button is part of this scope. Public Customer Self and Staff Proxy entry remain unchanged and cannot self-designate a Case as test data. Physical deletion is outside the development scope of v1; the existing Retention / Deletion Canonical is not changed by this decision.
 
 ## Production release sequence
 
@@ -34,4 +28,4 @@ Designation alone is never deletion authorization.
 4. Configure `TEST_CASE_ADMIN_EMAILS` through the approved Cloud Run environment-change process.
 5. Build the runtime from the resulting canonical SHA and deploy at 0% traffic.
 6. Verify staff authorization, same-origin rejection, designation/release, KPI exclusion/restoration, and existing Product regressions using non-Production data.
-7. Obtain separate traffic approval. Runtime deletion remains unavailable.
+7. Obtain separate traffic approval. Physical deletion remains outside v1.
