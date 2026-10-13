@@ -8,6 +8,7 @@ import test from 'node:test';
 const root = path.resolve(__dirname, '..');
 const builder = require('../scripts/migration/buildMarketingInitiativeReleaseArtifact.cjs');
 const preflight = require('../scripts/migration/preflightMarketingInitiativeProduction.cjs');
+const verifier = require('../scripts/migration/verifyMarketingInitiativeProduction.cjs');
 const manifestPath = path.join(root, 'migration-allowlists', 'production-marketing-initiative-v1-034.json');
 const head = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 
@@ -48,4 +49,29 @@ test('034 Job template is inert and pins the one-task migration safety contract'
   assert.match(job, /MIGRATION_034_IMMUTABLE_IMAGE_DIGEST_REQUIRED/);
   assert.match(job, /sales-tools-production-migration-db-password/);
   assert.doesNotMatch(job, /sha256:[a-f0-9]{64}/);
+});
+
+test('034 verifier requires sales_tools_app privileges and allows the compatibility role to be absent', () => {
+  assert.throws(() => verifier.verifyRuntimeRolePrivileges([], []), /RUNTIME_ROLE:sales_tools_app/);
+  assert.deepEqual(verifier.verifyRuntimeRolePrivileges(
+    ['sales_tools_app'],
+    [{ role_name: 'sales_tools_app', can_select: true, can_insert: true, can_update: true }],
+  ), { applicationRole: 'sales_tools_app', optionalRuntimeRolePresent: false });
+  assert.throws(() => verifier.verifyRuntimeRolePrivileges(
+    ['sales_tools_app'],
+    [{ role_name: 'sales_tools_app', can_select: true, can_insert: false, can_update: true }],
+  ), /RUNTIME_PRIVILEGES:sales_tools_app/);
+});
+
+test('034 verifier checks sales_tools_runtime privileges only when the compatibility role exists', () => {
+  const roles = ['sales_tools_app', 'sales_tools_runtime'];
+  const app = { role_name: 'sales_tools_app', can_select: true, can_insert: true, can_update: true };
+  assert.deepEqual(verifier.verifyRuntimeRolePrivileges(roles, [
+    app,
+    { role_name: 'sales_tools_runtime', can_select: true, can_insert: true, can_update: true },
+  ]), { applicationRole: 'sales_tools_app', optionalRuntimeRolePresent: true });
+  assert.throws(() => verifier.verifyRuntimeRolePrivileges(roles, [
+    app,
+    { role_name: 'sales_tools_runtime', can_select: true, can_insert: true, can_update: false },
+  ]), /RUNTIME_PRIVILEGES:sales_tools_runtime/);
 });
