@@ -79,11 +79,15 @@ test('Public Customer Selfは事前アンケートから申込み・予約導線
   await expect(page.locator('body')).not.toContainText('Initial Rule');
   await page.locator('[data-q1="employeeRange"]').selectOption('31〜50人'); await page.locator('[data-q1="siteRange"]').selectOption('1か所'); await page.click('#next');
   await page.getByLabel('少人数でも無理なく成長・運営できる会社にしたい').check(); await page.click('#next');
-  await page.getByLabel('経営判断を支えたい').check(); await page.click('#next');
+  await expect(page.getByText('その未来に向けて、ITに特に期待していることを選んでください。（2つまで）', { exact: true })).toBeVisible();
+  await page.getByLabel('生産性を高めたい').check(); await page.getByLabel('人を大きく増やさずに回せるようにしたい').check(); await page.getByLabel('経営判断を支えたい').check(); await page.click('#next');
+  await expect(page.locator('#error')).toHaveText('Q3は2つまで選択してください。'); await page.getByLabel('生産性を高めたい').uncheck(); await page.getByLabel('人を大きく増やさずに回せるようにしたい').uncheck(); await page.click('#next');
   await page.getByLabel('経営判断に関すること').check(); await page.click('#next');
   await page.getByLabel('分かることと分からないことがある').check(); await page.click('#next');
   await page.getByLabel('報告・共有はあるが、数字の羅列や専門用語が多く、経営判断には使いにくい').check(); await page.click('#next');
-  await page.getByLabel('AI・生成AI').check(); await page.click('#next');
+  await expect(page.getByText('現在、関心のあるITテーマを選んでください。（3つまで）', { exact: true })).toBeVisible();
+  await page.getByLabel('AI・生成AI').check(); await page.getByLabel('業務の自動化・効率化').check(); await page.getByLabel('データ活用・見える化').check(); await page.getByLabel('セキュリティ').check(); await page.click('#next');
+  await expect(page.locator('#error')).toHaveText('Q7は3つまで選択してください。'); await page.getByLabel('業務の自動化・効率化').uncheck(); await page.getByLabel('データ活用・見える化').uncheck(); await page.getByLabel('セキュリティ').uncheck(); await page.click('#next');
   await expect(page.getByText('ご回答ありがとうございました', { exact: true })).toBeVisible();
   await expect(page.getByText('ご回答をもとに、御社が実現したいことに対して、「今どこまで分かっているか」「次に何を確認すれば、経営として判断できるか」を60分で一緒に整理します。', { exact: true })).toBeVisible();
   await expect(page.getByText('ITの良し悪しを採点したり、システムの導入を勧めたりする診断ではありません。', { exact: true })).toBeVisible();
@@ -322,6 +326,8 @@ test('Admin UIでSales Activityの流入元を保存・表示・検索できる'
 test('Staff Proxy入力不備とAPIエラーを具体的に表示し、Canonical Attribution pairを維持する', async ({ page }) => {
   await page.goto(h.url + '/admin/free-diagnosis-v1.html');
   await page.getByText('営業で伺った内容を登録する', { exact: true }).first().click();
+  await expect(page.getByText('その未来に向けて、ITに特に期待していることを選んでください。（2つまで）', { exact: false })).toBeVisible();
+  await expect(page.getByText('現在、関心のあるITテーマを選んでください。（3つまで）', { exact: false })).toBeVisible();
   await expect(page.getByLabel('きっかけの名称（きっかけを選んだ場合は必須）')).toBeVisible();
   await page.check('#proxyConsentConfirmed');
   await page.click('#btnCreateCase');

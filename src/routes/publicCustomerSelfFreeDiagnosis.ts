@@ -6,7 +6,13 @@ import { FreeDiagnosisDesignV2PersistenceError } from '../services/freeDiagnosis
 import { createIpRateLimiter } from '../middleware/rateLimit';
 import type { PublicCustomerSelfSubmissionService } from '../services/publicCustomerSelfSubmissionService';
 
-export function createPublicCustomerSelfFreeDiagnosisRouter(service: PublicCustomerSelfSubmissionService, publicIntakeEnabled: boolean): Router {
+export type PublicCustomerSelfCreatedNotifier = (caseId: string) => Promise<void>;
+
+export function createPublicCustomerSelfFreeDiagnosisRouter(
+  service: PublicCustomerSelfSubmissionService,
+  publicIntakeEnabled: boolean,
+  notifyCreated?: PublicCustomerSelfCreatedNotifier,
+): Router {
   const router = Router();
   router.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
   router.get('/survey-contract', (_req, res) => { res.json(designV2PublicSurveyContract); });
@@ -18,6 +24,15 @@ export function createPublicCustomerSelfFreeDiagnosisRouter(service: PublicCusto
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
     try {
       const result = await service.submit(parsed.data);
+      if (result.created && notifyCreated) {
+        try { await notifyCreated(result.caseId); }
+        catch {
+          console.warn(JSON.stringify({
+            event: 'public_customer_self_notification_failed',
+            caseId: result.caseId,
+          }));
+        }
+      }
       res.status(result.created ? 201 : 200).json({ caseId: result.caseId });
     } catch (error) {
       if (error instanceof RuleBasedV1Error || error instanceof FreeDiagnosisDesignV2EntryAdapterError || error instanceof FreeDiagnosisDesignV2PersistenceError) { res.status(error.status).json({ error: error.code }); return; }

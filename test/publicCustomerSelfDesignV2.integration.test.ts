@@ -6,6 +6,7 @@ import { designV2PublicSurveyContract, publicCustomerSelfDesignV2SubmissionSchem
 import type { PublicCustomerSelfDesignV2Submission } from '../src/domain/publicCustomerSelfDesignV2';
 import { createPublicCustomerSelfFreeDiagnosisRouter } from '../src/routes/publicCustomerSelfFreeDiagnosis';
 import express from 'express';
+import type { AddressInfo } from 'node:net';
 
 let h: Awaited<ReturnType<typeof createFreeDiagnosisRuleBasedV1Harness>>;
 before(async () => { h = await createFreeDiagnosisRuleBasedV1Harness({ includeDesignV2: true }); });
@@ -29,7 +30,23 @@ test('public contract is the canonical Design v2 Q1–Q7 projection', () => {
   assert.deepEqual(designV2PublicSurveyContract.questions.map(question => question.code), ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']);
   assert.equal(designV2PublicSurveyContract.questions.find(question => question.code === 'Q3')!.maxSelections, 2);
   assert.equal(designV2PublicSurveyContract.questions.find(question => question.code === 'Q7')!.maxSelections, 3);
+  assert.equal(designV2PublicSurveyContract.questions.find(question => question.code === 'Q3')!.label, 'その未来に向けて、ITに特に期待していることを選んでください。（2つまで）');
+  assert.equal(designV2PublicSurveyContract.questions.find(question => question.code === 'Q7')!.label, '現在、関心のあるITテーマを選んでください。（3つまで）');
   assert.ok(designV2PublicSurveyContract.questions.every(question => question.label.length > 0));
+});
+
+test('created Customer Self submission notifies once; retry does not duplicate and notification failure stays best effort', async () => {
+  let notifications = 0; let fail = false;
+  const app = express(); app.use(express.json());
+  app.use('/api/public/it-management-kaizen/free-diagnosis-v1', createPublicCustomerSelfFreeDiagnosisRouter(h.publicSelf, true, async () => { notifications += 1; if (fail) throw new Error('notification failure'); }));
+  const server = await new Promise<import('node:http').Server>(resolve => { const started = app.listen(0, '127.0.0.1', () => resolve(started)); });
+  try {
+    const address = server.address() as AddressInfo; const firstPayload = payload();
+    const submit = (body: PublicCustomerSelfDesignV2Submission) => fetch(`http://127.0.0.1:${address.port}/api/public/it-management-kaizen/free-diagnosis-v1/submissions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    assert.equal((await submit(firstPayload)).status, 201); assert.equal(notifications, 1);
+    assert.equal((await submit(firstPayload)).status, 200); assert.equal(notifications, 1);
+    fail = true; const second = await submit(payload()); assert.equal(second.status, 201); assert.equal(notifications, 2);
+  } finally { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
 });
 
 test('public route serves the same canonical survey contract', async () => {
@@ -40,6 +57,7 @@ test('public route serves the same canonical survey contract', async () => {
 });
 
 test('disabled Public intake rejects submission before creating a Case', async () => {
+  const beforeCount = Number((await h.pool.query("SELECT count(*) AS count FROM company WHERE name='Design v2 Customer Self株式会社'")).rows[0].count);
   const app = express(); app.use(express.json());
   app.use('/api/public/it-management-kaizen/free-diagnosis-v1', createPublicCustomerSelfFreeDiagnosisRouter(h.publicSelf, false));
   const server = await new Promise<import('node:http').Server>(resolve => { const started = app.listen(0, '127.0.0.1', () => resolve(started)); });
@@ -47,7 +65,8 @@ test('disabled Public intake rejects submission before creating a Case', async (
     const address = server.address(); assert.ok(address && typeof address !== 'string');
     const response = await fetch(`http://127.0.0.1:${address.port}/api/public/it-management-kaizen/free-diagnosis-v1/submissions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload()) });
     assert.equal(response.status, 403); assert.deepEqual(await response.json(), { error: 'PUBLIC_INTAKE_DISABLED' });
-    assert.equal((await h.pool.query("SELECT id FROM company WHERE name='Design v2 Customer Self株式会社'")).rowCount, 0);
+    const afterCount = Number((await h.pool.query("SELECT count(*) AS count FROM company WHERE name='Design v2 Customer Self株式会社'")).rows[0].count);
+    assert.equal(afterCount, beforeCount);
   } finally { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
 });
 

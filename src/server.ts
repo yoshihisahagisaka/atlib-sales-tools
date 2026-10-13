@@ -127,6 +127,10 @@ async function main(): Promise<void> {
       sendSlackNotification(config.slack.webhookDiagnostic, `【無料 IT経営診断】アンケート回答完了\n提供：atLIB株式会社\n${detailUrl}`),
     ]);
   };
+  const notifyPublicCustomerSelfCreated = async (_caseId: string): Promise<void> => {
+    const detailUrl = `${config.portalBaseUrl}/admin/free-diagnosis-v1.html`;
+    await sendSlackNotification(config.slack.webhookDiagnostic, `【無料 IT経営診断】アンケート回答完了\n提供：atLIB株式会社\n${detailUrl}`);
+  };
 
   const app = express();
   // Cloud Run本番ではGoogle Front Endが1ホップ手前でTLS終端しX-Forwarded-Forを付与するため、
@@ -227,7 +231,7 @@ async function main(): Promise<void> {
   );
   // IT経営KAIZEN 無料診断 Rule-Based v1, Production Vertical Slice 1 (Internal Dogfooding
   // and the thin Public Customer Self entry adapter. Both use the same deterministic core.
-  app.use('/api/public/it-management-kaizen/free-diagnosis-v1', createPublicCustomerSelfFreeDiagnosisRouter(publicCustomerSelfSubmissionService, config.publicIntakeEnabled));
+  app.use('/api/public/it-management-kaizen/free-diagnosis-v1', createPublicCustomerSelfFreeDiagnosisRouter(publicCustomerSelfSubmissionService, config.publicIntakeEnabled, notifyPublicCustomerSelfCreated));
   app.use(
     '/api/admin/free-diagnosis-v1',
     ...adminAuthGate,
