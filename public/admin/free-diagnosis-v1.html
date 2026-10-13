@@ -29,6 +29,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .badge.available{background:#dbeafe;color:#1e40af}
 .badge.partial{background:#fef9c3;color:#854d0e}
 .badge.unknown{background:#f3f4f6;color:#4b5563} /* UNKNOWNは中立表現。赤・警告色にしない */
+.badge.test-case{background:#fef3c7;color:#92400e}.case-governance{display:grid;gap:.35rem;min-width:10rem}.case-governance button{font-size:.78rem;padding:.35rem .55rem}.test-filter{display:flex;align-items:center;gap:.45rem;margin-left:auto}.test-filter label{min-width:auto;padding:0}
 
 /* --- Preparation --- */
 .prep-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
@@ -82,7 +83,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <div class="view active" id="view-entry"><h3>案件一覧</h3>
 <p class="hint">公開申込み済みのお客様を選び、現在の工程から作業を再開します。</p>
-<div class="row"><button id="btnLoadCases" class="secondary">案件一覧を更新</button><button id="btnOpenProxyEntry" class="secondary">営業で伺った内容を登録する</button><a class="button secondary" href="/admin/marketing-initiatives.html">施策管理</a></div><p id="initiativeFilter" class="hint" hidden></p><div id="caseList" class="case-list"></div>
+<div class="row"><button id="btnLoadCases" class="secondary">案件一覧を更新</button><button id="btnOpenProxyEntry" class="secondary">営業で伺った内容を登録する</button><a class="button secondary" href="/admin/marketing-initiatives.html">施策管理</a><span class="test-filter"><label for="testStatusFilter">案件区分</label><select id="testStatusFilter"><option value="">すべて</option><option value="NORMAL">通常案件</option><option value="TEST">テスト案件</option></select></span></div><p id="initiativeFilter" class="hint" hidden></p><div id="caseList" class="case-list"></div>
 <details id="proxyEntry"><summary>営業で伺った内容を登録する</summary><div class="entry-form">
 <div class="row"><label for="companyName">会社名</label><input id="companyName" type="text" placeholder="サンプル株式会社"></div>
 <div class="row"><label for="contactName">担当者名</label><input id="contactName" type="text" placeholder="山田太郎"></div>
@@ -423,15 +424,16 @@ async function openCase(caseId) {
 async function loadCases() {
   setError('');
   try {
-    const params = new URLSearchParams(location.search); const initiativeId = params.get('initiativeId');
-    const { items } = await call(`/sales-activities${initiativeId ? `?initiativeId=${encodeURIComponent(initiativeId)}` : ''}`, 'GET');
+    const params = new URLSearchParams(location.search); const initiativeId = params.get('initiativeId'); const testStatus=el('testStatusFilter').value;
+    const query=new URLSearchParams(); if(initiativeId)query.set('initiativeId',initiativeId); if(testStatus)query.set('testStatus',testStatus);
+    const { items,canManageTestCases } = await call(`/sales-activities${query.size ? `?${query}` : ''}`, 'GET');
     const filter = el('initiativeFilter');
     if (initiativeId) { filter.hidden=false; filter.textContent='施策に該当する案件だけを表示しています。'; } else { filter.hidden=true; }
     const target = el('caseList'); target.replaceChildren();
     const kaizen = items.filter(item => item.selectedService === 'IT_KAIZEN');
     if (!kaizen.length) { target.textContent = '表示できる案件はありません。'; return; }
     const table = document.createElement('table'); table.className = 'case-table';
-    table.innerHTML = '<thead><tr><th>会社名・顧客名</th><th>受付日時</th><th>回答方法</th><th>現在の状態</th><th>次に行うこと</th><th>流入元／キャンペーン</th><th>操作</th></tr></thead>';
+    table.innerHTML = '<thead><tr><th>会社名・顧客名</th><th>受付日時</th><th>回答方法</th><th>案件区分</th><th>現在の状態</th><th>次に行うこと</th><th>流入元／キャンペーン</th><th>操作</th></tr></thead>';
     const body = document.createElement('tbody');
     for (const item of kaizen) {
       const row = document.createElement('tr'); const status = item.diagnosisCaseId ? friendlyStatus(item.diagnosisCaseStatus) : '診断を開始できます';
@@ -439,14 +441,18 @@ async function loadCases() {
       const action = document.createElement('button'); action.textContent = item.isDesignV2 ? designV2OperationLabel(item) : actionLabel;
       action.onclick = async () => { try { if (item.isDesignV2) await openDesignV2Case(item); else if (item.diagnosisCaseId) await openCase(item.diagnosisCaseId); else { const kase = await call(`/sales-activities/${item.id}/cases`, 'POST', {}); state.caseId=kase.id; state.version=kase.version; state.companyName=item.companyName; state.attribution=item.attribution; state.entryChannel='PROXY'; state.respondentRole='MANAGEMENT'; state.intakeStep=-1; state.intake={}; state.responseStates={}; state.caseStatus=kase.status; state.reachableSteps=reachableSteps(kase.status); renderIntakeForm(); showView('intake'); } } catch(e) { setError(String(e.message||e)); } };
       const customer = item.contactName ? `${item.companyName} / ${item.contactName}` : item.companyName;
-      const values = [customer, item.receivedAt ? new Date(item.receivedAt).toLocaleString('ja-JP') : '-', entry, status, actionLabel, attributionListLabel(item.attribution, item.marketingInitiative)];
-      values.forEach((value, index) => { const cell=document.createElement('td'); cell.textContent=value; if(index===4)cell.className='next-action'; row.append(cell); });
-      const operation=document.createElement('td'); operation.append(action); row.append(operation); body.append(row);
+      const received=item.receivedAt ? new Date(item.receivedAt).toISOString() : null;
+      const values = [customer, item.receivedAt ? new Date(item.receivedAt).toLocaleString('ja-JP') : '-', entry, item.isTestCase?'テスト案件':'通常案件', status, actionLabel, attributionListLabel(item.attribution, item.marketingInitiative)];
+      values.forEach((value, index) => { const cell=document.createElement('td'); if(index===3&&item.isTestCase){const badge=document.createElement('span');badge.className='badge test-case';badge.textContent=value;cell.append(badge);}else cell.textContent=value; if(index===5)cell.className='next-action'; row.append(cell); });
+      const operation=document.createElement('td'); const controls=document.createElement('div');controls.className='case-governance';controls.append(action);
+      if(canManageTestCases&&item.diagnosisCaseId&&received){const testButton=document.createElement('button');testButton.type='button';testButton.className='ghost';testButton.textContent=item.isTestCase?'テスト指定を解除':'テスト案件に指定';testButton.onclick=async()=>{const reason=prompt(item.isTestCase?'テスト指定を解除する理由を入力してください。':'テスト案件に指定する理由を入力してください。');if(!reason||reason.trim().length<5){if(reason!==null)setError('変更理由を5文字以上で入力してください。');return;}const summary=`会社名: ${item.companyName}\n受付日時: ${new Date(received).toLocaleString('ja-JP')}\nCase ID: ${item.diagnosisCaseId}`;if(!confirm(`${summary}\n\n${testButton.textContent}を実行しますか？`))return;try{await call(`/cases/${item.diagnosisCaseId}/test-designation`,'POST',{designate:!item.isTestCase,reason:reason.trim(),confirmation:{caseId:item.diagnosisCaseId,companyName:item.companyName,receivedAt:received}});await loadCases();}catch(error){setError(String(error.message||error));}};controls.append(testButton);}
+      operation.append(controls); row.append(operation); body.append(row);
     }
     table.append(body); target.append(table);
   } catch (e) { setError(String(e.message || e)); }
 }
 el('btnLoadCases').onclick = loadCases;
+el('testStatusFilter').onchange = loadCases;
 el('btnOpenProxyEntry').onclick = () => { el('proxyEntry').open = true; el('companyName').focus(); };
 
 function renderIntakeForm() {

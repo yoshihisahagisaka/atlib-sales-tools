@@ -37,6 +37,8 @@ export interface Config {
   };
   /** Public Design v2 intake is opt-in; absent or malformed values fail closed. */
   publicIntakeEnabled: boolean;
+  /** Fail-closed allowlist for test-case designation. Deletion is never a runtime capability. */
+  testCaseAdminEmails: string[];
 }
 
 /**
@@ -114,5 +116,7 @@ export async function loadConfig(): Promise<Config> {
       anthropicApiKey: process.env.ANTHROPIC_API_KEY || undefined,
     },
     publicIntakeEnabled: process.env.DIAGNOSIS_PUBLIC_INTAKE_ENABLED === 'true',
+    testCaseAdminEmails: [...new Set((process.env.TEST_CASE_ADMIN_EMAILS ?? '').split(',')
+      .map(value => value.trim().toLowerCase()).filter(Boolean))],
   };
 }

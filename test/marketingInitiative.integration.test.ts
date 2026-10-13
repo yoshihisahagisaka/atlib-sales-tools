@@ -50,8 +50,8 @@ test('inactive initiatives retain historical mapping but do not map later activi
 test('KPI aggregates distinct cases and only the latest report version', async () => {
   const h = await harness(); const activityA = await createActivity(h, '本人'); const activityB = await createActivity(h, '代理');
   const created = await h.initiatives.create(initiative, 'operator@atlib.jp');
-  const caseA = await h.cases.createCase(activityA.companyId, activityA.contactId, activityA.salesActivityId, 'operator@atlib.jp');
-  const caseB = await h.cases.createCase(activityB.companyId, activityB.contactId, activityB.salesActivityId, 'operator@atlib.jp');
+  const caseA = await h.cases.createCase(activityA.companyId, activityA.contactId, activityA.salesActivityId, 'operator@atlib.jp', false);
+  const caseB = await h.cases.createCase(activityB.companyId, activityB.contactId, activityB.salesActivityId, 'operator@atlib.jp', false);
   await h.pool.query(`UPDATE it_management_diagnosis_case_v2 SET status='HEARING_COMPLETED' WHERE id=$1`, [caseA.id]);
   for (const [caseId, channel] of [[caseA.id,'CUSTOMER_SELF'],[caseB.id,'STAFF_PROXY']] as const) {
     await h.pool.query(`INSERT INTO it_management_diagnosis_original_survey_snapshot_v2

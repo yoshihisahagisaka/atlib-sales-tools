@@ -10,6 +10,7 @@ import { designV2SurveyAnswerSchema } from '../domain/publicCustomerSelfDesignV2
 import { FreeDiagnosisDesignV2EntryAdapterError } from '../services/freeDiagnosisDesignV2EntryAdapter';
 import { FreeDiagnosisDesignV2PersistenceError } from '../services/freeDiagnosisDesignV2PersistenceRepo';
 import { StaffProxyDesignV2SubmissionError, type StaffProxyDesignV2SubmissionService } from '../services/staffProxyDesignV2SubmissionService';
+import { TestCaseManagementError, type TestCaseManagementRepo } from '../services/testCaseManagementRepo';
 
 function staffEmail(req: Request): string {
   return req.staffEmail ?? 'unknown-staff';
@@ -17,7 +18,7 @@ function staffEmail(req: Request): string {
 
 function handle(res: Response, fn: () => Promise<void>): void {
   fn().catch(err => {
-    if (err instanceof RuleBasedV1Error || err instanceof StaffProxyDesignV2SubmissionError || err instanceof FreeDiagnosisDesignV2EntryAdapterError || err instanceof FreeDiagnosisDesignV2PersistenceError) { res.status(err.status).json({ error: err.code }); return; }
+    if (err instanceof RuleBasedV1Error || err instanceof StaffProxyDesignV2SubmissionError || err instanceof FreeDiagnosisDesignV2EntryAdapterError || err instanceof FreeDiagnosisDesignV2PersistenceError || err instanceof TestCaseManagementError) { res.status(err.status).json({ error: err.code }); return; }
     res.status(500).json({ error: 'INTERNAL_ERROR' });
   });
 }
@@ -29,6 +30,8 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
   cases: FreeDiagnosisRuleBasedCaseRepo,
   vs1?: Vs1ReviewReportFeedbackRepo,
   staffProxyDesignV2?: StaffProxyDesignV2SubmissionService,
+  testCases?: TestCaseManagementRepo,
+  testCaseAdminEmails: ReadonlySet<string> = new Set(),
 ): Router {
   const r = Router();
 
@@ -48,9 +51,25 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
   }));
 
   r.get('/sales-activities', (req, res) => handle(res, async () => {
-    const parsed = z.object({ acquisitionSourceName: z.string().trim().min(1).max(200).optional(), utmCampaign: z.string().trim().min(1).max(200).optional(), initiativeId: z.string().uuid().optional() }).strict().safeParse(req.query);
+    const parsed = z.object({ acquisitionSourceName: z.string().trim().min(1).max(200).optional(), utmCampaign: z.string().trim().min(1).max(200).optional(), initiativeId: z.string().uuid().optional(), testStatus: z.enum(['TEST','NORMAL']).optional() }).strict().safeParse(req.query);
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
-    res.json({ items: await launcher.listSalesActivities(parsed.data) });
+    res.json({ items: await launcher.listSalesActivities(parsed.data), canManageTestCases: testCaseAdminEmails.has(staffEmail(req).toLowerCase()) });
+  }));
+
+  r.post('/cases/:id/test-designation', (req, res) => handle(res, async () => {
+    if (!testCases) { res.status(404).json({ error: 'TEST_CASE_MANAGEMENT_NOT_CONFIGURED' }); return; }
+    const actor = staffEmail(req).toLowerCase();
+    if (!testCaseAdminEmails.has(actor)) { res.status(403).json({ error: 'TEST_CASE_ADMIN_REQUIRED' }); return; }
+    const origin = req.get('origin');
+    if (!origin || (() => { try { return new URL(origin).host !== req.get('host'); } catch { return true; } })()) {
+      res.status(403).json({ error: 'SAME_ORIGIN_REQUIRED' }); return;
+    }
+    const parsed = z.object({ designate: z.boolean(), reason: z.string().trim().min(5).max(1000), confirmation: z.object({
+      caseId: z.string().uuid(), companyName: z.string().min(1).max(500), receivedAt: z.string().datetime(),
+    }).strict() }).strict().safeParse(req.body);
+    if (!parsed.success || parsed.data.confirmation.caseId !== req.params.id) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    res.json(await testCases.setDesignation({ caseId: req.params.id, designate: parsed.data.designate,
+      reason: parsed.data.reason, actor, confirmation: parsed.data.confirmation }));
   }));
 
   r.post('/design-v2/staff-proxy-submissions', (req, res) => handle(res, async () => {

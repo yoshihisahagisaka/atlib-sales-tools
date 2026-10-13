@@ -67,12 +67,12 @@ export class MarketingInitiativeRepo {
   async list() {
     const { rows } = await this.pool.query<Record<string, unknown>>(
       `SELECT i.*,
-         count(DISTINCT s.id) AS applications,
-         count(DISTINCT latest_case.id) FILTER (WHERE original.entry_channel='CUSTOMER_SELF') AS customer_self,
-         count(DISTINCT latest_case.id) FILTER (WHERE original.entry_channel='STAFF_PROXY') AS staff_proxy,
-         count(DISTINCT latest_case.id) FILTER (WHERE latest_case.status=ANY($1::text[])) AS hearing_completed,
-         count(DISTINCT latest_case.id) FILTER (WHERE latest_report.id IS NOT NULL) AS report_created,
-         count(DISTINCT latest_case.id) FILTER (WHERE latest_report.status IN ('APPROVED','DELIVERED')) AS report_approved
+         count(DISTINCT s.id) FILTER (WHERE latest_case.id IS NULL OR latest_case.is_internal_test=false) AS applications,
+         count(DISTINCT latest_case.id) FILTER (WHERE latest_case.is_internal_test=false AND original.entry_channel='CUSTOMER_SELF') AS customer_self,
+         count(DISTINCT latest_case.id) FILTER (WHERE latest_case.is_internal_test=false AND original.entry_channel='STAFF_PROXY') AS staff_proxy,
+         count(DISTINCT latest_case.id) FILTER (WHERE latest_case.is_internal_test=false AND latest_case.status=ANY($1::text[])) AS hearing_completed,
+         count(DISTINCT latest_case.id) FILTER (WHERE latest_case.is_internal_test=false AND latest_report.id IS NOT NULL) AS report_created,
+         count(DISTINCT latest_case.id) FILTER (WHERE latest_case.is_internal_test=false AND latest_report.status IN ('APPROVED','DELIVERED')) AS report_approved
        FROM marketing_initiative i
        LEFT JOIN sales_activity s ON s.selected_service=i.service_key
         AND s.utm_source IS NOT DISTINCT FROM i.utm_source AND s.utm_medium IS NOT DISTINCT FROM i.utm_medium

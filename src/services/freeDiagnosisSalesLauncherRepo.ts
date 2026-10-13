@@ -81,20 +81,23 @@ export class FreeDiagnosisSalesLauncherRepo {
       selectedService: row.selected_service as string, attribution: mapAttribution(row), referralPersonName: row.referral_person_name as string | null };
   }
 
-  async listSalesActivities(filters: { acquisitionSourceName?: string; utmCampaign?: string; initiativeId?: string }) {
+  async listSalesActivities(filters: { acquisitionSourceName?: string; utmCampaign?: string; initiativeId?: string; testStatus?: 'TEST' | 'NORMAL' }) {
     const { rows } = await this.pool.query<Record<string, unknown>>(
       `SELECT s.*, c.name AS company_name, contact.name AS contact_name,
               latest_case.id AS diagnosis_case_id, latest_case.status AS diagnosis_case_status, latest_case.version AS diagnosis_case_version,
+              latest_case.is_internal_test AS diagnosis_case_is_test,
               latest_case.created_at AS diagnosis_case_created_at, latest_case.updated_at AS diagnosis_case_updated_at,
               design_v2_original.id AS design_v2_original_id, design_v2_original.entry_channel AS design_v2_entry_channel,
               intake_origin.entry_channel AS v1_entry_channel,
               latest_design_v2_report.id AS design_v2_report_id, latest_design_v2_report.version AS design_v2_report_version,
               latest_design_v2_report.status AS design_v2_report_status,
               matched_initiative.initiative_id, matched_initiative.initiative_name, matched_initiative.is_active AS initiative_is_active
+              ,latest_test_event.action AS test_designation_action,latest_test_event.actor_user_id AS test_designation_actor,
+              latest_test_event.reason AS test_designation_reason,latest_test_event.created_at AS test_designation_at
        FROM sales_activity s JOIN company c ON c.id=s.company_id
        LEFT JOIN contact ON contact.id=s.primary_contact_id
        LEFT JOIN LATERAL (
-         SELECT id,status,version,created_at,updated_at FROM it_management_diagnosis_case_v2
+         SELECT id,status,version,is_internal_test,created_at,updated_at FROM it_management_diagnosis_case_v2
          WHERE sales_activity_id=s.id ORDER BY created_at DESC LIMIT 1
        ) latest_case ON true
        LEFT JOIN it_management_diagnosis_original_survey_snapshot_v2 design_v2_original
@@ -118,15 +121,23 @@ export class FreeDiagnosisSalesLauncherRepo {
            AND (i.is_active OR s.created_at < i.updated_at)
          LIMIT 1
        ) matched_initiative ON true
+       LEFT JOIN LATERAL (
+         SELECT action,actor_user_id,reason,created_at FROM it_management_diagnosis_test_case_designation_audit
+          WHERE case_id=latest_case.id ORDER BY created_at DESC,id DESC LIMIT 1
+       ) latest_test_event ON true
        WHERE ($1::text IS NULL OR s.acquisition_source_name=$1) AND ($2::text IS NULL OR s.utm_campaign=$2)
          AND ($3::uuid IS NULL OR matched_initiative.initiative_id=$3)
+         AND ($4::text IS NULL OR ($4='TEST' AND latest_case.is_internal_test=true) OR ($4='NORMAL' AND latest_case.is_internal_test=false))
        ORDER BY s.created_at DESC, s.id DESC LIMIT 100`,
-      [filters.acquisitionSourceName ?? null, filters.utmCampaign ?? null, filters.initiativeId ?? null],
+      [filters.acquisitionSourceName ?? null, filters.utmCampaign ?? null, filters.initiativeId ?? null, filters.testStatus ?? null],
     );
     return rows.map(row => ({ id: row.id, companyName: row.company_name, contactName: row.contact_name ?? null, selectedService: row.selected_service,
       createdAt: row.created_at, updatedAt: row.diagnosis_case_updated_at ?? row.created_at,
       attribution: mapAttribution(row), diagnosisCaseId: row.diagnosis_case_id,
       diagnosisCaseStatus: row.diagnosis_case_status, diagnosisCaseVersion: row.diagnosis_case_version,
+      isTestCase: row.diagnosis_case_is_test === true,
+      testDesignation: row.test_designation_action ? { action: row.test_designation_action, actor: row.test_designation_actor,
+        reason: row.test_designation_reason, at: row.test_designation_at } : null,
       receivedAt: row.diagnosis_case_created_at ?? row.created_at, isDesignV2: row.design_v2_original_id != null,
       entryChannel: row.design_v2_entry_channel ?? row.v1_entry_channel ?? null,
       marketingInitiative: row.initiative_id ? { id: row.initiative_id, name: row.initiative_name, isActive: row.initiative_is_active } : null,

@@ -23,7 +23,7 @@ async function createCase(page: Page, name: string): Promise<void> {
   }, name);
   await page.click('#btnLoadCases');
   const row = page.locator('#caseList tbody tr').filter({ hasText: name });
-  await row.getByRole('button').click();
+  await row.locator('.case-governance > button').first().click();
   await expect(page.locator('#view-intake')).toBeVisible();
 }
 
@@ -297,7 +297,7 @@ test('PreparationからStructured Hearingを記録し、Final Ruleを自動実�
   await page.click('#btnCompleteHearing');
   await expect(page.locator('#view-review')).toBeVisible();
   await page.goto(h.url + '/admin/free-diagnosis-v1.html'); await page.click('#btnLoadCases');
-  const savedCase = page.locator('tr').filter({ hasText: 'Hearing確認株式会社' }); await savedCase.getByRole('button').click();
+  const savedCase = page.locator('tr').filter({ hasText: 'Hearing確認株式会社' }); await savedCase.locator('.case-governance > button').first().click();
   await expect(page.locator('#view-review')).toBeVisible(); await expect(page.locator('#findingsList')).toBeVisible();
   await expect(page.getByRole('button', { name: '顧客向けレポート' })).toBeDisabled();
   await page.getByRole('button', { name: '60分診断', exact: true }).click(); await expect(page.locator('#view-hearing')).toBeVisible();
@@ -464,4 +464,18 @@ test('共通案件一覧はDesign v2本人回答と営業代理入力を正式pr
   await expect(approvedRow).toContainText('承認済みレポートを確認');
   await approvedRow.getByRole('button', { name: '承認済みレポートを確認' }).click();
   await expect(page).toHaveURL(new RegExp(`free-diagnosis-v2-report\\.html\\?caseId=${staff.caseId}&reportId=${reportId}`));
+});
+
+test('管理権限者は案件一覧でテスト指定・解除し、通常・テストを絞り込める', async ({ page }) => {
+  const activity = await h.launcher.createSalesActivity({ name: 'テスト指定確認株式会社', contact: { name: '確認担当' }, selectedService: 'IT_KAIZEN' }, 'operator@atlib.jp');
+  await h.cases.createCase(activity.companyId, activity.contactId, activity.salesActivityId, 'operator@atlib.jp', false);
+  await page.goto(h.url + '/admin/free-diagnosis-v1.html'); await page.click('#btnLoadCases');
+  let row = page.locator('#caseList tbody tr').filter({ hasText: 'テスト指定確認株式会社' });
+  let dialogs = 0; page.on('dialog', async dialog => { dialogs += 1; await dialog.accept(dialog.type() === 'prompt' ? 'Human Acceptance用の確認案件として指定' : undefined); });
+  await row.getByRole('button', { name: 'テスト案件に指定' }).click();
+  row = page.locator('#caseList tbody tr').filter({ hasText: 'テスト指定確認株式会社' }); await expect(row).toContainText('テスト案件');
+  await page.selectOption('#testStatusFilter', 'TEST'); await expect(row).toBeVisible();
+  await row.getByRole('button', { name: 'テスト指定を解除' }).click();
+  await page.selectOption('#testStatusFilter', 'NORMAL'); row = page.locator('#caseList tbody tr').filter({ hasText: 'テスト指定確認株式会社' });
+  await expect(row).toContainText('通常案件'); expect(dialogs).toBe(4);
 });

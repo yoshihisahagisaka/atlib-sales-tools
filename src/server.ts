@@ -74,6 +74,7 @@ import { createAdminFreeDiagnosisDesignV2Router } from './routes/adminFreeDiagno
 import { FreeDiagnosisDesignV2ReportPdfService } from './services/freeDiagnosisDesignV2ReportPdf';
 import { MarketingInitiativeRepo } from './services/marketingInitiativeRepo';
 import { createAdminMarketingInitiativeRouter } from './routes/adminMarketingInitiative';
+import { TestCaseManagementRepo } from './services/testCaseManagementRepo';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -90,6 +91,7 @@ async function main(): Promise<void> {
   const businessWebConsultationLeadRepo = new BusinessWebConsultationLeadRepo(pool);
   const freeDiagnosisSalesLauncherRepo = new FreeDiagnosisSalesLauncherRepo(pool);
   const marketingInitiativeRepo = new MarketingInitiativeRepo(pool);
+  const testCaseManagementRepo = new TestCaseManagementRepo(pool);
   const freeDiagnosisRuleBasedCaseRepo = new FreeDiagnosisRuleBasedCaseRepo(pool);
   const vs1ReviewReportFeedbackRepo = new Vs1ReviewReportFeedbackRepo(pool);
   const freeDiagnosisDesignV2PersistenceRepo = new FreeDiagnosisDesignV2PersistenceRepo(pool);
@@ -238,7 +240,8 @@ async function main(): Promise<void> {
   app.use(
     '/api/admin/free-diagnosis-v1',
     ...adminAuthGate,
-    createAdminFreeDiagnosisRuleBasedV1Router(freeDiagnosisSalesLauncherRepo, freeDiagnosisRuleBasedCaseRepo, vs1ReviewReportFeedbackRepo, staffProxyDesignV2SubmissionService),
+    createAdminFreeDiagnosisRuleBasedV1Router(freeDiagnosisSalesLauncherRepo, freeDiagnosisRuleBasedCaseRepo, vs1ReviewReportFeedbackRepo,
+      staffProxyDesignV2SubmissionService, testCaseManagementRepo, new Set(config.testCaseAdminEmails)),
   );
   app.use('/api/admin/marketing-initiatives', ...adminAuthGate,
     createAdminMarketingInitiativeRouter(marketingInitiativeRepo, freeDiagnosisSalesLauncherRepo));
