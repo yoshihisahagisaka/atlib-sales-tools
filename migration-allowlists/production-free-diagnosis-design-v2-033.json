@@ -1,0 +1,38 @@
+{
+  "status": "APPROVED_FOR_ARTIFACT_GENERATION",
+  "environment": "production",
+  "database": "sales_tools",
+  "application_rc_sha": "f02cdb213402a48477df1f878cb0dd896f9037b7",
+  "release_decision": {
+    "date": "2026-10-13",
+    "scope": "Create and inspect the dedicated Design v2 migration artifact and run read-only gates only.",
+    "migration_execution_authorized": false
+  },
+  "artifact_generation": {
+    "permitted": true,
+    "scope": "Artifact creation and inspection only. It does not authorize a migration Job execution, Production migration, runtime deployment, or traffic change."
+  },
+  "baseline": {
+    "required_applied_once": [
+      "027_free_diagnosis_rule_based_v1.sql",
+      "028_free_diagnosis_current_design_v1_phase1_draft.sql",
+      "029_vs1_report_feedback_shared_artifacts.sql",
+      "030_sales_activity_marketing_attribution.sql",
+      "031_public_customer_self_submission.sql",
+      "032_sales_activity_referral_person_name.sql"
+    ],
+    "required_unapplied": [
+      "033_free_diagnosis_design_v2_persistence.sql"
+    ],
+    "reject_migration_number_greater_than": 32
+  },
+  "migrations": [
+    {
+      "order": 1,
+      "filename": "033_free_diagnosis_design_v2_persistence.sql",
+      "git_blob_id": "be8c1f52f33bcf43bf5cf430642538f00bb07cb8",
+      "byte_count": 7394,
+      "sha256": "2286e199605ddbd52efaf294b9876519b7ad13c17149358fecff24ca6925aad6"
+    }
+  ]
+}

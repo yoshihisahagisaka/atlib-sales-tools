@@ -35,6 +35,8 @@ export interface Config {
     // 本番はSecret Manager (sales-tools-anthropic-api-key) をCloud Runの--set-secretsで環境変数に注入する運用とする。
     anthropicApiKey?: string;
   };
+  /** Public Design v2 intake is opt-in; absent or malformed values fail closed. */
+  publicIntakeEnabled: boolean;
 }
 
 /**
@@ -111,5 +113,6 @@ export async function loadConfig(): Promise<Config> {
     aiAssist: {
       anthropicApiKey: process.env.ANTHROPIC_API_KEY || undefined,
     },
+    publicIntakeEnabled: process.env.DIAGNOSIS_PUBLIC_INTAKE_ENABLED === 'true',
   };
 }

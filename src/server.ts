@@ -227,7 +227,7 @@ async function main(): Promise<void> {
   );
   // IT経営KAIZEN 無料診断 Rule-Based v1, Production Vertical Slice 1 (Internal Dogfooding
   // and the thin Public Customer Self entry adapter. Both use the same deterministic core.
-  app.use('/api/public/it-management-kaizen/free-diagnosis-v1', createPublicCustomerSelfFreeDiagnosisRouter(publicCustomerSelfSubmissionService));
+  app.use('/api/public/it-management-kaizen/free-diagnosis-v1', createPublicCustomerSelfFreeDiagnosisRouter(publicCustomerSelfSubmissionService, config.publicIntakeEnabled));
   app.use(
     '/api/admin/free-diagnosis-v1',
     ...adminAuthGate,

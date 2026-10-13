@@ -6,11 +6,14 @@ import { FreeDiagnosisDesignV2PersistenceError } from '../services/freeDiagnosis
 import { createIpRateLimiter } from '../middleware/rateLimit';
 import type { PublicCustomerSelfSubmissionService } from '../services/publicCustomerSelfSubmissionService';
 
-export function createPublicCustomerSelfFreeDiagnosisRouter(service: PublicCustomerSelfSubmissionService): Router {
+export function createPublicCustomerSelfFreeDiagnosisRouter(service: PublicCustomerSelfSubmissionService, publicIntakeEnabled: boolean): Router {
   const router = Router();
   router.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
   router.get('/survey-contract', (_req, res) => { res.json(designV2PublicSurveyContract); });
-  router.post('/submissions', createIpRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 5 }), async (req, res) => {
+  router.post('/submissions', (req, res, next) => {
+    if (!publicIntakeEnabled) { res.status(403).json({ error: 'PUBLIC_INTAKE_DISABLED' }); return; }
+    next();
+  }, createIpRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 5 }), async (req, res) => {
     const parsed = publicCustomerSelfDesignV2SubmissionSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
     try {

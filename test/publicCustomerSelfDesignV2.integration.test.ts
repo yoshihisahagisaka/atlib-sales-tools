@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { createFreeDiagnosisRuleBasedV1Harness } from './support/freeDiagnosisRuleBasedV1Harness';
 import { designV2PublicSurveyContract, publicCustomerSelfDesignV2SubmissionSchema } from '../src/domain/publicCustomerSelfDesignV2';
 import type { PublicCustomerSelfDesignV2Submission } from '../src/domain/publicCustomerSelfDesignV2';
+import { createPublicCustomerSelfFreeDiagnosisRouter } from '../src/routes/publicCustomerSelfFreeDiagnosis';
+import express from 'express';
 
 let h: Awaited<ReturnType<typeof createFreeDiagnosisRuleBasedV1Harness>>;
 before(async () => { h = await createFreeDiagnosisRuleBasedV1Harness({ includeDesignV2: true }); });
@@ -35,6 +37,18 @@ test('public route serves the same canonical survey contract', async () => {
   assert.equal(response.status, 200);
   const contract = await response.json() as { questions: Array<{ code: string }> };
   assert.deepEqual(contract.questions.map(question => question.code), ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']);
+});
+
+test('disabled Public intake rejects submission before creating a Case', async () => {
+  const app = express(); app.use(express.json());
+  app.use('/api/public/it-management-kaizen/free-diagnosis-v1', createPublicCustomerSelfFreeDiagnosisRouter(h.publicSelf, false));
+  const server = await new Promise<import('node:http').Server>(resolve => { const started = app.listen(0, '127.0.0.1', () => resolve(started)); });
+  try {
+    const address = server.address(); assert.ok(address && typeof address !== 'string');
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/public/it-management-kaizen/free-diagnosis-v1/submissions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload()) });
+    assert.equal(response.status, 403); assert.deepEqual(await response.json(), { error: 'PUBLIC_INTAKE_DISABLED' });
+    assert.equal((await h.pool.query("SELECT id FROM company WHERE name='Design v2 Customer Self株式会社'")).rowCount, 0);
+  } finally { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
 });
 
 test('Customer Self atomically creates Design v2 artifacts, booking state, consent and UTM-only sales attribution', async () => {

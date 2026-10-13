@@ -91,7 +91,14 @@ test('production config fail-fast; migration only needs DB config; Human-only co
   try {
     Object.assign(process.env, { NODE_ENV: 'production', DB_NAME: 'synthetic', DB_USER: 'synthetic', DB_PASSWORD: 'synthetic', SMTP_HOST: 'example.test', SMTP_USER: 'synthetic', SMTP_FROM: 'synthetic@example.test', SMTP_PASSWORD: 'synthetic', GOOGLE_OAUTH_CLIENT_ID: 'synthetic', GOOGLE_OAUTH_CLIENT_SECRET: 'synthetic', STAFF_JWT_SECRET: key, PORTAL_BASE_URL: 'https://example.test', DIAGNOSTIC_NOTIFY_EMAIL: 'synthetic@example.test' });
     delete process.env.ANTHROPIC_API_KEY;
-    assert.equal((await loadConfig()).aiAssist.anthropicApiKey, undefined);
+    delete process.env.DIAGNOSIS_PUBLIC_INTAKE_ENABLED;
+    const config = await loadConfig();
+    assert.equal(config.aiAssist.anthropicApiKey, undefined);
+    assert.equal(config.publicIntakeEnabled, false);
+    process.env.DIAGNOSIS_PUBLIC_INTAKE_ENABLED = 'true';
+    assert.equal((await loadConfig()).publicIntakeEnabled, true);
+    process.env.DIAGNOSIS_PUBLIC_INTAKE_ENABLED = 'TRUE';
+    assert.equal((await loadConfig()).publicIntakeEnabled, false);
     process.env.PORTAL_BASE_URL = 'http://example.test'; await assert.rejects(loadConfig(), /HTTPS/);
     process.env.PORTAL_BASE_URL = 'https://example.test'; process.env.STAFF_JWT_SECRET = 'short'; await assert.rejects(loadConfig(), /strong signing key/);
     delete process.env.GOOGLE_OAUTH_CLIENT_SECRET; delete process.env.SMTP_PASSWORD;
