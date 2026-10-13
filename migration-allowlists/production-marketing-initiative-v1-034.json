@@ -1,0 +1,35 @@
+{
+  "status": "APPROVED_FOR_ARTIFACT_GENERATION",
+  "environment": "production",
+  "database": "sales_tools",
+  "application_rc_sha": "694988aaa03683676226f504c53a06108d625f31",
+  "release_decision": {
+    "date": "2026-10-13",
+    "scope": "Create and inspect the dedicated Marketing Initiative v1 migration artifact and run local/read-only gates only.",
+    "migration_execution_authorized": false
+  },
+  "artifact_generation": {
+    "permitted": true,
+    "scope": "Artifact creation and inspection only. It does not authorize a migration Job execution, Production migration, runtime deployment, or traffic change."
+  },
+  "baseline": {
+    "required_applied_once": [
+      "027_free_diagnosis_rule_based_v1.sql",
+      "028_free_diagnosis_current_design_v1_phase1_draft.sql",
+      "029_vs1_report_feedback_shared_artifacts.sql",
+      "030_sales_activity_marketing_attribution.sql",
+      "031_public_customer_self_submission.sql",
+      "032_sales_activity_referral_person_name.sql",
+      "033_free_diagnosis_design_v2_persistence.sql"
+    ],
+    "required_unapplied": ["034_marketing_initiative_v1.sql"],
+    "reject_migration_number_greater_than": 33
+  },
+  "migrations": [{
+    "order": 1,
+    "filename": "034_marketing_initiative_v1.sql",
+    "git_blob_id": "716cff317599de60c7dd0220ca5510a4c066327c",
+    "byte_count": 2020,
+    "sha256": "2cbca86347a36b5a06f2372ff7d3c88f1ed29fd2f2f52df1ac03b3175d34715d"
+  }]
+}
