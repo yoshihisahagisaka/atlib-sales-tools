@@ -1,0 +1,37 @@
+{
+  "status": "APPROVED_FOR_ARTIFACT_GENERATION",
+  "environment": "production",
+  "database": "sales_tools",
+  "application_rc_sha": "1fc6acbdddfa54ba0f3eb06f3ae51ca4a0b79c03",
+  "release_decision": {
+    "date": "2026-10-13",
+    "scope": "Build, rehearse, and inspect the dedicated append-only audit ACL correction artifact only.",
+    "migration_execution_authorized": false
+  },
+  "artifact_generation": {
+    "permitted": true,
+    "scope": "Local validation and immutable artifact preparation only. Production execution is not authorized."
+  },
+  "baseline": {
+    "required_applied_once": [
+      "027_free_diagnosis_rule_based_v1.sql",
+      "028_free_diagnosis_current_design_v1_phase1_draft.sql",
+      "029_vs1_report_feedback_shared_artifacts.sql",
+      "030_sales_activity_marketing_attribution.sql",
+      "031_public_customer_self_submission.sql",
+      "032_sales_activity_referral_person_name.sql",
+      "033_free_diagnosis_design_v2_persistence.sql",
+      "034_marketing_initiative_v1.sql",
+      "035_it_management_test_case_designation.sql"
+    ],
+    "required_unapplied": ["036_test_case_designation_audit_runtime_acl.sql"],
+    "reject_migration_number_greater_than": 35
+  },
+  "migrations": [{
+    "order": 1,
+    "filename": "036_test_case_designation_audit_runtime_acl.sql",
+    "git_blob_id": "9fb00371108f77a30b4f3e3053000034228829dd",
+    "byte_count": 204,
+    "sha256": "4cd771dbc4909fb34253ad30164c836c6aa77fa15303db46bff3bf33d9fac597"
+  }]
+}
