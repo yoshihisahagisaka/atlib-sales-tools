@@ -67,7 +67,7 @@ test('Production guard: 未認証では/admin/free-diagnosis-v1.htmlへアクセ
   await freshContext.close();
 });
 
-test('施策管理でUTM条件を登録・集計・無効化し、該当案件へ遷移できる', async ({ page }) => {
+test('施策管理でUTM条件をカード表示し、登録・集計・無効化・該当案件遷移ができる', async ({ page }, testInfo) => {
   await page.goto(h.url + '/admin/free-diagnosis-v1.html');
   await page.getByRole('link', { name: '施策管理' }).click();
   await expect(page).toHaveURL(/marketing-initiatives\.html/);
@@ -78,8 +78,12 @@ test('施策管理でUTM条件を登録・集計・無効化し、該当案件�
   await page.getByLabel('UTM content').fill('itkaizen_a4');
   await page.getByRole('button', { name: '施策を登録' }).click();
   await expect(page.getByRole('status')).toContainText('施策を登録しました。');
-  const row = page.locator('#items tr').filter({ hasText: '守成クラブ 2026年10月配布チラシ' });
-  await expect(row).toContainText('term: 未設定'); await expect(page.locator('thead')).toContainText('申込み');
+  const row = page.locator('#items .initiative-card').filter({ hasText: '守成クラブ 2026年10月配布チラシ' });
+  await expect(row).toContainText('term'); await expect(row).toContainText('未設定'); await expect(row).toContainText('申込み件数');
+  await expect(row.locator('.utm-item')).toHaveCount(5); await expect(row.locator('.kpi-item')).toHaveCount(6);
+  const kpiColumns = await row.locator('.kpi-grid').evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);
+  if (testInfo.project.name === 'mobile') expect([1, 2]).toContain(kpiColumns); else expect(kpiColumns).toBe(3);
+  await expect(row.getByRole('link', { name: '該当案件を見る' })).toHaveCSS('white-space', 'nowrap');
   await page.evaluate(async () => {
     const response = await fetch('/api/admin/free-diagnosis-v1/sales-activities', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
       name: '施策該当株式会社', contact: { name: '施策担当者' }, selectedService: 'IT_KAIZEN',
@@ -87,11 +91,11 @@ test('施策管理でUTM条件を登録・集計・無効化し、該当案件�
     }) }); if (!response.ok) throw new Error('activity create failed');
   });
   await page.getByRole('button', { name: '更新' }).click(); await expect(row).toContainText('1');
-  await row.getByRole('link', { name: '該当案件' }).click();
+  await row.getByRole('link', { name: '該当案件を見る' }).click();
   await expect(page.locator('#initiativeFilter')).toContainText('施策に該当する案件だけ');
   await expect(page.locator('#caseList')).toContainText('施策該当株式会社');
   await page.goto(h.url + '/admin/marketing-initiatives.html');
-  const current = page.locator('#items tr').filter({ hasText: '守成クラブ 2026年10月配布チラシ' });
+  const current = page.locator('#items .initiative-card').filter({ hasText: '守成クラブ 2026年10月配布チラシ' });
   page.once('dialog', dialog => dialog.accept()); await current.getByRole('button', { name: '無効化' }).click();
   await expect(current).toContainText('無効');
 });
@@ -352,9 +356,13 @@ test('Admin UIでSales Activityの流入元を保存・表示・検索できる'
   await expect(page.locator('#caseList')).toContainText('交流会流入株式会社');
 });
 
-test('Staff Proxy入力不備とAPIエラーを具体的に表示し、Canonical Attribution pairを維持する', async ({ page }) => {
+test('Staff Proxyを質問カードで表示し、入力不備とAPIエラーを具体的に示す', async ({ page }, testInfo) => {
   await page.goto(h.url + '/admin/free-diagnosis-v1.html');
   await page.getByText('営業で伺った内容を登録する', { exact: true }).first().click();
+  await expect(page.locator('#proxyDesignV2Survey .proxy-question')).toHaveCount(7);
+  const optionColumns = await page.locator('[data-question-code="Q3"] .proxy-options').evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);
+  expect(optionColumns).toBe(testInfo.project.name === 'mobile' ? 1 : 2);
+  await expect(page.locator('[data-question-code="Q2"] .answer-choice').first()).toHaveCSS('cursor', 'pointer');
   await expect(page.getByText('その未来に向けて、ITに特に期待していることを選んでください。（2つまで）', { exact: false })).toBeVisible();
   await expect(page.getByText('現在、関心のあるITテーマを選んでください。（3つまで）', { exact: false })).toBeVisible();
   await expect(page.getByLabel('きっかけの名称（きっかけを選んだ場合は必須）')).toBeVisible();

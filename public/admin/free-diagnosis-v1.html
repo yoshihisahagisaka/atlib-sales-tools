@@ -22,6 +22,7 @@ button.secondary{background:#fff;color:#2563eb}
 button.ghost{background:#fff;color:#374151;border-color:#d1d5db}
 button:disabled{opacity:.5;cursor:not-allowed}
 #errorMsg{color:#b91c1c;margin:.5rem 0;min-height:1.2rem}
+.proxy-survey{display:grid;gap:1rem;margin:1rem 0}.proxy-question{min-width:0;margin:0;padding:1rem;border:1px solid #dbe4ee;border-radius:.65rem;background:#f8fafc}.proxy-question legend{max-width:100%;padding:0 .35rem;font-weight:700;line-height:1.5;color:#1f2937}.proxy-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem}.proxy-q1-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}.proxy-q1-grid label{display:grid;gap:.35rem;min-width:0;font-weight:600}.proxy-q1-grid select{width:100%}.answer-choice{display:flex;gap:.65rem;align-items:flex-start;min-width:0;padding:.7rem .75rem;border:1px solid #d5dde7;border-radius:.5rem;background:#fff;cursor:pointer;line-height:1.45}.answer-choice:hover{border-color:#93b5dc;background:#f7fbff}.answer-choice:has(input:checked){border-color:#2563eb;background:#eff6ff}.answer-choice input{flex:0 0 auto;width:1.05rem;height:1.05rem;margin:.15rem 0 0}.proxy-consent{padding:.85rem;border:1px solid #c9d7e6;border-radius:.55rem;background:#f8fafc}.proxy-submit-row{align-items:center;margin-top:.8rem}.proxy-submit-row button{font-weight:700}.proxy-save-status{min-height:1.5rem;margin:.5rem 0;padding:.55rem .7rem;border-radius:.45rem}.proxy-save-status:empty{padding:0}.proxy-save-status.success{color:#166534;background:#dcfce7}.proxy-save-status.error{color:#991b1b;background:#fee2e2}.proxy-save-status a{font-weight:700;color:inherit}@media(max-width:720px){.proxy-options,.proxy-q1-grid{grid-template-columns:1fr}.proxy-question{padding:.8rem}.answer-choice{width:auto}.proxy-submit-row button{width:100%}}
 .badge{display:inline-block;padding:.15rem .6rem;border-radius:999px;font-size:.8rem;font-weight:600}
 .badge.known{background:#dcfce7;color:#166534}
 .badge.ng{background:#f3e8ff;color:#6b21a8} /* 「ない（確認済み）」-- NOT a warning color, same status as known */
@@ -91,10 +92,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><label for="acquisitionSourceName">きっかけの名称（きっかけを選んだ場合は必須）</label><input id="acquisitionSourceName" type="text" maxlength="200" placeholder="例：新成会"></div>
 <div class="row"><label for="referralPersonName">ご紹介者（任意）</label><input id="referralPersonName" type="text" maxlength="200" placeholder="例：山田太郎さん"></div>
 <div class="row"><label for="proxyRespondentRole">今回の回答者の立場</label><select id="proxyRespondentRole"><option value="MANAGEMENT">経営者・役員</option><option value="IT_DECISION_OWNER">ITの意思決定を担当</option><option value="IT_OR_BUSINESS_STAFF">ITまたは業務の担当</option></select></div>
-<div id="proxyDesignV2Survey"></div>
-<div class="row"><label for="proxyConsentConfirmed" style="max-width:54rem"><input id="proxyConsentConfirmed" type="checkbox"> 顧客にIT経営KAIZEN無料診断の目的と個人情報の取扱いについて説明し、顧客の同意を得たうえで入力しています。</label></div>
-<div class="row"><button id="btnCreateCase" disabled>営業で伺った内容を登録する</button></div>
-<p id="proxySaveStatus" class="hint" role="status"></p>
+<div id="proxyDesignV2Survey" class="proxy-survey"></div>
+<div class="row proxy-consent"><label for="proxyConsentConfirmed" style="max-width:54rem"><input id="proxyConsentConfirmed" type="checkbox"> 顧客にIT経営KAIZEN無料診断の目的と個人情報の取扱いについて説明し、顧客の同意を得たうえで入力しています。</label></div>
+<div class="row proxy-submit-row"><button id="btnCreateCase" disabled>営業で伺った内容を登録する</button></div>
+<p id="proxySaveStatus" class="proxy-save-status" role="status"></p>
 </div></details>
 </div>
 
@@ -309,15 +310,19 @@ let proxySubmissionKey = crypto.randomUUID();
 function renderProxyDesignV2Survey(contract) {
   const target = el('proxyDesignV2Survey'); target.replaceChildren();
   for (const question of contract.questions) {
-    const fieldset = document.createElement('fieldset'); fieldset.dataset.questionCode = question.code;
+    const fieldset = document.createElement('fieldset'); fieldset.className='proxy-question'; fieldset.dataset.questionCode = question.code;
     const legend = document.createElement('legend'); legend.textContent = `${question.code} ${question.label}`; fieldset.append(legend);
     if (question.type === 'COMPANY_CONTEXT') {
+      const optionsGrid=document.createElement('div'); optionsGrid.className='proxy-q1-grid';
       for (const [field, label, options] of [['employeeRange','従業員数',question.employeeOptions],['siteRange','主な拠点数',question.siteOptions]]) {
         const wrapper=document.createElement('label'); wrapper.textContent=label; const select=document.createElement('select'); select.dataset.proxyQ1=field;
-        select.add(new Option('選択してください','')); for(const option of options)select.add(new Option(option.label,option.value)); wrapper.append(select); fieldset.append(wrapper);
+        select.add(new Option('選択してください','')); for(const option of options)select.add(new Option(option.label,option.value)); wrapper.append(select); optionsGrid.append(wrapper);
       }
+      fieldset.append(optionsGrid);
     } else {
-      for (const option of question.options) { const label=document.createElement('label'); label.className='answer-choice'; const input=document.createElement('input'); input.type=question.type==='MULTI_SELECT'?'checkbox':'radio'; input.name=`proxy-${question.code}`; input.value=option.value; label.append(input,document.createTextNode(option.label)); fieldset.append(label); }
+      const optionsGrid=document.createElement('div'); optionsGrid.className='proxy-options';
+      for (const option of question.options) { const label=document.createElement('label'); label.className='answer-choice'; const input=document.createElement('input'); input.type=question.type==='MULTI_SELECT'?'checkbox':'radio'; input.name=`proxy-${question.code}`; input.value=option.value; label.append(input,document.createTextNode(option.label)); optionsGrid.append(label); }
+      fieldset.append(optionsGrid);
     }
     target.append(fieldset);
   }
@@ -341,11 +346,11 @@ function staffProxySubmissionErrorMessage(error) {
   }
   return '接続に失敗しました。ネットワーク接続を確認して、もう一度お試しください。';
 }
-fetch('/api/public/it-management-kaizen/free-diagnosis-v1/survey-contract').then(response=>response.ok?response.json():Promise.reject()).then(contract=>{proxySurveyContract=contract;renderProxyDesignV2Survey(contract);}).catch(()=>{el('proxySaveStatus').textContent='質問を読み込めませんでした。';});
+fetch('/api/public/it-management-kaizen/free-diagnosis-v1/survey-contract').then(response=>response.ok?response.json():Promise.reject()).then(contract=>{proxySurveyContract=contract;renderProxyDesignV2Survey(contract);}).catch(()=>{el('proxySaveStatus').className='proxy-save-status error';el('proxySaveStatus').textContent='質問を読み込めませんでした。';});
 el('proxyConsentConfirmed').onchange = () => { el('btnCreateCase').disabled = !el('proxyConsentConfirmed').checked; };
 
 el('btnCreateCase').onclick = async () => {
-  setError(''); el('proxySaveStatus').textContent=''; const button=el('btnCreateCase'); button.disabled=true;
+  setError(''); el('proxySaveStatus').className='proxy-save-status'; el('proxySaveStatus').textContent=''; const button=el('btnCreateCase'); button.disabled=true;
   try {
     if (!el('companyName').value.trim()) throw new StaffProxyValidationError('会社名を入力してください。');
     if (!el('contactName').value.trim()) throw new StaffProxyValidationError('担当者名を入力してください。');
@@ -354,9 +359,9 @@ el('btnCreateCase').onclick = async () => {
     if (!el('proxyConsentConfirmed').checked) throw new StaffProxyValidationError('顧客への説明と同意確認にチェックしてください。');
     const result=await call('/design-v2/staff-proxy-submissions','POST',{idempotencyKey:proxySubmissionKey,respondentRole:el('proxyRespondentRole').value,consentConfirmed:true,
       activity:{name:el('companyName').value,contact:{name:el('contactName').value,email:el('contactEmail').value||null},selectedService:'IT_KAIZEN',referralPersonName:el('referralPersonName').value.trim()||undefined,attribution:attribution.acquisitionSourceType?attribution:undefined},survey:collectProxyDesignV2Survey()});
-    el('proxySaveStatus').replaceChildren(document.createTextNode('営業で伺った内容を登録しました。 ')); const link=document.createElement('a'); link.href=`/admin/free-diagnosis-v2-analysis.html?caseId=${encodeURIComponent(result.caseId)}`; link.textContent='作成した案件を確認'; el('proxySaveStatus').append(link);
+    el('proxySaveStatus').className='proxy-save-status success'; el('proxySaveStatus').replaceChildren(document.createTextNode('営業で伺った内容を登録しました。 ')); const link=document.createElement('a'); link.href=`/admin/free-diagnosis-v2-analysis.html?caseId=${encodeURIComponent(result.caseId)}`; link.textContent='作成した案件を確認'; el('proxySaveStatus').append(link);
     await loadCases();
-  } catch (e) { button.disabled=!el('proxyConsentConfirmed').checked; el('proxySaveStatus').textContent=staffProxySubmissionErrorMessage(e); }
+  } catch (e) { button.disabled=!el('proxyConsentConfirmed').checked; el('proxySaveStatus').className='proxy-save-status error'; el('proxySaveStatus').textContent=staffProxySubmissionErrorMessage(e); }
 };
 
 function friendlyStatus(status) {
