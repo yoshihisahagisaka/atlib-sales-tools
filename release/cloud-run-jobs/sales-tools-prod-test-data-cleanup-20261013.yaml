@@ -1,0 +1,57 @@
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: sales-tools-prod-test-data-cleanup-20261013
+  labels:
+    cloud.googleapis.com/location: asia-northeast1
+  annotations:
+    run.googleapis.com/launch-stage: BETA
+spec:
+  template:
+    spec:
+      taskCount: 1
+      template:
+        spec:
+          parallelism: 1
+          maxRetries: 0
+          timeoutSeconds: '600'
+          serviceAccountName: sales-tools-sa@msp-zabbix.iam.gserviceaccount.com
+          containers:
+          - image: CLEANUP_IMAGE_DIGEST_REQUIRED
+            volumeMounts:
+            - name: cloudsql
+              mountPath: /cloudsql
+            env:
+            - name: DB_NAME
+              value: sales_tools
+            - name: DB_MIGRATION_USER
+              value: sales_tools_migration
+            - name: DB_SOCKET_PATH
+              value: /cloudsql/msp-zabbix:asia-northeast1:msp-customer-portal-db
+            - name: DB_MIGRATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sales-tools-production-migration-db-password
+                  key: latest
+            - name: CLEANUP_EXECUTION_AUTHORIZED
+              value: 'false'
+            - name: CLEANUP_EXPECTED_MANIFEST_SHA256
+              value: EXPLICIT_APPROVAL_REQUIRED
+            - name: CLEANUP_APPROVAL_ID
+              value: EXPLICIT_APPROVAL_REQUIRED
+            - name: CLEANUP_APPROVED_BY
+              value: EXPLICIT_APPROVAL_REQUIRED
+            - name: CLEANUP_EXECUTED_BY
+              value: EXPLICIT_APPROVAL_REQUIRED
+            - name: CLEANUP_BACKUP_VERIFIED_AT
+              value: EXPLICIT_APPROVAL_REQUIRED
+            - name: CLEANUP_PITR_VERIFIED_AT
+              value: EXPLICIT_APPROVAL_REQUIRED
+            resources:
+              limits:
+                cpu: '1'
+                memory: 512Mi
+          volumes:
+          - name: cloudsql
+            cloudSqlInstance:
+              instances: [msp-zabbix:asia-northeast1:msp-customer-portal-db]

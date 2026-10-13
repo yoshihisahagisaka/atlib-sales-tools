@@ -1,0 +1,101 @@
+{
+  "status": "PREPARED_NOT_AUTHORIZED",
+  "environment": "production",
+  "database": "sales_tools",
+  "canonical_base_sha": "d47fe28b6d7db63a9cd4979c05b619ac14003f59",
+  "scope": "Exact test data identified at or before the displayed 2026-10-13 18:37:06 JST boundary; no name or time range selection is permitted at execution time.",
+  "execution_authorized": false,
+  "historical_v1_case_ids": [
+    "9cae959d-53bb-4376-9f0d-7c103f0bcc83"
+  ],
+  "vs1_case_ids": [
+    "ae6b50b2-910b-4db6-85df-a6dda0f15414",
+    "ae14b21d-664e-438d-b2f5-b5cd7f338625",
+    "5a481db0-5fc6-4342-8067-520da8737731",
+    "f66ba7e8-6ddc-4520-9e30-66a78f7e82cd",
+    "05e2c9c1-a78c-4e2a-978b-4b5a61a56026",
+    "4cb3d4b5-f09c-4391-9885-4ff61d9f207f",
+    "f1d69423-7c04-423b-94dc-875f7d6393ea",
+    "743afe70-3ce6-491d-b4be-1db77ac6be3c",
+    "567ca982-8289-42e2-9ae6-36051f4974fa",
+    "8863f0e4-85db-4991-80e7-dab4466e48bd",
+    "6b382bdb-41d2-4a04-9adb-141cff3d307a",
+    "b927bd86-6fdc-4b77-b6c9-c2f6342c33a6",
+    "1067faff-b5ce-4837-b1f5-ced68494fe69",
+    "eb3fdb60-4d2d-4690-bf6e-842e2c5e512e",
+    "c4174e35-3b79-4ca6-b694-5b9896ac5df5"
+  ],
+  "related_ids": {
+    "company_ids": [
+      "876f9d6d-1b53-4be8-b6e9-c773fefdfe81", "f3f2348c-6d60-42d8-96fc-c7a6caccf491", "bb0f7f2c-0d36-4772-8751-be78f3e9bb55",
+      "3c0c0622-2f88-40fe-aee5-276e2a6a346a", "1481aa2e-f83b-40a4-9e08-38b892628168", "69f812dd-e28e-4e73-885d-be766039459e",
+      "289be9d5-5ef5-4811-9b64-aa22ef10441d", "33c4bbf2-cb44-46ab-a44a-bfce467a7495", "50a17172-2798-45ad-bbcc-bc278de3e993",
+      "5fe62198-c47f-4b4b-8da6-f600fdab8b26", "513aff69-faed-4d94-aa1d-3829dd85810f", "1769d20b-9be8-4af6-acd5-ea16bc711fb4",
+      "50c3b0b0-3d95-4432-b541-56a60c8bea59", "8cd8d576-8530-44a2-88a9-100d89b721bb", "7e0f9579-b791-4a1d-a5c1-3ef865f9fd9f"
+    ],
+    "contact_ids": [
+      "bcb0f0f8-eb5d-4259-925e-b128cf1d5558", "e85a4330-01f4-4c7c-89af-8376a647bcb3", "e49a62ad-80e0-45fd-96df-cbb14242b8ad",
+      "074a0d9c-a468-43f6-90b7-b42281faa219", "ebfad881-e2d7-418f-9d14-08f0b5215864", "baec8800-cc09-4181-8f54-92825482de27",
+      "b1d8f0f6-79cd-411c-b436-eead009d2a78", "b5e6d722-8b0f-415e-8f7f-6dc9082243fa", "1bd50412-31c0-4aca-b3a4-35b76826a48e",
+      "62155626-088f-4540-877b-661de3cb079c", "47d7acf2-0c0d-45d3-aa83-264a74b48b97", "38758b53-f753-4b67-88c3-6055ccbe1175",
+      "608d03ab-8ad5-4b7c-ae13-6b34ec9aebd6", "56be8925-d13c-4c71-8eb2-3c0a776f6fef", "27ee285f-85c8-40a5-8581-bffb614b528e"
+    ],
+    "sales_activity_ids": [
+      "c01b62b2-5ef3-4834-8102-d2adf875c993", "5a943a4e-922f-4295-a7a9-c01a041b4fa5", "03b0c6d8-4054-48e3-b294-d9c11def9da9",
+      "ebe85938-d475-4193-96a8-d905d34e8182", "c7b5c953-ae73-4739-8964-16230ae555c6", "32d3d3bb-9793-4107-8408-01353002197f",
+      "8e9ddf41-9962-4946-b77c-58ab7718acb5", "9f76c96c-2301-419b-b88f-6b1024548446", "23a6c052-a1cf-4b27-8f5b-9a8de1170048",
+      "608e4cf8-bcfe-41c6-8515-66fc9ada3ccd", "310a88b9-ecdb-4d21-b310-3f14c15a6239", "fdf6df38-a284-45c0-8f88-d72c649f815e",
+      "d54f3a95-ab83-410c-a52b-f2b4a5a6418b", "2a6ec01a-6ed5-4c5c-99c6-489130649c0f", "192311a2-f6f8-42c0-a968-e5b80c6ba6d6"
+    ],
+    "report_ids": [
+      "e884ef4a-9e26-46cc-8084-51dbec8fd4cd", "407799ce-9078-4d38-8a45-fa954f52488a", "5102d6fd-163b-4ded-afd8-50120a3e21ff"
+    ]
+  },
+  "preserve": {
+    "marketing_initiative_ids": ["1a1f0d34-2ffa-421c-a375-a2a13e35bbcf"],
+    "migration_ledger": true,
+    "other_cases": true,
+    "other_services": true
+  },
+  "expected_before": {
+    "historical_v1_cases": 1,
+    "vs1_cases": 15,
+    "companies": 15,
+    "contacts": 15,
+    "sales_activities": 15,
+    "hearing_intake_responses": 32,
+    "hearing_statements": 25,
+    "rule_executions": 7,
+    "investigation_outputs": 1,
+    "assessment_suggestions": 4,
+    "original_surveys": 9,
+    "current_states": 9,
+    "analysis_results": 9,
+    "generated_narratives": 9,
+    "human_edits": 1,
+    "insights": 3,
+    "insight_sources": 3,
+    "reports": 3,
+    "approved_reports": 1,
+    "pdf_artifacts": 0,
+    "feedback_decisions": 0,
+    "case_audits": 36,
+    "public_submissions": 8,
+    "initiative_matching_activities": 4,
+    "historical_participants": 1,
+    "historical_survey_responses": 10,
+    "historical_source_records": 1,
+    "historical_ai_executions": 11,
+    "historical_ai_proposals": 36,
+    "historical_ai_proposal_sources": 85,
+    "historical_futures": 1,
+    "historical_themes": 1,
+    "historical_plan_items": 1,
+    "historical_policy_acknowledgements": 1,
+    "historical_transitions": 7,
+    "historical_audit_logs": 22,
+    "historical_participant_roles": 1,
+    "historical_reports": 0,
+    "active_retention_holds": 0
+  }
+}
