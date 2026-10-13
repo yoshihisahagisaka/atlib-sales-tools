@@ -319,6 +319,72 @@ test('Admin UIでSales Activityの流入元を保存・表示・検索できる'
   await expect(page.locator('#caseList')).toContainText('交流会流入株式会社');
 });
 
+test('Staff Proxy入力不備とAPIエラーを具体的に表示し、Canonical Attribution pairを維持する', async ({ page }) => {
+  await page.goto(h.url + '/admin/free-diagnosis-v1.html');
+  await page.getByText('営業で伺った内容を登録する', { exact: true }).first().click();
+  await expect(page.getByLabel('きっかけの名称（きっかけを選んだ場合は必須）')).toBeVisible();
+  await page.check('#proxyConsentConfirmed');
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#proxySaveStatus')).toHaveText('会社名を入力してください。');
+  await page.fill('#companyName', '入力確認株式会社');
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#proxySaveStatus')).toHaveText('担当者名を入力してください。');
+  await page.fill('#contactName', '担当者');
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#proxySaveStatus')).toHaveText('従業員数と拠点数を選択してください。');
+  await page.locator('[data-proxy-q1="employeeRange"]').selectOption('31〜50人');
+  await page.locator('[data-proxy-q1="siteRange"]').selectOption('1か所');
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#proxySaveStatus')).toHaveText('Q2の回答を選択してください。');
+  await page.getByLabel('少人数でも無理なく成長・運営できる会社にしたい').check();
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#proxySaveStatus')).toHaveText('Q3の回答を選択してください。');
+  await page.getByLabel('生産性を高めたい').check();
+  await page.getByLabel('人を大きく増やさずに回せるようにしたい').check();
+  await page.getByLabel('経営判断を支えたい').check();
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#proxySaveStatus')).toHaveText('Q3は2つまで選択してください。');
+  await page.getByLabel('経営判断を支えたい').uncheck();
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#proxySaveStatus')).toHaveText('Q4の回答を選択してください。');
+  await page.getByLabel('経営判断に関すること').check();
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#proxySaveStatus')).toHaveText('Q5の回答を選択してください。');
+  await page.getByLabel('分かることと分からないことがある').check();
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#proxySaveStatus')).toHaveText('Q6の回答を選択してください。');
+  await page.getByLabel('報告・共有はあるが、数字の羅列や専門用語が多く、経営判断には使いにくい').check();
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#proxySaveStatus')).toHaveText('Q7の回答を選択してください。');
+  await page.getByLabel('AI・生成AI').check();
+  await page.getByLabel('業務の自動化・効率化').check();
+  await page.getByLabel('データ活用・見える化').check();
+  await page.locator('input[name="proxy-Q7"][value="SECURITY"]').check();
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#proxySaveStatus')).toHaveText('Q7は3つまで選択してください。');
+  await page.locator('input[name="proxy-Q7"][value="SECURITY"]').uncheck();
+  await page.selectOption('#acquisitionSourceType', 'EVENT');
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#proxySaveStatus')).toHaveText('きっかけを記録する場合は、種別と名称を両方入力してください。');
+  await page.selectOption('#acquisitionSourceType', '');
+  await page.fill('#acquisitionSourceName', '交流会');
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#proxySaveStatus')).toHaveText('きっかけを記録する場合は、種別と名称を両方入力してください。');
+  await page.fill('#acquisitionSourceName', '');
+
+  const endpoint = '**/api/admin/free-diagnosis-v1/design-v2/staff-proxy-submissions';
+  for (const [status, message] of [[400, '入力内容を確認してください。'], [401, 'ログイン状態または権限を確認してください。'], [403, 'ログイン状態または権限を確認してください。'], [409, '重複送信または入力内容の競合がありました。画面を更新して内容を確認してください。'], [422, '現在の状態では登録できません。入力内容を確認してください。'], [500, '登録処理に失敗しました。時間をおいて、もう一度お試しください。']] as const) {
+    await page.route(endpoint, route => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'INTERNAL_ONLY' }) }));
+    await page.click('#btnCreateCase');
+    await expect(page.locator('#proxySaveStatus')).toHaveText(message);
+    await page.unroute(endpoint);
+  }
+  await page.route(endpoint, route => route.abort('failed'));
+  await page.click('#btnCreateCase');
+  await expect(page.locator('#proxySaveStatus')).toHaveText('接続に失敗しました。ネットワーク接続を確認して、もう一度お試しください。');
+  await page.unroute(endpoint);
+});
+
 test('共通案件一覧はDesign v2本人回答と営業代理入力を正式provenanceで表示し後続画面へ接続する', async ({ page }) => {
   const canonicalSurvey = designV2SurveyAnswerSchema.parse({
     q1CompanyContext: { employeeRange: '31〜50人', siteRange: '1か所' }, q2Future: ['BUSINESS_GROWTH'],

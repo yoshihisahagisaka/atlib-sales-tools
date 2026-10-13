@@ -88,7 +88,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><label for="contactEmail">メール（任意）</label><input id="contactEmail" type="email"></div>
 <h4>お客様との最初の接点</h4>
 <div class="row"><label for="acquisitionSourceType">きっかけ</label><select id="acquisitionSourceType"><option value="">（未設定）</option><option value="EVENT">経営者交流会・イベント</option><option value="REFERRAL">紹介</option><option value="WEB">Web</option><option value="OUTBOUND">営業活動</option><option value="PARTNER">パートナー</option><option value="EXISTING_CUSTOMER">既存顧客</option><option value="OTHER">その他</option></select></div>
-<div class="row"><label for="acquisitionSourceName">きっかけの名称（任意）</label><input id="acquisitionSourceName" type="text" maxlength="200" placeholder="例：新成会"></div>
+<div class="row"><label for="acquisitionSourceName">きっかけの名称（きっかけを選んだ場合は必須）</label><input id="acquisitionSourceName" type="text" maxlength="200" placeholder="例：新成会"></div>
 <div class="row"><label for="referralPersonName">ご紹介者（任意）</label><input id="referralPersonName" type="text" maxlength="200" placeholder="例：山田太郎さん"></div>
 <div class="row"><label for="proxyRespondentRole">今回の回答者の立場</label><select id="proxyRespondentRole"><option value="MANAGEMENT">経営者・役員</option><option value="IT_DECISION_OWNER">ITの意思決定を担当</option><option value="IT_OR_BUSINESS_STAFF">ITまたは業務の担当</option></select></div>
 <div id="proxyDesignV2Survey"></div>
@@ -288,9 +288,14 @@ async function navigateToStep(step) {
   } catch (e) { setError(String(e.message || e)); }
 }
 
+class ApiRequestError extends Error {
+  constructor(status, code) { super(code); this.status=status; this.code=code; }
+}
+class StaffProxyValidationError extends Error {}
+
 async function call(path, method, body) {
   const res = await fetch(api + path, { method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
-  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || ('HTTP ' + res.status)); }
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new ApiRequestError(res.status, e.error || ('HTTP ' + res.status)); }
   return res.status === 204 ? null : res.json();
 }
 
@@ -318,12 +323,23 @@ function renderProxyDesignV2Survey(contract) {
   }
 }
 function collectProxyDesignV2Survey() {
-  if (!proxySurveyContract) throw new Error('質問を読み込めませんでした。');
+  if (!proxySurveyContract) throw new StaffProxyValidationError('質問を読み込めませんでした。画面を更新して、もう一度お試しください。');
   const answer={ q1CompanyContext:{ employeeRange:document.querySelector('[data-proxy-q1="employeeRange"]').value, siteRange:document.querySelector('[data-proxy-q1="siteRange"]').value } };
-  if (!answer.q1CompanyContext.employeeRange || !answer.q1CompanyContext.siteRange) throw new Error('Q1を選択してください。');
+  if (!answer.q1CompanyContext.employeeRange || !answer.q1CompanyContext.siteRange) throw new StaffProxyValidationError('従業員数と拠点数を選択してください。');
   const keys={Q2:'q2Future',Q3:'q3ItExpectations',Q4:'q4CurrentInterest',Q5:'q5Visibility',Q6:'q6ManagementConnection',Q7:'q7InterestThemes'};
-  for(const question of proxySurveyContract.questions.filter(item=>item.code!=='Q1')) { const values=[...document.querySelectorAll(`input[name="proxy-${question.code}"]:checked`)].map(input=>input.value); if(!values.length)throw new Error(`${question.code}を選択してください。`); if(question.maxSelections&&values.length>question.maxSelections)throw new Error(`${question.code}は${question.maxSelections}件までです。`); if(question.exclusiveValues?.some(value=>values.includes(value))&&values.length!==1)throw new Error(`${question.code}の選択内容を確認してください。`); answer[keys[question.code]]=question.type==='MULTI_SELECT'?values:values[0]; }
+  for(const question of proxySurveyContract.questions.filter(item=>item.code!=='Q1')) { const values=[...document.querySelectorAll(`input[name="proxy-${question.code}"]:checked`)].map(input=>input.value); if(!values.length)throw new StaffProxyValidationError(`${question.code}の回答を選択してください。`); if(question.maxSelections&&values.length>question.maxSelections)throw new StaffProxyValidationError(`${question.code}は${question.maxSelections}つまで選択してください。`); if(question.exclusiveValues?.some(value=>values.includes(value))&&values.length!==1)throw new StaffProxyValidationError(`${question.code}の選択内容を確認してください。`); answer[keys[question.code]]=question.type==='MULTI_SELECT'?values:values[0]; }
   return answer;
+}
+function staffProxySubmissionErrorMessage(error) {
+  if (error instanceof StaffProxyValidationError) return error.message;
+  if (error instanceof ApiRequestError) {
+    if (error.status===400) return '入力内容を確認してください。';
+    if (error.status===401 || error.status===403) return 'ログイン状態または権限を確認してください。';
+    if (error.status===409) return '重複送信または入力内容の競合がありました。画面を更新して内容を確認してください。';
+    if (error.status===422) return '現在の状態では登録できません。入力内容を確認してください。';
+    if (error.status>=500) return '登録処理に失敗しました。時間をおいて、もう一度お試しください。';
+  }
+  return '接続に失敗しました。ネットワーク接続を確認して、もう一度お試しください。';
 }
 fetch('/api/public/it-management-kaizen/free-diagnosis-v1/survey-contract').then(response=>response.ok?response.json():Promise.reject()).then(contract=>{proxySurveyContract=contract;renderProxyDesignV2Survey(contract);}).catch(()=>{el('proxySaveStatus').textContent='質問を読み込めませんでした。';});
 el('proxyConsentConfirmed').onchange = () => { el('btnCreateCase').disabled = !el('proxyConsentConfirmed').checked; };
@@ -331,14 +347,16 @@ el('proxyConsentConfirmed').onchange = () => { el('btnCreateCase').disabled = !e
 el('btnCreateCase').onclick = async () => {
   setError(''); el('proxySaveStatus').textContent=''; const button=el('btnCreateCase'); button.disabled=true;
   try {
+    if (!el('companyName').value.trim()) throw new StaffProxyValidationError('会社名を入力してください。');
+    if (!el('contactName').value.trim()) throw new StaffProxyValidationError('担当者名を入力してください。');
     const attribution = { acquisitionSourceType: el('acquisitionSourceType').value || null, acquisitionSourceName: el('acquisitionSourceName').value.trim() || null };
-    if ((attribution.acquisitionSourceType == null) !== (attribution.acquisitionSourceName == null)) throw new Error('きっかけを記録する場合は、種別と名称を両方入力してください。');
-    if (!el('proxyConsentConfirmed').checked) throw new Error('同意確認にチェックしてください。');
+    if ((attribution.acquisitionSourceType == null) !== (attribution.acquisitionSourceName == null)) throw new StaffProxyValidationError('きっかけを記録する場合は、種別と名称を両方入力してください。');
+    if (!el('proxyConsentConfirmed').checked) throw new StaffProxyValidationError('顧客への説明と同意確認にチェックしてください。');
     const result=await call('/design-v2/staff-proxy-submissions','POST',{idempotencyKey:proxySubmissionKey,respondentRole:el('proxyRespondentRole').value,consentConfirmed:true,
       activity:{name:el('companyName').value,contact:{name:el('contactName').value,email:el('contactEmail').value||null},selectedService:'IT_KAIZEN',referralPersonName:el('referralPersonName').value.trim()||undefined,attribution:attribution.acquisitionSourceType?attribution:undefined},survey:collectProxyDesignV2Survey()});
     el('proxySaveStatus').replaceChildren(document.createTextNode('営業で伺った内容を登録しました。 ')); const link=document.createElement('a'); link.href=`/admin/free-diagnosis-v2-analysis.html?caseId=${encodeURIComponent(result.caseId)}`; link.textContent='作成した案件を確認'; el('proxySaveStatus').append(link);
     await loadCases();
-  } catch (e) { button.disabled=!el('proxyConsentConfirmed').checked; el('proxySaveStatus').textContent='登録できませんでした。入力内容を確認して、もう一度お試しください。'; }
+  } catch (e) { button.disabled=!el('proxyConsentConfirmed').checked; el('proxySaveStatus').textContent=staffProxySubmissionErrorMessage(e); }
 };
 
 function friendlyStatus(status) {
