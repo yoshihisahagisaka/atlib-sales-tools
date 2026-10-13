@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import os from 'node:os';
+import { mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -22,7 +21,7 @@ test('035 manifest fixes one SQL identity and denies migration execution', () =>
 });
 
 test('035 artifact contains only reviewed SQL and fails closed on tampering', () => {
-  const temp = mkdtempSync(path.join(os.tmpdir(), 'test-case-management-035-'));
+  const temp = mkdtempSync(path.join(root, '.test-case-management-035-'));
   try {
     const artifact = path.join(temp, 'artifact'); builder.build(root, manifestPath, artifact, head);
     assert.deepEqual(readdirSync(path.join(artifact, 'migrations')), ['035_it_management_test_case_designation.sql']);
@@ -31,6 +30,20 @@ test('035 artifact contains only reviewed SQL and fails closed on tampering', ()
     writeFileSync(sql, Buffer.concat([readFileSync(sql), Buffer.from('-- changed\n')]));
     assert.throws(() => preflight.verifyArtifact(root, manifestPath, artifact), /ARTIFACT_SQL_BYTES/);
   } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
+test('035 packaged artifact accepts the image manifest layout', () => {
+  const temp = mkdtempSync(path.join(root, '.test-case-management-035-packaged-'));
+  const previous = process.env.PACKAGED_ARTIFACT;
+  try {
+    const artifact = path.join(temp, 'artifact'); builder.build(root, manifestPath, artifact, head);
+    renameSync(path.join(artifact, 'manifest.json'), path.join(artifact, 'migration-release-manifest.json'));
+    process.env.PACKAGED_ARTIFACT = 'true';
+    assert.equal(preflight.verifyArtifact(root, path.join(artifact, 'migration-release-manifest.json'), artifact).migrations.length, 1);
+  } finally {
+    if (previous === undefined) delete process.env.PACKAGED_ARTIFACT; else process.env.PACKAGED_ARTIFACT = previous;
+    rmSync(temp, { recursive: true, force: true });
+  }
 });
 
 test('035 Job template is inert and pins the one-task safety contract', () => {
