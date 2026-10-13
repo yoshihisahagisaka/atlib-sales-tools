@@ -43,7 +43,8 @@ test('035 Job template is inert and pins the one-task safety contract', () => {
 
 test('035 verifier requires SELECT and INSERT but rejects mutable runtime privileges', () => {
   const good = [{ role_name: 'sales_tools_app', can_select: true, can_insert: true, can_update: false, can_delete: false }];
-  assert.deepEqual(verifier.verifyRuntimeRolePrivileges(['sales_tools_app'], good), { applicationRole: 'sales_tools_app', optionalRuntimeRolePresent: false });
+  assert.deepEqual(verifier.verifyRuntimeRolePrivileges(['sales_tools_app'], good), { applicationRole: 'sales_tools_app', optionalRuntimeRolePresent: false, optionalRuntimeMutationGrants: false });
   assert.throws(() => verifier.verifyRuntimeRolePrivileges([], []), /RUNTIME_ROLE:sales_tools_app/);
   assert.throws(() => verifier.verifyRuntimeRolePrivileges(['sales_tools_app'], [{ ...good[0], can_update: true }]), /RUNTIME_PRIVILEGES:sales_tools_app/);
+  assert.deepEqual(verifier.verifyRuntimeRolePrivileges(['sales_tools_app', 'sales_tools_runtime'], [good[0], { role_name: 'sales_tools_runtime', can_select: true, can_insert: true, can_update: true, can_delete: true }]), { applicationRole: 'sales_tools_app', optionalRuntimeRolePresent: true, optionalRuntimeMutationGrants: true });
 });

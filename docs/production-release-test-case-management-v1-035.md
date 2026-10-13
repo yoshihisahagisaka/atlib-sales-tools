@@ -39,7 +39,7 @@ Job creation does not authorize execution. Unknown execution state must be resol
 
 ## Post-apply verification
 
-The read-only verifier requires migrations 027–035 exactly once, no 036+, migration ownership, six audit columns, enabled append-only trigger, both indexes, and SELECT/INSERT without UPDATE/DELETE for the required runtime role. It reports current Case, Report, Sales Activity, and Marketing Initiative counts without modifying them.
+The read-only verifier requires migrations 027–035 exactly once, no 036+, migration ownership, six audit columns, enabled append-only trigger, both indexes, and SELECT/INSERT without UPDATE/DELETE for the required `sales_tools_app` role. If the legacy compatibility role `sales_tools_runtime` exists, Migration 018 default privileges may also grant UPDATE/DELETE; the verifier reports that fact and relies on the mandatory trigger to reject physical mutation. It reports current Case, Report, Sales Activity, and Marketing Initiative counts without modifying them.
 
 ## Runtime allowlist and ordering
 
