@@ -48,7 +48,7 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
   }));
 
   r.get('/sales-activities', (req, res) => handle(res, async () => {
-    const parsed = z.object({ acquisitionSourceName: z.string().trim().min(1).max(200).optional(), utmCampaign: z.string().trim().min(1).max(200).optional() }).strict().safeParse(req.query);
+    const parsed = z.object({ acquisitionSourceName: z.string().trim().min(1).max(200).optional(), utmCampaign: z.string().trim().min(1).max(200).optional(), initiativeId: z.string().uuid().optional() }).strict().safeParse(req.query);
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
     res.json({ items: await launcher.listSalesActivities(parsed.data) });
   }));

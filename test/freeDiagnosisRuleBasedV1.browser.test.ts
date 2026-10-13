@@ -67,6 +67,35 @@ test('Production guard: 未認証では/admin/free-diagnosis-v1.htmlへアクセ
   await freshContext.close();
 });
 
+test('施策管理でUTM条件を登録・集計・無効化し、該当案件へ遷移できる', async ({ page }) => {
+  await page.goto(h.url + '/admin/free-diagnosis-v1.html');
+  await page.getByRole('link', { name: '施策管理' }).click();
+  await expect(page).toHaveURL(/marketing-initiatives\.html/);
+  await page.getByLabel('施策名').fill('守成クラブ 2026年10月配布チラシ');
+  await page.getByLabel('UTM source').fill('shusei_club');
+  await page.getByLabel('UTM medium').fill('flyer');
+  await page.getByLabel('UTM campaign').fill('202610_shusei');
+  await page.getByLabel('UTM content').fill('itkaizen_a4');
+  await page.getByRole('button', { name: '施策を登録' }).click();
+  await expect(page.getByRole('status')).toContainText('施策を登録しました。');
+  const row = page.locator('#items tr').filter({ hasText: '守成クラブ 2026年10月配布チラシ' });
+  await expect(row).toContainText('term: 未設定'); await expect(page.locator('thead')).toContainText('申込み');
+  await page.evaluate(async () => {
+    const response = await fetch('/api/admin/free-diagnosis-v1/sales-activities', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      name: '施策該当株式会社', contact: { name: '施策担当者' }, selectedService: 'IT_KAIZEN',
+      attribution: { acquisitionSourceType: 'EVENT', acquisitionSourceName: '守成クラブ', utmSource: 'shusei_club', utmMedium: 'flyer', utmCampaign: '202610_shusei', utmContent: 'itkaizen_a4', utmTerm: null },
+    }) }); if (!response.ok) throw new Error('activity create failed');
+  });
+  await page.getByRole('button', { name: '更新' }).click(); await expect(row).toContainText('1');
+  await row.getByRole('link', { name: '該当案件' }).click();
+  await expect(page.locator('#initiativeFilter')).toContainText('施策に該当する案件だけ');
+  await expect(page.locator('#caseList')).toContainText('施策該当株式会社');
+  await page.goto(h.url + '/admin/marketing-initiatives.html');
+  const current = page.locator('#items tr').filter({ hasText: '守成クラブ 2026年10月配布チラシ' });
+  page.once('dialog', dialog => dialog.accept()); await current.getByRole('button', { name: '無効化' }).click();
+  await expect(current).toContainText('無効');
+});
+
 test('Public Customer Selfは事前アンケートから申込み・予約導線へ進み、送信前には永続化しない', async ({ browser }) => {
   const context = await browser.newContext(); const page = await context.newPage();
   const before = Number((await h.pool.query('SELECT count(*)::int AS count FROM it_management_public_self_submission')).rows[0].count);

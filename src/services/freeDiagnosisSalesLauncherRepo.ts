@@ -81,7 +81,7 @@ export class FreeDiagnosisSalesLauncherRepo {
       selectedService: row.selected_service as string, attribution: mapAttribution(row), referralPersonName: row.referral_person_name as string | null };
   }
 
-  async listSalesActivities(filters: { acquisitionSourceName?: string; utmCampaign?: string }) {
+  async listSalesActivities(filters: { acquisitionSourceName?: string; utmCampaign?: string; initiativeId?: string }) {
     const { rows } = await this.pool.query<Record<string, unknown>>(
       `SELECT s.*, c.name AS company_name, contact.name AS contact_name,
               latest_case.id AS diagnosis_case_id, latest_case.status AS diagnosis_case_status, latest_case.version AS diagnosis_case_version,
@@ -89,7 +89,8 @@ export class FreeDiagnosisSalesLauncherRepo {
               design_v2_original.id AS design_v2_original_id, design_v2_original.entry_channel AS design_v2_entry_channel,
               intake_origin.entry_channel AS v1_entry_channel,
               latest_design_v2_report.id AS design_v2_report_id, latest_design_v2_report.version AS design_v2_report_version,
-              latest_design_v2_report.status AS design_v2_report_status
+              latest_design_v2_report.status AS design_v2_report_status,
+              matched_initiative.initiative_id, matched_initiative.initiative_name, matched_initiative.is_active AS initiative_is_active
        FROM sales_activity s JOIN company c ON c.id=s.company_id
        LEFT JOIN contact ON contact.id=s.primary_contact_id
        LEFT JOIN LATERAL (
@@ -108,8 +109,19 @@ export class FreeDiagnosisSalesLauncherRepo {
           WHERE it_management_diagnosis_case_v2_id=latest_case.id AND policy_version='design-v2'
           ORDER BY version DESC LIMIT 1
        ) latest_design_v2_report ON true
+       LEFT JOIN LATERAL (
+         SELECT initiative_id,initiative_name,is_active FROM marketing_initiative i
+         WHERE i.service_key=s.selected_service
+           AND s.utm_source IS NOT DISTINCT FROM i.utm_source AND s.utm_medium IS NOT DISTINCT FROM i.utm_medium
+           AND s.utm_campaign IS NOT DISTINCT FROM i.utm_campaign AND s.utm_content IS NOT DISTINCT FROM i.utm_content
+           AND s.utm_term IS NOT DISTINCT FROM i.utm_term
+           AND (i.is_active OR s.created_at < i.updated_at)
+         LIMIT 1
+       ) matched_initiative ON true
        WHERE ($1::text IS NULL OR s.acquisition_source_name=$1) AND ($2::text IS NULL OR s.utm_campaign=$2)
-       ORDER BY s.created_at DESC, s.id DESC LIMIT 100`, [filters.acquisitionSourceName ?? null, filters.utmCampaign ?? null],
+         AND ($3::uuid IS NULL OR matched_initiative.initiative_id=$3)
+       ORDER BY s.created_at DESC, s.id DESC LIMIT 100`,
+      [filters.acquisitionSourceName ?? null, filters.utmCampaign ?? null, filters.initiativeId ?? null],
     );
     return rows.map(row => ({ id: row.id, companyName: row.company_name, contactName: row.contact_name ?? null, selectedService: row.selected_service,
       createdAt: row.created_at, updatedAt: row.diagnosis_case_updated_at ?? row.created_at,
@@ -117,6 +129,7 @@ export class FreeDiagnosisSalesLauncherRepo {
       diagnosisCaseStatus: row.diagnosis_case_status, diagnosisCaseVersion: row.diagnosis_case_version,
       receivedAt: row.diagnosis_case_created_at ?? row.created_at, isDesignV2: row.design_v2_original_id != null,
       entryChannel: row.design_v2_entry_channel ?? row.v1_entry_channel ?? null,
+      marketingInitiative: row.initiative_id ? { id: row.initiative_id, name: row.initiative_name, isActive: row.initiative_is_active } : null,
       latestDesignV2Report: row.design_v2_report_id ? { id: row.design_v2_report_id, version: row.design_v2_report_version, status: row.design_v2_report_status } : null }));
   }
 }

@@ -18,6 +18,8 @@ import { FreeDiagnosisDesignV2EntryAdapter } from '../../src/services/freeDiagno
 import { FreeDiagnosisDesignV2ApiService } from '../../src/services/freeDiagnosisDesignV2ApiService';
 import { createAdminFreeDiagnosisDesignV2Router } from '../../src/routes/adminFreeDiagnosisDesignV2';
 import { StaffProxyDesignV2SubmissionService } from '../../src/services/staffProxyDesignV2SubmissionService';
+import { MarketingInitiativeRepo } from '../../src/services/marketingInitiativeRepo';
+import { createAdminMarketingInitiativeRouter } from '../../src/routes/adminMarketingInitiative';
 
 /** Real PostgreSQL SQL/constraints/transactions in a disposable WASM database.
  * Same pattern as test/support/diagnosisHarness.ts. Only migration 027 is applied: the
@@ -37,6 +39,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDe
   await db.exec(fs.readFileSync(path.join(root, 'migrations/031_public_customer_self_submission.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/032_sales_activity_referral_person_name.sql'), 'utf8'));
   if (options.includeDesignV2) await db.exec(fs.readFileSync(path.join(root, 'migrations/033_free_diagnosis_design_v2_persistence.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'migrations/034_marketing_initiative_v1.sql'), 'utf8'));
 
   let tail = Promise.resolve();
   async function acquire() {
@@ -53,6 +56,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDe
   } as unknown as Pool;
 
   const launcher = new FreeDiagnosisSalesLauncherRepo(pool);
+  const initiatives = new MarketingInitiativeRepo(pool);
   const cases = new FreeDiagnosisRuleBasedCaseRepo(pool);
   const vs1 = new Vs1ReviewReportFeedbackRepo(pool);
   const designV2Persistence = new FreeDiagnosisDesignV2PersistenceRepo(pool);
@@ -68,6 +72,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDe
   app.use(express.json()); app.use(cookieParser());
   app.use('/api/public/it-management-kaizen/free-diagnosis-v1', createPublicCustomerSelfFreeDiagnosisRouter(publicSelf, true));
   app.use('/api/admin/free-diagnosis-v1', requireStaffAuth(staffAuth), createAdminFreeDiagnosisRuleBasedV1Router(launcher, cases, vs1, staffProxyDesignV2));
+  app.use('/api/admin/marketing-initiatives', requireStaffAuth(staffAuth), createAdminMarketingInitiativeRouter(initiatives, launcher));
   app.use('/api/admin/free-diagnosis-v1', requireStaffAuth(staffAuth), createAdminFreeDiagnosisDesignV2Router(designV2Api));
   app.use('/admin', requireStaffAuth(staffAuth), express.static(path.join(root, 'public/admin')));
   app.use(express.static(path.join(root, 'public')));
@@ -76,7 +81,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDe
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
   return {
-    db, pool, launcher, cases, vs1, publicSelf, staffProxyDesignV2, designV2Persistence, url, staffCookie,
+    db, pool, launcher, initiatives, cases, vs1, publicSelf, staffProxyDesignV2, designV2Persistence, url, staffCookie,
     close: async () => { await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve())); await db.close(); },
   };
 }

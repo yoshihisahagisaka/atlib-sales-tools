@@ -72,6 +72,8 @@ import { StaffProxyDesignV2SubmissionService } from './services/staffProxyDesign
 import { FreeDiagnosisDesignV2ApiService } from './services/freeDiagnosisDesignV2ApiService';
 import { createAdminFreeDiagnosisDesignV2Router } from './routes/adminFreeDiagnosisDesignV2';
 import { FreeDiagnosisDesignV2ReportPdfService } from './services/freeDiagnosisDesignV2ReportPdf';
+import { MarketingInitiativeRepo } from './services/marketingInitiativeRepo';
+import { createAdminMarketingInitiativeRouter } from './routes/adminMarketingInitiative';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -87,6 +89,7 @@ async function main(): Promise<void> {
   const webDevelopmentPartnerLeadRepo = new WebDevelopmentPartnerLeadRepo(pool);
   const businessWebConsultationLeadRepo = new BusinessWebConsultationLeadRepo(pool);
   const freeDiagnosisSalesLauncherRepo = new FreeDiagnosisSalesLauncherRepo(pool);
+  const marketingInitiativeRepo = new MarketingInitiativeRepo(pool);
   const freeDiagnosisRuleBasedCaseRepo = new FreeDiagnosisRuleBasedCaseRepo(pool);
   const vs1ReviewReportFeedbackRepo = new Vs1ReviewReportFeedbackRepo(pool);
   const freeDiagnosisDesignV2PersistenceRepo = new FreeDiagnosisDesignV2PersistenceRepo(pool);
@@ -237,6 +240,8 @@ async function main(): Promise<void> {
     ...adminAuthGate,
     createAdminFreeDiagnosisRuleBasedV1Router(freeDiagnosisSalesLauncherRepo, freeDiagnosisRuleBasedCaseRepo, vs1ReviewReportFeedbackRepo, staffProxyDesignV2SubmissionService),
   );
+  app.use('/api/admin/marketing-initiatives', ...adminAuthGate,
+    createAdminMarketingInitiativeRouter(marketingInitiativeRepo, freeDiagnosisSalesLauncherRepo));
   app.use(
     '/api/admin/free-diagnosis-v1',
     ...adminAuthGate,

@@ -81,7 +81,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <div class="view active" id="view-entry"><h3>案件一覧</h3>
 <p class="hint">公開申込み済みのお客様を選び、現在の工程から作業を再開します。</p>
-<div class="row"><button id="btnLoadCases" class="secondary">案件一覧を更新</button><button id="btnOpenProxyEntry" class="secondary">営業で伺った内容を登録する</button></div><div id="caseList" class="case-list"></div>
+<div class="row"><button id="btnLoadCases" class="secondary">案件一覧を更新</button><button id="btnOpenProxyEntry" class="secondary">営業で伺った内容を登録する</button><a class="button secondary" href="/admin/marketing-initiatives.html">施策管理</a></div><p id="initiativeFilter" class="hint" hidden></p><div id="caseList" class="case-list"></div>
 <details id="proxyEntry"><summary>営業で伺った内容を登録する</summary><div class="entry-form">
 <div class="row"><label for="companyName">会社名</label><input id="companyName" type="text" placeholder="サンプル株式会社"></div>
 <div class="row"><label for="contactName">担当者名</label><input id="contactName" type="text" placeholder="山田太郎"></div>
@@ -369,7 +369,8 @@ function entryChannelLabel(item) {
   if (item.isDesignV2) return item.entryChannel === 'CUSTOMER_SELF' ? '本人回答' : item.entryChannel === 'STAFF_PROXY' ? '営業代理入力' : '未確認';
   return item.entryChannel === 'SELF' ? '本人回答' : item.entryChannel === 'PROXY' ? '営業代理入力' : '未確認';
 }
-function attributionListLabel(attribution) {
+function attributionListLabel(attribution, initiative) {
+  if (initiative) return `${initiative.name}${initiative.isActive ? '' : '（無効）'}`;
   if (!attribution) return '未設定';
   const source = attribution.acquisitionSourceName || (attribution.utmSource ? `獲得元未確定 / ${attribution.utmSource}` : '獲得元未確定');
   return attribution.utmCampaign ? `${source} / ${attribution.utmCampaign}` : source;
@@ -417,7 +418,10 @@ async function openCase(caseId) {
 async function loadCases() {
   setError('');
   try {
-    const { items } = await call('/sales-activities', 'GET');
+    const params = new URLSearchParams(location.search); const initiativeId = params.get('initiativeId');
+    const { items } = await call(`/sales-activities${initiativeId ? `?initiativeId=${encodeURIComponent(initiativeId)}` : ''}`, 'GET');
+    const filter = el('initiativeFilter');
+    if (initiativeId) { filter.hidden=false; filter.textContent='施策に該当する案件だけを表示しています。'; } else { filter.hidden=true; }
     const target = el('caseList'); target.replaceChildren();
     const kaizen = items.filter(item => item.selectedService === 'IT_KAIZEN');
     if (!kaizen.length) { target.textContent = '表示できる案件はありません。'; return; }
@@ -430,7 +434,7 @@ async function loadCases() {
       const action = document.createElement('button'); action.textContent = item.isDesignV2 ? designV2OperationLabel(item) : actionLabel;
       action.onclick = async () => { try { if (item.isDesignV2) await openDesignV2Case(item); else if (item.diagnosisCaseId) await openCase(item.diagnosisCaseId); else { const kase = await call(`/sales-activities/${item.id}/cases`, 'POST', {}); state.caseId=kase.id; state.version=kase.version; state.companyName=item.companyName; state.attribution=item.attribution; state.entryChannel='PROXY'; state.respondentRole='MANAGEMENT'; state.intakeStep=-1; state.intake={}; state.responseStates={}; state.caseStatus=kase.status; state.reachableSteps=reachableSteps(kase.status); renderIntakeForm(); showView('intake'); } } catch(e) { setError(String(e.message||e)); } };
       const customer = item.contactName ? `${item.companyName} / ${item.contactName}` : item.companyName;
-      const values = [customer, item.receivedAt ? new Date(item.receivedAt).toLocaleString('ja-JP') : '-', entry, status, actionLabel, attributionListLabel(item.attribution)];
+      const values = [customer, item.receivedAt ? new Date(item.receivedAt).toLocaleString('ja-JP') : '-', entry, status, actionLabel, attributionListLabel(item.attribution, item.marketingInitiative)];
       values.forEach((value, index) => { const cell=document.createElement('td'); cell.textContent=value; if(index===4)cell.className='next-action'; row.append(cell); });
       const operation=document.createElement('td'); operation.append(action); row.append(operation); body.append(row);
     }
