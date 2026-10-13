@@ -1,0 +1,24 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        docker network create test-case-035
+        docker run -d --name test-case-035-pg --network test-case-035 \
+          -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=sales_tools postgres:16-alpine
+        until docker run --rm --network test-case-035 postgres:16-alpine pg_isready -h test-case-035-pg -U postgres -d sales_tools; do sleep 1; done
+        docker run --rm --network test-case-035 -e PGPASSWORD=postgres postgres:16-alpine \
+          psql -h test-case-035-pg -U postgres -d sales_tools -v ON_ERROR_STOP=1 \
+          -c "CREATE ROLE sales_tools_migration LOGIN PASSWORD 'rehearsal-only';" \
+          -c "CREATE ROLE sales_tools_app;" \
+          -c "CREATE ROLE sales_tools_runtime;" \
+          -c "GRANT ALL ON DATABASE sales_tools TO sales_tools_migration;" \
+          -c "GRANT ALL ON SCHEMA public TO sales_tools_migration;"
+        docker run --rm --network test-case-035 -v /workspace:/workspace -w /workspace \
+          -e PGHOST=test-case-035-pg -e PGPORT=5432 -e RUN_TEST_CASE_MANAGEMENT_PG=1 node:20-bookworm \
+          bash -ceu "npm ci --no-audit --no-fund && node -r ts-node/register --test test/testCaseManagementReleasePackage.postgres.test.ts"
+        docker rm -f test-case-035-pg
+timeout: 1200s
+options:
+  logging: CLOUD_LOGGING_ONLY

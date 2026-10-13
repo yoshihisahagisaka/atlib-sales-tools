@@ -1,0 +1,41 @@
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: sales-tools-prod-test-case-management-v1-035-migration
+  annotations:
+    run.googleapis.com/launch-stage: BETA
+spec:
+  template:
+    spec:
+      taskCount: 1
+      template:
+        spec:
+          parallelism: 1
+          maxRetries: 0
+          timeoutSeconds: '600'
+          serviceAccountName: sales-tools-sa@msp-zabbix.iam.gserviceaccount.com
+          containers:
+            - image: MIGRATION_035_IMMUTABLE_IMAGE_DIGEST_REQUIRED
+              command: [node]
+              args: [dist/db/migrateCli.js]
+              volumeMounts:
+                - name: cloudsql
+                  mountPath: /cloudsql
+              env:
+                - name: DB_NAME
+                  value: sales_tools
+                - name: DB_MIGRATION_USER
+                  value: sales_tools_migration
+                - name: DB_SOCKET_PATH
+                  value: /cloudsql/msp-zabbix:asia-northeast1:msp-customer-portal-db
+                - name: MIGRATIONS_DIR
+                  value: /app/migrations
+                - name: DB_MIGRATION_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: sales-tools-production-migration-db-password
+                      key: latest
+          volumes:
+            - name: cloudsql
+              cloudSqlInstance:
+                instances: [msp-zabbix:asia-northeast1:msp-customer-portal-db]

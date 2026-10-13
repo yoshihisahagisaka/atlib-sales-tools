@@ -1,0 +1,36 @@
+{
+  "status": "APPROVED_FOR_ARTIFACT_GENERATION",
+  "environment": "production",
+  "database": "sales_tools",
+  "application_rc_sha": "db5107396374761ff777b991ae38accfe687e750",
+  "release_decision": {
+    "date": "2026-10-13",
+    "scope": "Build and inspect the dedicated Test Case Management v1 migration artifact and run rehearsal/read-only gates only.",
+    "migration_execution_authorized": false
+  },
+  "artifact_generation": {
+    "permitted": true,
+    "scope": "Artifact build/push and Job preparation only. Production migration execution, runtime deployment, allowlist configuration, and traffic changes are not authorized."
+  },
+  "baseline": {
+    "required_applied_once": [
+      "027_free_diagnosis_rule_based_v1.sql",
+      "028_free_diagnosis_current_design_v1_phase1_draft.sql",
+      "029_vs1_report_feedback_shared_artifacts.sql",
+      "030_sales_activity_marketing_attribution.sql",
+      "031_public_customer_self_submission.sql",
+      "032_sales_activity_referral_person_name.sql",
+      "033_free_diagnosis_design_v2_persistence.sql",
+      "034_marketing_initiative_v1.sql"
+    ],
+    "required_unapplied": ["035_it_management_test_case_designation.sql"],
+    "reject_migration_number_greater_than": 34
+  },
+  "migrations": [{
+    "order": 1,
+    "filename": "035_it_management_test_case_designation.sql",
+    "git_blob_id": "8c6e86bcd807281bf1995fee0f7bcb61b9501112",
+    "byte_count": 1703,
+    "sha256": "e93cc59066dbb6f19a02e4b80a7493ab519606c15b871e8f80a4d11620d2e6b7"
+  }]
+}
