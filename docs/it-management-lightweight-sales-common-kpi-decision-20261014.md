@@ -54,3 +54,12 @@ Dashboard is Sales Tools authenticated admin landing/portal, not an independent 
 ## Responsibility
 IT経営KAIZEN lane: shared KPI foundation, aggregation/API, portal, IT adapter and lightweight IT sales management.
 業務KAIZEN lane: its own diagnosis, customer/lead/stage/detail KPI and Common KPI adapter, plus final customer-list route.
+
+## Decision amendment — 2026-10-14: one proposal and one win amount per subject
+Status: APPROVED / IMPLEMENTATION PENDING
+- For the initial IT経営KAIZEN lightweight sales management, exactly one optional proposed amount and one optional won amount per canonical diagnosis Case. JPY ex-tax; NULL is not zero.
+- No multiple offers, service-line itemization, recurring billing breakdown, quote system, or CRM in MVP.
+- Proposal amount and won amount may differ; the approved proposal fact must remain available after a win.
+- This is a **service-specific MVP constraint**, not a restriction or rewrite of the Common KPI Foundation's CommercialEvent array, which remains capable of multiple events for other services or later extensions.
+- A manual stage change alone must not fabricate PROPOSED/WON events. Implementation must define the minimal explicit human confirmation and stable first-occurrence timestamps, with edit audit and non-duplicating KPI semantics. The amount field's edits must not silently create additional commercial events.
+- Existing decision and migration/Production approval gates remain unchanged.
