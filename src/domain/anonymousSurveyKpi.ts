@@ -8,7 +8,6 @@ export type KpiWindow = { startInclusive: string; endExclusive: string; label: s
 export type KpiWindowSet = Record<KpiWindowKey, KpiWindow>;
 
 const TOKYO_OFFSET_MS = 9 * 60 * 60 * 1000;
-const MONTH_MS = 0; // Month boundaries use UTC calendar arithmetic, never fixed day lengths.
 
 function japanMonthStartUtc(year: number, monthIndex: number): string {
   return new Date(Date.UTC(year, monthIndex, 1) - TOKYO_OFFSET_MS).toISOString();
