@@ -67,3 +67,20 @@ Status: APPROVED DESIGN / NOT IMPLEMENTED
 - The test-mode auth bridge, callback destination, cookie/CSRF handling, staff eligibility, and interaction with publicIntakeEnabled remain implementation Fit/Gap. Do not assume the existing public submissions endpoint is staff-authenticated.
 - Test acceptance: unauthenticated test URL, authenticated test start/complete, forged test flag, session expiry, duplicate event, normal URL regression, test submission case designation, no leakage into normal marketing/KPI metrics.
 - This approval does not authorize schema migration, code deploy or Production changes.
+
+## Auth source Fit/Gap — 2026-10-14
+Source inspected: src/routes/staffAuth.ts, src/middleware/staffAuth.ts, src/server.ts, src/config.ts at main d35581c.
+
+### FIT
+- Staff session is a verified HttpOnly staff_session cookie; production cookie Secure, SameSite=Lax, 24h max age.
+- requireStaffAuth middleware already supports authenticated admin routes and returns 401 JSON for /api/* without session, redirects other protected pages to login.
+- OAuth login/callback uses existing Google Workspace @atlib.jp identity verification, PKCE and OAuth state; no new identity provider or role framework is needed.
+- Existing /admin static routes are staff-auth guarded and the public intake route is separate; reuse these boundaries.
+
+### GAP and bounded resolution
+- /auth/login accepts returnTo only when it begins /admin/. The requested public-path test URL /it-management-kaizen/free-diagnosis/?test=1 is therefore not a valid OAuth return destination. Do not relax the global returnTo allowlist to arbitrary paths or add an open redirect.
+- Preferred narrow solution: add an authenticated **/admin/ test entry launcher** that verifies staff session and redirects internally to the requested test survey with a server-validated test context, while preserving the existing public route. Alternatively, allowlist only the exact test path with strict origin/path validation, after security review. Do not treat query test=1 as authentication.
+- Existing public POST /api/public/it-management-kaizen/free-diagnosis-v1/submissions has publicIntakeEnabled and rate limiting but no staff authentication; it must not accept a client-only isTest flag as authoritative. A dedicated staff-protected test submission endpoint or equivalent server-validated branch is required, with is_internal_test=true in the same transaction.
+- Telemetry ingestion must separate authenticated test events from public normal events on the server. Confirm test eligibility policy (all verified staff vs restricted test-case administrators), CSRF/origin, event token/idempotency and expiry before implementation.
+- Login return path, 401/302 behavior, expiration, test mode visibility, forged flag, and ordinary public survey regression are mandatory acceptance tests.
+- No existing auth code has been modified. No migration or Production deployment authorized.
