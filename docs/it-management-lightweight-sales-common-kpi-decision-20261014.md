@@ -114,3 +114,13 @@ Avoid duplicate data entry and two sources of truth; reduce implementation and m
 - Do not implement the previously proposed Common KPI Aggregation/API or IT Common KPI Adapter merely to power phase-1 widgets; reuse each service's existing summary API where possible, with a minimal read-only summary endpoint only if needed.
 - No shared commercial persistence, shared editable sales statuses, or forced unified customer table.
 - Prior docs-only decisions remain historical; this section has precedence where conflicting. Production migration/deploy remain separately gated and coordinated.
+
+## Decision amendment — 2026-10-14: shared portal is an information page
+Status: APPROVED / IMPLEMENTATION PENDING
+- Sales Tools shared landing is a **read-only information page** showing per-service KPI summaries, primarily counts by business status/milestone and clearly labeled conversion rates. It is not a search, filtering, editing or cross-service operations screen.
+- **No search bar, filters, inline editing, stage management, or amount entry on the shared page.** All these functions remain inside each service's own management UI.
+- Each service widget links to its service-owned management screen. No mandatory cross-service aggregation; initial display is side-by-side service widgets.
+- A service may show status counts and historical milestone counts, but labels must distinguish current-stage distribution from ever-reached milestone counts. Proposed count remains after a win. Do not treat NO_PAID_SERVICE_NEEDED_NOW as lost.
+- Rates must use a consistent same-subject cohort and explicit denominator. Undefined denominator -> em dash; unsupported metric -> N/A, unknown source -> unknown, confirmed zero -> 0.
+- Display period/default snapshot reference is a pending decision; **no user-facing period filter**. Any fixed reporting window must be labeled and agreed before release.
+- Service-specific KPI semantics and existing Common KPI Foundation stay authoritative; avoid invented totals or rates and duplicate entry.
