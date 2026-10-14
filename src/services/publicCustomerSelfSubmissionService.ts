@@ -33,6 +33,12 @@ export class PublicCustomerSelfSubmissionService {
     input: PublicCustomerSelfDesignV2Submission,
     context: { mode: 'PUBLIC' } | { mode: 'STAFF_TEST'; actor: string },
   ): Promise<{ caseId: string; created: boolean }> {
+    // The existing public-self consent table permits CUSTOMER_SELF provenance only.
+    // Staff simulation must not be persisted as a real customer consent.
+    // Fail closed until a separately approved test-provenance persistence path exists.
+    if (context.mode === 'STAFF_TEST') {
+      throw new RuleBasedV1Error(501, 'STAFF_TEST_PROVENANCE_NOT_IMPLEMENTED');
+    }
     const hash = payloadHash(input);
     const client = await this.pool.connect();
     try {
