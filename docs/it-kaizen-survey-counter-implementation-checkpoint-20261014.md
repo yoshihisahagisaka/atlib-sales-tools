@@ -50,3 +50,10 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - No attempt was made to wire a half-built counting route into server.ts: the numbered migration, staff-authenticated test flow, API acceptance tests and coordination with the Business KAIZEN lane remain gates.
 - The branch now uses aggregate-only counter domain semantics, but the browser's in-page counted flags still prevent repeated back-navigation within the same attempt, not repeated later visits.
 - Tests remain unexecuted because no complete repository build environment was available in this execution context. Do not claim CI pass or Production readiness.
+
+## Checkpoint — 2026-10-15: fiscal KPI summary from aggregate counts
+- Added src/domain/surveyMonthlySummary.ts to calculate current month, trailing three calendar months, current atLIB fiscal YTD, same elapsed months in prior fiscal year, and cumulative from instrumentation start. Fiscal year starts February 1.
+- Each period exposes count totals and measurement coverage (FULL_MONTHS, PARTIAL_MONTHS, NOT_MEASURED). Missing historical measurement is not represented as a genuine zero. The prior-year comparison is year-to-date vs the same months, not full prior fiscal year vs partial current year.
+- Added test/surveyMonthlySummary.golden.test.ts for fiscal boundaries, rolling sums, year-on-year comparison, zero denominator and absent historical coverage. Tests written but not executed.
+- This summary is a pure service-owned function; no common KPI input, no person tracking, and no cross-service aggregation. No endpoint, DB migration or Production change was made in this checkpoint.
+- Important remaining detail: coverage is currently month-granular. If instrumentation starts mid-month, the UI must disclose the exact start date and mark that first month partial. Do not claim complete-month coverage based on YYYY-MM alone.
