@@ -1,0 +1,39 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { buildJapanKpiWindows, countAnonymousEvents, inKpiWindow, periodVolumeRatio } from '../src/domain/anonymousSurveyKpi';
+
+test('Japan calendar windows use JST midnight and a shared as-of instant', () => {
+  const w = buildJapanKpiWindows('2026-10-14T11:00:00.000Z', '2026-09-20T00:00:00.000Z');
+  assert.equal(w.currentMonth.startInclusive, '2026-09-30T15:00:00.000Z');
+  assert.equal(w.trailingThreeMonths.startInclusive, '2026-07-31T15:00:00.000Z');
+  assert.equal(w.cumulative.startInclusive, '2026-09-20T00:00:00.000Z');
+  assert.equal(w.currentMonth.endExclusive, w.cumulative.endExclusive);
+  assert.equal(inKpiWindow('2026-09-30T14:59:59.999Z', w.currentMonth), false);
+  assert.equal(inKpiWindow('2026-09-30T15:00:00.000Z', w.currentMonth), true);
+});
+
+test('cross-year trailing three months and coverage guard', () => {
+  const w = buildJapanKpiWindows('2027-01-02T00:00:00.000Z', '2026-09-01T00:00:00.000Z');
+  assert.equal(w.trailingThreeMonths.startInclusive, '2026-10-31T15:00:00.000Z');
+  assert.throws(() => buildJapanKpiWindows('2026-01-01T00:00:00Z', '2026-02-01T00:00:00Z'), /COVERAGE_AFTER_AS_OF/);
+});
+
+test('deduplicate anonymous starts/completions and exclude tests', () => {
+  const w = buildJapanKpiWindows('2026-10-14T11:00:00.000Z', '2026-10-01T00:00:00.000Z').currentMonth;
+  const at = '2026-10-12T00:00:00.000Z';
+  assert.deepEqual(countAnonymousEvents([
+    {surveyInstanceId:'a',eventType:'SURVEY_STARTED',occurredAt:at,isTest:false},
+    {surveyInstanceId:'a',eventType:'SURVEY_STARTED',occurredAt:at,isTest:false},
+    {surveyInstanceId:'a',eventType:'SURVEY_COMPLETED',occurredAt:at,isTest:false},
+    {surveyInstanceId:'b',eventType:'SURVEY_STARTED',occurredAt:at,isTest:true},
+    {surveyInstanceId:'b',eventType:'SURVEY_COMPLETED',occurredAt:at,isTest:true},
+    {surveyInstanceId:'c',eventType:'SURVEY_COMPLETED',occurredAt:'2026-09-01T00:00:00.000Z',isTest:false},
+  ], w), {started:1,completed:1});
+});
+
+test('period volume ratios preserve undefined and may exceed 100 percent', () => {
+  assert.equal(periodVolumeRatio(30, 100), 0.3);
+  assert.equal(periodVolumeRatio(3, 2), 1.5);
+  assert.equal(periodVolumeRatio(0, 0), null);
+  assert.throws(() => periodVolumeRatio(-1, 2), /INVALID_COUNT/);
+});
