@@ -94,3 +94,13 @@ Status: PARTIAL CODE IMPLEMENTED / NOT INTEGRATED / TESTS NOT EXECUTED
 - No route, migration, database write, public survey UI instrumentation, test-mode login bridge, or summary API has been implemented. A caller cannot yet record events in Production.
 - The event contract is a code-level validation boundary, **not** a completed privacy guarantee: UTM values require sanitization/data minimization review and the ingestion route must separately apply rate limiting, same-origin/CSRF policy, staff authentication and bot/test treatment.
 - Before event persistence: approve raw event retention and deletion, anonymous token lifetime, QA traffic exclusion, and migration sequencing with the Business KAIZEN lane. No Production change authorization is implied.
+
+## Implementation review — 2026-10-14: reporting coverage and retention dependency
+Status: CODE ADJUSTED / TESTS WRITTEN BUT NOT EXECUTED / PERSISTENCE BLOCKED ON DECISION
+
+- Fixed src/domain/anonymousSurveyKpi.ts so current-month and trailing-three-month windows cannot begin before a metric's instrumentation coverageStart. The previous implementation labeled the calendar window even when early days were unmeasured.
+- Added a regression test for instrumentation starting mid-month. The shared information page must visibly label incomplete coverage rather than present partial data as a full-month trend.
+- **Retention design dependency:** a one-year raw-event retention proposal and a cumulative KPI are not simultaneously sufficient without a retained aggregate or other approved long-term count source. Deleting raw events after one year would cause cumulative figures to shrink. Before any migration, choose and approve the raw retention duration, long-lived aggregate policy (including whether counts are keyed by month and UTM), and retention/deletion mechanism. No retention choice is implied by this code.
+- For cumulative rates, disclose each metric's measurement start and ensure numerator/denominator coverage is comparable; otherwise show unavailable/partial coverage rather than a misleading rate.
+- Existing Case test designation cannot retroactively classify anonymous pre-application events. The approved authenticated test URL remains the source of server-validated anonymous test designation.
+- No API, DB schema, migration or production deployment is created by this checkpoint.
