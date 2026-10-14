@@ -1,22 +1,25 @@
 import { Router } from 'express';
-import type { Request } from 'express';
+import { mayCreateTestSurveyCase } from '../domain/staffSurveyTestAuthorization';
 
 /**
- * Staff test eligibility endpoint, to be mounted ONLY behind existing
- * adminAuthGate. This does not activate the public survey or create a Case.
- *
- * Existing test-case administration allowlist is intentionally distinct from
- * staff authentication. This endpoint confirms a staff session, not permission
- * to modify the designation of an existing production Case.
+ * This endpoint is not mounted yet. Existing adminAuthGate must run first.
+ * Authorization is tied to the existing test-case designation administrator
+ * allowlist, not to any arbitrary authenticated staff session.
  */
-export function createStaffSurveyTestEligibilityRouter(): Router {
+export function createStaffSurveyTestEligibilityRouter(
+  testCaseAdminEmails: ReadonlySet<string> = new Set(),
+): Router {
   const router = Router();
-  router.get('/eligibility', (req: Request, res) => {
+  router.get('/eligibility', (req, res) => {
     if (!req.staffEmail) {
       res.status(401).json({ error: 'STAFF_AUTH_REQUIRED' });
       return;
     }
     res.setHeader('Cache-Control', 'no-store');
+    if (!mayCreateTestSurveyCase(req.staffEmail, testCaseAdminEmails)) {
+      res.status(403).json({ error: 'TEST_CASE_ADMIN_REQUIRED' });
+      return;
+    }
     res.json({
       staffTestEligible: true,
       surveyTestModeAvailable: false,
