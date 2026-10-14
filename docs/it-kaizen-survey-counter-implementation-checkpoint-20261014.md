@@ -35,3 +35,10 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Staff test-mode entry and authenticated route are still missing. The current route only covers normal traffic and cannot authorize a test.
 - Counter schema remains a non-numbered draft. No DB migration applied, no API wired, no UI instrumented, no automated tests run. Do not merge/release as a complete feature.
 - Technical follow-up: verify PostgreSQL privileges and concurrency; make sure failed telemetry does not block questionnaire flow; ensure app startup does not depend on the uncreated table; ensure full source/UTM validation and rate limiter order.
+
+## Checkpoint — 2026-10-14: browser instrumentation (branch only)
+- Modified public/it-management-kaizen/free-diagnosis/app.js on the isolated branch. STARTED fires on the valid start-button transition; COMPLETED fires on the first successful final-question transition. Back-navigation in the same page instance does not recount completion. A fresh page attempt may count again; there is no persistent person deduplication.
+- Counting uses a non-blocking fetch to /api/public/it-management-kaizen/survey-counter/count, sending kind and UTM5 only. Failure does not block the survey or application. The server route exists in source but is NOT mounted; no count will persist until schema and integration gates pass.
+- The ?test=1 URL currently displays an explicit **not yet available** message and does not proceed to a normal application or normal KPI counter. This is a temporary fail-closed branch behavior, NOT completion of authenticated staff test mode. Existing /auth/login returnTo restrictions still require the approved bridge.
+- This branch is NOT release-ready: no test route, migration, server wiring, full integration tests or Production release. Do not merge or deploy until staff-test application creation is safe and QA completed.
+- The earlier experimental event-ledger code remains to be removed/replaced before merge.
