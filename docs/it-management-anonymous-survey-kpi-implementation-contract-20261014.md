@@ -146,3 +146,12 @@ Status: APPROVED / IMPLEMENTATION PENDING
 - A browser navigating backward within the same attempt and re-displaying the completion screen is not a new completed attempt. Starting a genuinely new attempt counts again.
 - No respondent identity, applicant linkage, survey answers or persistent per-attempt event ledger in the KPI storage. The authoritative business data is aggregated counts.
 - The previous deduplication-oriented event-domain code is exploratory and **not** the approved counter implementation. Remove or replace it before production integration, rather than silently shipping a contradictory architecture.
+
+## Implementation checkpoint — 2026-10-14: aggregate-only counter domain
+Status: PARTIAL CODE / NOT INTEGRATED / TESTS NOT EXECUTED
+- Added src/domain/surveyMonthlyCounter.ts: server-side JST year-month, STARTED/COMPLETED counter mapping, normal/test decision boundary, aggregate-only count combination.
+- Added test/surveyMonthlyCounter.golden.test.ts: JST month rollover, limiter/test behavior, distinct counter kinds, aggregate counts.
+- No event persistence, survey-instance identity, personal data or respondent linkage in the new counter contract.
+- Prior src/domain/anonymousSurveyEventContract.ts and test remain in branch as superseded experimental code; they must be removed or excluded before merge. They do not authorize an event ledger.
+- Still missing: schema with atomic upsert, attribution normalization, route with existing limiter and authenticated staff test path, public UI transitions, summary API, automated test execution, migration conflict check with Business KAIZEN.
+- No Production changes.
