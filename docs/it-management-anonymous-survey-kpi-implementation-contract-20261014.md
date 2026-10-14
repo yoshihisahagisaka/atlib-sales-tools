@@ -128,3 +128,12 @@ Status: APPROVED / IMPLEMENTATION PENDING
 - No persistent anonymous respondent identity, person-level deduplication, applicant linkage or long-lived event ledger is required. Store monthly numeric counters by service and attribution bucket; exclude server-authenticated test mode from normal counts.
 - Technical HTTP retry/abuse protection is distinct from business-level person deduplication and must not change the approved metric semantics. Earlier contract/code language requiring a unique person or one count per long-lived survey-instance identity is superseded.
 - Display conversion ratios as period-volume reference ratios, not individual conversion probabilities.
+
+## Approved security reuse — 2026-10-14
+Status: APPROVED / IMPLEMENTATION PENDING
+- For the new survey STARTED / COMPLETED counting API, reuse the existing src/middleware/rateLimit.ts createIpRateLimiter and its IP-based fixed-window, in-memory approach. Do not introduce CAPTCHA, a new bot product, unique-person detection, or a durable per-attempt event ledger solely for KPI.
+- Existing public submission route currently uses 5 requests/hour/IP, but that limit is specific to the submission endpoint. Choose and test a telemetry-appropriate threshold separately because one ordinary survey attempt makes at least two telemetry calls. The **middleware implementation** is approved for reuse, not an unreviewed copy of its numerical threshold.
+- A request blocked with HTTP 429 or failing payload validation must not increment counters. Valid accepted requests increment atomic monthly/service/initiative started or completed counters. Multiple intentional attempts count as multiple uses.
+- Existing limiter's in-memory counters are per Cloud Run instance and do not provide a global distributed guarantee; this is an accepted limitation of reusing the current lightweight approach. Do not claim comprehensive bot prevention.
+- Confirm route-specific limiter attachment, trust proxy handling, publicIntakeEnabled applicability, staff test authentication, and no regression to the existing /submissions endpoint before release.
+- This approval does not authorize Production schema changes or deploy.
