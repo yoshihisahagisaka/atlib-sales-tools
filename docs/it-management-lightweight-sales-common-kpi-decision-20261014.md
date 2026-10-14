@@ -63,3 +63,13 @@ Status: APPROVED / IMPLEMENTATION PENDING
 - This is a **service-specific MVP constraint**, not a restriction or rewrite of the Common KPI Foundation's CommercialEvent array, which remains capable of multiple events for other services or later extensions.
 - A manual stage change alone must not fabricate PROPOSED/WON events. Implementation must define the minimal explicit human confirmation and stable first-occurrence timestamps, with edit audit and non-duplicating KPI semantics. The amount field's edits must not silently create additional commercial events.
 - Existing decision and migration/Production approval gates remain unchanged.
+
+## Decision amendment — 2026-10-14: compact sales ledger UX
+Status: APPROVED / IMPLEMENTATION PENDING
+- IT経営KAIZEN sales management uses a **separate compact, spreadsheet-like, one-row-per-subject ledger**, not a large card/form and not a replacement for the existing diagnosis operations screen.
+- Clicking the company/subject navigates to the existing diagnosis detail; clicking stage/proposal amount/won amount edits that cell inline. Keep row height approximately 36–40px in resting state, targeting about 20 visible rows on a typical desktop where practical. No multiline workflow explanations in table rows.
+- Compact search/filter bar: company keyword, sales stage, marketing initiative, accepted-date range, self/staff entry channel, normal/test/all; newest/oldest sort. Search/filter **on the entire matching DB dataset**, not only the existing 100-row client result. Paginate with stable ordering and display total matching count.
+- KPI drill-down must preserve filter semantics to the underlying canonical subject list. Reuse existing auth guard, UTM attribution and test-case designation; do not mix test cases into normal KPIs.
+- Inline edits persist only after explicit change confirmation; first human-confirmed proposal/win requires minimal confirmation, audit and stable first-reached time; do not create events merely because stage text changes. Failed writes restore original UI values and show an error.
+- Search and ledger are not a CRM: no detailed activities, opportunity forecast, invoices, or multiple proposals. Business KAIZEN continues to own its independent list and adapter.
+- Route, exact column set, query API, index/migration needs and performance acceptance remain implementation Fit/Gap; no Production changes authorized.
