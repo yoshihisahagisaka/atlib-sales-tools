@@ -10,6 +10,30 @@ import { surveyAttributionBucket } from '../domain/surveyCounterAttribution';
 export class SurveyMonthlyCounterRepo {
   constructor(private readonly pool: Pool) {}
 
+  /**
+   * Resolve an existing active IT marketing initiative at count time.
+   * Exact five-UTM equality mirrors Marketing Initiative v1.
+   * The resolved ID is stored in the aggregate; deactivation never remaps history.
+   */
+  async resolveInitiativeId(utm: {
+    source: string | null; medium: string | null; campaign: string | null;
+    content: string | null; term: string | null;
+  }): Promise<string | null> {
+    const { rows } = await this.pool.query<{ initiative_id: string }>(
+      `SELECT initiative_id FROM marketing_initiative
+       WHERE service_key='IT_KAIZEN' AND is_active=true
+         AND utm_source IS NOT DISTINCT FROM $1::text
+         AND utm_medium IS NOT DISTINCT FROM $2::text
+         AND utm_campaign IS NOT DISTINCT FROM $3::text
+         AND utm_content IS NOT DISTINCT FROM $4::text
+         AND utm_term IS NOT DISTINCT FROM $5::text
+       LIMIT 2`,
+      [utm.source, utm.medium, utm.campaign, utm.content, utm.term],
+    );
+    if (rows.length > 1) throw new Error('AMBIGUOUS_INITIATIVE');
+    return rows[0]?.initiative_id ?? null;
+  }
+
   async increment(input: {
     kind: SurveyCountKind;
     initiativeId: string | null;
