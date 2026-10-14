@@ -84,3 +84,13 @@ Source inspected: src/routes/staffAuth.ts, src/middleware/staffAuth.ts, src/serv
 - Telemetry ingestion must separate authenticated test events from public normal events on the server. Confirm test eligibility policy (all verified staff vs restricted test-case administrators), CSRF/origin, event token/idempotency and expiry before implementation.
 - Login return path, 401/302 behavior, expiration, test mode visibility, forged flag, and ordinary public survey regression are mandatory acceptance tests.
 - No existing auth code has been modified. No migration or Production deployment authorized.
+
+## Implementation checkpoint — 2026-10-14
+Status: PARTIAL CODE IMPLEMENTED / NOT INTEGRATED / TESTS NOT EXECUTED
+
+- Added src/domain/anonymousSurveyKpi.ts: pure JST reporting windows, per-window event counts with test exclusion and anonymous instance deduplication, period volume ratio with null on zero denominator.
+- Added src/domain/anonymousSurveyEventContract.ts: strict input validation, no applicant identity or answers, and trusted server-side PUBLIC / STAFF_TEST designation.
+- Added test/anonymousSurveyKpi.golden.test.ts and test/anonymousSurveyEventContract.test.ts: source tests written, not yet executed in a fully installed repository.
+- No route, migration, database write, public survey UI instrumentation, test-mode login bridge, or summary API has been implemented. A caller cannot yet record events in Production.
+- The event contract is a code-level validation boundary, **not** a completed privacy guarantee: UTM values require sanitization/data minimization review and the ingestion route must separately apply rate limiting, same-origin/CSRF policy, staff authentication and bot/test treatment.
+- Before event persistence: approve raw event retention and deletion, anonymous token lifetime, QA traffic exclusion, and migration sequencing with the Business KAIZEN lane. No Production change authorization is implied.
