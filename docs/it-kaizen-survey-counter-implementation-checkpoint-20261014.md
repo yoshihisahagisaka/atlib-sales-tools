@@ -96,3 +96,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Migration 033 allows entry_channel CUSTOMER_SELF or STAFF_PROXY.
 - The branch's staff-test simulation still records CUSTOMER_SELF consent provenance. Do not activate this flow until test provenance semantics are resolved.
 - The existing test designation audit is separate from consent provenance. No schema change or Production release was made.
+
+## 2026-10-15 Fixed test URL authentication handoff
+- The public ?test=1 page now links to /admin/it-survey-test-launcher.html rather than /auth/login directly.
+- Added a protected admin static launcher, served under the existing /admin authentication gate. Unauthenticated staff should follow the existing login returnTo flow. The launcher intentionally does not enable testing yet.
+- Added source contract test for the fixed query parameter, protected launcher and OAuth returnTo restriction. Not executed.
+- No public survey test submission is enabled. Consent provenance and staff-test route remain unresolved; do not deploy.
