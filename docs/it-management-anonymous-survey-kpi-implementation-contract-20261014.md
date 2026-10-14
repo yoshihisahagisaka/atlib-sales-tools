@@ -119,3 +119,12 @@ This section takes precedence over earlier proposals in this document requiring 
 - Month-end reconciliation and retention of aggregated numeric counts must be deterministic and non-destructive.
 - Prior code src/domain/anonymousSurveyEventContract.ts and countAnonymousEvents helper were built against the now-superseded event-ledger concept. They are not approved persistence architecture and must be reviewed/replaced before merging.
 - No migration, deployment or Production traffic change is authorized by this decision.
+
+## Approved clarification — 2026-10-14: attempts, not unique persons
+Status: APPROVED / IMPLEMENTATION PENDING
+- The business metric is **アンケート開始回数** and **アンケート完了回数**, not unique respondent count.
+- The same person intentionally starting and completing another new survey attempt counts again; that is a valid use, not a duplicate to be deduplicated by identity.
+- Count a deliberate start-button transition as one start and the first successful final-answer completion within that attempt as one completion. Returning to revise answers in the same attempt is not another completion; an explicitly new attempt may count again.
+- No persistent anonymous respondent identity, person-level deduplication, applicant linkage or long-lived event ledger is required. Store monthly numeric counters by service and attribution bucket; exclude server-authenticated test mode from normal counts.
+- Technical HTTP retry/abuse protection is distinct from business-level person deduplication and must not change the approved metric semantics. Earlier contract/code language requiring a unique person or one count per long-lived survey-instance identity is superseded.
+- Display conversion ratios as period-volume reference ratios, not individual conversion probabilities.
