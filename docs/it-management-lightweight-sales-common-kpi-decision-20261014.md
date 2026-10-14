@@ -134,3 +134,18 @@ Status: APPROVED / IMPLEMENTATION PENDING. Supersedes the earlier pending period
 - Commercial conversion rates use same-subject entry cohort, never divide unrelated period activity totals. Keep source coverage/measurement-start metadata visible when windows have different coverage; do not backfill uninstrumented history or show missing as zero.
 - Zero denominator displays em dash, not 0%. Actual 0, unsupported metric, and unknown data remain distinct.
 - For each metric, cumulative means cumulative **from its available instrumentation start**; avoid comparing cumulative rates with different start dates as though coverage were identical.
+
+## Decision amendment — 2026-10-14: shared KPI panel implementation
+Status: APPROVED / IMPLEMENTATION PENDING
+
+- Implement the Sales Tools shared information page using the existing server-rendered/static HTML, CSS, browser JavaScript and authenticated Express API infrastructure. Do not introduce a widget product, iframe composition, React SPA or BI service.
+- Each service owns its KPI calculation, semantics and canonical source. The shared page fetches **read-only service-specific summary responses** and renders panels; it must not calculate business events or write status/amount fields.
+- Phase 1 panels: IT経営KAIZEN and 業務KAIZEN. Each displays its own supported counts and rates for fixed windows: current month, trailing three calendar months inclusive, and cumulative since instrumentation start (Asia/Tokyo boundaries). Missing, unsupported and true zero must be distinguishable.
+- No common search/filter controls, period selector, inline edits, common CRM or cross-service totals. Link each panel to its service's own management screen; 業務KAIZEN destination route is owned by that service and is pending handoff.
+- Isolate panel loading failures: a failing service summary must not prevent other service panels from rendering. Avoid interpreting failed API requests as zero.
+- Keep public / and existing protected /admin route semantics intact. Determine the actual authenticated landing URL before editing routing; reuse existing staff authentication/IP guard.
+- Prefer reuse of each service's existing KPI API. Add a small read-only summary endpoint only when actual source Fit/Gap shows it necessary; do not build a shared KPI database or generic adapter merely for panel rendering.
+- Anonymous survey start/completion events are service-owned and must not contain applicant identity or survey answers. Count completion only once per temporary anonymous survey instance. Do not imply identity-level conversion between anonymous events and application records.
+- This decision supersedes prior assumptions that shared dashboard must implement common KPI aggregation/API or use common writable commercial records in Phase 1.
+- Required pre-implementation checks: service KPI response contracts, supported labels, metric coverage start, refresh/error states, route/auth behavior, test-case exclusion, drill-through links and regression boundaries.
+- No migration, production writes, Cloud Build, deploy or traffic change authorized by this documentation decision.
