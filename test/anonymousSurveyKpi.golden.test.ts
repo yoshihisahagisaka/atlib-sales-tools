@@ -37,3 +37,11 @@ test('period volume ratios preserve undefined and may exceed 100 percent', () =>
   assert.equal(periodVolumeRatio(0, 0), null);
   assert.throws(() => periodVolumeRatio(-1, 2), /INVALID_COUNT/);
 });
+
+test('new instrumentation clamps current and three-month windows to actual coverage', () => {
+  const w = buildJapanKpiWindows('2026-10-14T11:00:00.000Z', '2026-10-10T02:30:00.000Z');
+  assert.equal(w.currentMonth.startInclusive, '2026-10-10T02:30:00.000Z');
+  assert.equal(w.trailingThreeMonths.startInclusive, '2026-10-10T02:30:00.000Z');
+  assert.equal(w.cumulative.startInclusive, '2026-10-10T02:30:00.000Z');
+  assert.equal(inKpiWindow('2026-10-09T23:59:59.999Z', w.currentMonth), false);
+});
