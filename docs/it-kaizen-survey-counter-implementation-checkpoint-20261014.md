@@ -57,3 +57,11 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Added test/surveyMonthlySummary.golden.test.ts for fiscal boundaries, rolling sums, year-on-year comparison, zero denominator and absent historical coverage. Tests written but not executed.
 - This summary is a pure service-owned function; no common KPI input, no person tracking, and no cross-service aggregation. No endpoint, DB migration or Production change was made in this checkpoint.
 - Important remaining detail: coverage is currently month-granular. If instrumentation starts mid-month, the UI must disclose the exact start date and mark that first month partial. Do not claim complete-month coverage based on YYYY-MM alone.
+
+## Checkpoint — 2026-10-15: source review and route tests
+- Verified main d35581c, feature head, and numbered migrations 030-036 in main. This does not prove that a concurrent Business KAIZEN worktree has not reserved the next number. Keep the SQL as unnumbered draft until explicit coordination.
+- Corrected a literal escaped newline in src/domain/surveyMonthlySummary.ts that would have broken TypeScript compilation.
+- Corrected publicSurveyCounter malformed UTM handling: invalid UTM is a client 400, not an unavailable-backend 503.
+- Added test/publicSurveyCounter.api.test.ts covering repeated accepted attempts, strict payload validation, forged test flag, disabled intake and reuse of the IP limiter. These are source tests; **not executed**.
+- The route is still intentionally unmounted. The test URL remains fail-closed and staff authentication/normal-vs-test separation is not complete.
+- Before integration, verify origin/CSRF and the actual existing perimeter controls, the effective rate-limit setting, DB privileges and concurrency, missing month coverage and telemetry outage behavior. Production readiness and CI status remain unverified.
