@@ -42,3 +42,11 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - The ?test=1 URL currently displays an explicit **not yet available** message and does not proceed to a normal application or normal KPI counter. This is a temporary fail-closed branch behavior, NOT completion of authenticated staff test mode. Existing /auth/login returnTo restrictions still require the approved bridge.
 - This branch is NOT release-ready: no test route, migration, server wiring, full integration tests or Production release. Do not merge or deploy until staff-test application creation is safe and QA completed.
 - The earlier experimental event-ledger code remains to be removed/replaced before merge.
+
+## Checkpoint — 2026-10-14: remove superseded anonymous event design
+- Removed src/domain/anonymousSurveyEventContract.ts and test/anonymousSurveyEventContract.test.ts from this branch; they enforced per-survey-instance identity and contradicted the approved monthly numeric counter architecture.
+- Removed countAnonymousEvents (surveyInstanceId Set-based deduplication) from src/domain/anonymousSurveyKpi.ts and its corresponding test. Retained JST window and period-volume ratio helpers.
+- These deletions apply to the isolated feature branch only, not main or Production.
+- No attempt was made to wire a half-built counting route into server.ts: the numbered migration, staff-authenticated test flow, API acceptance tests and coordination with the Business KAIZEN lane remain gates.
+- The branch now uses aggregate-only counter domain semantics, but the browser's in-page counted flags still prevent repeated back-navigation within the same attempt, not repeated later visits.
+- Tests remain unexecuted because no complete repository build environment was available in this execution context. Do not claim CI pass or Production readiness.
