@@ -124,3 +124,13 @@ Status: APPROVED / IMPLEMENTATION PENDING
 - Rates must use a consistent same-subject cohort and explicit denominator. Undefined denominator -> em dash; unsupported metric -> N/A, unknown source -> unknown, confirmed zero -> 0.
 - Display period/default snapshot reference is a pending decision; **no user-facing period filter**. Any fixed reporting window must be labeled and agreed before release.
 - Service-specific KPI semantics and existing Common KPI Foundation stay authoritative; avoid invented totals or rates and duplicate entry.
+
+## Decision amendment — 2026-10-14: fixed reporting windows
+Status: APPROVED / IMPLEMENTATION PENDING. Supersedes the earlier pending period decision.
+- Sales Tools shared read-only information page displays **three fixed windows side by side**: current calendar month (month start to now), trailing three calendar months inclusive of current month (start of month two months before to now), and cumulative since each metric's measurable start date.
+- No period picker, search, or filters on the shared page. Each service widget shows counts and clearly labeled rates, and links to service-owned detail management.
+- Time zone for business calendar boundaries: Asia/Tokyo; timestamps remain absolute in persistence. Use a consistent snapshot/as-of instant for all three windows within a refresh.
+- Anonymous survey started/completed: count event occurrences within each window, with deduplication per anonymous temporary survey instance; no identity link to applicant. Applications are counted from accepted canonical cases; diagnosis performed from an independently verified source. These anonymous-to-application ratios are **period volume ratios**, not person-level or case cohort conversions, and may exceed 100% due to cross-period timing or repeats. Label them accordingly.
+- Commercial conversion rates use same-subject entry cohort, never divide unrelated period activity totals. Keep source coverage/measurement-start metadata visible when windows have different coverage; do not backfill uninstrumented history or show missing as zero.
+- Zero denominator displays em dash, not 0%. Actual 0, unsupported metric, and unknown data remain distinct.
+- For each metric, cumulative means cumulative **from its available instrumentation start**; avoid comparing cumulative rates with different start dates as though coverage were identical.
