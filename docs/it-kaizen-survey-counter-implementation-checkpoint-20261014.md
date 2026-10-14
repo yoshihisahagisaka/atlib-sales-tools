@@ -65,3 +65,10 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Added test/publicSurveyCounter.api.test.ts covering repeated accepted attempts, strict payload validation, forged test flag, disabled intake and reuse of the IP limiter. These are source tests; **not executed**.
 - The route is still intentionally unmounted. The test URL remains fail-closed and staff authentication/normal-vs-test separation is not complete.
 - Before integration, verify origin/CSRF and the actual existing perimeter controls, the effective rate-limit setting, DB privileges and concurrency, missing month coverage and telemetry outage behavior. Production readiness and CI status remain unverified.
+
+## Checkpoint — 2026-10-15: staff test authorization boundary
+- Reviewed PublicCustomerSelfSubmissionService on main d35581c: the current public submit path explicitly creates the Case with isInternalTest=false. Reusing it for authenticated test URL would contaminate normal Case KPIs. Do NOT activate the test URL by simply bypassing the client guard.
+- Reviewed FreeDiagnosisRuleBasedCaseRepo.createCase(..., isInternalTest=true default) and existing test-case designation governance. A dedicated trusted test submission path must create the Case as test in the same transaction, with auditable staff provenance; preserve public idempotency behavior and do not allow a client flag to choose test status.
+- Added unmounted src/routes/adminSurveyTestEligibility.ts and its API tests. It requires req.staffEmail and explicitly returns surveyTestModeAvailable=false while the test submission flow is incomplete. This is a safe integration seam, not a functioning test URL.
+- Existing /auth/login only accepts /admin/ returnTo. Authenticated launcher /admin/ is still needed; do not globally relax OAuth redirect validation.
+- Tests added but not run. No numbered migration, server mount, DB write or Production change.
