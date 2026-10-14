@@ -24,9 +24,12 @@ export function buildJapanKpiWindows(asOfIso: string, coverageStartIso: string):
   const m = japan.getUTCMonth();
   // End is exclusive; one millisecond after asOf includes events at the snapshot instant.
   const endExclusive = new Date(asOf.getTime() + 1).toISOString();
+  // A newly instrumented metric must not claim coverage before instrumentation began.
+  const effectiveStart = (calendarStart: string): string =>
+    new Date(Math.max(Date.parse(calendarStart), coverage.getTime())).toISOString();
   return {
-    currentMonth: { startInclusive: japanMonthStartUtc(y, m), endExclusive, label: '今月' },
-    trailingThreeMonths: { startInclusive: japanMonthStartUtc(y, m - 2), endExclusive, label: '過去3か月' },
+    currentMonth: { startInclusive: effectiveStart(japanMonthStartUtc(y, m)), endExclusive, label: '今月' },
+    trailingThreeMonths: { startInclusive: effectiveStart(japanMonthStartUtc(y, m - 2)), endExclusive, label: '過去3か月' },
     cumulative: { startInclusive: coverage.toISOString(), endExclusive, label: '累計（計測開始以降）' },
   };
 }
