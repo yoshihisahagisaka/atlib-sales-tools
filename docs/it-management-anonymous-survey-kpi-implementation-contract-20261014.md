@@ -137,3 +137,12 @@ Status: APPROVED / IMPLEMENTATION PENDING
 - Existing limiter's in-memory counters are per Cloud Run instance and do not provide a global distributed guarantee; this is an accepted limitation of reusing the current lightweight approach. Do not claim comprehensive bot prevention.
 - Confirm route-specific limiter attachment, trust proxy handling, publicIntakeEnabled applicability, staff test authentication, and no regression to the existing /submissions endpoint before release.
 - This approval does not authorize Production schema changes or deploy.
+
+## Business rationale confirmed — 2026-10-14: repeated use is meaningful
+Status: APPROVED / IMPLEMENTATION PENDING
+- A person may try the questionnaire, defer the application, and return days or weeks later to try it again before eventually applying. These are meaningful separate usage actions, not necessarily duplicate or abusive traffic.
+- KPI measures accepted **start actions and completed attempts**, not distinct people. Do not suppress later valid attempts by IP, browser identity or long-lived token.
+- The existing IP fixed-window limiter is a technical safeguard against bursts, not a business-level uniqueness rule. Accepted valid counting requests increment monthly totals; rejected requests do not.
+- A browser navigating backward within the same attempt and re-displaying the completion screen is not a new completed attempt. Starting a genuinely new attempt counts again.
+- No respondent identity, applicant linkage, survey answers or persistent per-attempt event ledger in the KPI storage. The authoritative business data is aggregated counts.
+- The previous deduplication-oriented event-domain code is exploratory and **not** the approved counter implementation. Remove or replace it before production integration, rather than silently shipping a contradictory architecture.
