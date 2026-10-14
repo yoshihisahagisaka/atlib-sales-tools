@@ -51,17 +51,3 @@ export function periodVolumeRatio(numerator: number, denominator: number): numbe
   return denominator === 0 ? null : numerator / denominator;
 }
 
-/** Count each anonymous survey instance at most once per event type in each period. */
-export function countAnonymousEvents(
-  events: ReadonlyArray<{ surveyInstanceId: string; eventType: 'SURVEY_STARTED' | 'SURVEY_COMPLETED'; occurredAt: string; isTest: boolean }>,
-  window: KpiWindow,
-): { started: number; completed: number } {
-  const started = new Set<string>();
-  const completed = new Set<string>();
-  for (const event of events) {
-    if (event.isTest || !inKpiWindow(event.occurredAt, window)) continue;
-    if (event.eventType === 'SURVEY_STARTED') started.add(event.surveyInstanceId);
-    if (event.eventType === 'SURVEY_COMPLETED') completed.add(event.surveyInstanceId);
-  }
-  return { started: started.size, completed: completed.size };
-}
