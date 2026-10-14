@@ -92,3 +92,25 @@ Evidence: src/services/publicCustomerSelfSubmissionService.ts and src/services/s
 - Thus for the Design v2 initial common KPI mapping, an accepted subject is a canonical diagnosis Case with a committed original survey snapshot, not any Sales Activity row or a provisional Case. ENTRY_ACCEPTED.firstReachedAt candidate = original survey submitted_at. Confirm source timestamp consistency and historical coverage with contract tests before implementation.
 - Existing Sales Activity list includes records without a Case and must not be blindly reused as the accepted-entry cohort.
 - Legacy v1 / incomplete cases need separate explicit mapping or exclusion, not guessed timestamps. Distinguish commercial manual stage from actual human-confirmed event, preserving 1 proposed amount and 1 won amount per Case.
+
+## Superseding architecture decision — 2026-10-14: service-owned sales ledger vs shared read-only portal
+Status: APPROVED. Supersedes any earlier implication that shared KPI dashboard owns manual sales-stage or amount entry, or that a common aggregation layer must be implemented in phase 1.
+
+### IT経営KAIZEN service responsibility — retained
+- Compact, searchable, server-filtered, inline-edit sales ledger belongs solely to IT経営KAIZEN.
+- Manual stage, one proposed amount and one won amount per Case, and the minimal confirmation/audit required for reliable IT-specific facts remain in scope.
+- Service-specific KPI calculation and original Case/diagnosis records remain authoritative. No duplicate entry in the shared layer.
+
+### Sales Tools shared responsibility — revised
+- Phase 1: **read-only dashboard/portal displaying per-service KPI summary widgets and navigation**. No shared stage input, proposed/won amount input, shared CRM, or mandatory cross-service sum.
+- Each widget consumes its own service-owned KPI data through a read-only interface; the shared layer does not independently maintain or edit those business facts.
+- IT経営KAIZEN and 業務KAIZEN retain independent Case/Lead, workflow, commercial management and service-specific KPI semantics. 業務KAIZEN owns its adapter and destination URL.
+- Phase 2 (not approved for implementation): optional cross-service aggregation only where exact KPI meaning, period, unit and deduplication match, and only when useful. Preserve existing Common KPI Foundation Contract at commit 4d43302 as design reference, not mandatory phase-1 implementation.
+
+### Rationale
+Avoid duplicate data entry and two sources of truth; reduce implementation and maintenance scope; retain independent service evolution and fast management visibility. A company-wide KPI total is not intrinsically meaningful when services have different funnel definitions.
+
+### Implementation implications
+- Do not implement the previously proposed Common KPI Aggregation/API or IT Common KPI Adapter merely to power phase-1 widgets; reuse each service's existing summary API where possible, with a minimal read-only summary endpoint only if needed.
+- No shared commercial persistence, shared editable sales statuses, or forced unified customer table.
+- Prior docs-only decisions remain historical; this section has precedence where conflicting. Production migration/deploy remain separately gated and coordinated.
