@@ -84,3 +84,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - This use of DESIGNATED at initial creation needs an explicit audit-semantics review. The original endpoint used it for later designation changes.
 - The test submission route, OAuth return path, and integration tests are not complete. Keep the test URL disabled.
 - Public and staff-test provenance and permission boundaries need review before merge. No Production change.
+
+## 2026-10-15 Contract test checkpoint
+- Added test/staffTestCaseCreation.contract.test.ts to check that the public path remains PUBLIC, trusted test Case creation uses the existing transaction, an initial audit record is inserted, and cross-mode idempotency is rejected.
+- These are static source contract tests, not a substitute for DB integration tests, concurrency tests or an auth security review. Tests have not been run.
+- Before enabling the test URL, review whether CUSTOMER_SELF provenance remains correct for staff-driven test entry and whether the existing test-case administrator allowlist should govern creation. Keep the staff test API unmounted until resolved.
+- No main merge, migration or Production deployment.
