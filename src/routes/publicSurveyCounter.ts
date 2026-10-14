@@ -36,7 +36,13 @@ export function createPublicSurveyCounterRouter(
     const parsed = countRequestSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
     try {
-      const utm = normalizeSurveyUtm(parsed.data.utm ?? {});
+      let utm;
+      try {
+        utm = normalizeSurveyUtm(parsed.data.utm ?? {});
+      } catch {
+        res.status(400).json({ error: 'INVALID_UTM' });
+        return;
+      }
       const initiativeId = await repo.resolveInitiativeId(utm);
       await repo.increment({ kind: parsed.data.kind, initiativeId, acceptedAt: new Date() });
       res.status(204).end();
