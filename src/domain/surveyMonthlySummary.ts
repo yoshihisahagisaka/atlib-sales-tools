@@ -11,7 +11,7 @@ export type MonthlySurveyCount = {
 
 export type CountTotal = { started: number; completed: number };
 export type SurveyPeriodKey = 'currentMonth' | 'trailingThreeMonths' | 'currentFiscalYear' | 'previousFiscalYear' | 'cumulative';
-export type SurveyPeriodSummary = Record<SurveyPeriodKey, CountTotal>;
+export type SurveyPeriodValue = CountTotal & { coverage: 'FULL_MONTHS' | 'PARTIAL_MONTHS' | 'NOT_MEASURED' };\nexport type SurveyPeriodSummary = Record<SurveyPeriodKey, SurveyPeriodValue>;
 
 function ym(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`;
@@ -72,7 +72,9 @@ export function aggregateSurveyMonths(
       completed += row.completedCount;
     }
     if (!Number.isSafeInteger(started) || !Number.isSafeInteger(completed)) throw new Error('COUNT_OVERFLOW');
-    out[key] = { started, completed };
+    const coverage = coverageStartMonth > to ? 'NOT_MEASURED'
+      : coverageStartMonth > from ? 'PARTIAL_MONTHS' : 'FULL_MONTHS';
+    out[key] = { started, completed, coverage };
   }
   return out;
 }
