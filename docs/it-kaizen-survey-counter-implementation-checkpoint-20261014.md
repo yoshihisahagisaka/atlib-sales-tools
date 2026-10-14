@@ -78,3 +78,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - This is an **incomplete isolated branch change**: the staff-authenticated route creation was not completed, no route is mounted, and the ?test=1 UI remains disabled. The feature is not usable.
 - Before release: verify that the creation actor and audit provenance are consistent throughout Sales Activity, Case, survey completion and submission ledger; review test designation audit requirements and existing role/allowlist policy. The current change does not itself create a designation audit record. Add integration tests for first creation, retry, concurrency, and normal/test mode mismatch.
 - No build or tests have been executed. No migration, main merge, or Production change. Do not deploy the partial implementation.
+
+## 2026-10-15 Test Case audit review
+- Migration 035 provides append-only designation audit. The feature branch now writes an initial DESIGNATED record in the same transaction as a trusted staff-test Case creation.
+- This use of DESIGNATED at initial creation needs an explicit audit-semantics review. The original endpoint used it for later designation changes.
+- The test submission route, OAuth return path, and integration tests are not complete. Keep the test URL disabled.
+- Public and staff-test provenance and permission boundaries need review before merge. No Production change.
