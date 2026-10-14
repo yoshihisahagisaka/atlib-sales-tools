@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { RuleBasedV1Error } from '../domain/freeDiagnosisRuleBasedV1';
 import type { PublicCustomerSelfDesignV2Submission } from '../domain/publicCustomerSelfDesignV2';
@@ -60,6 +60,8 @@ export class PublicCustomerSelfSubmissionService {
       await client.query('SAVEPOINT create_public_submission');
       const launcher = new FreeDiagnosisSalesLauncherRepo(client as unknown as Pool);
       const cases = new FreeDiagnosisRuleBasedCaseRepo(client as unknown as Pool);
+      const isStaffTest = context.mode === 'STAFF_TEST';
+      const actor = isStaffTest ? context.actor : PUBLIC_ACTOR;
       const activity = await launcher.createSalesActivity({
         name: input.company.name, corporateNumber: input.company.corporateNumber,
         contact: { name: input.contact.name, email: input.contact.email, phone: input.contact.phone, jobTitle: input.contact.jobTitle }, selectedService: 'IT_KAIZEN',
@@ -69,13 +71,21 @@ export class PublicCustomerSelfSubmissionService {
           utmSource: input.attribution.utmSource, utmMedium: input.attribution.utmMedium, utmCampaign: input.attribution.utmCampaign,
           utmContent: input.attribution.utmContent, utmTerm: input.attribution.utmTerm, landingUrl: input.attribution.landingUrl, referrer: input.attribution.referrer,
         },
-      }, PUBLIC_ACTOR);
-      const isStaffTest = context.mode === 'STAFF_TEST';
-      const actor = isStaffTest ? context.actor : PUBLIC_ACTOR;
+      }, actor);
       const kase = await cases.createCase(activity.companyId, activity.contactId, activity.salesActivityId, actor, isStaffTest);
+      if (isStaffTest) {
+        // Initial test designation is auditable within the same transaction.
+        // This does not invoke the separate post-creation designation workflow.
+        await client.query(
+          `INSERT INTO it_management_diagnosis_test_case_designation_audit
+             (id,case_id,action,actor_user_id,reason)
+           VALUES ($1,$2,'DESIGNATED',$3,$4)`,
+          [randomUUID(), kase.id, actor, 'Authenticated staff test submission at Case creation'],
+        );
+      }
       const completed = await this.designV2Entry.completeInTransaction(client, {
         caseId: kase.id, answers: input.survey, surveyVersion: 'design-v2-public-1', entryChannel: 'CUSTOMER_SELF',
-        answeredByRole: input.contact.respondentRole, enteredByUserId: null, actor: PUBLIC_ACTOR,
+        answeredByRole: input.contact.respondentRole, enteredByUserId: null, actor,
       });
       const inserted = await client.query<{ it_management_diagnosis_case_v2_id: string }>(
         `INSERT INTO it_management_public_self_submission
