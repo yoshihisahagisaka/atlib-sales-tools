@@ -22,6 +22,17 @@ export class PublicCustomerSelfSubmissionService {
   constructor(private readonly pool: Pool, private readonly designV2Entry: FreeDiagnosisDesignV2EntryAdapter) {}
 
   async submit(input: PublicCustomerSelfDesignV2Submission): Promise<{ caseId: string; created: boolean }> {
+    return this.submitWithTrustedContext(input, { mode: 'PUBLIC' });
+  }
+
+  /**
+   * Staff test mode is selected by a trusted authenticated server route only.
+   * Never derive this context from a public request body or query parameter.
+   */
+  async submitWithTrustedContext(
+    input: PublicCustomerSelfDesignV2Submission,
+    context: { mode: 'PUBLIC' } | { mode: 'STAFF_TEST'; actor: string },
+  ): Promise<{ caseId: string; created: boolean }> {
     const hash = payloadHash(input);
     const client = await this.pool.connect();
     try {
@@ -30,6 +41,14 @@ export class PublicCustomerSelfSubmissionService {
         `SELECT payload_hash,it_management_diagnosis_case_v2_id FROM it_management_public_self_submission WHERE idempotency_key=$1 FOR UPDATE`, [input.idempotencyKey],
       );
       if (existing.rows[0]) {
+        // A test-mode replay must never reuse an existing normal Case, or vice versa.
+        const designation = await client.query<{ is_internal_test: boolean }>(
+          'SELECT is_internal_test FROM it_management_diagnosis_case_v2 WHERE id=$1',
+          [existing.rows[0].it_management_diagnosis_case_v2_id],
+        );
+        if (designation.rows[0]?.is_internal_test !== (context.mode === 'STAFF_TEST')) {
+          throw new RuleBasedV1Error(409, 'SUBMISSION_MODE_MISMATCH');
+        }
         if (existing.rows[0].payload_hash !== hash) throw new RuleBasedV1Error(409, 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_SUBMISSION');
         await client.query('COMMIT');
         return { caseId: existing.rows[0].it_management_diagnosis_case_v2_id, created: false };
@@ -51,7 +70,9 @@ export class PublicCustomerSelfSubmissionService {
           utmContent: input.attribution.utmContent, utmTerm: input.attribution.utmTerm, landingUrl: input.attribution.landingUrl, referrer: input.attribution.referrer,
         },
       }, PUBLIC_ACTOR);
-      const kase = await cases.createCase(activity.companyId, activity.contactId, activity.salesActivityId, PUBLIC_ACTOR, false);
+      const isStaffTest = context.mode === 'STAFF_TEST';
+      const actor = isStaffTest ? context.actor : PUBLIC_ACTOR;
+      const kase = await cases.createCase(activity.companyId, activity.contactId, activity.salesActivityId, actor, isStaffTest);
       const completed = await this.designV2Entry.completeInTransaction(client, {
         caseId: kase.id, answers: input.survey, surveyVersion: 'design-v2-public-1', entryChannel: 'CUSTOMER_SELF',
         answeredByRole: input.contact.respondentRole, enteredByUserId: null, actor: PUBLIC_ACTOR,
@@ -70,6 +91,13 @@ export class PublicCustomerSelfSubmissionService {
           `SELECT payload_hash,it_management_diagnosis_case_v2_id FROM it_management_public_self_submission WHERE idempotency_key=$1`, [input.idempotencyKey],
         );
         if (!winner.rows[0]) throw new Error('IDEMPOTENCY_CONFLICT_WINNER_NOT_FOUND');
+        const designation = await client.query<{ is_internal_test: boolean }>(
+          'SELECT is_internal_test FROM it_management_diagnosis_case_v2 WHERE id=$1',
+          [winner.rows[0].it_management_diagnosis_case_v2_id],
+        );
+        if (designation.rows[0]?.is_internal_test !== (context.mode === 'STAFF_TEST')) {
+          throw new RuleBasedV1Error(409, 'SUBMISSION_MODE_MISMATCH');
+        }
         if (winner.rows[0].payload_hash !== hash) throw new RuleBasedV1Error(409, 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_SUBMISSION');
         await client.query('COMMIT');
         return { caseId: winner.rows[0].it_management_diagnosis_case_v2_id, created: false };
