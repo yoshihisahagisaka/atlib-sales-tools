@@ -11,7 +11,8 @@ export type MonthlySurveyCount = {
 
 export type CountTotal = { started: number; completed: number };
 export type SurveyPeriodKey = 'currentMonth' | 'trailingThreeMonths' | 'currentFiscalYear' | 'previousFiscalYear' | 'cumulative';
-export type SurveyPeriodValue = CountTotal & { coverage: 'FULL_MONTHS' | 'PARTIAL_MONTHS' | 'NOT_MEASURED' };\nexport type SurveyPeriodSummary = Record<SurveyPeriodKey, SurveyPeriodValue>;
+export type SurveyPeriodValue = CountTotal & { coverage: 'FULL_MONTHS' | 'PARTIAL_MONTHS' | 'NOT_MEASURED' };
+export type SurveyPeriodSummary = Record<SurveyPeriodKey, SurveyPeriodValue>;
 
 function ym(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`;
