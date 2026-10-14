@@ -73,3 +73,15 @@ Status: APPROVED / IMPLEMENTATION PENDING
 - Inline edits persist only after explicit change confirmation; first human-confirmed proposal/win requires minimal confirmation, audit and stable first-reached time; do not create events merely because stage text changes. Failed writes restore original UI values and show an error.
 - Search and ledger are not a CRM: no detailed activities, opportunity forecast, invoices, or multiple proposals. Business KAIZEN continues to own its independent list and adapter.
 - Route, exact column set, query API, index/migration needs and performance acceptance remain implementation Fit/Gap; no Production changes authorized.
+
+## Source review — 2026-10-14: compact ledger API Fit/Gap
+Evidence: main d35581c, src/routes/adminFreeDiagnosisRuleBasedV1.ts, src/services/freeDiagnosisSalesLauncherRepo.ts, src/server.ts, migrations/027_free_diagnosis_rule_based_v1.sql.
+
+- Existing GET /api/admin/free-diagnosis-v1/sales-activities is authenticated, returns items and test-case-management capability, and supports acquisitionSourceName, utmCampaign, initiativeId, testStatus. It does **not** accept keyword, sales stage, date range, entry channel, sort, limit/cursor; Zod strict rejects them.
+- Repo listSalesActivities currently ORDER BY s.created_at DESC,s.id DESC LIMIT 100; no total count or pagination. Client-only filtering would miss older subjects and is prohibited.
+- Existing list starts from sales_activity and LEFT JOINs latest Case; records without a Case exist. Define whether the compact IT diagnosis ledger lists accepted Case only, or all Sales Activity, before counting KPI subjects. Do not equate sales_activity creation to ENTRY_ACCEPTED without evidence.
+- Current list computes marketing initiative by UTM exact match and uses is_internal_test from latest Case. Reuse matching and test semantics; do not regress normal/test/all behavior.
+- Existing sales_activity has owner_user_id and company_id; the current list does not expose the owner field as an editable commercial assignment. Do not introduce a duplicate owner SSOT without Fit/Gap.
+- Suggested bounded implementation: **new dedicated authenticated ledger API** and compact HTML under /admin, leaving legacy diagnosis list and API behavior unchanged. Use server-side filtering, stable pagination and total count. Proposed stage/amount storage and commercial confirmation audit require a separately reviewed migration, not approved by this doc.
+- Contract acceptance: keyword across all rows; filter combinations; stable page boundary; correct total; stage inline editing; NULL/0 distinction; no duplicate proposal/win; historical proposal retained after win; explicit test filtering; permission checks; no public page or legacy admin regression; drilldown exact subject.
+- Open design points: exact Case eligibility/ENTRY_ACCEPTED timestamp, accepted-date range field, commercial audit persistence, stage transition edge cases, owner semantics, service route and company-identity uniqueness. Keep unresolved; do not fabricate values.
