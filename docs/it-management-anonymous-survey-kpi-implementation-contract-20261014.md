@@ -52,3 +52,18 @@ F. Human Acceptance on non-production revision; coordinate migration/deploy with
 - IT経営KAIZEN lightweight commercial ledger is a separate service-specific work package.
 - 業務KAIZEN owns its own KPI source/API and portal link.
 - No production migration, runtime deploy or traffic switch is approved by this contract.
+
+## Approved decision — 2026-10-14: authenticated test URL
+Status: APPROVED DESIGN / NOT IMPLEMENTED
+
+- Test entry URL: /it-management-kaizen/free-diagnosis/?test=1.
+- This parameter is a **request for test mode**, not authority to mark an event or Case as test.
+- Only an authenticated Sales Tools staff session may activate test mode; unauthenticated visitors are directed to staff login rather than silently using the public form.
+- The server must verify the authenticated test context on each anonymous telemetry write and test-mode application submission. Never trust a client-supplied isTest flag, query parameter, or hidden UI control as authorization.
+- Clearly display TEST MODE in the survey UI, while preserving the existing questions and workflow.
+- Anonymous SURVEY_STARTED and SURVEY_COMPLETED events in authenticated test mode are stored with a server-validated test designation and excluded from normal KPI summaries.
+- When a test-mode application is submitted, it must create a Case already marked is_internal_test=true using the existing Case test semantics; do not temporarily create a normal Case then asynchronously flip it. Reuse existing test designation/audit governance without creating a second source of truth. Any special creation/audit pathway requires explicit contract tests.
+- Normal public submissions must remain unaffected. Do not allow a malicious or mistaken ?test=1 to exclude real customer events.
+- The test-mode auth bridge, callback destination, cookie/CSRF handling, staff eligibility, and interaction with publicIntakeEnabled remain implementation Fit/Gap. Do not assume the existing public submissions endpoint is staff-authenticated.
+- Test acceptance: unauthenticated test URL, authenticated test start/complete, forged test flag, session expiry, duplicate event, normal URL regression, test submission case designation, no leakage into normal marketing/KPI metrics.
+- This approval does not authorize schema migration, code deploy or Production changes.
