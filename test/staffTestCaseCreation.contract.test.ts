@@ -15,6 +15,13 @@ test('public entry point always selects PUBLIC context', () => {
   assert.match(service, /return this\.submitWithTrustedContext\(input, \{ mode: 'PUBLIC' \}\)/);
 });
 
+test('staff simulation is blocked before DB work while consent provenance is unsupported', () => {
+  const guard = service.indexOf("if (context.mode === 'STAFF_TEST')");
+  const transaction = service.indexOf("const client = await this.pool.connect()");
+  assert.ok(guard >= 0 && guard < transaction);
+  assert.match(service, /STAFF_TEST_PROVENANCE_NOT_IMPLEMENTED/);
+});
+
 test('test Case is created as test within the submission transaction', () => {
   assert.match(service, /await client\.query\('BEGIN'\)/);
   assert.match(service, /cases\.createCase\(activity\.companyId, activity\.contactId, activity\.salesActivityId, actor, isStaffTest\)/);
