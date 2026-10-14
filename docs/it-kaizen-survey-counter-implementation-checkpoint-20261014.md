@@ -90,3 +90,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - These are static source contract tests, not a substitute for DB integration tests, concurrency tests or an auth security review. Tests have not been run.
 - Before enabling the test URL, review whether CUSTOMER_SELF provenance remains correct for staff-driven test entry and whether the existing test-case administrator allowlist should govern creation. Keep the staff test API unmounted until resolved.
 - No main merge, migration or Production deployment.
+
+## 2026-10-15 Schema Fit/Gap
+- Migration 031 constrains consent_provenance to CUSTOMER_SELF.
+- Migration 033 allows entry_channel CUSTOMER_SELF or STAFF_PROXY.
+- The branch's staff-test simulation still records CUSTOMER_SELF consent provenance. Do not activate this flow until test provenance semantics are resolved.
+- The existing test designation audit is separate from consent provenance. No schema change or Production release was made.
