@@ -102,3 +102,10 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Added a protected admin static launcher, served under the existing /admin authentication gate. Unauthenticated staff should follow the existing login returnTo flow. The launcher intentionally does not enable testing yet.
 - Added source contract test for the fixed query parameter, protected launcher and OAuth returnTo restriction. Not executed.
 - No public survey test submission is enabled. Consent provenance and staff-test route remain unresolved; do not deploy.
+
+## 2026-10-15 Consent provenance safety gate
+- Reconfirmed Migration 031 permits only CUSTOMER_SELF consent provenance. Staff simulation must not claim real customer consent.
+- PublicCustomerSelfSubmissionService now rejects STAFF_TEST before acquiring a database connection, with STAFF_TEST_PROVENANCE_NOT_IMPLEMENTED. This keeps the experimental test-Case creation path unreachable until an approved provenance design exists.
+- Added a source contract test for the early guard. Tests are not yet executed.
+- The fixed ?test=1 entry and protected admin launcher remain unchanged. Test application submission remains unavailable; ordinary public submission is unchanged.
+- Next gate: agree a test-only consent provenance design compatible with existing Design v2, then implement authenticated staff route and integration tests. No Production change.
