@@ -104,3 +104,18 @@ Status: CODE ADJUSTED / TESTS WRITTEN BUT NOT EXECUTED / PERSISTENCE BLOCKED ON 
 - For cumulative rates, disclose each metric's measurement start and ensure numerator/denominator coverage is comparable; otherwise show unavailable/partial coverage rather than a misleading rate.
 - Existing Case test designation cannot retroactively classify anonymous pre-application events. The approved authenticated test URL remains the source of server-validated anonymous test designation.
 - No API, DB schema, migration or production deployment is created by this checkpoint.
+
+## Superseding Decision — 2026-10-14: monthly numeric counters only
+Status: APPROVED BUSINESS DESIGN / IMPLEMENTATION PENDING
+This section takes precedence over earlier proposals in this document requiring a durable per-survey anonymous event ledger, one-year raw-event retention, or persistent survey-instance identifiers.
+
+- The sole long-lived KPI source for pre-application survey activity is **aggregated numeric counts**, not individual event records: calendar month, service, marketing initiative / attribution bucket, survey started count, survey completed count.
+- Increment counts at the existing start-questions and successful final-answer transitions. No identity link to a company, contact, Case, or later application. Do not persist survey answers as part of KPI counting.
+- The existing application, diagnosis, commercial and test-Case KPIs remain service-owned and use their own canonical sources and retention policies.
+- Staff-authenticated test URL ?test=1 must not increment normal counts. Test traffic may be excluded from the normal aggregate without creating a second customer/test-Case system.
+- Keep counts over fiscal years; atLIB fiscal year runs February 1 to January 31. Rates and prior-year comparisons derive from stored period counts; do not average monthly rates.
+- Duplicate requests and abuse controls are **technical ingestion concerns**, not additional business KPI objects. Reuse existing security infrastructure where applicable; ensure atomic increment and acceptable counting semantics without a long-lived event ledger. Do not claim that existing submission rate limiting already protects a new telemetry endpoint.
+- Detailed technical safeguards (retry handling, token lifetime if needed, rate limiting, concurrency, CSRF, monitoring) remain implementation decisions, not permission to expand the data model.
+- Month-end reconciliation and retention of aggregated numeric counts must be deterministic and non-destructive.
+- Prior code src/domain/anonymousSurveyEventContract.ts and countAnonymousEvents helper were built against the now-superseded event-ledger concept. They are not approved persistence architecture and must be reviewed/replaced before merging.
+- No migration, deployment or Production traffic change is authorized by this decision.
