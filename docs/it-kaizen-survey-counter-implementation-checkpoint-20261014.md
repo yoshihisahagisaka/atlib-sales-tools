@@ -72,3 +72,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Added unmounted src/routes/adminSurveyTestEligibility.ts and its API tests. It requires req.staffEmail and explicitly returns surveyTestModeAvailable=false while the test submission flow is incomplete. This is a safe integration seam, not a functioning test URL.
 - Existing /auth/login only accepts /admin/ returnTo. Authenticated launcher /admin/ is still needed; do not globally relax OAuth redirect validation.
 - Tests added but not run. No numbered migration, server mount, DB write or Production change.
+
+## Checkpoint — 2026-10-15: trusted test Case creation (partial)
+- Modified PublicCustomerSelfSubmissionService with submitWithTrustedContext, separating the existing PUBLIC entry point from a server-supplied STAFF_TEST context. Case creation now passes is_internal_test=true for trusted staff tests within the existing submission transaction. Existing idempotent submission lookups check the stored Case designation to reject cross-mode reuse.
+- This is an **incomplete isolated branch change**: the staff-authenticated route creation was not completed, no route is mounted, and the ?test=1 UI remains disabled. The feature is not usable.
+- Before release: verify that the creation actor and audit provenance are consistent throughout Sales Activity, Case, survey completion and submission ledger; review test designation audit requirements and existing role/allowlist policy. The current change does not itself create a designation audit record. Add integration tests for first creation, retry, concurrency, and normal/test mode mismatch.
+- No build or tests have been executed. No migration, main merge, or Production change. Do not deploy the partial implementation.
