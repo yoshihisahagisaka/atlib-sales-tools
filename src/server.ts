@@ -75,6 +75,9 @@ import { FreeDiagnosisDesignV2ReportPdfService } from './services/freeDiagnosisD
 import { MarketingInitiativeRepo } from './services/marketingInitiativeRepo';
 import { createAdminMarketingInitiativeRouter } from './routes/adminMarketingInitiative';
 import { TestCaseManagementRepo } from './services/testCaseManagementRepo';
+import { SurveyMonthlyCounterRepo } from './services/surveyMonthlyCounterRepo';
+import { createPublicSurveyCounterRouter } from './routes/publicSurveyCounter';
+import { createAdminSurveyKpiSummaryRouter } from './routes/adminSurveyKpiSummary';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -91,6 +94,7 @@ async function main(): Promise<void> {
   const businessWebConsultationLeadRepo = new BusinessWebConsultationLeadRepo(pool);
   const freeDiagnosisSalesLauncherRepo = new FreeDiagnosisSalesLauncherRepo(pool);
   const marketingInitiativeRepo = new MarketingInitiativeRepo(pool);
+  const surveyMonthlyCounterRepo = new SurveyMonthlyCounterRepo(pool);
   const testCaseManagementRepo = new TestCaseManagementRepo(pool);
   const freeDiagnosisRuleBasedCaseRepo = new FreeDiagnosisRuleBasedCaseRepo(pool);
   const vs1ReviewReportFeedbackRepo = new Vs1ReviewReportFeedbackRepo(pool);
@@ -237,6 +241,19 @@ async function main(): Promise<void> {
   // IT経営KAIZEN 無料診断 Rule-Based v1, Production Vertical Slice 1 (Internal Dogfooding
   // and the thin Public Customer Self entry adapter. Both use the same deterministic core.
   app.use('/api/public/it-management-kaizen/free-diagnosis-v1', createPublicCustomerSelfFreeDiagnosisRouter(publicCustomerSelfSubmissionService, config.publicIntakeEnabled, notifyPublicCustomerSelfCreated));
+
+  // Disabled until the reviewed additive schema is migrated.
+  if (process.env.IT_SURVEY_KPI_ENABLED === 'true') {
+    const rawStart = process.env.IT_SURVEY_KPI_COVERAGE_START;
+    if (!rawStart) throw new Error('IT_SURVEY_KPI_COVERAGE_START_REQUIRED');
+    const coverageStart = new Date(rawStart);
+    if (!Number.isFinite(coverageStart.getTime())) throw new Error('INVALID_IT_SURVEY_KPI_COVERAGE_START');
+    app.use('/api/public/it-management-kaizen/survey-counter',
+      createPublicSurveyCounterRouter(surveyMonthlyCounterRepo, config.publicIntakeEnabled));
+    app.use('/api/admin/it-management-kaizen/survey-kpi',
+      ...adminAuthGate, createAdminSurveyKpiSummaryRouter(surveyMonthlyCounterRepo, coverageStart));
+  }
+
   app.use(
     '/api/admin/free-diagnosis-v1',
     ...adminAuthGate,
