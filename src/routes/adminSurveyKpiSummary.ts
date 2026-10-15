@@ -18,7 +18,7 @@ export function createAdminSurveyKpiSummaryRouter(
     const coverageStartMonth = japanYearMonth(coverageStart);
     try {
       const currentYear = Number(currentMonth.slice(0, 4));
-      const fromMonth = `${currentYear - 2}-01-01`;
+      const fromMonth = `${coverageStartMonth}-01`;
       const untilMonth = `${currentYear + 1}-01-01`;
       const rows = await repo.listMonthly(fromMonth, untilMonth);
       const summary = aggregateSurveyMonths(
