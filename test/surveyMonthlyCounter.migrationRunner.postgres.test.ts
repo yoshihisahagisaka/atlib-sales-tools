@@ -30,6 +30,9 @@ test('PostgreSQL 16 migration runner applies counter draft once and skips replay
     );
     assert.equal(exists.rows[0]?.exists,true);
   } finally {
+    await pool.query('DROP TABLE IF EXISTS it_kaizen_survey_monthly_counts').catch(()=>undefined);
+    await pool.query('DROP TABLE IF EXISTS schema_migrations').catch(()=>undefined);
+    await pool.query('DROP TABLE IF EXISTS marketing_initiative').catch(()=>undefined);
     await pool.end();
     fs.rmSync(dir,{recursive:true,force:true});
   }
