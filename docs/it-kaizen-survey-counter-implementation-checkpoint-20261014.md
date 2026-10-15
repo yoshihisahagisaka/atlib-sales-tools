@@ -115,3 +115,10 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Added src/domain/staffTestSubmissionIdempotency.ts and a golden test for public/test key collisions and idempotent retries. Tests are written but not run.
 - The separate receipt tables require transaction-safe cross-table coordination before enabling test submissions. The helper is not yet connected to the database service.
 - STAFF_TEST_PROVENANCE_NOT_IMPLEMENTED remains the active safety guard. Staff test URL remains unavailable. No Production changes.
+
+## 2026-10-15 Cross-mode receipt lookup checkpoint
+- Added src/services/staffTestSubmissionKeyRepo.ts as an unmounted transaction helper. It takes a shared advisory transaction lock, reads both public and proposed test receipt tables, and decides CREATE/REPLAY/CONFLICT.
+- Added test/staffTestSubmissionKeyRepo.test.ts for lock order, normal/test collisions, same-mode retry and dual-receipt corruption. Tests not executed.
+- This helper cannot run until the separate test receipt table exists. The existing public submission path has not been modified to use it, and staff test submission remains blocked by its provenance guard.
+- Before integration, both public and staff-test paths must acquire the same lock before receipt lookup/insertion, with concurrent PostgreSQL tests and the approved migration. Do not enable the test URL yet.
+- No main merge or Production change.
