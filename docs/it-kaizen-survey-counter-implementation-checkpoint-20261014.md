@@ -169,3 +169,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - IT KAIZEN monthly/initiative counters and Business KAIZEN daily/two-event counters stay independent. Common information page is read-only; do not combine Case/Lead workflows.
 - No Production migration/deploy date set for Business KAIZEN. Both lanes may continue independently. Before shared Production release compare latest SHAs, migration numbering, schema/GRANT, router mounts, regression and release artifact.
 - This confirmation resolves the need to wait for Business KAIZEN implementation completion, but DOES NOT reserve a migration number or authorize a Production release.
+
+## 2026-10-15 Date parsing fix and API mount gate
+- Updated SurveyMonthlyCounterRepo.listMonthly to format SQL DATE as YYYY-MM-DD text, avoiding timezone-dependent pg DATE parsing.
+- Added a PGlite regression assertion for returned month text. CI run 38676365384 was triggered; status pending at this checkpoint.
+- Attempted a disabled-by-default route registration in server.ts, but the Git update was blocked; server.ts remains unchanged. No routes were mounted.
+- Production remains unchanged. Staff test provenance and migration approval remain release blockers.
