@@ -1,8 +1,5 @@
 name: IT KAIZEN Survey KPI validation
 on:
-  push:
-    branches:
-      - feat/it-anonymous-survey-kpi-vs1-20261014
   workflow_dispatch:
 permissions:
   contents: read
