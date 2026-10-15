@@ -109,3 +109,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Added a source contract test for the early guard. Tests are not yet executed.
 - The fixed ?test=1 entry and protected admin launcher remain unchanged. Test application submission remains unavailable; ordinary public submission is unchanged.
 - Next gate: agree a test-only consent provenance design compatible with existing Design v2, then implement authenticated staff route and integration tests. No Production change.
+
+## 2026-10-15 Test receipt and cross-mode key review
+- Added docs/sql/it-kaizen-staff-test-submission-receipt-draft.sql as an unnumbered proposal. It does not change the real customer consent table.
+- Added src/domain/staffTestSubmissionIdempotency.ts and a golden test for public/test key collisions and idempotent retries. Tests are written but not run.
+- The separate receipt tables require transaction-safe cross-table coordination before enabling test submissions. The helper is not yet connected to the database service.
+- STAFF_TEST_PROVENANCE_NOT_IMPLEMENTED remains the active safety guard. Staff test URL remains unavailable. No Production changes.
