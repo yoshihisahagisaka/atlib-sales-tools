@@ -1,0 +1,24 @@
+name: IT KAIZEN Survey KPI validation
+on:
+  push:
+    branches:
+      - feat/it-anonymous-survey-kpi-vs1-20261014
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install from lockfile
+        run: npm ci --ignore-scripts
+      - name: TypeScript build
+        run: npm run build
+      - name: Survey KPI tests
+        run: npm run test:survey-kpi
