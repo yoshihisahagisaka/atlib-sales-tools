@@ -41,9 +41,9 @@ test('aggregate-only draft: monthly atomic upsert, UTM lookup, historical initia
     assert.equal(Number(initiative.completed_count),1);
     await db.query('UPDATE marketing_initiative SET is_active=false WHERE initiative_id=$1',[id]);
     assert.equal(await repo.resolveInitiativeId(utm),null);
-    assert.equal((await db.query('SELECT count(*)::int AS n FROM it_kaizen_survey_monthly_counts WHERE initiative_id=$1',[id])).rows[0]?.n,1);
+    assert.equal((await db.query<{n:number}>('SELECT count(*)::int AS n FROM it_kaizen_survey_monthly_counts WHERE initiative_id=$1',[id])).rows[0]?.n,1);
     await repo.increment({kind:'STARTED',initiativeId:null,acceptedAt:new Date('2026-01-31T15:00:00Z')});
-    assert.equal((await db.query(`SELECT count(*)::int AS n FROM it_kaizen_survey_monthly_counts WHERE month_jst='2026-02-01'`)).rows[0]?.n,1);
+    assert.equal((await db.query<{n:number}>(`SELECT count(*)::int AS n FROM it_kaizen_survey_monthly_counts WHERE month_jst='2026-02-01'`)).rows[0]?.n,1);
   } finally {
     await db.close();
   }
