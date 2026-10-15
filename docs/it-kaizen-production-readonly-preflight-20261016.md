@@ -58,3 +58,14 @@ Compare operator output against Canonical and coordinate Business KAIZEN migrati
 - Keep both KPI persistence models independent. Coordinate shared server.ts, runtime grants, regression and release artifacts.
 - IT survey KPI release remains blocked until its own migration runner/browser/security gates pass. Staff ?test=1 full application simulation remains disabled due to unresolved consent provenance and must not be silently treated as released.
 - No Production change or deploy authorized by this sequencing agreement.
+
+## Work read-only investigation handoff — 2026-10-16
+Source: operator-provided Work investigation report (not an independent DB query in this lane).
+- Authorized existing read-only Jobs succeeded: sales-tools-production-migration-ledger-ro-8p9zx and sales-tools-prod-test-case-management-v1-035-readonly-inspm66dj; BEGIN READ ONLY, no DB writes.
+- Production PostgreSQL 16 ledger: 38 filenames, latest 036, none numbered 037+. Historical duplicate 018 and 019 filenames are intentional; ledger primary key is filename.
+- Migration 018 historical Production default ACL is not fully reproducible from current main SQL. Migration 035 inherited excess UPDATE/DELETE on append-only audit, corrected by explicit REVOKE in 036; post-verifier PASS.
+- Marketing Initiative 034 and test designation 035/036 are present. Marketing Initiative effective DELETE privilege was NOT checked by the fixed read-only Job.
+- Direct to_regclass checks for it_kaizen_survey_monthly_counts and it_management_staff_test_submission_receipt were NOT performed; do not claim proven absence, despite no canonical migration evidence.
+- Follow-up bounded read-only queries: those two to_regclass values and effective Marketing Initiative DELETE privilege, using existing authorized Job mechanism. No new secrets, migration, runtime write, or deploy.
+- Work report captured feature SHA 1d9bb278, which is stale relative to the live branch head; Git ref must be refreshed before any release artifact. Latest branch observed in this lane: 836d0c432b195713b8ad40862a85a714ab7ca3f2.
+- Provisional release ordering IT KPI 037 then Business KPI 038 remains agreed but neither number is reserved. Production release remains blocked pending migration/rehearsal, browser checks, and approval.
