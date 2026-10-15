@@ -32,6 +32,9 @@ test('aggregate-only draft: monthly atomic upsert, UTM lookup, historical initia
     await repo.increment({kind:'STARTED',initiativeId:id,acceptedAt:new Date('2026-10-15T00:00:01Z')});
     await repo.increment({kind:'COMPLETED',initiativeId:id,acceptedAt:new Date('2026-10-15T00:01:00Z')});
     await repo.increment({kind:'STARTED',initiativeId:null,acceptedAt:new Date('2026-10-15T00:02:00Z')});
+    const monthly = await repo.listMonthly('2026-10-01', '2026-11-01');
+    assert.equal(monthly.length, 2);
+    assert.ok(monthly.every(row => row.month === '2026-10-01'));
     const counts = await db.query<{initiative_id:string|null,started_count:string,completed_count:string}>(
       `SELECT initiative_id,started_count,completed_count FROM it_kaizen_survey_monthly_counts ORDER BY attribution_bucket`,
     );
