@@ -19,3 +19,19 @@ CREATE TABLE it_kaizen_survey_monthly_counts (
 -- Runtime privileges and historical Production default ACL must be explicitly
 -- reviewed, following Migration 036's append-only/least-privilege lessons.
 -- No per-visitor, per-browser, per-attempt, personal or survey-answer columns.
+
+-- Proposed least-privilege grants, subject to actual runtime role verification.
+-- Reporting and counting need SELECT and INSERT/UPDATE only.
+-- The runtime role must not receive DELETE or TRUNCATE.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sales_tools_runtime') THEN
+    GRANT SELECT, INSERT, UPDATE ON TABLE it_kaizen_survey_monthly_counts TO sales_tools_runtime;
+    REVOKE DELETE, TRUNCATE ON TABLE it_kaizen_survey_monthly_counts FROM sales_tools_runtime;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sales_tools_app') THEN
+    GRANT SELECT, INSERT, UPDATE ON TABLE it_kaizen_survey_monthly_counts TO sales_tools_app;
+    REVOKE DELETE, TRUNCATE ON TABLE it_kaizen_survey_monthly_counts FROM sales_tools_app;
+  END IF;
+END
+$$;
