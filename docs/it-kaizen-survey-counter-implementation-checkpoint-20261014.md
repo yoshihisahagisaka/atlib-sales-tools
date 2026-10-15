@@ -175,3 +175,10 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Added a PGlite regression assertion for returned month text. CI run 38676365384 was triggered; status pending at this checkpoint.
 - Attempted a disabled-by-default route registration in server.ts, but the Git update was blocked; server.ts remains unchanged. No routes were mounted.
 - Production remains unchanged. Staff test provenance and migration approval remain release blockers.
+
+## 2026-10-15 Disabled-by-default API server integration
+- Verified GitHub Actions run 38676365384 passed build and KPI tests for the SQL date formatting fix.
+- Registered the public count and admin read-only summary routes in src/server.ts, conditional on IT_SURVEY_KPI_ENABLED=true. Coverage start is required and validated when enabled; otherwise no new KPI route is mounted.
+- Public count reuses publicIntakeEnabled and its existing limiter. Summary route is behind the existing adminAuthGate. Staff test submission remains disabled and unmounted.
+- Added test/surveyKpiServerMount.contract.test.ts and included it in test:survey-kpi. CI run 38676677616 started; results pending at this checkpoint.
+- No migration or Production deploy. Do not enable the flag until schema and acceptance tests are approved.
