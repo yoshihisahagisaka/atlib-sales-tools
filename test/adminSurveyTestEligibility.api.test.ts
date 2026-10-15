@@ -7,7 +7,7 @@ import { createStaffSurveyTestEligibilityRouter } from '../src/routes/adminSurve
 async function requestEligibility(staffEmail?: string, allowlist: ReadonlySet<string> = new Set()) {
   const app = express();
   app.use('/api/admin/it-survey-test', (req, _res, next) => {
-    if (staffEmail) req.staffEmail = staffEmail;
+    if (staffEmail) (req as typeof req & { staffEmail?: string }).staffEmail = staffEmail;
     next();
   }, createStaffSurveyTestEligibilityRouter(allowlist));
   const server: Server = await new Promise(resolve => {
@@ -17,7 +17,7 @@ async function requestEligibility(staffEmail?: string, allowlist: ReadonlySet<st
     const address = server.address();
     if (!address || typeof address === 'string') throw new Error('NO_LISTEN_ADDRESS');
     const response = await fetch(`http://127.0.0.1:${address.port}/api/admin/it-survey-test/eligibility`);
-    return { status: response.status, body: await response.json() };
+    return { status: response.status, body: await response.json() as Record<string, unknown> };
   } finally {
     await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
   }
