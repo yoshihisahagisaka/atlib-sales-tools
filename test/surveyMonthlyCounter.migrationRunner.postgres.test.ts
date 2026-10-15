@@ -29,6 +29,30 @@ test('PostgreSQL 16 migration runner applies counter draft once and skips replay
       `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='it_kaizen_survey_monthly_counts') AS exists`,
     );
     assert.equal(exists.rows[0]?.exists,true);
+    const migrationRecord = await pool.query<{filename:string}>(
+      'SELECT filename FROM schema_migrations WHERE filename=$1',[filename],
+    );
+    assert.equal(migrationRecord.rows.length,1);
+    assert.equal(migrationRecord.rows[0]?.filename,filename);
+    const invalidDir = fs.mkdtempSync(path.join(os.tmpdir(),'it-survey-counter-invalid-'));
+    try {
+      const invalidName = '901_it_survey_counter_invalid.sql';
+      fs.writeFileSync(path.join(invalidDir,invalidName),
+        'CREATE TABLE rehearsal_rollback_marker(id INTEGER); SELECT 1/0;');
+      const failed: object[] = [];
+      await assert.rejects(runMigrations(pool,invalidDir,event=>failed.push(event)));
+      assert.deepEqual(failed,[{event:'migration_failed',filename:invalidName}]);
+      const rolledBack = await pool.query<{exists:boolean}>(
+        "SELECT to_regclass('public.rehearsal_rollback_marker') IS NOT NULL AS exists",
+      );
+      assert.equal(rolledBack.rows[0]?.exists,false);
+      const notRecorded = await pool.query(
+        'SELECT 1 FROM schema_migrations WHERE filename=$1',[invalidName],
+      );
+      assert.equal(notRecorded.rows.length,0);
+    } finally {
+      fs.rmSync(invalidDir,{recursive:true,force:true});
+    }
   } finally {
     await pool.query('DROP TABLE IF EXISTS it_kaizen_survey_monthly_counts').catch(()=>undefined);
     await pool.query('DROP TABLE IF EXISTS schema_migrations').catch(()=>undefined);
