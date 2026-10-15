@@ -48,5 +48,7 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --ignore-scripts
+      - name: PostgreSQL 16 migration runner rehearsal
+        run: node -r ts-node/register --test test/surveyMonthlyCounter.migrationRunner.postgres.test.ts
       - name: PostgreSQL 16 draft and ACL rehearsal
         run: node -r ts-node/register --test test/surveyMonthlyCounter.postgres.test.ts
