@@ -122,3 +122,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - This helper cannot run until the separate test receipt table exists. The existing public submission path has not been modified to use it, and staff test submission remains blocked by its provenance guard.
 - Before integration, both public and staff-test paths must acquire the same lock before receipt lookup/insertion, with concurrent PostgreSQL tests and the approved migration. Do not enable the test URL yet.
 - No main merge or Production change.
+
+## 2026-10-15 Staff test submission API checkpoint
+- Added src/routes/adminSurveyTestSubmission.ts as an unmounted staff-test route. It requires verified req.staffEmail and existing test-case administrator allowlist; it never accepts a client-controlled isTest flag.
+- Added test/adminSurveyTestSubmission.api.test.ts for unauthorized, unauthenticated and invalid input rejection. These tests are written but not run.
+- The service still returns STAFF_TEST_PROVENANCE_NOT_IMPLEMENTED before any DB work. No test submission can be created through this route yet.
+- No server.ts mount, numbered migration, Production deploy or main merge. Next priority is executing build/tests and resolving the separately documented test receipt/consent provenance contract before activation.
