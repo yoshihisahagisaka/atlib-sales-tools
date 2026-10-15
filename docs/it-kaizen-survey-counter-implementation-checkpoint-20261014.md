@@ -188,3 +188,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Added disposable PostgreSQL 16 CI job and test/surveyMonthlyCounter.postgres.test.ts covering existing Marketing Initiative 034, runtime grants, 100 concurrent increments, stable month reads, historical attribution after deactivation, and DELETE denial.
 - GitHub Actions run 38676938302 at SHA 4ddaa7cde435d222593195059aede5cfa4756e45: both validate and postgres-rehearsal jobs succeeded.
 - Still required before release: migration runner rehearsal on target schema, cross-lane numbered migration coordination, Production runtime-role audit, test URL consent provenance, staging browser regression, and explicit deploy approval.
+
+## 2026-10-16 Canonical migration runner rehearsal preparation
+- Added test/surveyMonthlyCounter.migrationRunner.postgres.test.ts using disposable PostgreSQL 16 and the existing src/db/migrate.ts runner; checks initial application and second-run skip of the unnumbered counter SQL draft with a rehearsal-only filename.
+- Added this step to the manual-only GitHub Actions workflow, before the separate concurrent increment and ACL test. No automatic push trigger was reintroduced.
+- The new migration-runner test has not yet been executed. The previously successful PostgreSQL 16 ACL/concurrency test remains the last verified DB result.
+- No migration number reserved, no main merge, no Production change. Staff test provenance and browser E2E remain open gates.
