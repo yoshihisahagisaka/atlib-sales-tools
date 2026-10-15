@@ -29,7 +29,7 @@
     "test:cleanup-rehearsal": "node -r ts-node/register --test test/productionTestDataCleanup.rehearsal.test.ts",
     "rehearse:cleanup": "node scripts/cleanup/rehearseProductionTestDataCleanup.cjs cleanup-manifests/production-test-data-cleanup-20261013.json",
     "migrate:artifact": "node dist/db/migrateCli.js",
-    "test:survey-kpi": "node -r ts-node/register --test test/surveyMonthlyCounter.golden.test.ts test/surveyCounterAttribution.golden.test.ts test/surveyMonthlySummary.golden.test.ts test/anonymousSurveyKpi.golden.test.ts test/publicSurveyCounter.api.test.ts test/adminSurveyTestEligibility.api.test.ts test/adminSurveyTestSubmission.api.test.ts test/surveyTestLauncher.contract.test.ts test/staffTestCaseCreation.contract.test.ts test/staffTestSubmissionIdempotency.golden.test.ts test/staffTestSubmissionKeyRepo.test.ts test/surveyMonthlyCounter.pglite.test.ts test/adminSurveyKpiSummary.api.test.ts"
+    "test:survey-kpi": "node -r ts-node/register --test test/surveyMonthlyCounter.golden.test.ts test/surveyCounterAttribution.golden.test.ts test/surveyMonthlySummary.golden.test.ts test/anonymousSurveyKpi.golden.test.ts test/publicSurveyCounter.api.test.ts test/adminSurveyTestEligibility.api.test.ts test/adminSurveyTestSubmission.api.test.ts test/surveyTestLauncher.contract.test.ts test/staffTestCaseCreation.contract.test.ts test/staffTestSubmissionIdempotency.golden.test.ts test/staffTestSubmissionKeyRepo.test.ts test/surveyMonthlyCounter.pglite.test.ts test/adminSurveyKpiSummary.api.test.ts test/surveyKpiServerMount.contract.test.ts"
   },
   "engines": {
     "node": ">=20"
