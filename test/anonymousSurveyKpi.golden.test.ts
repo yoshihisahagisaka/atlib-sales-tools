@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { buildJapanKpiWindows, inKpiWindow, periodVolumeRatio } from '../src/domain/anonymousSurveyKpi';
 
 test('Japan calendar windows use JST midnight and a shared as-of instant', () => {
-  const w = buildJapanKpiWindows('2026-10-14T11:00:00.000Z', '2026-09-20T00:00:00.000Z');
+  const w = buildJapanKpiWindows('2026-10-14T11:00:00.000Z', '2026-01-01T00:00:00.000Z');
   assert.equal(w.currentMonth.startInclusive, '2026-09-30T15:00:00.000Z');
   assert.equal(w.trailingThreeMonths.startInclusive, '2026-07-31T15:00:00.000Z');
   assert.equal(w.cumulative.startInclusive, '2026-09-20T00:00:00.000Z');
