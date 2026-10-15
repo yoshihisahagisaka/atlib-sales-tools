@@ -32,7 +32,8 @@ function subtractMonths(month: string, count: number): string {
 
 export function fiscalYearStartMonth(month: string): string {
   validateMonth(month);
-  const [year, m] = month.split('-').map(Number);
+  const year = Number(month.slice(0, 4));
+  const m = Number(month.slice(5, 7));
   return ym(m >= 2 ? year : year - 1, 2);
 }
 
