@@ -22,3 +22,34 @@ jobs:
         run: npm run build
       - name: Survey KPI tests
         run: npm run test:survey-kpi
+
+  postgres-rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: survey_kpi_rehearsal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d survey_kpi_rehearsal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      RUN_IT_SURVEY_COUNTER_PG: '1'
+      IT_SURVEY_COUNTER_PG_URL: postgresql://postgres:postgres@127.0.0.1:5432/survey_kpi_rehearsal
+      IT_SURVEY_COUNTER_RUNTIME_PG_URL: postgresql://sales_tools_runtime:runtime-only@127.0.0.1:5432/survey_kpi_rehearsal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: PostgreSQL 16 draft and ACL rehearsal
+        run: node -r ts-node/register --test test/surveyMonthlyCounter.postgres.test.ts
