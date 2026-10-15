@@ -24,7 +24,8 @@ function validateMonth(value: string): void {
 
 function subtractMonths(month: string, count: number): string {
   validateMonth(month);
-  const [year, m] = month.split('-').map(Number);
+  const year = Number(month.slice(0, 4));
+  const m = Number(month.slice(5, 7));
   const d = new Date(Date.UTC(year, m - 1 - count, 1));
   return ym(d.getUTCFullYear(), d.getUTCMonth() + 1);
 }
