@@ -134,3 +134,10 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Added docs/it-kaizen-survey-kpi-build-test-gate-20261015.md with PowerShell build/test commands, stop conditions and unresolved integration requirements.
 - No local repository checkout or installed dependency tree was available in this execution environment. Therefore neither npm run build nor npm run test:survey-kpi has been executed, and no PASS claim is made.
 - The feature is still incomplete: staff test provenance, numbered migration, server wiring, real DB tests and Production release remain pending.
+
+## 2026-10-15 Verified GitHub Actions build and test gate
+- Added branch-scoped GitHub Actions workflow `.github/workflows/it-kaizen-survey-kpi-validation.yml` using Node 22, npm ci --ignore-scripts, npm run build and npm run test:survey-kpi; no Production secrets or DB credentials.
+- First CI runs exposed strict TypeScript errors in fiscal month parsing and test-source type augmentation, plus mismatched coverage test expectations. Corrected these without changing the approved counting semantics.
+- **PASS** at feature SHA `f51a10fdfa31b8a2d0978f86f8aa3009ea5200d3`, GitHub Actions run `38673377139`: TypeScript build succeeded and survey KPI test command succeeded.
+- Scope of PASS is repository build and branch unit/API-mock/source-contract tests only. It does NOT certify PostgreSQL schema, concurrent writes, staff OAuth login, customer consent provenance, browser E2E, migration, common portal, or Production.
+- Remaining release blockers: approved test-only provenance, coordinated numbered migration, DB integration, server route mounting, staff test UI activation and non-production smoke tests. No main merge or Production change.
