@@ -19,9 +19,9 @@ function fakeClient(publicRows: unknown[], testRows: unknown[]) {
 test('shared lock is acquired before reading either receipt', async () => {
   const {client,calls} = fakeClient([],[]);
   assert.deepEqual(await inspectSubmissionKeyWithinTransaction(client,{key:'k',mode:'PUBLIC',payloadHash:'h'}),{action:'CREATE'});
-  assert.match(calls[0],/pg_advisory_xact_lock/);
-  assert.match(calls[1],/it_management_public_self_submission/);
-  assert.match(calls[2],/it_management_staff_test_submission_receipt/);
+  assert.match(calls[0]!,/pg_advisory_xact_lock/);
+  assert.match(calls[1]!,/it_management_public_self_submission/);
+  assert.match(calls[2]!,/it_management_staff_test_submission_receipt/);
 });
 
 test('public receipt blocks staff test reuse of the same key', async () => {
