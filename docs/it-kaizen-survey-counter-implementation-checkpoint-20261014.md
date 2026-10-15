@@ -194,3 +194,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Added this step to the manual-only GitHub Actions workflow, before the separate concurrent increment and ACL test. No automatic push trigger was reintroduced.
 - The new migration-runner test has not yet been executed. The previously successful PostgreSQL 16 ACL/concurrency test remains the last verified DB result.
 - No migration number reserved, no main merge, no Production change. Staff test provenance and browser E2E remain open gates.
+
+## 2026-10-16 Migration runner test strengthening / manual CI handoff
+- Confirmed feature branch HEAD and the workflow's workflow_dispatch-only trigger. No new run exists for the migration runner test as of this checkpoint.
+- Extended the disposable PostgreSQL migration runner test to verify schema_migrations ledger insertion and rollback of a deliberately invalid SQL migration (neither marker table nor ledger entry may persist).
+- This test extension has not been executed. Existing earlier PostgreSQL ACL/concurrency PASS does not imply migration runner PASS.
+- Manual GitHub Actions run is needed to validate this SHA; retain no-push-trigger policy to prevent notification floods. No Production migration or deploy.
