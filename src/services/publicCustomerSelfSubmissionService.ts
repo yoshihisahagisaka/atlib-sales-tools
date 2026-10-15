@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
 import { RuleBasedV1Error } from '../domain/freeDiagnosisRuleBasedV1';
 import type { PublicCustomerSelfDesignV2Submission } from '../domain/publicCustomerSelfDesignV2';
@@ -52,7 +52,7 @@ export class PublicCustomerSelfSubmissionService {
           'SELECT is_internal_test FROM it_management_diagnosis_case_v2 WHERE id=$1',
           [existing.rows[0].it_management_diagnosis_case_v2_id],
         );
-        if (designation.rows[0]?.is_internal_test !== (context.mode === 'STAFF_TEST')) {
+        if (designation.rows[0]?.is_internal_test !== false) {
           throw new RuleBasedV1Error(409, 'SUBMISSION_MODE_MISMATCH');
         }
         if (existing.rows[0].payload_hash !== hash) throw new RuleBasedV1Error(409, 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_SUBMISSION');
@@ -66,8 +66,6 @@ export class PublicCustomerSelfSubmissionService {
       await client.query('SAVEPOINT create_public_submission');
       const launcher = new FreeDiagnosisSalesLauncherRepo(client as unknown as Pool);
       const cases = new FreeDiagnosisRuleBasedCaseRepo(client as unknown as Pool);
-      const isStaffTest = context.mode === 'STAFF_TEST';
-      const actor = isStaffTest ? context.actor : PUBLIC_ACTOR;
       const activity = await launcher.createSalesActivity({
         name: input.company.name, corporateNumber: input.company.corporateNumber,
         contact: { name: input.contact.name, email: input.contact.email, phone: input.contact.phone, jobTitle: input.contact.jobTitle }, selectedService: 'IT_KAIZEN',
@@ -77,21 +75,11 @@ export class PublicCustomerSelfSubmissionService {
           utmSource: input.attribution.utmSource, utmMedium: input.attribution.utmMedium, utmCampaign: input.attribution.utmCampaign,
           utmContent: input.attribution.utmContent, utmTerm: input.attribution.utmTerm, landingUrl: input.attribution.landingUrl, referrer: input.attribution.referrer,
         },
-      }, actor);
-      const kase = await cases.createCase(activity.companyId, activity.contactId, activity.salesActivityId, actor, isStaffTest);
-      if (isStaffTest) {
-        // Initial test designation is auditable within the same transaction.
-        // This does not invoke the separate post-creation designation workflow.
-        await client.query(
-          `INSERT INTO it_management_diagnosis_test_case_designation_audit
-             (id,case_id,action,actor_user_id,reason)
-           VALUES ($1,$2,'DESIGNATED',$3,$4)`,
-          [randomUUID(), kase.id, actor, 'Authenticated staff test submission at Case creation'],
-        );
-      }
+      }, PUBLIC_ACTOR);
+      const kase = await cases.createCase(activity.companyId, activity.contactId, activity.salesActivityId, PUBLIC_ACTOR, false);
       const completed = await this.designV2Entry.completeInTransaction(client, {
         caseId: kase.id, answers: input.survey, surveyVersion: 'design-v2-public-1', entryChannel: 'CUSTOMER_SELF',
-        answeredByRole: input.contact.respondentRole, enteredByUserId: null, actor,
+        answeredByRole: input.contact.respondentRole, enteredByUserId: null, actor: PUBLIC_ACTOR,
       });
       const inserted = await client.query<{ it_management_diagnosis_case_v2_id: string }>(
         `INSERT INTO it_management_public_self_submission
@@ -111,7 +99,7 @@ export class PublicCustomerSelfSubmissionService {
           'SELECT is_internal_test FROM it_management_diagnosis_case_v2 WHERE id=$1',
           [winner.rows[0].it_management_diagnosis_case_v2_id],
         );
-        if (designation.rows[0]?.is_internal_test !== (context.mode === 'STAFF_TEST')) {
+        if (designation.rows[0]?.is_internal_test !== false) {
           throw new RuleBasedV1Error(409, 'SUBMISSION_MODE_MISMATCH');
         }
         if (winner.rows[0].payload_hash !== hash) throw new RuleBasedV1Error(409, 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_SUBMISSION');
