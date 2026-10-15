@@ -49,3 +49,12 @@ Compare operator output against Canonical and coordinate Business KAIZEN migrati
 - This verifies the current service routing and health response, not schema migration state, individual application flows, or a historical absence of Production changes.
 - Database schema_migrations and target tables remain UNVERIFIED. Do not infer that Production is at migration 036 from Git main.
 - No Production mutation was requested or performed as part of this preflight.
+
+## 2026-10-16 Cross-lane release sequencing decision
+- Business KAIZEN lane reported fresh read-only Production ledger PASS: 38 records, latest migration number 036, no 037+ applied. This is a cross-lane operator report, not independently queried by this branch.
+- IT KAIZEN lane ACCEPTS IT anonymous KPI first, Business KAIZEN anonymous KPI second.
+- Tentative numbers: IT 037, Business 038. These are **not reserved**. Confirm latest main SHA, all migration filenames and fresh Production ledger immediately before final numbering.
+- Business KAIZEN Package A v7 remains independently in development; do not assume it can be numbered or released after 038 without separate coordination.
+- Keep both KPI persistence models independent. Coordinate shared server.ts, runtime grants, regression and release artifacts.
+- IT survey KPI release remains blocked until its own migration runner/browser/security gates pass. Staff ?test=1 full application simulation remains disabled due to unresolved consent provenance and must not be silently treated as released.
+- No Production change or deploy authorized by this sequencing agreement.
