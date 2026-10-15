@@ -182,3 +182,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Public count reuses publicIntakeEnabled and its existing limiter. Summary route is behind the existing adminAuthGate. Staff test submission remains disabled and unmounted.
 - Added test/surveyKpiServerMount.contract.test.ts and included it in test:survey-kpi. CI run 38676677616 started; results pending at this checkpoint.
 - No migration or Production deploy. Do not enable the flag until schema and acceptance tests are approved.
+
+## 2026-10-15 Verified PostgreSQL 16 rehearsal
+- Added runtime SELECT/INSERT/UPDATE and DELETE/TRUNCATE revocation proposals to the unnumbered monthly counter SQL draft; no numbered migration or Production change.
+- Added disposable PostgreSQL 16 CI job and test/surveyMonthlyCounter.postgres.test.ts covering existing Marketing Initiative 034, runtime grants, 100 concurrent increments, stable month reads, historical attribution after deactivation, and DELETE denial.
+- GitHub Actions run 38676938302 at SHA 4ddaa7cde435d222593195059aede5cfa4756e45: both validate and postgres-rehearsal jobs succeeded.
+- Still required before release: migration runner rehearsal on target schema, cross-lane numbered migration coordination, Production runtime-role audit, test URL consent provenance, staging browser regression, and explicit deploy approval.
