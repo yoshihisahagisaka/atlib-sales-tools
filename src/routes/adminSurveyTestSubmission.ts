@@ -1,3 +1,4 @@
+import '../middleware/staffAuth'; // Load the existing Express.Request staffEmail augmentation.
 import { Router } from 'express';
 import { publicCustomerSelfDesignV2SubmissionSchema } from '../domain/publicCustomerSelfDesignV2';
 import { mayCreateTestSurveyCase } from '../domain/staffSurveyTestAuthorization';
