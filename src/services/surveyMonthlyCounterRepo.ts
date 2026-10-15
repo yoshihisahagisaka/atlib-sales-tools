@@ -62,14 +62,14 @@ export class SurveyMonthlyCounterRepo {
       month_jst: string; initiative_id: string | null;
       started_count: string; completed_count: string;
     }>(
-      `SELECT month_jst,initiative_id,started_count,completed_count
+      `SELECT to_char(month_jst, 'YYYY-MM-DD') AS month_jst,initiative_id,started_count,completed_count
        FROM it_kaizen_survey_monthly_counts
        WHERE month_jst >= $1::date AND month_jst < $2::date
        ORDER BY month_jst,attribution_bucket`,
       [fromMonthInclusive, toMonthExclusive],
     );
     return rows.map(row => ({
-      month: String(row.month_jst).slice(0, 10),
+      month: row.month_jst,
       initiativeId: row.initiative_id,
       startedCount: Number(row.started_count),
       completedCount: Number(row.completed_count),
