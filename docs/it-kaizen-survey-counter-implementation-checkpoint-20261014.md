@@ -147,3 +147,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Included this test in npm run test:survey-kpi. GitHub Actions run 38674006851 at SHA dbce374be7e2c3c11d41fda0343fb302e81c1f09 started. TypeScript build step succeeded; survey KPI test step was still running at last observation, so no overall PASS is claimed.
 - PGlite is a lightweight rehearsal, not PostgreSQL 16 Production migration, ACL, concurrent multi-instance or Cloud Run verification.
 - Staff test consent provenance remains blocked; no numbered migration, server mount, main merge or Production deployment.
+
+## 2026-10-15 Verified aggregate counter database rehearsal
+- GitHub Actions run 38674087243 succeeded at SHA 6e2fccab0ba4b2a8e2582b472e72a680b481dc6b: npm ci, TypeScript build, and test:survey-kpi including disposable PGlite counter SQL/repository test.
+- Previous failed run 38674006851 identified only strict test query typing in the newly added PGlite test; fixed and rerun successfully.
+- This verifies the unnumbered counter schema draft and its basic operations in PGlite. It does not establish real PostgreSQL 16 ACL, multi-client concurrency, migration runner compatibility, or Production safety.
+- Staff test provenance and approved numbered migrations remain outstanding. No main merge or Production deploy.
