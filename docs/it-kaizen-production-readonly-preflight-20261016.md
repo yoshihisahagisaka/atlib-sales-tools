@@ -38,3 +38,14 @@ If no read-only DB access exists, mark DB state UNVERIFIED rather than guessing.
 
 ## Next gate
 Compare operator output against Canonical and coordinate Business KAIZEN migration/deploy immediately before a release. Keep all work read-only until then.
+
+## Operator-observed Production status — 2026-10-16 (read-only)
+- gcloud run services describe sales-tools, project msp-zabbix, region asia-northeast1:
+  - status.latestReadyRevisionName: sales-tools-test-case-v1
+  - status.traffic: 100 percent to sales-tools-test-case-v1, tag test-case-management-v1-d355
+  - container image digest: sha256:da93eead069b1c038b0a2d60350d6b066a27510329cc6fa72e656e1b3f1d56e0
+  - older tagged revisions remain listed with no percentage assigned in this output.
+- Operator curl https://sales.atlib.jp/healthz/ returned HTTP 200 and body ok (response Date Thu, 15 Oct 2026 17:19:27 GMT).
+- This verifies the current service routing and health response, not schema migration state, individual application flows, or a historical absence of Production changes.
+- Database schema_migrations and target tables remain UNVERIFIED. Do not infer that Production is at migration 036 from Git main.
+- No Production mutation was requested or performed as part of this preflight.
