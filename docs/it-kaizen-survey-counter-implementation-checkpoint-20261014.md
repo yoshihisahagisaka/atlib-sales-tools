@@ -153,3 +153,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Previous failed run 38674006851 identified only strict test query typing in the newly added PGlite test; fixed and rerun successfully.
 - This verifies the unnumbered counter schema draft and its basic operations in PGlite. It does not establish real PostgreSQL 16 ACL, multi-client concurrency, migration runner compatibility, or Production safety.
 - Staff test provenance and approved numbered migrations remain outstanding. No main merge or Production deploy.
+
+## 2026-10-15 Summary API checkpoint
+- Added an unmounted read-only IT survey KPI summary route and its API test.
+- The cumulative query starts at measurement coverage, not a fixed lookback.
+- Included the new test in the dedicated CI command. CI was still running when checked.
+- The route is not enabled; migration, staff test provenance, real measurement start and Production integration remain pending.
