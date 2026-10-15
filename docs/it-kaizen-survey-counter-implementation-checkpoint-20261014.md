@@ -159,3 +159,13 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - The cumulative query starts at measurement coverage, not a fixed lookback.
 - Included the new test in the dedicated CI command. CI was still running when checked.
 - The route is not enabled; migration, staff test provenance, real measurement start and Production integration remain pending.
+
+## 2026-10-15 Cross-lane Production release coordination — CONFIRMED BY BUSINESS KAIZEN LANE
+- Shared main baseline d35581cec3dbc7d4ca2938f2a9c664906ccc5316, migrations through 036.
+- Business KAIZEN has two unnumbered SQL drafts: Package A v7 (Diagnosis / initial Stage History), anonymous KPI v6 (daily STARTED/COMPLETED counts). Neither has been merged or applied to Production; 037+ are not reserved.
+- Both lanes expect to add router registration to src/server.ts. Reconcile at integration; do not overwrite the other lane's changes.
+- Common KPI Foundation, common dashboard/portal and navigation remain IT KAIZEN lane responsibilities. Business KAIZEN owns its own diagnosis, lead/stage/outcome, KPI adapter and daily counter.
+- Existing Marketing Initiative is reused. Business Web self-attribution authority remains with its existing lead.
+- IT KAIZEN monthly/initiative counters and Business KAIZEN daily/two-event counters stay independent. Common information page is read-only; do not combine Case/Lead workflows.
+- No Production migration/deploy date set for Business KAIZEN. Both lanes may continue independently. Before shared Production release compare latest SHAs, migration numbering, schema/GRANT, router mounts, regression and release artifact.
+- This confirmation resolves the need to wait for Business KAIZEN implementation completion, but DOES NOT reserve a migration number or authorize a Production release.
