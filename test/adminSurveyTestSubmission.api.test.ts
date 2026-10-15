@@ -13,7 +13,7 @@ async function probe(staffEmail: string | undefined, body: unknown) {
   const app = express();
   app.use(express.json());
   app.use('/admin/test', (req, _res, next) => {
-    if (staffEmail) req.staffEmail = staffEmail;
+    if (staffEmail) (req as typeof req & { staffEmail?: string }).staffEmail = staffEmail;
     next();
   }, createAdminSurveyTestSubmissionRouter(fake,new Set(['authorized@atlib.jp'])));
   const server: Server = await new Promise(resolve => {
