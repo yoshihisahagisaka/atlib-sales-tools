@@ -128,3 +128,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - Added test/adminSurveyTestSubmission.api.test.ts for unauthorized, unauthenticated and invalid input rejection. These tests are written but not run.
 - The service still returns STAFF_TEST_PROVENANCE_NOT_IMPLEMENTED before any DB work. No test submission can be created through this route yet.
 - No server.ts mount, numbered migration, Production deploy or main merge. Next priority is executing build/tests and resolving the separately documented test receipt/consent provenance contract before activation.
+
+## 2026-10-15 Build and test execution gate
+- Added npm run test:survey-kpi to package.json, following the existing node -r ts-node/register --test convention. The command targets the survey KPI domain, API and source contract test files.
+- Added docs/it-kaizen-survey-kpi-build-test-gate-20261015.md with PowerShell build/test commands, stop conditions and unresolved integration requirements.
+- No local repository checkout or installed dependency tree was available in this execution environment. Therefore neither npm run build nor npm run test:survey-kpi has been executed, and no PASS claim is made.
+- The feature is still incomplete: staff test provenance, numbered migration, server wiring, real DB tests and Production release remain pending.
