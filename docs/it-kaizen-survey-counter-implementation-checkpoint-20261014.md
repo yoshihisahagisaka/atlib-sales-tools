@@ -141,3 +141,9 @@ No new count is being recorded in Production yet. The schema draft is not an app
 - **PASS** at feature SHA `f51a10fdfa31b8a2d0978f86f8aa3009ea5200d3`, GitHub Actions run `38673377139`: TypeScript build succeeded and survey KPI test command succeeded.
 - Scope of PASS is repository build and branch unit/API-mock/source-contract tests only. It does NOT certify PostgreSQL schema, concurrent writes, staff OAuth login, customer consent provenance, browser E2E, migration, common portal, or Production.
 - Remaining release blockers: approved test-only provenance, coordinated numbered migration, DB integration, server route mounting, staff test UI activation and non-production smoke tests. No main merge or Production change.
+
+## 2026-10-15 Aggregate SQL rehearsal gate
+- Added test/surveyMonthlyCounter.pglite.test.ts using disposable PGlite, exercising the unnumbered monthly counter SQL draft and repo increment/UTM lookup, unmatched bucket, inactive initiative historical retention, and JST month boundary.
+- Included this test in npm run test:survey-kpi. GitHub Actions run 38674006851 at SHA dbce374be7e2c3c11d41fda0343fb302e81c1f09 started. TypeScript build step succeeded; survey KPI test step was still running at last observation, so no overall PASS is claimed.
+- PGlite is a lightweight rehearsal, not PostgreSQL 16 Production migration, ACL, concurrent multi-instance or Cloud Run verification.
+- Staff test consent provenance remains blocked; no numbered migration, server mount, main merge or Production deployment.
