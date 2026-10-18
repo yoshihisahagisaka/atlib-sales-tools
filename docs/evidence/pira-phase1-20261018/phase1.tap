@@ -1,0 +1,106 @@
+TAP version 13
+# Subtest: company submission, association scope, order and immutable price snapshot persist atomically
+ok 1 - company submission, association scope, order and immutable price snapshot persist atomically
+  ---
+  duration_ms: 1954.7162
+  type: 'test'
+  ...
+# Subtest: parallel order retries produce one order; changed retry and AUTO cannot create another
+ok 2 - parallel order retries produce one order; changed retry and AUTO cannot create another
+  ---
+  duration_ms: 1552.7316
+  type: 'test'
+  ...
+# Subtest: submission retry, return/revise/cancel history and stale versions
+ok 3 - submission retry, return/revise/cancel history and stale versions
+  ---
+  duration_ms: 1425.3961
+  type: 'test'
+  ...
+# Subtest: company spoofing, association leaks, pending invitations, revoked principals and identity rebinding deny
+ok 4 - company spoofing, association leaks, pending invitations, revoked principals and identity rebinding deny
+  ---
+  duration_ms: 1355.1136
+  type: 'test'
+  ...
+# Subtest: existing companies are reviewed, identity/external mappings dedupe and never onboard
+ok 5 - existing companies are reviewed, identity/external mappings dedupe and never onboard
+  ---
+  duration_ms: 1387.257
+  type: 'test'
+  ...
+# Subtest: InfraVision requires confirmed unchanged estimate; Guard remains explicitly unbillable
+ok 6 - InfraVision requires confirmed unchanged estimate; Guard remains explicitly unbillable
+  ---
+  duration_ms: 1299.2266
+  type: 'test'
+  ...
+# Subtest: notification missing config/failure does not lose business; durable retry, no secrets, separate mail and Slack
+ok 7 - notification missing config/failure does not lose business; durable retry, no secrets, separate mail and Slack
+  ---
+  duration_ms: 1318.3841
+  type: 'test'
+  ...
+# Subtest: audit insertion failure rolls back application and outbox; cross-scope FK and fact ACL design
+ok 8 - audit insertion failure rolls back application and outbox; cross-scope FK and fact ACL design
+  ---
+  duration_ms: 1314.599
+  type: 'test'
+  ...
+# Subtest: HTTP auth separates external/staff cookies, denies forged price, CSRF and unauthorized order
+ok 9 - HTTP auth separates external/staff cookies, denies forged price, CSRF and unauthorized order
+  ---
+  duration_ms: 1316.3595
+  type: 'test'
+  ...
+# Subtest: Google entry reuses PKCE, fixed redirect, nonce; no unauthenticated JIT callback
+ok 10 - Google entry reuses PKCE, fixed redirect, nonce; no unauthenticated JIT callback
+  ---
+  duration_ms: 1325.7412
+  type: 'test'
+  ...
+# Subtest: feature disabled leaves new API and UI closed; shared Slack best-effort compatibility
+ok 11 - feature disabled leaves new API and UI closed; shared Slack best-effort compatibility
+  ---
+  duration_ms: 2.7097
+  type: 'test'
+  ...
+# Subtest: legacy staff gate and estimates remain independent from external PIRA session
+ok 12 - legacy staff gate and estimates remain independent from external PIRA session
+  ---
+  duration_ms: 10.9375
+  type: 'test'
+  ...
+# Subtest: real PostgreSQL concurrent transactions + runtime-role ACL + actual ledger
+ok 13 - real PostgreSQL concurrent transactions + runtime-role ACL + actual ledger # SKIP Requires separately available credentials/environment; no real DB/Cloud/IdP/SMTP action authorized or performed
+  ---
+  duration_ms: 0.1945
+  type: 'test'
+  ...
+# Subtest: live Google invitation login + IdP revocation
+ok 14 - live Google invitation login + IdP revocation # SKIP Requires separately available credentials/environment; no real DB/Cloud/IdP/SMTP action authorized or performed
+  ---
+  duration_ms: 0.1541
+  type: 'test'
+  ...
+# Subtest: Slack dedicated webhook + SMTP actual delivery
+ok 15 - Slack dedicated webhook + SMTP actual delivery # SKIP Requires separately available credentials/environment; no real DB/Cloud/IdP/SMTP action authorized or performed
+  ---
+  duration_ms: 0.1246
+  type: 'test'
+  ...
+# Subtest: Production revision/image and real company duplicate preflight
+ok 16 - Production revision/image and real company duplicate preflight # SKIP Requires separately available credentials/environment; no real DB/Cloud/IdP/SMTP action authorized or performed
+  ---
+  duration_ms: 0.0962
+  type: 'test'
+  ...
+1..16
+# tests 16
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 4
+# todo 0
+# duration_ms 14785.0494

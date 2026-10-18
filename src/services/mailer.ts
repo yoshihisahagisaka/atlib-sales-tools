@@ -15,6 +15,9 @@ export interface DiagnosticNotificationSummary {
 }
 
 export class Mailer {
+  async sendPiraNotice(to: string, subject: string, text: string): Promise<void> {
+    await this.transporter.sendMail({ from: this.config.from, to, subject, text });
+  }
   private readonly transporter: Transporter;
 
   async sendItManagementSurveyNotification(to: string, detailUrl: string): Promise<void> {
@@ -130,3 +133,4 @@ export class Mailer {
     });
   }
 }
+

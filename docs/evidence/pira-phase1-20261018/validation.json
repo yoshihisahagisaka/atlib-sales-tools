@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-18",
+  "base": "d35581cec3dbc7d4ca2938f2a9c664906ccc5316",
+  "design": "0d219617ecf23646633ca2764eb83e4420caaf48",
+  "node": "v24.18.0",
+  "typescript": "5.9.3",
+  "build": "PASS",
+  "phase1": {
+    "pass": 12,
+    "fail": 0,
+    "skip": 4
+  },
+  "browser": {
+    "cases": 4,
+    "status": "PASS",
+    "backend": "route mocks"
+  },
+  "regression": {
+    "pass": 78,
+    "fail": 2,
+    "skip": 1,
+    "baselineReproduced": true
+  },
+  "baselineCurrentDesign": {
+    "pass": 9,
+    "fail": 2
+  },
+  "realDb": "SKIP: dedicated read-only target not configured",
+  "cloud": "UNVERIFIED: existing gcloud credentials.db access denied",
+  "ddlSha256": "b3ef7ec8eeae8da9afefe8e40ac0c58fc1d27edb3b167b6701684f2757393df9",
+  "deployment": "NONE",
+  "migrationApplied": "NONE"
+}

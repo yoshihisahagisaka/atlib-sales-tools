@@ -1,0 +1,154 @@
+TAP version 13
+# Subtest: Golden 1: Growth / Change selects PRIMARY M05 and RELATED M02 without M01 explosion
+ok 1 - Golden 1: Growth / Change selects PRIMARY M05 and RELATED M02 without M01 explosion
+  ---
+  duration_ms: 4.1141
+  type: 'test'
+  ...
+# Subtest: Golden 2: delivered information can be available while decision usability is insufficient
+ok 2 - Golden 2: delivered information can be available while decision usability is insufficient
+  ---
+  duration_ms: 0.6493
+  type: 'test'
+  ...
+# Subtest: Golden 3: healthy case permits no important confirmation and no forced assessment
+ok 3 - Golden 3: healthy case permits no important confirmation and no forced assessment
+  ---
+  duration_ms: 0.3501
+  type: 'test'
+  ...
+# Subtest: Golden 4: IPO selects M03 primary and M01 related without security finding or forced assessment
+ok 4 - Golden 4: IPO selects M03 primary and M01 related without security finding or forced assessment
+  ---
+  duration_ms: 0.3487
+  type: 'test'
+  ...
+# Subtest: Golden 5: Lean Scaling selects M04 as opportunity confirmation, not a problem
+not ok 5 - Golden 5: Lean Scaling selects M04 as opportunity confirmation, not a problem
+  ---
+  duration_ms: 4.6103
+  type: 'test'
+  location: 'C:\\Users\\YoshihisaHagisaka\\.codex\\.chatgpt-projects\\g-p-6ad49f600ebc8191a9b696fc4c0ea23e\\pira-baseline-check\\test\\currentDesignV1.golden.test.ts:45:22'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+        [
+          'M04_BUSINESS_PRODUCTIVITY',
+          'PRIMARY'
+        ],
+    +   [
+    +     'M05_GROWTH_CHANGE_ADAPTATION',
+    +     'OPPORTUNITY'
+    +   ]
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0:
+      0: 'M04_BUSINESS_PRODUCTIVITY'
+      1: 'PRIMARY'
+  actual:
+    0:
+      0: 'M04_BUSINESS_PRODUCTIVITY'
+      1: 'PRIMARY'
+    1:
+      0: 'M05_GROWTH_CHANGE_ADAPTATION'
+      1: 'OPPORTUNITY'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\YoshihisaHagisaka\.codex\.chatgpt-projects\g-p-6ad49f600ebc8191a9b696fc4c0ea23e\pira-baseline-check\test\currentDesignV1.golden.test.ts:49:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+    Test.postRun (node:internal/test_runner/test:1465:19)
+    Test.run (node:internal/test_runner/test:1390:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: Guards: Future, Desired State, UNKNOWN, and Q1 quantity alone do not create a problem, focus, or assessment
+ok 6 - Guards: Future, Desired State, UNKNOWN, and Q1 quantity alone do not create a problem, focus, or assessment
+  ---
+  duration_ms: 0.8055
+  type: 'test'
+  ...
+# Subtest: Relevance is preserved without converting Future or Desired State alone into a focus
+ok 7 - Relevance is preserved without converting Future or Desired State alone into a focus
+  ---
+  duration_ms: 0.4537
+  type: 'test'
+  ...
+# Subtest: Guards: staff visibility is operational, Q7 is excluded, and not-in-position is authority confirmation not knowledge UNKNOWN
+ok 8 - Guards: staff visibility is operational, Q7 is excluded, and not-in-position is authority confirmation not knowledge UNKNOWN
+  ---
+  duration_ms: 0.3263
+  type: 'test'
+  ...
+# Subtest: Case 3 guard: Q7のSolution HypothesisはInitial Rule、Focus、Verification Purposeを変えない
+not ok 9 - Case 3 guard: Q7のSolution HypothesisはInitial Rule、Focus、Verification Purposeを変えない
+  ---
+  duration_ms: 1.3732
+  type: 'test'
+  location: 'C:\\Users\\YoshihisaHagisaka\\.codex\\.chatgpt-projects\\g-p-6ad49f600ebc8191a9b696fc4c0ea23e\\pira-baseline-check\\test\\currentDesignV1.golden.test.ts:77:22'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+        [
+          'M04_BUSINESS_PRODUCTIVITY',
+          'M04_BUSINESS_PRODUCTIVITY_CONFIRMATION'
+        ],
+    +   [
+    +     'M05_GROWTH_CHANGE_ADAPTATION',
+    +     'M05_GROWTH_CHANGE_ADAPTATION_CONFIRMATION'
+    +   ]
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0:
+      0: 'M04_BUSINESS_PRODUCTIVITY'
+      1: 'M04_BUSINESS_PRODUCTIVITY_CONFIRMATION'
+  actual:
+    0:
+      0: 'M04_BUSINESS_PRODUCTIVITY'
+      1: 'M04_BUSINESS_PRODUCTIVITY_CONFIRMATION'
+    1:
+      0: 'M05_GROWTH_CHANGE_ADAPTATION'
+      1: 'M05_GROWTH_CHANGE_ADAPTATION_CONFIRMATION'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\YoshihisaHagisaka\.codex\.chatgpt-projects\g-p-6ad49f600ebc8191a9b696fc4c0ea23e\pira-baseline-check\test\currentDesignV1.golden.test.ts:92:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+    Test.postRun (node:internal/test_runner/test:1465:19)
+    Test.run (node:internal/test_runner/test:1390:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: Recognition Difference helper identifies only same-semantic disagreement; structured statements never become FACT
+ok 10 - Recognition Difference helper identifies only same-semantic disagreement; structured statements never become FACT
+  ---
+  duration_ms: 0.3894
+  type: 'test'
+  ...
+# Subtest: Guard: operator note is not accepted by the initial rule input contract
+ok 11 - Guard: operator note is not accepted by the initial rule input contract
+  ---
+  duration_ms: 0.1371
+  type: 'test'
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 9
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 437.5622

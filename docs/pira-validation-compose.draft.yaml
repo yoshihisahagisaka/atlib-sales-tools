@@ -1,0 +1,47 @@
+# REVIEW ONLY. No docker up/create/pull/volume action is authorized in this task.
+name: pira-joint-purchase-validation
+services:
+  postgres:
+    image: ${PIRA_POSTGRES_IMAGE:?Set an approved official postgres 16.x or 17.x image pinned by sha256 digest}
+    container_name: pira-joint-purchase-validation-db
+    ports: ["127.0.0.1:55442:5432"]
+    environment:
+      POSTGRES_DB: pira_joint_purchase_validation
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/admin_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets: [admin_password]
+    volumes: ["pira_data:/var/lib/postgresql/data"]
+    mem_limit: 768m
+    cpus: 1.0
+    restart: "no"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pira_joint_purchase_validation"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  restore:
+    profiles: [restore]
+    image: ${PIRA_POSTGRES_IMAGE:?Set the identical approved image digest}
+    container_name: pira-joint-purchase-restore-db
+    ports: ["127.0.0.1:55443:5432"]
+    environment:
+      POSTGRES_DB: pira_joint_purchase_restore
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/restore_admin_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets: [restore_admin_password]
+    volumes: ["pira_restore_data:/var/lib/postgresql/data"]
+    mem_limit: 768m
+    cpus: 1.0
+    restart: "no"
+secrets:
+  admin_password:
+    file: ${PIRA_VALIDATION_ADMIN_PASSWORD_FILE:?Set an approved local secret file outside git}
+  restore_admin_password:
+    file: ${PIRA_RESTORE_ADMIN_PASSWORD_FILE:?Set a distinct approved local secret file outside git}
+volumes:
+  pira_data:
+    name: pira_joint_purchase_validation_pgdata_v1
+  pira_restore_data:
+    name: pira_joint_purchase_restore_pgdata_v1
