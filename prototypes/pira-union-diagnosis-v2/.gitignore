@@ -1,0 +1,6 @@
+__pycache__/
+debug.log
+evidence/downloads/
+evidence/browser-failure.txt
+evidence/*final-*.png
+evidence/workforce-print-*.png

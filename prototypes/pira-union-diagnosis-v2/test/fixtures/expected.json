@@ -1,0 +1,446 @@
+[
+  {
+    "fixture": "F01",
+    "status": "ACTION_CONFIRMATION",
+    "relevanceThemeIds": [
+      "T01",
+      "T02",
+      "T03",
+      "T04",
+      "T05",
+      "T08"
+    ],
+    "candidateThemeIds": [
+      "T01",
+      "T02",
+      "T03"
+    ],
+    "priorityThemeIds": [
+      "T01",
+      "T02",
+      "T03"
+    ],
+    "deferredThemeIds": [],
+    "themeEvidence": {
+      "T01": [
+        "B01"
+      ],
+      "T02": [
+        "C04"
+      ],
+      "T03": [
+        "C03"
+      ]
+    },
+    "unknownQuestionIds": [
+      "C07"
+    ],
+    "authorityQuestionIds": [],
+    "notApplicableQuestionIds": [],
+    "skippedQuestionIds": [
+      "B02",
+      "B03"
+    ],
+    "checklistIds": [
+      "K01",
+      "K02",
+      "K03",
+      "KU"
+    ],
+    "contentCardIds": [
+      "S01",
+      "I01",
+      "I02"
+    ],
+    "nextActionIds": [
+      "SELF_REVIEW",
+      "OPTIONAL_CONSULTATION",
+      "OPTIONAL_MEMBER_INVITATION"
+    ],
+    "appliedRuleIds": [
+      "G01",
+      "G02",
+      "G04",
+      "D01",
+      "REL01",
+      "R-T01",
+      "R-T02",
+      "R-T03",
+      "SEL01",
+      "KSEL01",
+      "H03"
+    ]
+  },
+  {
+    "fixture": "F02",
+    "status": "ACTION_CONFIRMATION",
+    "relevanceThemeIds": [
+      "T02",
+      "T03",
+      "T04",
+      "T05",
+      "T06",
+      "T07",
+      "T08"
+    ],
+    "candidateThemeIds": [
+      "T04",
+      "T06",
+      "T07"
+    ],
+    "priorityThemeIds": [
+      "T04",
+      "T06",
+      "T07"
+    ],
+    "deferredThemeIds": [],
+    "themeEvidence": {
+      "T04": [
+        "C05"
+      ],
+      "T06": [
+        "C07"
+      ],
+      "T07": [
+        "B02"
+      ]
+    },
+    "unknownQuestionIds": [],
+    "authorityQuestionIds": [],
+    "notApplicableQuestionIds": [],
+    "skippedQuestionIds": [
+      "B01",
+      "B03"
+    ],
+    "checklistIds": [
+      "K04",
+      "K06",
+      "K07"
+    ],
+    "contentCardIds": [
+      "S01",
+      "I01",
+      "I02"
+    ],
+    "nextActionIds": [
+      "SELF_REVIEW",
+      "OPTIONAL_CONSULTATION",
+      "OPTIONAL_MEMBER_INVITATION"
+    ],
+    "appliedRuleIds": [
+      "G01",
+      "G04",
+      "D01",
+      "REL01",
+      "R-T04",
+      "R-T06",
+      "R-T07",
+      "SEL01",
+      "KSEL01",
+      "H03"
+    ]
+  },
+  {
+    "fixture": "F03",
+    "status": "ACTION_CONFIRMATION",
+    "relevanceThemeIds": [
+      "T02",
+      "T03",
+      "T04",
+      "T05",
+      "T06",
+      "T08"
+    ],
+    "candidateThemeIds": [
+      "T02",
+      "T08"
+    ],
+    "priorityThemeIds": [
+      "T02",
+      "T08"
+    ],
+    "deferredThemeIds": [],
+    "themeEvidence": {
+      "T02": [
+        "C04",
+        "B03"
+      ],
+      "T08": [
+        "B04"
+      ]
+    },
+    "unknownQuestionIds": [],
+    "authorityQuestionIds": [],
+    "notApplicableQuestionIds": [],
+    "skippedQuestionIds": [
+      "B01",
+      "B02"
+    ],
+    "checklistIds": [
+      "K02",
+      "K08"
+    ],
+    "contentCardIds": [
+      "S01",
+      "I01",
+      "I02"
+    ],
+    "nextActionIds": [
+      "SELF_REVIEW",
+      "OPTIONAL_CONSULTATION",
+      "OPTIONAL_MEMBER_INVITATION"
+    ],
+    "appliedRuleIds": [
+      "G01",
+      "G04",
+      "D01",
+      "REL01",
+      "R-T02",
+      "R-T08",
+      "DEP01",
+      "SEL01",
+      "KSEL01",
+      "H03"
+    ]
+  },
+  {
+    "fixture": "F04",
+    "status": "CONFIRMATION_PENDING",
+    "relevanceThemeIds": [
+      "T01",
+      "T02",
+      "T07",
+      "T08"
+    ],
+    "candidateThemeIds": [],
+    "priorityThemeIds": [],
+    "deferredThemeIds": [],
+    "themeEvidence": {},
+    "unknownQuestionIds": [
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07",
+      "B01",
+      "B02",
+      "B03",
+      "B04"
+    ],
+    "authorityQuestionIds": [],
+    "notApplicableQuestionIds": [],
+    "skippedQuestionIds": [],
+    "checklistIds": [
+      "KU"
+    ],
+    "contentCardIds": [
+      "S01",
+      "I01",
+      "I02"
+    ],
+    "nextActionIds": [
+      "SELF_REVIEW",
+      "OPTIONAL_CONSULTATION",
+      "OPTIONAL_MEMBER_INVITATION"
+    ],
+    "appliedRuleIds": [
+      "G01",
+      "G02",
+      "D01",
+      "REL01",
+      "SEL01",
+      "KSEL01",
+      "H02"
+    ]
+  },
+  {
+    "fixture": "F05",
+    "status": "NO_ADDITIONAL_CONFIRMATION",
+    "relevanceThemeIds": [
+      "T01",
+      "T02",
+      "T03",
+      "T04",
+      "T05",
+      "T06",
+      "T07",
+      "T08"
+    ],
+    "candidateThemeIds": [],
+    "priorityThemeIds": [],
+    "deferredThemeIds": [],
+    "themeEvidence": {},
+    "unknownQuestionIds": [],
+    "authorityQuestionIds": [],
+    "notApplicableQuestionIds": [],
+    "skippedQuestionIds": [],
+    "checklistIds": [
+      "K00"
+    ],
+    "contentCardIds": [
+      "S01",
+      "I01",
+      "I02"
+    ],
+    "nextActionIds": [
+      "SELF_REVIEW",
+      "OPTIONAL_CONSULTATION",
+      "OPTIONAL_MEMBER_INVITATION"
+    ],
+    "appliedRuleIds": [
+      "G01",
+      "D01",
+      "REL01",
+      "SEL01",
+      "KSEL01",
+      "H01"
+    ]
+  },
+  {
+    "fixture": "F06",
+    "status": "ACTION_CONFIRMATION",
+    "relevanceThemeIds": [
+      "T01",
+      "T02",
+      "T03",
+      "T04",
+      "T05",
+      "T06",
+      "T07",
+      "T08"
+    ],
+    "candidateThemeIds": [
+      "T01",
+      "T02",
+      "T03",
+      "T04",
+      "T05",
+      "T06",
+      "T07",
+      "T08"
+    ],
+    "priorityThemeIds": [
+      "T01",
+      "T02",
+      "T03"
+    ],
+    "deferredThemeIds": [
+      "T04",
+      "T05",
+      "T06",
+      "T07",
+      "T08"
+    ],
+    "themeEvidence": {
+      "T01": [
+        "B01"
+      ],
+      "T02": [
+        "C04",
+        "B03"
+      ],
+      "T03": [
+        "C03"
+      ],
+      "T04": [
+        "C05"
+      ],
+      "T05": [
+        "C06"
+      ],
+      "T06": [
+        "C07"
+      ],
+      "T07": [
+        "B02"
+      ],
+      "T08": [
+        "B04"
+      ]
+    },
+    "unknownQuestionIds": [],
+    "authorityQuestionIds": [],
+    "notApplicableQuestionIds": [],
+    "skippedQuestionIds": [],
+    "checklistIds": [
+      "K01",
+      "K02",
+      "K03"
+    ],
+    "contentCardIds": [
+      "S01",
+      "I01",
+      "I02"
+    ],
+    "nextActionIds": [
+      "SELF_REVIEW",
+      "OPTIONAL_CONSULTATION",
+      "OPTIONAL_MEMBER_INVITATION"
+    ],
+    "appliedRuleIds": [
+      "G01",
+      "D01",
+      "REL01",
+      "R-T01",
+      "R-T02",
+      "R-T03",
+      "R-T04",
+      "R-T05",
+      "R-T06",
+      "R-T07",
+      "R-T08",
+      "DEP01",
+      "DEP02",
+      "SEL01",
+      "KSEL01",
+      "H03"
+    ]
+  },
+  {
+    "fixture": "F07",
+    "status": "NO_ADDITIONAL_CONFIRMATION",
+    "relevanceThemeIds": [
+      "T02",
+      "T08"
+    ],
+    "candidateThemeIds": [],
+    "priorityThemeIds": [],
+    "deferredThemeIds": [],
+    "themeEvidence": {},
+    "unknownQuestionIds": [],
+    "authorityQuestionIds": [],
+    "notApplicableQuestionIds": [
+      "C03",
+      "C05",
+      "C06",
+      "C07"
+    ],
+    "skippedQuestionIds": [
+      "B01",
+      "B02"
+    ],
+    "checklistIds": [
+      "K00"
+    ],
+    "contentCardIds": [
+      "S01",
+      "I01",
+      "I02"
+    ],
+    "nextActionIds": [
+      "SELF_REVIEW",
+      "OPTIONAL_CONSULTATION",
+      "OPTIONAL_MEMBER_INVITATION"
+    ],
+    "appliedRuleIds": [
+      "G01",
+      "G04",
+      "D01",
+      "REL01",
+      "SEL01",
+      "KSEL01",
+      "H01"
+    ]
+  }
+]

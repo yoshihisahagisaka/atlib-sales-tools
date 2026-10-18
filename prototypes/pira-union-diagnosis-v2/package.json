@@ -1,0 +1,1 @@
+{"name":"pira-union-diagnosis-local-prototype","private":true,"version":"1.0.0","scripts":{"test":"node --test test/diagnosis.test.cjs","test:browser":"node test/browser.cjs"}}
