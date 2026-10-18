@@ -1,0 +1,421 @@
+TAP version 13
+# Subtest: T01/T05: confirmed facts are not re-asked; major areas and bottlenecks become deterministic candidates
+ok 1 - T01/T05: confirmed facts are not re-asked; major areas and bottlenecks become deterministic candidates
+  ---
+  duration_ms: 7.2445
+  type: 'test'
+  ...
+# Subtest: T07: TO-BE clarification stays context; it is not recalculated by preparation
+ok 2 - T07: TO-BE clarification stays context; it is not recalculated by preparation
+  ---
+  duration_ms: 4.2361
+  type: 'test'
+  ...
+# Subtest: T09: Scope UNKNOWN adds the explicit purpose and neutral scope question without inferring scope
+ok 3 - T09: Scope UNKNOWN adds the explicit purpose and neutral scope question without inferring scope
+  ---
+  duration_ms: 1.1186
+  type: 'test'
+  ...
+# Subtest: T10: Scope clarification remains null and does not become a service recommendation
+ok 4 - T10: Scope clarification remains null and does not become a service recommendation
+  ---
+  duration_ms: 0.5563
+  type: 'test'
+  ...
+# Subtest: snapshot contract rejects wrong version, inconsistent target state, and inferred direction during clarification
+ok 5 - snapshot contract rejects wrong version, inconsistent target state, and inferred direction during clarification
+  ---
+  duration_ms: 1.5018
+  type: 'test'
+  ...
+# business Web TimeRex URL tests: PASS
+# Subtest: test\\businessWebTimeRexUrl.test.cjs
+ok 2 - test\\businessWebTimeRexUrl.test.cjs
+  ---
+  duration_ms: 445.3964
+  type: 'test'
+  ...
+# Subtest: Golden 1: Growth / Change selects PRIMARY M05 and RELATED M02 without M01 explosion
+ok 7 - Golden 1: Growth / Change selects PRIMARY M05 and RELATED M02 without M01 explosion
+  ---
+  duration_ms: 7.7075
+  type: 'test'
+  ...
+# Subtest: Golden 2: delivered information can be available while decision usability is insufficient
+ok 8 - Golden 2: delivered information can be available while decision usability is insufficient
+  ---
+  duration_ms: 1.3036
+  type: 'test'
+  ...
+# Subtest: Golden 3: healthy case permits no important confirmation and no forced assessment
+ok 9 - Golden 3: healthy case permits no important confirmation and no forced assessment
+  ---
+  duration_ms: 0.597
+  type: 'test'
+  ...
+# Subtest: Golden 4: IPO selects M03 primary and M01 related without security finding or forced assessment
+ok 10 - Golden 4: IPO selects M03 primary and M01 related without security finding or forced assessment
+  ---
+  duration_ms: 0.7177
+  type: 'test'
+  ...
+# Subtest: Golden 5: Lean Scaling selects M04 as opportunity confirmation, not a problem
+not ok 11 - Golden 5: Lean Scaling selects M04 as opportunity confirmation, not a problem
+  ---
+  duration_ms: 15.0196
+  type: 'test'
+  location: '<workspace>\\test\\currentDesignV1.golden.test.ts:45:22'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+        [
+          'M04_BUSINESS_PRODUCTIVITY',
+          'PRIMARY'
+        ],
+    +   [
+    +     'M05_GROWTH_CHANGE_ADAPTATION',
+    +     'OPPORTUNITY'
+    +   ]
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0:
+      0: 'M04_BUSINESS_PRODUCTIVITY'
+      1: 'PRIMARY'
+  actual:
+    0:
+      0: 'M04_BUSINESS_PRODUCTIVITY'
+      1: 'PRIMARY'
+    1:
+      0: 'M05_GROWTH_CHANGE_ADAPTATION'
+      1: 'OPPORTUNITY'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (<workspace>\test\currentDesignV1.golden.test.ts:49:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+    Test.postRun (node:internal/test_runner/test:1465:19)
+    Test.run (node:internal/test_runner/test:1390:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: Guards: Future, Desired State, UNKNOWN, and Q1 quantity alone do not create a problem, focus, or assessment
+ok 12 - Guards: Future, Desired State, UNKNOWN, and Q1 quantity alone do not create a problem, focus, or assessment
+  ---
+  duration_ms: 1.5577
+  type: 'test'
+  ...
+# Subtest: Relevance is preserved without converting Future or Desired State alone into a focus
+ok 13 - Relevance is preserved without converting Future or Desired State alone into a focus
+  ---
+  duration_ms: 0.5982
+  type: 'test'
+  ...
+# Subtest: Guards: staff visibility is operational, Q7 is excluded, and not-in-position is authority confirmation not knowledge UNKNOWN
+ok 14 - Guards: staff visibility is operational, Q7 is excluded, and not-in-position is authority confirmation not knowledge UNKNOWN
+  ---
+  duration_ms: 0.6593
+  type: 'test'
+  ...
+# Subtest: Case 3 guard: Q7縺ｮSolution Hypothesis縺ｯInitial Rule縲：ocus縲〃erification Purpose繧貞､峨∴縺ｪ縺・not ok 15 - Case 3 guard: Q7縺ｮSolution Hypothesis縺ｯInitial Rule縲：ocus縲〃erification Purpose繧貞､峨∴縺ｪ縺・  ---
+  duration_ms: 3.1715
+  type: 'test'
+  location: '<workspace>\\test\\currentDesignV1.golden.test.ts:77:22'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+        [
+          'M04_BUSINESS_PRODUCTIVITY',
+          'M04_BUSINESS_PRODUCTIVITY_CONFIRMATION'
+        ],
+    +   [
+    +     'M05_GROWTH_CHANGE_ADAPTATION',
+    +     'M05_GROWTH_CHANGE_ADAPTATION_CONFIRMATION'
+    +   ]
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0:
+      0: 'M04_BUSINESS_PRODUCTIVITY'
+      1: 'M04_BUSINESS_PRODUCTIVITY_CONFIRMATION'
+  actual:
+    0:
+      0: 'M04_BUSINESS_PRODUCTIVITY'
+      1: 'M04_BUSINESS_PRODUCTIVITY_CONFIRMATION'
+    1:
+      0: 'M05_GROWTH_CHANGE_ADAPTATION'
+      1: 'M05_GROWTH_CHANGE_ADAPTATION_CONFIRMATION'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (<workspace>\test\currentDesignV1.golden.test.ts:92:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+    Test.postRun (node:internal/test_runner/test:1465:19)
+    Test.run (node:internal/test_runner/test:1390:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: Recognition Difference helper identifies only same-semantic disagreement; structured statements never become FACT
+ok 16 - Recognition Difference helper identifies only same-semantic disagreement; structured statements never become FACT
+  ---
+  duration_ms: 0.8316
+  type: 'test'
+  ...
+# Subtest: Guard: operator note is not accepted by the initial rule input contract
+ok 17 - Guard: operator note is not accepted by the initial rule input contract
+  ---
+  duration_ms: 0.3
+  type: 'test'
+  ...
+# Subtest: Golden: Web逕ｳ霎ｼ繧剃ｸ諡ｬ菫晏ｭ倥∵噴遘ｰ縺ｯ陦ｨ遉ｺ縺ｮ縺ｿ縲〉aw token縺ｯhash縺ｮ縺ｿ
+not ok 18 - Golden: Web逕ｳ霎ｼ繧剃ｸ諡ｬ菫晏ｭ倥∵噴遘ｰ縺ｯ陦ｨ遉ｺ縺ｮ縺ｿ縲〉aw token縺ｯhash縺ｮ縺ｿ
+  ---
+  duration_ms: 2895.5998
+  type: 'test'
+  location: '<workspace>\\test\\itManagementDiagnosis.golden.test.ts:53:22'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  ...
+# Subtest: Golden: 髢句ｧ九・蜀ｪ遲峨∫函蝗樒ｭ斐悟ｮ悟・縺ｫ謚頑升縲阪悟・縺九ｉ縺ｪ縺・阪ｒ菫晏ｭ倥＠縺ｦ蜀埼幕縺ｧ縺阪ｋ
+not ok 19 - Golden: 髢句ｧ九・蜀ｪ遲峨∫函蝗樒ｭ斐悟ｮ悟・縺ｫ謚頑升縲阪悟・縺九ｉ縺ｪ縺・阪ｒ菫晏ｭ倥＠縺ｦ蜀埼幕縺ｧ縺阪ｋ
+  ---
+  duration_ms: 4.7692
+  type: 'test'
+  location: '<workspace>\\test\\itManagementDiagnosis.golden.test.ts:73:22'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  ...
+# Subtest: Golden: Q01螟画峩縺ｯComplete縺ｾ縺ｧFuture譛ｪ逕滓・縲∝ｿ・・06荳崎ｶｳ縺ｯ422縲∝ｮ御ｺ・〒SURVEY_STATED
+not ok 20 - Golden: Q01螟画峩縺ｯComplete縺ｾ縺ｧFuture譛ｪ逕滓・縲∝ｿ・・06荳崎ｶｳ縺ｯ422縲∝ｮ御ｺ・〒SURVEY_STATED
+  ---
+  duration_ms: 2.8964
+  type: 'test'
+  location: '<workspace>\\test\\itManagementDiagnosis.golden.test.ts:97:22'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  ...
+# Subtest: Golden: 辟｡蜉ｹ繝ｻ蛻･Case繝ｻ譛滄剞蛻・ｌ繝ｻ螟ｱ蜉ｹtoken縺ｫ繧医ｋ隱ｭ縺ｿ譖ｸ縺阪ｒ諡貞凄
+not ok 21 - Golden: 辟｡蜉ｹ繝ｻ蛻･Case繝ｻ譛滄剞蛻・ｌ繝ｻ螟ｱ蜉ｹtoken縺ｫ繧医ｋ隱ｭ縺ｿ譖ｸ縺阪ｒ諡貞凄
+  ---
+  duration_ms: 2.5434
+  type: 'test'
+  location: '<workspace>\\test\\itManagementDiagnosis.golden.test.ts:129:22'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  ...
+# Subtest: Golden: SALES_VISIT縺ｯ譌｢蟄・taff隱崎ｨｼ縲∝酔荳Survey縺ｨactor險倬鹸縲・｡ｧ螳｢逋ｺ險繧定｣懷ｮ後＠縺ｪ縺・not ok 22 - Golden: SALES_VISIT縺ｯ譌｢蟄・taff隱崎ｨｼ縲∝酔荳Survey縺ｨactor險倬鹸縲・｡ｧ螳｢逋ｺ險繧定｣懷ｮ後＠縺ｪ縺・  ---
+  duration_ms: 2.5214
+  type: 'test'
+  location: '<workspace>\\test\\itManagementDiagnosis.golden.test.ts:146:22'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  ...
+# Subtest: 蝗樒ｭ斐・question/version/type繧呈､懆ｨｼ縺励∽ｻｻ諢剰・逕ｱ險倩ｿｰ縺ｮ蜴滓枚縺ｨ遨ｺ縺ｸ縺ｮ螟画峩繧剃ｿ晏ｭ・not ok 23 - 蝗樒ｭ斐・question/version/type繧呈､懆ｨｼ縺励∽ｻｻ諢剰・逕ｱ險倩ｿｰ縺ｮ蜴滓枚縺ｨ遨ｺ縺ｸ縺ｮ螟画峩繧剃ｿ晏ｭ・  ---
+  duration_ms: 2.0976
+  type: 'test'
+  location: '<workspace>\\test\\itManagementDiagnosis.golden.test.ts:175:22'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  ...
+# Subtest: 螳御ｺ・凾縺ｮDB髫懷ｮｳ縺ｯFuture縺ｨ驕ｷ遘ｻ繧池ollback縺励∝・螳溯｡後〒縺阪ｋ
+not ok 24 - 螳御ｺ・凾縺ｮDB髫懷ｮｳ縺ｯFuture縺ｨ驕ｷ遘ｻ繧池ollback縺励∝・螳溯｡後〒縺阪ｋ
+  ---
+  duration_ms: 2.3352
+  type: 'test'
+  location: '<workspace>\\test\\itManagementDiagnosis.golden.test.ts:190:22'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  ...
+# Subtest: 莨夂､ｾ蜷阪〒Organization繧定・蜍輔・繝ｼ繧ｸ縺帙★縲∬ｳｪ蝠丞ｮ夂ｾｩ縺ｯDB縺ｫ蝗ｺ螳・not ok 25 - 莨夂､ｾ蜷阪〒Organization繧定・蜍輔・繝ｼ繧ｸ縺帙★縲∬ｳｪ蝠丞ｮ夂ｾｩ縺ｯDB縺ｫ蝗ｺ螳・  ---
+  duration_ms: 2.287
+  type: 'test'
+  location: '<workspace>\\test\\itManagementDiagnosis.golden.test.ts:210:22'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  ...
+# Subtest: 荳榊ｭ伜惠Case縺ｯ蜈ｨ隱ｭ蜿悶・譖ｴ譁ｰ縺ｧ鬘ｧ螳｢401・上せ繧ｿ繝・ヵ404縺ｨ縺ｪ繧・00繧定ｿ斐＆縺ｪ縺・not ok 26 - 荳榊ｭ伜惠Case縺ｯ蜈ｨ隱ｭ蜿悶・譖ｴ譁ｰ縺ｧ鬘ｧ螳｢401・上せ繧ｿ繝・ヵ404縺ｨ縺ｪ繧・00繧定ｿ斐＆縺ｪ縺・  ---
+  duration_ms: 3.3473
+  type: 'test'
+  location: '<workspace>\\test\\itManagementDiagnosis.golden.test.ts:228:22'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  ...
+# Subtest: Survey v2縺ｮSSOT譁・嶌譯医・雉ｪ蝠乗枚繝ｻ驕ｸ謚櫁い繝ｻtype繝ｻ蠢・亥玄蛻・・code繝ｻversion繧貞ｮ悟・縺ｫ菫晄戟
+not ok 27 - Survey v2縺ｮSSOT譁・嶌譯医・雉ｪ蝠乗枚繝ｻ驕ｸ謚櫁い繝ｻtype繝ｻ蠢・亥玄蛻・・code繝ｻversion繧貞ｮ悟・縺ｫ菫晄戟
+  ---
+  duration_ms: 0.7256
+  type: 'test'
+  location: '<workspace>\\test\\itManagementDiagnosis.golden.test.ts:249:22'
+  failureType: 'testCodeFailure'
+  error: "ENOENT: no such file or directory, open '<workspace>\\docs\\free-it-management-diagnosis-survey-v2-question-set-proposal.md'"
+  code: 'ENOENT'
+  stack: |-
+    Object.readFileSync (node:fs:441:20)
+    TestContext.<anonymous> (<workspace>\test\itManagementDiagnosis.golden.test.ts:221:23)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: 繝ｭ繧ｰ縺ｫraw token繝ｻquery繝ｻ閾ｪ逕ｱ險倩ｿｰ繝ｻ繝｡繝ｼ繝ｫ繧定ｨ倬鹸縺励↑縺・not ok 28 - 繝ｭ繧ｰ縺ｫraw token繝ｻquery繝ｻ閾ｪ逕ｱ險倩ｿｰ繝ｻ繝｡繝ｼ繝ｫ繧定ｨ倬鹸縺励↑縺・  ---
+  duration_ms: 8.3953
+  type: 'test'
+  location: '<workspace>\\test\\itManagementDiagnosis.golden.test.ts:255:22'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  ...
+# Subtest: Golden: legacy migration/table/API繧堤ｶｭ謖√＠縲∵眠API縺ｫ譌ｧ隧穂ｾ｡繧呈ｷｷ蜈･縺輔○縺ｪ縺・not ok 29 - Golden: legacy migration/table/API繧堤ｶｭ謖√＠縲∵眠API縺ｫ譌ｧ隧穂ｾ｡繧呈ｷｷ蜈･縺輔○縺ｪ縺・  ---
+  duration_ms: 4.7683
+  type: 'test'
+  location: '<workspace>\\test\\itManagementDiagnosis.golden.test.ts:266:22'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  ...
+# Subtest: 蜈ｬ髢気ase菴懈・縺ｮ譌｢蟄露P Rate Limit繧帝←逕ｨ
+not ok 30 - 蜈ｬ髢気ase菴懈・縺ｮ譌｢蟄露P Rate Limit繧帝←逕ｨ
+  ---
+  duration_ms: 1.8549
+  type: 'test'
+  location: '<workspace>\\test\\itManagementDiagnosis.golden.test.ts:285:22'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  ...
+# Subtest: 鬆・岼1: EXTRACTION_ITEMS 縺ｯ V5 02_AI謚ｽ蜃ｺ鬆・岼繝槭せ繧ｿ繝ｼ縺ｮ25鬆・岼縺ｨ code 荳閾ｴ繝ｻ谺關ｽ縺ｪ縺・ok 31 - 鬆・岼1: EXTRACTION_ITEMS 縺ｯ V5 02_AI謚ｽ蜃ｺ鬆・岼繝槭せ繧ｿ繝ｼ縺ｮ25鬆・岼縺ｨ code 荳閾ｴ繝ｻ谺關ｽ縺ｪ縺・  ---
+  duration_ms: 1.6636
+  type: 'test'
+  ...
+# Subtest: OPTION_CODE_MASTER 縺ｯ蜷・そ繝・ヨ縺ｫ荳肴・(譛ｫ蟆ｾ99)繧貞性繧
+ok 32 - OPTION_CODE_MASTER 縺ｯ蜷・そ繝・ヨ縺ｫ荳肴・(譛ｫ蟆ｾ99)繧貞性繧
+  ---
+  duration_ms: 0.2748
+  type: 'test'
+  ...
+# Subtest: ROLE_GAP 縺ｯ豁｣蠑上↑5蛻・｡槭・縺ｿ / KAIZEN縺ｯ5蛻・｡槭・縺ｿ / 謌千・蠎ｦ縺ｯ6鬆伜沺
+ok 33 - ROLE_GAP 縺ｯ豁｣蠑上↑5蛻・｡槭・縺ｿ / KAIZEN縺ｯ5蛻・｡槭・縺ｿ / 謌千・蠎ｦ縺ｯ6鬆伜沺
+  ---
+  duration_ms: 0.1373
+  type: 'test'
+  ...
+# Subtest: 鬆・岼7: 莠句燕繧｢繝ｳ繧ｱ繝ｼ繝・蝠上・縲梧悴譚･繝ｻ譛溷ｾ・・繝・・繝槭阪ｒ蜆ｪ蜈医＠縲∵橿陦楢｣ｽ蜩√ｒ逶ｴ謗･閨槭°縺ｪ縺・ok 34 - 鬆・岼7: 莠句燕繧｢繝ｳ繧ｱ繝ｼ繝・蝠上・縲梧悴譚･繝ｻ譛溷ｾ・・繝・・繝槭阪ｒ蜆ｪ蜈医＠縲∵橿陦楢｣ｽ蜩√ｒ逶ｴ謗･閨槭°縺ｪ縺・  ---
+  duration_ms: 0.5615
+  type: 'test'
+  ...
+# Subtest: 鬆・岼6: Role Gap 蜷郁ｨ・100 縺ｯ閾ｪ蜍戊｣懈ｭ｣縺輔ｌ縺ｪ縺・ｼ・alidateRoleGapSums 縺ｯ諠・ｱ縺ｮ縺ｿ / diff 縺ｯ邏騾壹＠・・ok 35 - 鬆・岼6: Role Gap 蜷郁ｨ・100 縺ｯ閾ｪ蜍戊｣懈ｭ｣縺輔ｌ縺ｪ縺・ｼ・alidateRoleGapSums 縺ｯ諠・ｱ縺ｮ縺ｿ / diff 縺ｯ邏騾壹＠・・  ---
+  duration_ms: 0.2721
+  type: 'test'
+  ...
+# Subtest: normalizeRoleGap 縺ｯ縲梧球蠖楢・′譏守､ｺ逧・↓蜻ｼ繧薙□縺ｨ縺阪阪□縺・100 蛹悶☆繧狗ｴ秘未謨ｰ・郁・蜍輔〒縺ｯ襍ｰ繧峨↑縺・ｨｭ險茨ｼ・ok 36 - normalizeRoleGap 縺ｯ縲梧球蠖楢・′譏守､ｺ逧・↓蜻ｼ繧薙□縺ｨ縺阪阪□縺・100 蛹悶☆繧狗ｴ秘未謨ｰ・郁・蜍輔〒縺ｯ襍ｰ繧峨↑縺・ｨｭ險茨ｼ・  ---
+  duration_ms: 0.2881
+  type: 'test'
+  ...
+# Subtest: 鬆・岼6: structure 繝ｫ繝ｼ繝医・閾ｪ蜍・normalize 縺励↑縺・ｼ医た繝ｼ繧ｹ襍ｰ譟ｻ・・ok 37 - 鬆・岼6: structure 繝ｫ繝ｼ繝医・閾ｪ蜍・normalize 縺励↑縺・ｼ医た繝ｼ繧ｹ襍ｰ譟ｻ・・  ---
+  duration_ms: 0.8601
+  type: 'test'
+  ...
+# Subtest: 鬆・岼4(讒矩): finalFactValue 縺ｯ謇ｿ隱・菫ｮ豁｣縺ｮ縺ｨ縺阪□縺大､繧定ｿ斐☆・井ｿ晉蕗繝ｻ譛ｪ遒ｺ隱阪・譛ｪ遒ｺ螳・null・・ok 38 - 鬆・岼4(讒矩): finalFactValue 縺ｯ謇ｿ隱・菫ｮ豁｣縺ｮ縺ｨ縺阪□縺大､繧定ｿ斐☆・井ｿ晉蕗繝ｻ譛ｪ遒ｺ隱阪・譛ｪ遒ｺ螳・null・・  ---
+  duration_ms: 0.2056
+  type: 'test'
+  ...
+# Subtest: 鬆・岼4(讒矩): handler_memo 逕ｱ譚･縺ｮ needs_confirmation 縺ｯ縲悟叙蠕玲ｸ医∩縲阪↓謨ｰ縺医↑縺・ok 39 - 鬆・岼4(讒矩): handler_memo 逕ｱ譚･縺ｮ needs_confirmation 縺ｯ縲悟叙蠕玲ｸ医∩縲阪↓謨ｰ縺医↑縺・  ---
+  duration_ms: 0.3095
+  type: 'test'
+  ...
+# Subtest: 5遉ｾ縺ｮ莠句燕繧｢繝ｳ繧ｱ繝ｼ繝医′ buildPreSurveySchema 繧帝壹ｊ縲√せ繝翫ャ繝励す繝ｧ繝・ヨ縺ｫ繝ｩ繝吶Ν縺悟㍾邨舌＆繧後ｋ
+ok 40 - 5遉ｾ縺ｮ莠句燕繧｢繝ｳ繧ｱ繝ｼ繝医′ buildPreSurveySchema 繧帝壹ｊ縲√せ繝翫ャ繝励す繝ｧ繝・ヨ縺ｫ繝ｩ繝吶Ν縺悟㍾邨舌＆繧後ｋ
+  ---
+  duration_ms: 3.1711
+  type: 'test'
+  ...
+# Subtest: 4繧ｳ繝ｼ繝ｫ縺ｮ JSON Schema 縺ｨ zod 縺後ヨ繝・・繝ｬ繝吶Ν縺ｮ繧ｭ繝ｼ繝ｻrequired 縺ｧ荳閾ｴ・医ラ繝ｪ繝輔ヨ讀懃衍・・ok 41 - 4繧ｳ繝ｼ繝ｫ縺ｮ JSON Schema 縺ｨ zod 縺後ヨ繝・・繝ｬ繝吶Ν縺ｮ繧ｭ繝ｼ繝ｻrequired 縺ｧ荳閾ｴ・医ラ繝ｪ繝輔ヨ讀懃衍・・  ---
+  duration_ms: 0.4233
+  type: 'test'
+  ...
+# Subtest: 鬆・岼9: AI End-to-End A竊達竊辰1竊辰2・井ｻ｣陦ｨ5遉ｾ・・ok 42 - 鬆・岼9: AI End-to-End A竊達竊辰1竊辰2・井ｻ｣陦ｨ5遉ｾ・・# SKIP ANTHROPIC_API_KEY 譛ｪ險ｭ螳壹・縺溘ａ繧ｹ繧ｭ繝・・・磯撕逧・､懈渊縺ｯ螳溯｡梧ｸ医∩・・  ---
+  duration_ms: 0.1104
+  type: 'test'
+  ...
+# Subtest: 繝｡繧ｿ: CATALOG_VERSION 縺瑚ｨｭ螳壹＆繧後※縺・ｋ
+ok 43 - 繝｡繧ｿ: CATALOG_VERSION 縺瑚ｨｭ螳壹＆繧後※縺・ｋ
+  ---
+  duration_ms: 0.0948
+  type: 'test'
+  ...
+# Subtest: JWT purpose separation, malformed / expired / tampered session rejection
+ok 44 - JWT purpose separation, malformed / expired / tampered session rejection
+  ---
+  duration_ms: 6.135
+  type: 'test'
+  ...
+# Subtest: local OAuth contract (stubbed provider): state, cookies, authorization, logout and safe failure logs
+not ok 45 - local OAuth contract (stubbed provider): state, cookies, authorization, logout and safe failure logs
+  ---
+  duration_ms: 32.2318
+  type: 'test'
+  location: '<workspace>\\test\\productionReadiness.security.test.ts:34:22'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  ...
+# Subtest: production config fail-fast; migration only needs DB config; Human-only configuration without AI key
+ok 46 - production config fail-fast; migration only needs DB config; Human-only configuration without AI key
+  ---
+  duration_ms: 2.9437
+  type: 'test'
+  ...
+# Subtest: migration credentials are independent from runtime credentials and fail closed
+ok 47 - migration credentials are independent from runtime credentials and fail closed
+  ---
+  duration_ms: 1.3186
+  type: 'test'
+  ...
+# Subtest: Web Development Partner repository persists consultation_type
+ok 48 - Web Development Partner repository persists consultation_type
+  ---
+  duration_ms: 2.4135
+  type: 'test'
+  ...
+1..48
+# tests 48
+# suites 0
+# pass 31
+# fail 16
+# cancelled 0
+# skipped 1
+# todo 0
+# duration_ms 11548.254

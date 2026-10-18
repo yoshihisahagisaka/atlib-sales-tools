@@ -17,7 +17,7 @@ export function issueExternalSession(secret:string,actor:Actor,csrf:string) {ret
 export function externalGate(config:ExternalAuthConfig,service:PiraService):RequestHandler {return async(req,res,next)=>{
   try {const actor=externalActor(config.sessionSecret,req.cookies?.[cookie]);await service.session(actor);
     if(!['GET','HEAD'].includes(req.method)) {const p=verify(config.sessionSecret,req.cookies[cookie]);check(req.get('origin')===config.origin&&csrfEqual(req.get('x-pira-csrf'),p.csrf),'CSRF_REJECTED',403);}
-    res.locals.piraActor=actor;next();
+    res.locals.piraActor={...actor,machine:res.locals.piraMachine,requestId:req.get('x-pira-request-id')};next();
   } catch(e){next(e);}
 };}
 /** Reuses the installed Google OAuth2Client/PKCE protocol used by Sales staff auth.

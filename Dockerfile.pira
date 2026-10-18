@@ -1,0 +1,29 @@
+# Build proposal only. No build/push/deploy was performed by this change.
+FROM node:24-bookworm-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
+
+FROM node:24-bookworm-slim AS dependencies
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+
+FROM dependencies AS portal
+COPY --from=build /app/dist/pira/portalServer.js /app/dist/pira/portal.js /app/dist/pira/boundary.js /app/dist/pira/runtimeConfig.js /app/dist/pira/model.js /app/dist/pira/errors.js ./dist/pira/
+COPY --from=build /app/dist/middleware/rateLimit.js ./dist/middleware/
+COPY public/pira/index.html ./public/pira/index.html
+COPY public/pira-assets/base.css public/pira-assets/pira.css public/pira-assets/external.js ./public/pira-assets/
+USER node
+ENV NODE_ENV=production
+CMD ["node","dist/pira/portalServer.js"]
+
+FROM dependencies AS core
+COPY --from=build /app/dist/pira/coreServer.js /app/dist/pira/core.js /app/dist/pira/auth.js /app/dist/pira/routes.js /app/dist/pira/errors.js /app/dist/pira/model.js /app/dist/pira/service.js /app/dist/pira/pgStore.js /app/dist/pira/salesReferences.js /app/dist/pira/runtimePool.js /app/dist/pira/runtimeConfig.js /app/dist/pira/machineAuth.js /app/dist/pira/boundary.js ./dist/pira/
+COPY --from=build /app/dist/middleware/rateLimit.js ./dist/middleware/
+USER node
+ENV NODE_ENV=production
+CMD ["node","dist/pira/coreServer.js"]

@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-18",
+  "main": "d35581cec3dbc7d4ca2938f2a9c664906ccc5316",
+  "parent": "ea8fa9d331276eb8372f270ae2f5d5f402bd04d9",
+  "decision": "CODE_REVIEW_ONLY_NO_ENV_APPLY",
+  "build": "PASS",
+  "phase2IncludingPhase1": {
+    "pass": 23,
+    "fail": 0,
+    "skip": 8,
+    "backend": "in-memory PGlite; socket-free Express; injected machine verifier"
+  },
+  "browser": {
+    "pass": 4,
+    "backend": "route mocks; internal/company; desktop/mobile"
+  },
+  "canonicalRegression": {
+    "pass": 78,
+    "fail": 2,
+    "skip": 1,
+    "knownBaselineFailures": [
+      "Lean Scaling M04 Golden 5",
+      "Case 3 Q7 Solution Hypothesis guard"
+    ],
+    "priorMainEvidence": "../pira-phase1-20261018/baseline-current-design.tap"
+  },
+  "preparation": {
+    "pass": 4,
+    "fail": 0,
+    "realDb": false
+  },
+  "postProjectionTargeted": {
+    "pass": 3,
+    "fail": 0
+  },
+  "supplementalAttempt": {
+    "pass": 31,
+    "fail": 16,
+    "skip": 1,
+    "failures": {
+      "known": 2,
+      "localHttpFetchFailed": 13,
+      "missingCanonicalDoc": 1
+    },
+    "missingDocResolvedAndRetested": {
+      "pass": 1,
+      "fail": 0
+    },
+    "httpTests": "not passed; no full network E2E claim"
+  },
+  "ddl": {
+    "phase1UnchangedSha256": "b3ef7ec8eeae8da9afefe8e40ac0c58fc1d27edb3b167b6701684f2757393df9",
+    "phase2DraftSha256": "5274d6a0128d8a87d7acff2f0084037711f7a5627670605bc84151b989360588",
+    "numbered": false,
+    "applied": false
+  },
+  "realIam": "UNVERIFIED",
+  "realOauth": "UNVERIFIED",
+  "realPostgres": "UNVERIFIED",
+  "dockerBuild": "NOT_RUN",
+  "cloudChanges": false,
+  "productionChanges": false,
+  "mainMerged": false,
+  "notificationsSent": false
+}

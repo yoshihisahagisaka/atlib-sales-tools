@@ -11,10 +11,10 @@ export interface Transaction {
   company(id: string): Promise<{ id: string; name: string; corporateNumber: string | null } | null>;
   searchCompanies(term: string): Promise<{ id: string; name: string; corporateNumber: string | null }[]>;
   createCompany(id: string, name: string, corporateNumber: string | null, actor: string): Promise<void>;
-  confirmedEstimate(id: string): Promise<{ id: string; revision: string } | null>;
+  confirmedEstimate(id: string, companyId?:string): Promise<{ id: string; revision: string } | null>;
 }
 export interface Store { transaction<T>(lock: string, work: (tx: Transaction) => Promise<T>): Promise<T>; }
-export interface Actor { id: string; internal: boolean; }
+export interface Actor { id: string; internal: boolean; machine?: string; requestId?:string; }
 export class PiraError extends Error { constructor(public code: string, public status = 409) { super(code); } }
 export function check(value: unknown, code: string, status = 409): asserts value { if (!value) throw new PiraError(code, status); }
 export function text(value: unknown, max = 200): string { check(typeof value === 'string' && value.trim().length > 0 && value.length <= max, 'INVALID_INPUT', 400); return value.trim(); }

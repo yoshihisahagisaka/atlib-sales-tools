@@ -170,3 +170,5 @@ test('legacy staff gate and estimates remain independent from external PIRA sess
  });
 });
 for(const name of ['real PostgreSQL concurrent transactions + runtime-role ACL + actual ledger','live Google invitation login + IdP revocation','Slack dedicated webhook + SMTP actual delivery','Production revision/image and real company duplicate preflight'])test(name,{skip:'Requires separately available credentials/environment; no real DB/Cloud/IdP/SMTP action authorized or performed'},()=>{});
+
+module.exports={fixture,withFixture,server,config,actor};
