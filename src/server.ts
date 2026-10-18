@@ -75,6 +75,7 @@ import { FreeDiagnosisDesignV2ReportPdfService } from './services/freeDiagnosisD
 import { MarketingInitiativeRepo } from './services/marketingInitiativeRepo';
 import { createAdminMarketingInitiativeRouter } from './routes/adminMarketingInitiative';
 import { TestCaseManagementRepo } from './services/testCaseManagementRepo';
+import { mountPira } from './pira/mount';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -252,6 +253,7 @@ async function main(): Promise<void> {
   );
   // 静的HTML側もスタッフ認証で保護する。この行は下の一般static配信より前に置くこと
   // （逆順だと未認証で/admin/*.htmlが一般static経由で読めてしまう）。
+  mountPira(app, pool, adminAuthGate, new URL(config.portalBaseUrl).origin, config.staffAuth.jwtSecret);
   app.use('/admin', ...adminAuthGate, express.static(path.join(__dirname, '../public/admin')));
 
   app.use(express.static(path.join(__dirname, '../public')));
@@ -276,3 +278,4 @@ main().catch((err) => {
   console.error(JSON.stringify({event:'fatal_startup_error'}));
   process.exit(1);
 });
+

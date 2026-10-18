@@ -4,7 +4,12 @@
  * (メール通知と同じ「失敗しても他へ影響しないbest-effort」性質をこの関数自身が保証する)。
  */
 export async function sendSlackNotification(webhookUrl: string | undefined, text: string): Promise<void> {
-  if (!webhookUrl) return;
+  await deliverSlackNotification(webhookUrl, text);
+}
+
+/** Same transport, with an explicit result for durable outbox callers. */
+export async function deliverSlackNotification(webhookUrl: string | undefined, text: string): Promise<boolean> {
+  if (!webhookUrl) return false;
 
   try {
     const res = await fetch(webhookUrl, {
@@ -17,8 +22,11 @@ export async function sendSlackNotification(webhookUrl: string | undefined, text
       // eslint-disable-next-line no-console
       console.error(`Slack notification failed: HTTP ${res.status}`);
     }
+    return res.ok;
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(JSON.stringify({event:'slack_notification_failed'}));
+    return false;
   }
 }
+

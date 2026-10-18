@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>共同購買管理｜atLIB</title>
+<link rel="stylesheet" href="/pira-assets/base.css"><link rel="stylesheet" href="/pira-assets/pira.css"><script defer src="/pira-assets/pira.js"></script></head>
+<body data-internal="true"><main class="admin-shell"><header class="admin-header"><div><p class="eyebrow">atLIB</p><h1>共同購買管理</h1><p class="subtitle">申込を確認し、組合からatLIBへの正式発注を管理します。</p></div>
+<nav class="admin-nav"><a href="/admin/estimates.html">見積管理へ</a></nav></header>
+<p id="message" role="status" aria-live="polite"></p><section class="card toolbar"><label>表示範囲 <select id="scope"><option value="">選択してください</option></select></label><button id="refresh">更新</button></section>
+<nav class="tabs" aria-label="管理項目"><button data-tab="application">申込</button><button data-tab="order">発注</button><button data-tab="affiliation">所属企業</button><button data-tab="terms">申込条件</button><button data-tab="association">組合</button><button data-tab="membership">権限</button><button data-tab="external_link">外部ID</button><button data-tab="outbox">通知状況</button><button data-tab="audit">監査</button></nav>
+<section class="card panel"><h2 id="listTitle">申込一覧</h2><div id="list" class="table-wrap"></div></section>
+<section id="detail" class="card panel" hidden><button id="back">一覧へ戻る</button><h2>詳細</h2><div id="detailBody"></div><div id="actions" class="actions"></div><h3>対応履歴</h3><div id="history"></div></section>
+<section id="applicationForm" class="card panel" hidden><h2>サービスを申し込む</h2><p>自社の所属組合とatLIB承認済みの申込条件を選択します。料金の入力・変更はできません。</p><div id="applyFields"></div></section>
+<section class="card panel"><h2>管理設定</h2><p>企業名だけで同一企業と判定せず、既存企業を照合してください。外部ID登録では各サービスの設定を変更しません。</p><div id="setup"></div></section>
+<p class="subtitle">請求・サービスの利用開始処理はこの画面では実行しません。</p></main></body></html>

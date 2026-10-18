@@ -5,6 +5,9 @@
   "description": "atLIB 営業支援ツール（原価見積ツール + ISMS支援プラン診断フォーム）。msp-customer-portalから分離。",
   "main": "dist/server.js",
   "scripts": {
+    "test:pira": "npm run build && node --test test/piraPhase1.test.cjs",
+    "test:pira:browser": "node test/piraPhase1.browser.cjs",
+    "preflight:pira": "node scripts/pira/preflight.cjs",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
@@ -61,3 +64,4 @@
     "typescript": "^5.4.5"
   }
 }
+

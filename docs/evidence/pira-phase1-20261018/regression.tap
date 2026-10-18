@@ -1,0 +1,574 @@
+TAP version 13
+# Subtest: Regression Case 1: 限定テーマ。確認経路が明確
+ok 1 - Regression Case 1: 限定テーマ。確認経路が明確
+  ---
+  duration_ms: 1.9349
+  type: 'test'
+  ...
+# Subtest: Regression Case 2: 複数テーマが相互依存
+ok 2 - Regression Case 2: 複数テーマが相互依存
+  ---
+  duration_ms: 0.2849
+  type: 'test'
+  ...
+# Subtest: Regression Case 3: 拠点は複数だが共通運用・共通Evidenceで確認可能
+ok 3 - Regression Case 3: 拠点は複数だが共通運用・共通Evidenceで確認可能
+  ---
+  duration_ms: 0.2232
+  type: 'test'
+  ...
+# Subtest: Regression Case 4: 複数拠点をそれぞれ個別調査しなければ成立しない
+ok 4 - Regression Case 4: 複数拠点をそれぞれ個別調査しなければ成立しない
+  ---
+  duration_ms: 0.1728
+  type: 'test'
+  ...
+# Subtest: Regression Case 5: IPO予定だが通常範囲で完結
+ok 5 - Regression Case 5: IPO予定だが通常範囲で完結
+  ---
+  duration_ms: 0.1994
+  type: 'test'
+  ...
+# Subtest: Regression Case 6: IPOに関連し通常以上の証跡確認が必要
+ok 6 - Regression Case 6: IPOに関連し通常以上の証跡確認が必要
+  ---
+  duration_ms: 0.1517
+  type: 'test'
+  ...
+# Subtest: Regression Case 7: UNKNOWN多数だが確認経路は明確
+ok 7 - Regression Case 7: UNKNOWN多数だが確認経路は明確
+  ---
+  duration_ms: 0.1874
+  type: 'test'
+  ...
+# Subtest: Regression Case 8: 限定か横断か無料診断情報だけでは判定できない
+ok 8 - Regression Case 8: 限定か横断か無料診断情報だけでは判定できない
+  ---
+  duration_ms: 0.1685
+  type: 'test'
+  ...
+# Subtest: Regression Case 9: Investigation Need=RECOMMENDEDだが限定Scopeで完結可能
+ok 9 - Regression Case 9: Investigation Need=RECOMMENDEDだが限定Scopeで完結可能
+  ---
+  duration_ms: 0.1907
+  type: 'test'
+  ...
+# Subtest: Regression Case 10: Investigation Need=OPTIONALだが横断Assessmentが必要
+ok 10 - Regression Case 10: Investigation Need=OPTIONALだが横断Assessmentが必要
+  ---
+  duration_ms: 0.3217
+  type: 'test'
+  ...
+# Subtest: Regression Case 11: 複数Vendorだが社内で一元管理されている
+ok 11 - Regression Case 11: 複数Vendorだが社内で一元管理されている
+  ---
+  duration_ms: 0.2199
+  type: 'test'
+  ...
+# Subtest: Regression Case 12: 複数Vendorが個別管理され全体像を把握する主体がいない
+ok 12 - Regression Case 12: 複数Vendorが個別管理され全体像を把握する主体がいない
+  ---
+  duration_ms: 0.2073
+  type: 'test'
+  ...
+# Subtest: price mapping matches doc83 DECIDED prices exactly
+ok 13 - price mapping matches doc83 DECIDED prices exactly
+  ---
+  duration_ms: 0.2514
+  type: 'test'
+  ...
+# Subtest: EXTENDED carries requiresIndividualQuote=true, no other structure does
+ok 14 - EXTENDED carries requiresIndividualQuote=true, no other structure does
+  ---
+  duration_ms: 0.1667
+  type: 'test'
+  ...
+# Subtest: Guardrail (type-level): suggestAssessmentScope has no parameter for Investigation Need, UNKNOWN count, or any numeric threshold
+ok 15 - Guardrail (type-level): suggestAssessmentScope has no parameter for Investigation Need, UNKNOWN count, or any numeric threshold
+  ---
+  duration_ms: 1.1425
+  type: 'test'
+  ...
+# Subtest: ambiguous (not LIMITED, not EXTENDED, not cross) defaults to STANDARD_CROSS_FUNCTIONAL, never under-suggests
+ok 16 - ambiguous (not LIMITED, not EXTENDED, not cross) defaults to STANDARD_CROSS_FUNCTIONAL, never under-suggests
+  ---
+  duration_ms: 0.211
+  type: 'test'
+  ...
+# Subtest: T01/T05: confirmed facts are not re-asked; major areas and bottlenecks become deterministic candidates
+ok 17 - T01/T05: confirmed facts are not re-asked; major areas and bottlenecks become deterministic candidates
+  ---
+  duration_ms: 8.1105
+  type: 'test'
+  ...
+# Subtest: T07: TO-BE clarification stays context; it is not recalculated by preparation
+ok 18 - T07: TO-BE clarification stays context; it is not recalculated by preparation
+  ---
+  duration_ms: 7.7961
+  type: 'test'
+  ...
+# Subtest: T09: Scope UNKNOWN adds the explicit purpose and neutral scope question without inferring scope
+ok 19 - T09: Scope UNKNOWN adds the explicit purpose and neutral scope question without inferring scope
+  ---
+  duration_ms: 1.3559
+  type: 'test'
+  ...
+# Subtest: T10: Scope clarification remains null and does not become a service recommendation
+ok 20 - T10: Scope clarification remains null and does not become a service recommendation
+  ---
+  duration_ms: 0.8667
+  type: 'test'
+  ...
+# Subtest: snapshot contract rejects wrong version, inconsistent target state, and inferred direction during clarification
+ok 21 - snapshot contract rejects wrong version, inconsistent target state, and inferred direction during clarification
+  ---
+  duration_ms: 2.7634
+  type: 'test'
+  ...
+# Subtest: Golden 1: Growth / Change selects PRIMARY M05 and RELATED M02 without M01 explosion
+ok 22 - Golden 1: Growth / Change selects PRIMARY M05 and RELATED M02 without M01 explosion
+  ---
+  duration_ms: 13.2432
+  type: 'test'
+  ...
+# Subtest: Golden 2: delivered information can be available while decision usability is insufficient
+ok 23 - Golden 2: delivered information can be available while decision usability is insufficient
+  ---
+  duration_ms: 0.8578
+  type: 'test'
+  ...
+# Subtest: Golden 3: healthy case permits no important confirmation and no forced assessment
+ok 24 - Golden 3: healthy case permits no important confirmation and no forced assessment
+  ---
+  duration_ms: 0.5255
+  type: 'test'
+  ...
+# Subtest: Golden 4: IPO selects M03 primary and M01 related without security finding or forced assessment
+ok 25 - Golden 4: IPO selects M03 primary and M01 related without security finding or forced assessment
+  ---
+  duration_ms: 0.6472
+  type: 'test'
+  ...
+# Subtest: Golden 5: Lean Scaling selects M04 as opportunity confirmation, not a problem
+not ok 26 - Golden 5: Lean Scaling selects M04 as opportunity confirmation, not a problem
+  ---
+  duration_ms: 6.497
+  type: 'test'
+  location: '<workspace>\\test\\currentDesignV1.golden.test.ts:45:22'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+        [
+          'M04_BUSINESS_PRODUCTIVITY',
+          'PRIMARY'
+        ],
+    +   [
+    +     'M05_GROWTH_CHANGE_ADAPTATION',
+    +     'OPPORTUNITY'
+    +   ]
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0:
+      0: 'M04_BUSINESS_PRODUCTIVITY'
+      1: 'PRIMARY'
+  actual:
+    0:
+      0: 'M04_BUSINESS_PRODUCTIVITY'
+      1: 'PRIMARY'
+    1:
+      0: 'M05_GROWTH_CHANGE_ADAPTATION'
+      1: 'OPPORTUNITY'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (<workspace>\test\currentDesignV1.golden.test.ts:49:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+    Test.postRun (node:internal/test_runner/test:1465:19)
+    Test.run (node:internal/test_runner/test:1390:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: Guards: Future, Desired State, UNKNOWN, and Q1 quantity alone do not create a problem, focus, or assessment
+ok 27 - Guards: Future, Desired State, UNKNOWN, and Q1 quantity alone do not create a problem, focus, or assessment
+  ---
+  duration_ms: 0.932
+  type: 'test'
+  ...
+# Subtest: Relevance is preserved without converting Future or Desired State alone into a focus
+ok 28 - Relevance is preserved without converting Future or Desired State alone into a focus
+  ---
+  duration_ms: 0.2533
+  type: 'test'
+  ...
+# Subtest: Guards: staff visibility is operational, Q7 is excluded, and not-in-position is authority confirmation not knowledge UNKNOWN
+ok 29 - Guards: staff visibility is operational, Q7 is excluded, and not-in-position is authority confirmation not knowledge UNKNOWN
+  ---
+  duration_ms: 0.3623
+  type: 'test'
+  ...
+# Subtest: Case 3 guard: Q7のSolution HypothesisはInitial Rule、Focus、Verification Purposeを変えない
+not ok 30 - Case 3 guard: Q7のSolution HypothesisはInitial Rule、Focus、Verification Purposeを変えない
+  ---
+  duration_ms: 1.3828
+  type: 'test'
+  location: '<workspace>\\test\\currentDesignV1.golden.test.ts:77:22'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+        [
+          'M04_BUSINESS_PRODUCTIVITY',
+          'M04_BUSINESS_PRODUCTIVITY_CONFIRMATION'
+        ],
+    +   [
+    +     'M05_GROWTH_CHANGE_ADAPTATION',
+    +     'M05_GROWTH_CHANGE_ADAPTATION_CONFIRMATION'
+    +   ]
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0:
+      0: 'M04_BUSINESS_PRODUCTIVITY'
+      1: 'M04_BUSINESS_PRODUCTIVITY_CONFIRMATION'
+  actual:
+    0:
+      0: 'M04_BUSINESS_PRODUCTIVITY'
+      1: 'M04_BUSINESS_PRODUCTIVITY_CONFIRMATION'
+    1:
+      0: 'M05_GROWTH_CHANGE_ADAPTATION'
+      1: 'M05_GROWTH_CHANGE_ADAPTATION_CONFIRMATION'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (<workspace>\test\currentDesignV1.golden.test.ts:92:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+    Test.postRun (node:internal/test_runner/test:1465:19)
+    Test.run (node:internal/test_runner/test:1390:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: Recognition Difference helper identifies only same-semantic disagreement; structured statements never become FACT
+ok 31 - Recognition Difference helper identifies only same-semantic disagreement; structured statements never become FACT
+  ---
+  duration_ms: 0.3864
+  type: 'test'
+  ...
+# Subtest: Guard: operator note is not accepted by the initial rule input contract
+ok 32 - Guard: operator note is not accepted by the initial rule input contract
+  ---
+  duration_ms: 0.1343
+  type: 'test'
+  ...
+# Subtest: GOLDEN-01: growth, lean operation, and decision usability yield multiple confirmation lenses
+ok 33 - GOLDEN-01: growth, lean operation, and decision usability yield multiple confirmation lenses
+  ---
+  duration_ms: 4.9004
+  type: 'test'
+  ...
+# Subtest: GOLDEN-02: AI interest is a possibility and never an AI recommendation
+ok 34 - GOLDEN-02: AI interest is a possibility and never an AI recommendation
+  ---
+  duration_ms: 1.3629
+  type: 'test'
+  ...
+# Subtest: GOLDEN-03: fully visible and strategically connected is healthy without a forced gap
+ok 35 - GOLDEN-03: fully visible and strategically connected is healthy without a forced gap
+  ---
+  duration_ms: 0.3766
+  type: 'test'
+  ...
+# Subtest: GOLDEN-04: mostly visible and decision usable is also healthy
+ok 36 - GOLDEN-04: mostly visible and decision usable is also healthy
+  ---
+  duration_ms: 0.2968
+  type: 'test'
+  ...
+# Subtest: GOLDEN-05: AI alone does not establish a finding or recommendation
+ok 37 - GOLDEN-05: AI alone does not establish a finding or recommendation
+  ---
+  duration_ms: 0.4139
+  type: 'test'
+  ...
+# Subtest: GOLDEN-06: security interest is not a security-risk assertion
+ok 38 - GOLDEN-06: security interest is not a security-risk assertion
+  ---
+  duration_ms: 0.5502
+  type: 'test'
+  ...
+# Subtest: GOLDEN-07: low visibility is recognition and confirmation need, never FACT
+ok 39 - GOLDEN-07: low visibility is recognition and confirmation need, never FACT
+  ---
+  duration_ms: 0.562
+  type: 'test'
+  ...
+# Subtest: GOLDEN-08: managed but not reported produces management confirmation
+ok 40 - GOLDEN-08: managed but not reported produces management confirmation
+  ---
+  duration_ms: 0.3762
+  type: 'test'
+  ...
+# Subtest: GOLDEN-09: reported but not decision-usable produces a distinct confirmation
+ok 41 - GOLDEN-09: reported but not decision-usable produces a distinct confirmation
+  ---
+  duration_ms: 0.4611
+  type: 'test'
+  ...
+# Subtest: GOLDEN-10: strategically connected does not generate a gap
+ok 42 - GOLDEN-10: strategically connected does not generate a gap
+  ---
+  duration_ms: 0.4306
+  type: 'test'
+  ...
+# Subtest: GOLDEN-11: undecided future is not a problem
+ok 43 - GOLDEN-11: undecided future is not a problem
+  ---
+  duration_ms: 0.6942
+  type: 'test'
+  ...
+# Subtest: GOLDEN-12: undecided interest yields no recommendation
+ok 44 - GOLDEN-12: undecided interest yields no recommendation
+  ---
+  duration_ms: 0.4438
+  type: 'test'
+  ...
+# Subtest: GOLDEN-13: one information-flow finding contains technology, operation, and management lenses
+ok 45 - GOLDEN-13: one information-flow finding contains technology, operation, and management lenses
+  ---
+  duration_ms: 0.29
+  type: 'test'
+  ...
+# Subtest: GOLDEN-14: every fact candidate follows the contract
+ok 46 - GOLDEN-14: every fact candidate follows the contract
+  ---
+  duration_ms: 0.2817
+  type: 'test'
+  ...
+# Subtest: GOLDEN-15: UNKNOWN remains UNKNOWN rather than a problem
+ok 47 - GOLDEN-15: UNKNOWN remains UNKNOWN rather than a problem
+  ---
+  duration_ms: 0.4538
+  type: 'test'
+  ...
+# Subtest: GOLDEN-16: the same analyzer responds to changed current answers
+ok 48 - GOLDEN-16: the same analyzer responds to changed current answers
+  ---
+  duration_ms: 0.5663
+  type: 'test'
+  ...
+# Subtest: GOLDEN-17: Q5 partial and relies-on-others keep distinct narratives
+ok 49 - GOLDEN-17: Q5 partial and relies-on-others keep distinct narratives
+  ---
+  duration_ms: 0.3327
+  type: 'test'
+  ...
+# Subtest: GOLDEN-18: Q6 reported-unusable and managed-not-reported remain distinct
+ok 50 - GOLDEN-18: Q6 reported-unusable and managed-not-reported remain distinct
+  ---
+  duration_ms: 0.2334
+  type: 'test'
+  ...
+# Subtest: GOLDEN-19: an interest does not override future, visibility, or management recognition
+ok 51 - GOLDEN-19: an interest does not override future, visibility, or management recognition
+  ---
+  duration_ms: 0.3278
+  type: 'test'
+  ...
+# Subtest: GOLDEN-20: public v2 output never uses legacy M01-M06 identifiers
+ok 52 - GOLDEN-20: public v2 output never uses legacy M01-M06 identifiers
+  ---
+  duration_ms: 0.6409
+  type: 'test'
+  ...
+# Subtest: projection normalizes deterministically and validates exclusive codes
+ok 53 - projection normalizes deterministically and validates exclusive codes
+  ---
+  duration_ms: 0.7456
+  type: 'test'
+  ...
+# Subtest: 項目1: EXTRACTION_ITEMS は V5 02_AI抽出項目マスターの25項目と code 一致・欠落なし
+ok 54 - 項目1: EXTRACTION_ITEMS は V5 02_AI抽出項目マスターの25項目と code 一致・欠落なし
+  ---
+  duration_ms: 1.4975
+  type: 'test'
+  ...
+# Subtest: OPTION_CODE_MASTER は各セットに不明(末尾99)を含む
+ok 55 - OPTION_CODE_MASTER は各セットに不明(末尾99)を含む
+  ---
+  duration_ms: 0.2279
+  type: 'test'
+  ...
+# Subtest: ROLE_GAP は正式な5分類のみ / KAIZENは5分類のみ / 成熟度は6領域
+ok 56 - ROLE_GAP は正式な5分類のみ / KAIZENは5分類のみ / 成熟度は6領域
+  ---
+  duration_ms: 0.1263
+  type: 'test'
+  ...
+# Subtest: 項目7: 事前アンケート8問は「未来・期待・テーマ」を優先し、技術製品を直接聞かない
+ok 57 - 項目7: 事前アンケート8問は「未来・期待・テーマ」を優先し、技術製品を直接聞かない
+  ---
+  duration_ms: 0.4401
+  type: 'test'
+  ...
+# Subtest: 項目6: Role Gap 合計<100 は自動補正されない（validateRoleGapSums は情報のみ / diff は素通し）
+ok 58 - 項目6: Role Gap 合計<100 は自動補正されない（validateRoleGapSums は情報のみ / diff は素通し）
+  ---
+  duration_ms: 0.3032
+  type: 'test'
+  ...
+# Subtest: normalizeRoleGap は「担当者が明示的に呼んだとき」だけ 100 化する純関数（自動では走らない設計）
+ok 59 - normalizeRoleGap は「担当者が明示的に呼んだとき」だけ 100 化する純関数（自動では走らない設計）
+  ---
+  duration_ms: 0.2281
+  type: 'test'
+  ...
+# Subtest: 項目6: structure ルートは自動 normalize しない（ソース走査）
+ok 60 - 項目6: structure ルートは自動 normalize しない（ソース走査）
+  ---
+  duration_ms: 0.6919
+  type: 'test'
+  ...
+# Subtest: 項目4(構造): finalFactValue は承認/修正のときだけ値を返す（保留・未確認は未確定=null）
+ok 61 - 項目4(構造): finalFactValue は承認/修正のときだけ値を返す（保留・未確認は未確定=null）
+  ---
+  duration_ms: 0.1913
+  type: 'test'
+  ...
+# Subtest: 項目4(構造): handler_memo 由来の needs_confirmation は「取得済み」に数えない
+ok 62 - 項目4(構造): handler_memo 由来の needs_confirmation は「取得済み」に数えない
+  ---
+  duration_ms: 0.2986
+  type: 'test'
+  ...
+# Subtest: 5社の事前アンケートが buildPreSurveySchema を通り、スナップショットにラベルが凍結される
+ok 63 - 5社の事前アンケートが buildPreSurveySchema を通り、スナップショットにラベルが凍結される
+  ---
+  duration_ms: 2.3858
+  type: 'test'
+  ...
+# Subtest: 4コールの JSON Schema と zod がトップレベルのキー・required で一致（ドリフト検知）
+ok 64 - 4コールの JSON Schema と zod がトップレベルのキー・required で一致（ドリフト検知）
+  ---
+  duration_ms: 0.2925
+  type: 'test'
+  ...
+# Subtest: 項目9: AI End-to-End A→B→C1→C2（代表5社）
+ok 65 - 項目9: AI End-to-End A→B→C1→C2（代表5社） # SKIP ANTHROPIC_API_KEY 未設定のためスキップ（静的検査は実行済み）
+  ---
+  duration_ms: 0.0818
+  type: 'test'
+  ...
+# Subtest: メタ: CATALOG_VERSION が設定されている
+ok 66 - メタ: CATALOG_VERSION が設定されている
+  ---
+  duration_ms: 0.0794
+  type: 'test'
+  ...
+# Subtest: AIなしで完結する: ruleAnalysisEngine.ts / assessmentStructureRule.ts never reference Anthropic or any AI provider
+ok 67 - AIなしで完結する: ruleAnalysisEngine.ts / assessmentStructureRule.ts never reference Anthropic or any AI provider
+  ---
+  duration_ms: 3.5158
+  type: 'test'
+  ...
+# Subtest: UNKNOWNを問題扱いしない: Focus外のUNKNOWNは一切評価されない（Secondary未選択時）
+ok 68 - UNKNOWNを問題扱いしない: Focus外のUNKNOWNは一切評価されない（Secondary未選択時）
+  ---
+  duration_ms: 1.0123
+  type: 'test'
+  ...
+# Subtest: outsourcingだけで問題判定しない / one-person ITだけでM02判定しない: どちらも素の事実文言は評価に使わない
+ok 69 - outsourcingだけで問題判定しない / one-person ITだけでM02判定しない: どちらも素の事実文言は評価に使わない
+  ---
+  duration_ms: 0.2925
+  type: 'test'
+  ...
+# Subtest: Changeだけで問題判定しない: Q2に回答があるだけでは何も発火しない（未解決項目が別途必要）
+ok 70 - Changeだけで問題判定しない: Q2に回答があるだけでは何も発火しない（未解決項目が別途必要）
+  ---
+  duration_ms: 0.262
+  type: 'test'
+  ...
+# Subtest: T3 Change Trigger: Initial Ruleが明示したVerification Purpose + 未解決の経営判断項目 + Change意図がある場合のみ発火
+ok 71 - T3 Change Trigger: Initial Ruleが明示したVerification Purpose + 未解決の経営判断項目 + Change意図がある場合のみ発火
+  ---
+  duration_ms: 0.5163
+  type: 'test'
+  ...
+# Subtest: Security concernだけでScope upしない: Assessment Structure Gatesは個別確認フラグが立った項目でのみ変化する
+ok 72 - Security concernだけでScope upしない: Assessment Structure Gatesは個別確認フラグが立った項目でのみ変化する
+  ---
+  duration_ms: 0.3006
+  type: 'test'
+  ...
+# Subtest: Investigation NeedからScopeを直接決めない: Purposeが無いUNKNOWNはNeedを作らず、gatesは独立して決まる
+ok 73 - Investigation NeedからScopeを直接決めない: Purposeが無いUNKNOWNはNeedを作らず、gatesは独立して決まる
+  ---
+  duration_ms: 0.282
+  type: 'test'
+  ...
+# Subtest: 数量閾値でCOMPACT/STANDARD/EXPANDEDを決めない: 未解決項目が1件でも10件でもrequires_individual_confirmationが無ければEXTENDEDにならない
+ok 74 - 数量閾値でCOMPACT/STANDARD/EXPANDEDを決めない: 未解決項目が1件でも10件でもrequires_individual_confirmationが無ければEXTENDEDにならない
+  ---
+  duration_ms: 0.277
+  type: 'test'
+  ...
+# Subtest: Broad Unknown Collapseはretire: UNKNOWNだけではfindingもInvestigation Needも作らない
+ok 75 - Broad Unknown Collapseはretire: UNKNOWNだけではfindingもInvestigation Needも作らない
+  ---
+  duration_ms: 0.3251
+  type: 'test'
+  ...
+# Subtest: Broad Unknown Collapseは一つでもKNOWN/AVAILABLEがあれば発火しない
+ok 76 - Broad Unknown Collapseは一つでもKNOWN/AVAILABLEがあれば発火しない
+  ---
+  duration_ms: 0.3593
+  type: 'test'
+  ...
+# Subtest: cross_theme_dependency: Secondary Focusを選んだ場合のみtrueになる（単一Focusでは常にfalse）
+ok 77 - cross_theme_dependency: Secondary Focusを選んだ場合のみtrueになる（単一Focusでは常にfalse）
+  ---
+  duration_ms: 0.3535
+  type: 'test'
+  ...
+# Subtest: structure_determinable: Focus選択済みでも確認結果が0件なら安全側(false)に倒す
+ok 78 - structure_determinable: Focus選択済みでも確認結果が0件なら安全側(false)に倒す
+  ---
+  duration_ms: 0.2031
+  type: 'test'
+  ...
+# Subtest: 整理モードでの再確認（append-only）は最新のknowledgeStateを採用する
+ok 79 - 整理モードでの再確認（append-only）は最新のknowledgeStateを採用する
+  ---
+  duration_ms: 0.2556
+  type: 'test'
+  ...
+# Subtest: planItemsForFocus: 各Focusにつき2件（CORE/DECISION）、他Focusと重複しないcodeを持つ
+ok 80 - planItemsForFocus: 各Focusにつき2件（CORE/DECISION）、他Focusと重複しないcodeを持つ
+  ---
+  duration_ms: 1.2865
+  type: 'test'
+  ...
+# Subtest: Web Development Partner repository persists consultation_type
+ok 81 - Web Development Partner repository persists consultation_type
+  ---
+  duration_ms: 1.8105
+  type: 'test'
+  ...
+1..81
+# tests 81
+# suites 0
+# pass 78
+# fail 2
+# cancelled 0
+# skipped 1
+# todo 0
+# duration_ms 986.6318
