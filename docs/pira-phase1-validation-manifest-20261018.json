@@ -1,0 +1,148 @@
+{
+  "formatVersion": 1,
+  "date": "2026-10-18",
+  "implementationSha": "03679c544da26b0749efa5b81a9291c15e7dcc2a",
+  "mainSha": "d35581cec3dbc7d4ca2938f2a9c664906ccc5316",
+  "designSha": "0d219617ecf23646633ca2764eb83e4420caaf48",
+  "status": "REVIEW_ONLY_NO_REAL_APPLY",
+  "ddlPath": "docs/pira-phase1-schema.draft.sql",
+  "ddlSha256": "b3ef7ec8eeae8da9afefe8e40ac0c58fc1d27edb3b167b6701684f2757393df9",
+  "ddlBytes": 7430,
+  "migrationNumber": null,
+  "productionLedgerVerified": false,
+  "validationProfile": "empty dedicated PIRA DB: original 002 -> original 027 -> frozen PIRA draft",
+  "database": "pira_joint_purchase_validation",
+  "host": "127.0.0.1",
+  "port": 55442,
+  "restoreDatabase": "pira_joint_purchase_restore",
+  "restorePort": 55443,
+  "postgresImageDigest": null,
+  "postgresVersionDecision": "16.x preferred pending real metadata; 17.x conditional; never 18+",
+  "baselineMigrationFilenames": [
+    "001_isms_diagnostic.sql",
+    "002_cost_estimation.sql",
+    "003_market_research_baseline.sql",
+    "004_free_hearing_assessments.sql",
+    "005_kaizen_diagnostics.sql",
+    "006_kaizen_assessments.sql",
+    "007_it_management_diagnosis.sql",
+    "008_it_management_diagnosis_preparation.sql",
+    "009_it_management_diagnosis_workspace.sql",
+    "010_it_management_diagnosis_human_review.sql",
+    "011_it_management_diagnosis_report_feedback.sql",
+    "012_it_management_diagnosis_assessment_handoff.sql",
+    "013_it_management_diagnosis_policy_closure.sql",
+    "014_it_management_diagnosis_restore_reconciliation.sql",
+    "015_management_feedback_decision.sql",
+    "016_assessment_scope_clarifications.sql",
+    "017_infravision_partner_leads.sql",
+    "018_runtime_table_privileges.sql",
+    "018_sales_conversation_intake.sql",
+    "019_diagnosis_hearing_records.sql",
+    "019_web_development_partner_leads.sql",
+    "020_diagnosis_hearing_source_references.sql",
+    "021_diagnosis_report_pdf_artifacts.sql",
+    "022_diagnosis_report_pdf_generation_lease.sql",
+    "023_diagnosis_report_pdf_source_content_hash.sql",
+    "024_diagnosis_public_application_idempotency.sql",
+    "025_business_web_consultation_leads.sql",
+    "026_business_web_consultation_runtime_privileges.sql",
+    "027_free_diagnosis_rule_based_v1.sql",
+    "028_free_diagnosis_current_design_v1_phase1_draft.sql",
+    "029_vs1_report_feedback_shared_artifacts.sql",
+    "030_sales_activity_marketing_attribution.sql",
+    "031_public_customer_self_submission.sql",
+    "032_sales_activity_referral_person_name.sql",
+    "033_free_diagnosis_design_v2_persistence.sql",
+    "034_marketing_initiative_v1.sql",
+    "035_it_management_test_case_designation.sql",
+    "036_test_case_designation_audit_runtime_acl.sql"
+  ],
+  "createdObjects": [
+    "pira_association",
+    "pira_association_scope_idx",
+    "pira_principal",
+    "pira_membership",
+    "pira_membership_scope_idx",
+    "pira_affiliation",
+    "pira_affiliation_scope_idx",
+    "pira_identity",
+    "pira_external_link",
+    "pira_external_link_scope_idx",
+    "pira_terms",
+    "pira_terms_scope_idx",
+    "pira_application",
+    "pira_application_scope_idx",
+    "pira_order",
+    "pira_order_scope_idx",
+    "pira_audit",
+    "pira_audit_scope_idx",
+    "pira_outbox",
+    "pira_outbox_scope_idx",
+    "pira_principal_subject_unique",
+    "pira_application_number_unique",
+    "pira_order_number_unique",
+    "pira_outbox_pending_idx",
+    "pira_prevent_fact_mutation",
+    "pira_order_immutable",
+    "pira_audit_immutable",
+    "pira_terms_immutable"
+  ],
+  "files": [
+    {
+      "path": "migrations/002_cost_estimation.sql",
+      "bytes": 5541,
+      "sha256": "633c4aa2d595b67effdd2680406d66c87a09e5ea82d4d7e581da65b0b84cb4b6"
+    },
+    {
+      "path": "migrations/027_free_diagnosis_rule_based_v1.sql",
+      "bytes": 12560,
+      "sha256": "5d4d2b3b749623ccbeb38b1891e231062bb50c6444531f9619d6fe0a3fd5daaf"
+    },
+    {
+      "path": "docs/pira-phase1-schema.draft.sql",
+      "bytes": 7430,
+      "sha256": "b3ef7ec8eeae8da9afefe8e40ac0c58fc1d27edb3b167b6701684f2757393df9"
+    },
+    {
+      "path": "docs/pira-validation-compose.draft.yaml",
+      "bytes": 1797,
+      "sha256": "fbc75b8254b7a8ac8019ba2d16d7b3e056bb2d3815454a37d987ef0eee551754"
+    },
+    {
+      "path": "docs/pira-validation-roles.draft.sql",
+      "bytes": 1447,
+      "sha256": "41ba07a9952460a3ce3f0154a64f9378153cf71bff939fd7c6b1478d7953da8f"
+    },
+    {
+      "path": "docs/pira-validation-post-acl.draft.sql",
+      "bytes": 886,
+      "sha256": "f0bf960653b766a4f814a218fe30a2f99c5b958c79e16b4256fd83e06deba7c4"
+    },
+    {
+      "path": "docs/pira-restore-roles.draft.sql",
+      "bytes": 1301,
+      "sha256": "188038b85ab45d5c9065cb9de409b7c7f2172bbd336c0550c123ec03cdeec56e"
+    },
+    {
+      "path": "scripts/pira/preflight.cjs",
+      "bytes": 7583,
+      "sha256": "87b5d6590cb8210a26293177b3e2abb189e77577c88d78174f645527ef1e4e32"
+    },
+    {
+      "path": "scripts/pira/production-readonly.ps1",
+      "bytes": 1369,
+      "sha256": "e1851a0b750a81790b738a410b073df2616b324f3d3f2b76aadc444bf9b3b83d"
+    },
+    {
+      "path": "scripts/pira/validationTarget.cjs",
+      "bytes": 890,
+      "sha256": "39ecee78fb14ec794712b6c626a35dea81d0109af3a2a83ff6ab1a3a4bf24270"
+    },
+    {
+      "path": "test/piraPhase1.realpg.test.cjs",
+      "bytes": 7302,
+      "sha256": "7426b4df5dc2d3c32b26580e403f09c500ab1b4161929afac6fa3e15853ae58a"
+    }
+  ]
+}

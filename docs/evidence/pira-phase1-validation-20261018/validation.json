@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-18",
+  "implementationSha": "03679c544da26b0749efa5b81a9291c15e7dcc2a",
+  "mainSha": "d35581cec3dbc7d4ca2938f2a9c664906ccc5316",
+  "decision": "NO_GO_REAL_APPLY",
+  "tests": {
+    "pass": 4,
+    "fail": 0,
+    "skip": 1
+  },
+  "metadataSql": "embedded PGlite synthetic catalog PASS; real metadata unverified",
+  "compose": {
+    "version": "5.5.0",
+    "syntax": "PASS",
+    "engine": "ACCESS_DENIED"
+  },
+  "powershellParse": "PASS",
+  "gcloud": "ACCESS_DENIED_EXISTING_CREDENTIALS_DB",
+  "productionRevisionImageTraffic": "UNVERIFIED",
+  "productionLedgerAclCompanyCounts": "UNVERIFIED",
+  "hostFreeBytes": 10305232896,
+  "ddlSha256": "b3ef7ec8eeae8da9afefe8e40ac0c58fc1d27edb3b167b6701684f2757393df9",
+  "ddlChanged": false,
+  "applicationSourceChanged": false,
+  "resourcesCreated": false,
+  "realDbAccess": false,
+  "notificationsSent": false
+}

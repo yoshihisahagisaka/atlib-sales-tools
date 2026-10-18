@@ -1,0 +1,41 @@
+TAP version 13
+# Subtest: real PostgreSQL: isolated PIRA runtime concurrency, ACL, scope, snapshots and outbox
+ok 1 - real PostgreSQL: isolated PIRA runtime concurrency, ACL, scope, snapshots and outbox # SKIP No separate local DML approval/targets; real DB not accessed
+  ---
+  duration_ms: 0.6345
+  type: 'test'
+  ...
+# {"status":"PASS","ddlSha256":"b3ef7ec8eeae8da9afefe8e40ac0c58fc1d27edb3b167b6701684f2757393df9","files":11,"numberedMigrationAdded":false,"realDatabaseAccess":false}
+# Subtest: validation package matches frozen DDL/dependency/preparation hashes without DB access
+ok 2 - validation package matches frozen DDL/dependency/preparation hashes without DB access
+  ---
+  duration_ms: 32.6136
+  type: 'test'
+  ...
+# Subtest: real validation harness stays disconnected without explicit approval
+ok 3 - real validation harness stays disconnected without explicit approval
+  ---
+  duration_ms: 0.1545
+  type: 'test'
+  ...
+# Subtest: validation target rejects Production, FACTACT, Send, wrong role, port and URL overrides
+ok 4 - validation target rejects Production, FACTACT, Send, wrong role, port and URL overrides
+  ---
+  duration_ms: 0.6272
+  type: 'test'
+  ...
+# Subtest: read-only metadata collector SQL runs against embedded synthetic catalogs and never outputs company values
+ok 5 - read-only metadata collector SQL runs against embedded synthetic catalogs and never outputs company values
+  ---
+  duration_ms: 1585.2338
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 1
+# todo 0
+# duration_ms 1739.4044

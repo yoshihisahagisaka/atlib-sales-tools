@@ -1,23 +1,36 @@
 'use strict';
 // Read-only, explicit target only. Never reads .env or a general DATABASE_URL.
 const fs=require('node:fs'),crypto=require('node:crypto');
-async function main(){
- const target=process.env.PIRA_READONLY_DB_URL,expected=process.env.PIRA_EXPECTED_DATABASE;
- if(!target||!expected){console.log(JSON.stringify({status:'SKIP',reason:'explicit read-only DB target not configured'}));process.exitCode=3;return;}
- const {Client}=require('pg');const client=new Client({connectionString:target,connectionTimeoutMillis:5000,application_name:'pira-phase1-readonly-preflight'});
+async function main(options={}){
+ const env=options.env??process.env,emit=options.emit??console.log,emitError=options.emitError??console.error;
+ const target=env.PIRA_READONLY_DB_URL,expected=env.PIRA_EXPECTED_DATABASE;
+ if(!target||!expected){emit(JSON.stringify({status:'SKIP',reason:'explicit read-only DB target not configured'}));process.exitCode=3;return;}
+ const Client=options.Client??require('pg').Client;const client=new Client({connectionString:target,connectionTimeoutMillis:5000,application_name:'pira-phase1-readonly-preflight'});
  try{await client.connect();await client.query('BEGIN READ ONLY');await client.query("SET LOCAL statement_timeout='15s'");
   const identity=(await client.query('SELECT current_database() AS database,current_user AS role,current_setting(\'transaction_read_only\') AS read_only')).rows[0];
   if(identity.database!==expected||identity.read_only!=='on')throw Error('TARGET_OR_READONLY_MISMATCH');
   const tables=(await client.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND (table_name IN ('company','contact','estimates','schema_migrations') OR table_name LIKE 'pira_%') ORDER BY table_name")).rows;
   const result={status:'READ_ONLY',identity,tables};
+  result.server=(await client.query("SELECT current_setting('server_version') AS version,current_setting('server_version_num')::int AS version_num,current_setting('transaction_isolation') AS isolation")).rows[0];
   if(tables.some(t=>t.table_name==='schema_migrations'))result.ledger=(await client.query('SELECT filename,applied_at FROM schema_migrations ORDER BY filename')).rows;
   if(tables.some(t=>t.table_name==='company'))result.companyCounts=(await client.query("SELECT count(*)::int AS total, count(*) FILTER(WHERE corporate_number IS NULL OR trim(corporate_number)='')::int AS missing_number FROM company")).rows[0];
   if(tables.some(t=>t.table_name==='company'))result.duplicateNumberGroups=(await client.query("SELECT count(*)::int AS groups FROM (SELECT regexp_replace(corporate_number,'[^0-9]','','g') AS normalized FROM company WHERE corporate_number IS NOT NULL GROUP BY normalized HAVING length(regexp_replace(corporate_number,'[^0-9]','','g'))=13 AND count(*)>1) d")).rows[0];
+  if(tables.some(t=>t.table_name==='company'))result.duplicateNameCandidateGroups=(await client.query("SELECT count(*)::int AS groups FROM (SELECT lower(trim(name)) FROM company WHERE trim(name)<>'' GROUP BY lower(trim(name)) HAVING count(*)>1) d")).rows[0];
   result.columns=(await client.query("SELECT table_name,column_name,data_type,is_nullable FROM information_schema.columns WHERE table_schema='public' AND (table_name IN ('company','contact','estimates','schema_migrations') OR table_name LIKE 'pira_%') ORDER BY table_name,ordinal_position")).rows;
   result.constraints=(await client.query("SELECT c.relname AS table_name,con.conname,pg_get_constraintdef(con.oid) AS definition FROM pg_constraint con JOIN pg_class c ON c.oid=con.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND (c.relname IN ('company','contact','estimates') OR c.relname LIKE 'pira_%') ORDER BY c.relname,con.conname")).rows;
   result.acl=(await client.query("SELECT table_name,grantee,privilege_type FROM information_schema.table_privileges WHERE table_schema='public' AND (table_name IN ('company','contact','estimates') OR table_name LIKE 'pira_%') ORDER BY table_name,grantee,privilege_type")).rows;
+  result.indexes=(await client.query("SELECT tablename,indexname,indexdef FROM pg_indexes WHERE schemaname='public' AND (tablename IN ('company','contact','estimates') OR tablename LIKE 'pira_%') ORDER BY tablename,indexname")).rows;
+  result.owners=(await client.query("SELECT c.relname AS object,pg_get_userbyid(c.relowner) AS owner,c.relrowsecurity AS rls,c.relforcerowsecurity AS force_rls FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p') AND (c.relname IN ('company','contact','estimates','schema_migrations') OR c.relname LIKE 'pira_%') ORDER BY c.relname")).rows;
+  result.roles=(await client.query("SELECT rolname,rolsuper,rolinherit,rolcreaterole,rolcreatedb,rolcanlogin,rolreplication,rolbypassrls FROM pg_roles WHERE rolname IN ('sales_tools_migration','sales_tools_app','sales_tools_runtime','pira_validation_readonly',current_user) ORDER BY rolname")).rows;
+  result.roleMemberships=(await client.query("SELECT member.rolname AS member,parent.rolname AS parent,m.admin_option FROM pg_auth_members m JOIN pg_roles member ON member.oid=m.member JOIN pg_roles parent ON parent.oid=m.roleid WHERE member.rolname IN ('sales_tools_migration','sales_tools_app','sales_tools_runtime','pira_validation_readonly',current_user) ORDER BY member.rolname,parent.rolname")).rows;
+  result.defaultAcl=(await client.query("SELECT pg_get_userbyid(d.defaclrole) AS owner,n.nspname AS schema,d.defaclobjtype AS type,d.defaclacl::text AS acl FROM pg_default_acl d LEFT JOIN pg_namespace n ON n.oid=d.defaclnamespace WHERE pg_get_userbyid(d.defaclrole) IN ('sales_tools_migration','sales_tools_app','sales_tools_runtime') ORDER BY owner,schema,type")).rows;
+  result.runtimeEffectiveAcl=(await client.query("SELECT r.rolname,c.relname AS table_name,has_table_privilege(r.oid,c.oid,'SELECT') AS can_select,has_table_privilege(r.oid,c.oid,'INSERT') AS can_insert,has_table_privilege(r.oid,c.oid,'UPDATE') AS can_update,has_table_privilege(r.oid,c.oid,'DELETE') AS can_delete,has_table_privilege(r.oid,c.oid,'TRUNCATE') AS can_truncate FROM pg_roles r CROSS JOIN pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE r.rolname IN ('sales_tools_app','sales_tools_runtime') AND n.nspname='public' AND c.relkind IN ('r','p') AND (c.relname IN ('company','contact','estimates') OR c.relname LIKE 'pira_%') ORDER BY r.rolname,c.relname")).rows;
+  result.piraFunctions=(await client.query("SELECT p.proname,pg_get_function_identity_arguments(p.oid) AS arguments,pg_get_userbyid(p.proowner) AS owner FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname LIKE 'pira_%' ORDER BY p.proname")).rows;
+  result.piraTriggers=(await client.query("SELECT c.relname AS table_name,t.tgname,t.tgenabled,p.proname AS function_name FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_proc p ON p.oid=t.tgfoid WHERE NOT t.tgisinternal AND n.nspname='public' AND c.relname LIKE 'pira_%' ORDER BY c.relname,t.tgname")).rows;
+  result.schemaEffectiveAcl=(await client.query("SELECT rolname,has_schema_privilege(oid,'public','CREATE') AS can_create,has_schema_privilege(oid,'public','USAGE') AS can_use FROM pg_roles WHERE rolname IN ('sales_tools_migration','sales_tools_app','sales_tools_runtime','pira_validation_readonly',current_user) ORDER BY rolname")).rows;
   result.draftSha256=crypto.createHash('sha256').update(fs.readFileSync(require.resolve('../../docs/pira-phase1-schema.draft.sql'))).digest('hex');
-  await client.query('ROLLBACK');console.log(JSON.stringify(result,null,2));
- }catch{try{await client.query('ROLLBACK');}catch{}console.error(JSON.stringify({status:'FAILED',reason:'PREFLIGHT_FAILED_NO_SECRETS_LOGGED'}));process.exitCode=1;}finally{await client.end();}
+  await client.query('ROLLBACK');emit(JSON.stringify(result,null,2));return result;
+ }catch{try{await client.query('ROLLBACK');}catch{}emitError(JSON.stringify({status:'FAILED',reason:'PREFLIGHT_FAILED_NO_SECRETS_LOGGED'}));process.exitCode=1;}finally{await client.end();}
 }
-main().catch(()=>{console.error(JSON.stringify({status:'FAILED',reason:'PREFLIGHT_START_FAILED'}));process.exitCode=1;});
+if(require.main===module)main().catch(()=>{console.error(JSON.stringify({status:'FAILED',reason:'PREFLIGHT_START_FAILED'}));process.exitCode=1;});
+module.exports={main};
