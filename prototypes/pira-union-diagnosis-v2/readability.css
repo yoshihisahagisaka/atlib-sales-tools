@@ -1,0 +1,188 @@
+/* Screen-only readability layer. Diagnosis/content contracts and print styles stay unchanged. */
+@media screen {
+  :root { --muted: #52657b; }
+  body { font-size: 17px; line-height: 1.85; }
+  .site-header { height: 72px; padding: 0 max(4vw, 24px); }
+  .brand { font-size: 24px; line-height: 1.3; letter-spacing: .02em; }
+  .brand small { font-size: 14px; margin-top: 3px; }
+  .prototype-label { font-size: 14px; padding: 3px 12px; }
+  .site-footer { font-size: 14px; margin-top: 26px; padding-top: 18px; }
+  .site-footer strong { color: var(--ink); font-weight: 600; }
+  .eyebrow, .small { font-size: 14px; line-height: 1.75; }
+  .landing { max-width: 1260px; padding: 22px 30px 0; }
+  .hero { grid-template-columns: 1.12fr .88fr; gap: 36px; }
+  .hero .eyebrow { margin-bottom: 8px; }
+  .hero h1 { font-size: 42px; line-height: 1.42; margin-bottom: 12px; }
+  .lead { font-size: 17px; line-height: 1.8; margin-bottom: 10px; }
+  .trust { font-size: 14px; gap: 6px 18px; margin: 12px 0 10px; }
+  .hero-actions { margin: 14px 0 8px; }
+  .hero-actions .btn { min-height: 50px; padding-top: 11px; padding-bottom: 11px; }
+  .hero section > .small { margin-bottom: 0; }
+  .preview { padding: 24px 28px; border-radius: 18px; }
+  .preview h2 { font-size: 23px; line-height: 1.5; margin-bottom: 12px; }
+  .preview-row { gap: 14px; margin-top: 10px; padding-top: 10px; font-size: 16px; line-height: 1.65; }
+  .preview-row p { font-size: 14px; line-height: 1.65; }
+  .preview-row b { font-size: 21px; }
+  .demo-section { margin-top: 22px; }
+  .section-line { gap: 16px; }
+  .section-line h2 { font-size: 22px; line-height: 1.5; margin-bottom: 10px; }
+  .section-line p { margin-bottom: 10px; }
+  .demo-grid { gap: 12px; }
+  .demo-card { padding: 14px 17px; line-height: 1.6; }
+  .demo-card > span { font-size: 14px; margin-bottom: 5px; }
+  .demo-card strong { font-size: 17px; line-height: 1.6; }
+  .demo-card strong span { font-size: 16px; }
+  .demo-card small { font-size: 14px; margin-top: 5px; line-height: 1.65; }
+  .demo-section details { margin-top: 8px; }
+  .resume-note { margin: 9px 0 0; font-size: 14px; color: var(--muted); }
+  .resume-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 10px; }
+  .resume-actions .btn { min-height: 44px; font-size: 15px; padding: 8px 15px; }
+  .note { font-size: 14px; line-height: 1.8; }
+  .landing > .note { margin-top: 14px; padding: 10px 15px; }
+  .btn { font-size: 17px; line-height: 1.6; }
+  .workbench { margin-top: 24px; grid-template-columns: 235px minmax(0,1fr); gap: 28px; }
+  .rail h2 { font-size: 18px; }
+  .rail p, .rail button { font-size: 14px; }
+  .rail button i { font-size: 13px; width: 25px; height: 25px; }
+  .rail ol { margin-top: 16px; }
+  .rail button { line-height: 1.6; }
+  .rail .btn { margin-top: 10px; }
+  .question-panel { padding: 28px 36px; }
+  .question-return { margin: 0 0 16px; }
+  .link-button { background: none; border: 0; padding: 0; color: var(--navy); font-size: 14px; text-decoration: underline; text-underline-offset: 4px; }
+  .progress-label { font-size: 14px; gap: 12px; }
+  .progress-track { margin-bottom: 24px; }
+  .question-panel h1 { font-size: 26px; line-height: 1.65; }
+  .question-panel h1, .section-heading h2, .theme-card h3, .checklist h3 { text-wrap: balance; }
+  .question-hint { font-size: 15px; line-height: 1.85; margin-bottom: 20px; }
+  .option, .option.special { font-size: 18px; line-height: 1.7; padding: 13px 17px; }
+  .option:before { width: 21px; height: 21px; }
+  .option.selected:before { font-size: 15px; line-height: 21px; }
+  .scope-confirm, .error { font-size: 16px; }
+  .report-shell { max-width: 1140px; margin-top: 26px; }
+  .report-toolbar { gap: 10px; margin-bottom: 18px; align-items: stretch; }
+  .report-toolbar .btn { font-size: 16px; }
+  #report-home { margin-right: auto; }
+  .report-cover { padding: 30px 36px; }
+  .report-cover h1 { font-size: 34px; line-height: 1.5; }
+  .report-cover p { font-size: 17px; line-height: 1.85; max-width: 55em; }
+  .report-cover .eyebrow, .badge { font-size: 14px; }
+  .summary-tile span, .summary-tile small { font-size: 14px; }
+  .summary-tile strong { font-size: 28px; }
+  .report-note { font-size: 14px; line-height: 1.85; }
+  .report-nav a { font-size: 14px; padding: 7px 12px; }
+  .report-section { padding: 28px 32px; margin: 22px 0; }
+  .section-heading { gap: 14px; margin-bottom: 22px; }
+  .section-heading .num { font-size: 29px; }
+  .section-heading h2 { font-size: 26px; line-height: 1.5; }
+  .report-section p, .report-section li { font-size: 17px; line-height: 1.9; }
+  .report-section .small, .report-section .note { font-size: 14px; }
+  table, .report-section table { font-size: 16px; line-height: 1.85; }
+  td, th { padding: 13px 14px; overflow-wrap: anywhere; }
+  .source-card { padding: 20px; gap: 13px; }
+  .source-card .source-tag { font-size: 14px; line-height: 1.7; letter-spacing: 0; }
+  .source-card p { font-size: 16px; line-height: 1.85; }
+  .source-card .small { font-size: 14px; }
+  .source-card details, .source-card details p, .source-card a { font-size: 14px; line-height: 1.85; }
+  .source-card .metric { font-size: 36px; }
+  .source-card .metric small { font-size: 16px; }
+  .chart-legend { font-size: 14px; gap: 9px 18px; line-height: 1.8; }
+  .theme-card { padding: 22px 24px; margin: 18px 0; }
+  .theme-card h3, .checklist h3 { font-size: 21px; line-height: 1.65; }
+  .theme-card p { font-size: 17px; line-height: 1.9; }
+  .checklist { padding: 24px; margin: 22px 0; }
+  .checklist p, .checklist .check-step { font-size: 17px; line-height: 1.9; }
+  .checklist .small { font-size: 14px; }
+  .checklist table { font-size: 16px; line-height: 1.8; }
+  .checklist th, .checklist td { padding: 11px; }
+  .checklist td { height: 44px; }
+  .empty-state { font-size: 17px; line-height: 1.9; }
+  .next-options { grid-template-columns: 1fr; }
+  .next-option { display: grid; grid-template-columns: 1fr auto; gap: 6px 20px; align-items: center; padding: 20px 22px; }
+  .next-option h3 { font-size: 20px; line-height: 1.6; margin-bottom: 0; }
+  .next-option p { font-size: 16px; grid-column: 1; margin: 0; }
+  .next-option .btn { font-size: 16px; grid-column: 2; grid-row: 1 / 3; min-height: 48px; }
+  .version-info { font-size: 14px; line-height: 1.8; }
+  .version-info p { font-size: 14px; }
+  dialog { max-width: 720px; padding: 32px; }
+  dialog h2 { font-size: 25px; line-height: 1.6; }
+  dialog p, dialog pre { font-size: 17px; line-height: 1.9; }
+  .dialog-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+  #snapshot-record { font-size: 14px; line-height: 1.75; }
+}
+@media screen and (max-width: 800px) {
+  .site-header { padding: 14px 20px; height: auto; min-height: 78px; flex-wrap: wrap; }
+  .brand { font-size: 23px; }
+  .landing { padding: 26px 22px 0; }
+  .hero { grid-template-columns: 1fr; gap: 28px; }
+  .hero h1 { font-size: 36px; line-height: 1.5; }
+  .preview { padding: 24px; }
+  .preview h2 { font-size: 23px; }
+  .demo-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
+  .demo-section { margin-top: 32px; }
+  .section-line { display: block; }
+  .workbench { grid-template-columns: 1fr; margin-top: 22px; padding: 0 18px; }
+  .question-panel { padding: 26px; }
+  .report-shell { padding: 0 18px; }
+  .report-cover { padding: 28px; }
+  .report-section { padding: 26px; }
+  .sources { grid-template-columns: 1fr; }
+  .summary-tile { padding: 16px; }
+}
+@media screen and (max-width: 480px) {
+  .site-header { padding: 14px 18px; gap: 10px; }
+  .brand { font-size: 22px; }
+  .brand small, .prototype-label { font-size: 14px; }
+  .landing { padding: 24px 18px 0; }
+  .hero h1 { font-size: 32px; }
+  .lead { font-size: 17px; }
+  .hero-actions { margin-top: 20px; }
+  .hero-actions .btn { font-size: 17px; min-height: 54px; }
+  .demo-grid { grid-template-columns: 1fr; }
+  .demo-card { padding: 19px 20px; }
+  .demo-card strong { font-size: 18px; }
+  .demo-card small { font-size: 15px; }
+  .section-line h2 { font-size: 23px; }
+  .question-panel { padding: 24px 18px; }
+  .question-panel h1 { font-size: 24px; }
+  .question-hint { font-size: 15px; }
+  .progress-label { font-size: 14px; flex-wrap: wrap; gap: 2px; }
+  .option, .option.special { font-size: 18px; padding: 13px; }
+  .question-actions { flex-direction: column-reverse; }
+  .question-actions .btn { width: 100%; font-size: 17px; }
+  .report-shell { padding: 0 16px; }
+  .report-toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .report-toolbar .btn { font-size: 15px; padding: 11px; min-height: 52px; }
+  #report-home { margin-right: 0; }
+  .report-cover { padding: 25px 22px; }
+  .report-cover h1 { font-size: 29px; }
+  .report-cover p { font-size: 17px; }
+  .report-summary { grid-template-columns: 1fr; gap: 10px; }
+  .summary-tile { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; }
+  .summary-tile span, .summary-tile small { font-size: 14px; }
+  .summary-tile strong { font-size: 26px; white-space: nowrap; }
+  .report-nav { gap: 9px; }
+  .report-nav a { font-size: 14px; }
+  .report-section { padding: 25px 18px; }
+  .section-heading { display: block; }
+  .section-heading h2 { font-size: 24px; }
+  .section-heading .num { display: block; font-size: 22px; line-height: 1.3; margin-bottom: 7px; }
+  .report-section p, .report-section li { font-size: 17px; }
+  table, .report-section table, .checklist table { font-size: 15px; }
+  th, td { padding: 10px 8px; }
+  .theme-card { padding: 20px 17px; }
+  .theme-card h3, .checklist h3 { font-size: 21px; }
+  .theme-card p, .checklist p { font-size: 17px; }
+  .checklist { padding: 20px 13px; }
+  .checklist th, .checklist td { padding: 9px 5px; }
+  .source-card { padding: 20px; }
+  .source-card p { font-size: 16px; }
+  .next-option { display: block; padding: 20px; }
+  .next-option p { font-size: 16px; margin: 10px 0 14px; }
+  .next-option .btn { font-size: 16px; }
+  .site-footer { font-size: 14px; padding: 20px 18px; }
+  dialog { padding: 28px 22px; max-height: calc(100dvh - 30px); overflow: auto; }
+  dialog h2 { font-size: 23px; }
+  dialog p, dialog pre { font-size: 17px; overflow-wrap: anywhere; }
+  .dialog-actions { flex-direction: column; }
+}

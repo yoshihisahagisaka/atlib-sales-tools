@@ -2,7 +2,7 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {pathToFileURL}=require('node:url');
 const {chromium}=require(process.env.PIRA_PLAYWRIGHT_MODULE||'playwright');
-const root=path.resolve(__dirname,'..'),out=path.join(root,'evidence');fs.mkdirSync(out,{recursive:true});
+const root=path.resolve(__dirname,'..'),out=path.resolve(process.env.PIRA_EVIDENCE_DIR||path.join(root,'evidence'));fs.mkdirSync(out,{recursive:true});
 const results=[],network=[],errors=[];let browser;
 async function check(name,fn){await fn();results.push({name,status:'PASS'});console.log('PASS '+name);}
 (async()=>{

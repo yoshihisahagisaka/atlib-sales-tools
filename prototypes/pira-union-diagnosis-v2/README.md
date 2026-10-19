@@ -1,5 +1,7 @@
 # 組合事務局の情報管理セルフチェック — ローカル試作品
 
+**2026-10-19 UI改善版**：全画面の文字サイズ、トップの余白、ブランド表記、戻りと回答の再開を改善しました。[変更前後・最新の検証結果](UI_REVIEW.md)を参照してください。診断内容は変更していません。
+
 PIRAのK氏への提案検討用。**フォルダー内の index.html をChrome/Edge等で開くとデモできます。インストール・サーバ起動は不要です。** 本試作品はPIRAの正式な主催・承認・推奨を示しません。PIRAロゴは使用していません。
 
 ## 確認手順
@@ -73,7 +75,7 @@ python test/pdf-check.py
 結果は[VALIDATION.md](VALIDATION.md)とevidence/を参照。既存Current Design v1の既知テスト2件は変更せず、新規試作品テストと区別している。既存全体の回帰が新たにPASSしたという主張はしない。
 
 ## ファイル
-- index.html / styles.css / app.js：ローカル画面・印刷
+- index.html / styles.css / readability.css / app.js：ローカル画面・印刷。readability.cssは画面専用で、既存の印刷CSSを維持
 - data.js：固定資料・文章・コンテンツ版
 - diagnosis.js：入力契約、意味変換、判定、レポート、ハッシュ
 - demos.js：架空のデモ回答

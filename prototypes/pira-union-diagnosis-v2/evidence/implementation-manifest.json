@@ -1,12 +1,15 @@
 {
   "prototypeVersion": "1.0.0",
+  "uiRevision": "2026-10-19-readability-navigation",
   "sourceDesignSha": "48ef973b749021ef314cbe01ac80b210a7dac3e4",
+  "uiBaselineSha": "c9860a07e0d538d4574edcd3129bacca5654866c",
   "sourceFiles": {
-    "index.html": "257de9b4315db4b5073effe8dde47199943070f0b725b92991f5080d83e70a0a",
+    "index.html": "8cd5ddf825e53bc0227386328805f0e82afbe44a0e225508693e72e08fd719e8",
     "data.js": "a0b3a91e58a92a6c70e4280ba8a11597ed1727c813a7426472084f4cb58504fa",
     "diagnosis.js": "ac677de145ed8ea94c75f87e8477dec09be9beefdecf78dd6e6ddb3ea6a22ba8",
     "demos.js": "b5315b04ee2f16a2bb56c31a7da74cb3fbb5b2abfb46c84afc4cdbb800eb9934",
-    "app.js": "d697b8f619c323fb785f123c53c259a0b29a286dac953b7f6a384105b907852a",
-    "styles.css": "bd42abcd063780d4bd5e1e835ed637220db95eb12d2922f606b6ea5a27ef9d52"
+    "app.js": "bde1be9c4e0bfab504cd0df0117f9b05977a02a93047b995d3e6cd69e3de637c",
+    "styles.css": "bd42abcd063780d4bd5e1e835ed637220db95eb12d2922f606b6ea5a27ef9d52",
+    "readability.css": "ed9a1af37afc7196cd72eed5907af3a806e20662c89dbc5601d818913646732e"
   }
 }

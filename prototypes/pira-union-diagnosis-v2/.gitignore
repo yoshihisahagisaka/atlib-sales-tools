@@ -4,3 +4,5 @@ evidence/downloads/
 evidence/browser-failure.txt
 evidence/*final-*.png
 evidence/workforce-print-*.png
+evidence/ui-20261019/regression/*.png
+evidence/ui-20261019/ui-failure.txt

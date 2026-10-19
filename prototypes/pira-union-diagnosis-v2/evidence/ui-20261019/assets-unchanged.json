@@ -1,0 +1,15 @@
+{
+  "baselineSha": "c9860a07e0d538d4574edcd3129bacca5654866c",
+  "allUnchanged": true,
+  "protectedFiles": {
+    "data.js": "a0b3a91e58a92a6c70e4280ba8a11597ed1727c813a7426472084f4cb58504fa",
+    "diagnosis.js": "ac677de145ed8ea94c75f87e8477dec09be9beefdecf78dd6e6ddb3ea6a22ba8",
+    "demos.js": "b5315b04ee2f16a2bb56c31a7da74cb3fbb5b2abfb46c84afc4cdbb800eb9934",
+    "test/fixtures/expected.json": "ccd44d4120f20556b3497b405e0be473333d82c5f9b3ab0880dcb7c383b05fcf",
+    "test/fixtures/F01-report.md": "e7abf83394bedb5c2d70840a62fcfdab4345a86d5d55fd54a6b8f29c804beb82",
+    "test/fixtures/F02-report.md": "e4e283def0eefb28006e0f1037501d33ff548bb9b87ab80e02f14ab76615cf15",
+    "test/fixtures/F03-report.md": "9bfb7403647776ed19e64206cbb326870e2bd4b8120c4004000ffb99a082b2b1",
+    "test/fixtures/inputs.json": "c1ed4e4e692bca859a839e074aa2021cfcbabeb7be406213264fefe664b1c56d"
+  },
+  "printStylesSha256": "bd42abcd063780d4bd5e1e835ed637220db95eb12d2922f606b6ea5a27ef9d52"
+}
