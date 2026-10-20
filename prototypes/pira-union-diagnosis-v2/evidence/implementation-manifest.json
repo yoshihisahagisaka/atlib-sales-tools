@@ -1,15 +1,71 @@
 {
-  "prototypeVersion": "1.0.0",
-  "uiRevision": "2026-10-19-readability-navigation",
-  "sourceDesignSha": "48ef973b749021ef314cbe01ac80b210a7dac3e4",
-  "uiBaselineSha": "c9860a07e0d538d4574edcd3129bacca5654866c",
-  "sourceFiles": {
-    "index.html": "8cd5ddf825e53bc0227386328805f0e82afbe44a0e225508693e72e08fd719e8",
-    "data.js": "a0b3a91e58a92a6c70e4280ba8a11597ed1727c813a7426472084f4cb58504fa",
-    "diagnosis.js": "ac677de145ed8ea94c75f87e8477dec09be9beefdecf78dd6e6ddb3ea6a22ba8",
-    "demos.js": "b5315b04ee2f16a2bb56c31a7da74cb3fbb5b2abfb46c84afc4cdbb800eb9934",
-    "app.js": "bde1be9c4e0bfab504cd0df0117f9b05977a02a93047b995d3e6cd69e3de637c",
-    "styles.css": "bd42abcd063780d4bd5e1e835ed637220db95eb12d2922f606b6ea5a27ef9d52",
-    "readability.css": "ed9a1af37afc7196cd72eed5907af3a806e20662c89dbc5601d818913646732e"
-  }
+  "uiRevision": "2026-10-21-phase3",
+  "uiBaseline": "7c33ff50130249cb989abc96128894d5cb6b1dc6",
+  "runtimeAssets": [
+    {
+      "path": "index.html",
+      "sha256": "4051f2fa7e77e2d1c682b9142969bde16c1bef8a6d4235e6e2e2d6d77a034e0b"
+    },
+    {
+      "path": "styles.css",
+      "sha256": "bd42abcd063780d4bd5e1e835ed637220db95eb12d2922f606b6ea5a27ef9d52"
+    },
+    {
+      "path": "readability.css",
+      "sha256": "ed9a1af37afc7196cd72eed5907af3a806e20662c89dbc5601d818913646732e"
+    },
+    {
+      "path": "phase3.css",
+      "sha256": "33e0abe25500382fc2463d724d4ea37033da209afefe79a64f679811704ddba6"
+    },
+    {
+      "path": "data.js",
+      "sha256": "a0b3a91e58a92a6c70e4280ba8a11597ed1727c813a7426472084f4cb58504fa"
+    },
+    {
+      "path": "diagnosis.js",
+      "sha256": "ac677de145ed8ea94c75f87e8477dec09be9beefdecf78dd6e6ddb3ea6a22ba8"
+    },
+    {
+      "path": "demos.js",
+      "sha256": "b5315b04ee2f16a2bb56c31a7da74cb3fbb5b2abfb46c84afc4cdbb800eb9934"
+    },
+    {
+      "path": "resources.js",
+      "sha256": "00d7f85e88bec81fd6b1dd150bf466d0619a1fda2d8a17842a811649d3c8cab9"
+    },
+    {
+      "path": "phase3-content.js",
+      "sha256": "358cfdab397ce36b39f9a6a0bb1ded9a4dea9eaca97aaf4bc216d47065ff563e"
+    },
+    {
+      "path": "phase3-report.js",
+      "sha256": "85c531a51ea3af0fd5ca8a54f0aa0e0b7cd99aa43464bf59eb000e9be7dceffb"
+    },
+    {
+      "path": "phase3-pdf.js",
+      "sha256": "13354e8264670c98c50f5de562e2edba2dbbe79ad23cf482e3b187657e7a4c64"
+    },
+    {
+      "path": "app.js",
+      "sha256": "cbee73ed6535703de0e302cdcadb5a881e07833855809ab44f3733186ee17cab"
+    },
+    {
+      "path": "vendor/pdf-lib.min.js",
+      "sha256": "0f9a5cad07941f0826586c94e089d89b918c46e5c17cf2d5a3c6f666e3bc694f"
+    },
+    {
+      "path": "vendor/pdf-font.js",
+      "sha256": "1bf175ecb3d202820c3878d45c5fa8a2c9b5e23603fcc80cb02d401eee5d7577"
+    },
+    {
+      "path": "resources.html",
+      "sha256": "b7f54a9d084fe3d9269bea8754b3b2229fe204872f12ba57a471d4971e3318cb"
+    },
+    {
+      "path": "resources-page.js",
+      "sha256": "28ca0060d3266601c3a3d5b2783db77013a6a3c0bb4bd2a1dbc884ee8eeb8578"
+    }
+  ],
+  "notes": "Browser only; fixed explanations; five sections; no external API or persistence."
 }

@@ -1,1 +1,1 @@
-{"name":"pira-union-diagnosis-local-prototype","private":true,"version":"1.0.0","scripts":{"test":"node --test test/diagnosis.test.cjs","test:browser":"node test/browser.cjs"}}
+{"name":"pira-union-diagnosis-local-prototype","private":true,"version":"3.0.0-prototype","scripts":{"test":"node --test test/diagnosis.test.cjs test/phase3.test.cjs","test:browser":"node test/phase3-browser.cjs","test:pdf":"python test/phase3-pdf-check.py","test:legacy-browser":"node test/browser.cjs"}}
