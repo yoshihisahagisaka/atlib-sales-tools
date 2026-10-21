@@ -1,0 +1,514 @@
+{
+  "baselineSha": "c9860a07e0d538d4574edcd3129bacca5654866c",
+  "viewports": [
+    "1366x768",
+    "1440x900",
+    "390x844",
+    "320x760"
+  ],
+  "zoom": "100% / deviceScaleFactor=1",
+  "passed": 17,
+  "results": [
+    {
+      "name": "1366px top typography, branding and overflow",
+      "status": "PASS"
+    },
+    {
+      "name": "1366px question readability",
+      "status": "PASS"
+    },
+    {
+      "name": "1366px report, source and worksheet readability",
+      "status": "PASS"
+    },
+    {
+      "name": "1440px top typography, branding and overflow",
+      "status": "PASS"
+    },
+    {
+      "name": "1440px question readability",
+      "status": "PASS"
+    },
+    {
+      "name": "1440px report, source and worksheet readability",
+      "status": "PASS"
+    },
+    {
+      "name": "390px top typography, branding and overflow",
+      "status": "PASS"
+    },
+    {
+      "name": "390px question readability",
+      "status": "PASS"
+    },
+    {
+      "name": "390px report, source and worksheet readability",
+      "status": "PASS"
+    },
+    {
+      "name": "320px top typography, branding and overflow",
+      "status": "PASS"
+    },
+    {
+      "name": "320px question readability",
+      "status": "PASS"
+    },
+    {
+      "name": "320px report, source and worksheet readability",
+      "status": "PASS"
+    },
+    {
+      "name": "all four sample types have explicit top return and preserved report",
+      "status": "PASS"
+    },
+    {
+      "name": "own answer resumes at the same question after top and sample navigation",
+      "status": "PASS"
+    },
+    {
+      "name": "header navigation also preserves answers; reset is explicit and cancellable",
+      "status": "PASS"
+    },
+    {
+      "name": "completed own report is retained across viewing a sample",
+      "status": "PASS"
+    },
+    {
+      "name": "UI changes make no external requests or browser errors",
+      "status": "PASS"
+    }
+  ],
+  "metrics": [
+    {
+      "phase": "before",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "devicePixelRatio": 1,
+      "title": {
+        "top": 181.59375,
+        "bottom": 327.28125,
+        "height": 145.6875
+      },
+      "start": {
+        "top": 492.671875,
+        "bottom": 549.46875,
+        "height": 56.796875
+      },
+      "sampleCards": [
+        {
+          "top": 698.0625,
+          "bottom": 823.453125
+        },
+        {
+          "top": 698.0625,
+          "bottom": 823.453125
+        },
+        {
+          "top": 698.0625,
+          "bottom": 823.453125
+        },
+        {
+          "top": 698.0625,
+          "bottom": 823.453125
+        }
+      ],
+      "fonts": {
+        "description": 17,
+        "supplement": 12,
+        "sampleTitle": 15,
+        "sampleDescription": 12
+      },
+      "horizontalOverflow": false
+    },
+    {
+      "phase": "before-report",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "fonts": {
+        "body": 14,
+        "theme": 13,
+        "table": 13,
+        "checklist": 13,
+        "checklistTable": 11,
+        "source": 12,
+        "sourceSupplement": 12,
+        "legend": 11
+      }
+    },
+    {
+      "phase": "after",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "devicePixelRatio": 1,
+      "title": {
+        "top": 132.8125,
+        "bottom": 252.0625,
+        "height": 119.25
+      },
+      "start": {
+        "top": 377.140625,
+        "bottom": 427.140625,
+        "height": 50
+      },
+      "sampleCards": [
+        {
+          "top": 530.953125,
+          "bottom": 643.625
+        },
+        {
+          "top": 530.953125,
+          "bottom": 643.625
+        },
+        {
+          "top": 530.953125,
+          "bottom": 643.625
+        },
+        {
+          "top": 530.953125,
+          "bottom": 643.625
+        }
+      ],
+      "fonts": {
+        "description": 17,
+        "supplement": 14,
+        "sampleTitle": 17,
+        "sampleDescription": 14
+      },
+      "horizontalOverflow": false
+    },
+    {
+      "phase": "after-report",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "fonts": {
+        "body": 17,
+        "theme": 17,
+        "table": 16,
+        "checklist": 17,
+        "checklistTable": 16,
+        "source": 16,
+        "sourceSupplement": 14,
+        "legend": 14
+      }
+    },
+    {
+      "phase": "before",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "devicePixelRatio": 1,
+      "title": {
+        "top": 181.59375,
+        "bottom": 327.28125,
+        "height": 145.6875
+      },
+      "start": {
+        "top": 492.671875,
+        "bottom": 549.46875,
+        "height": 56.796875
+      },
+      "sampleCards": [
+        {
+          "top": 698.0625,
+          "bottom": 823.453125
+        },
+        {
+          "top": 698.0625,
+          "bottom": 823.453125
+        },
+        {
+          "top": 698.0625,
+          "bottom": 823.453125
+        },
+        {
+          "top": 698.0625,
+          "bottom": 823.453125
+        }
+      ],
+      "fonts": {
+        "description": 17,
+        "supplement": 12,
+        "sampleTitle": 15,
+        "sampleDescription": 12
+      },
+      "horizontalOverflow": false
+    },
+    {
+      "phase": "after",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "devicePixelRatio": 1,
+      "title": {
+        "top": 132.8125,
+        "bottom": 252.0625,
+        "height": 119.25
+      },
+      "start": {
+        "top": 377.140625,
+        "bottom": 427.140625,
+        "height": 50
+      },
+      "sampleCards": [
+        {
+          "top": 530.953125,
+          "bottom": 643.625
+        },
+        {
+          "top": 530.953125,
+          "bottom": 643.625
+        },
+        {
+          "top": 530.953125,
+          "bottom": 643.625
+        },
+        {
+          "top": 530.953125,
+          "bottom": 643.625
+        }
+      ],
+      "fonts": {
+        "description": 17,
+        "supplement": 14,
+        "sampleTitle": 17,
+        "sampleDescription": 14
+      },
+      "horizontalOverflow": false
+    },
+    {
+      "phase": "after-report",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "fonts": {
+        "body": 17,
+        "theme": 17,
+        "table": 16,
+        "checklist": 17,
+        "checklistTable": 16,
+        "source": 16,
+        "sourceSupplement": 14,
+        "legend": 14
+      }
+    },
+    {
+      "phase": "before",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "devicePixelRatio": 1,
+      "title": {
+        "top": 137.59375,
+        "bottom": 229.96875,
+        "height": 92.375
+      },
+      "start": {
+        "top": 444.75,
+        "bottom": 501.546875,
+        "height": 56.796875
+      },
+      "sampleCards": [
+        {
+          "top": 1185.65625,
+          "bottom": 1342.421875
+        },
+        {
+          "top": 1185.65625,
+          "bottom": 1342.421875
+        },
+        {
+          "top": 1352.421875,
+          "bottom": 1485.796875
+        },
+        {
+          "top": 1352.421875,
+          "bottom": 1485.796875
+        }
+      ],
+      "fonts": {
+        "description": 14,
+        "supplement": 12,
+        "sampleTitle": 13,
+        "sampleDescription": 12
+      },
+      "horizontalOverflow": false
+    },
+    {
+      "phase": "after",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "devicePixelRatio": 1,
+      "title": {
+        "top": 179.171875,
+        "bottom": 275.171875,
+        "height": 96
+      },
+      "start": {
+        "top": 499.328125,
+        "bottom": 553.328125,
+        "height": 54
+      },
+      "sampleCards": [
+        {
+          "top": 1155.78125,
+          "bottom": 1281.71875
+        },
+        {
+          "top": 1295.71875,
+          "bottom": 1421.65625
+        },
+        {
+          "top": 1435.65625,
+          "bottom": 1561.59375
+        },
+        {
+          "top": 1575.59375,
+          "bottom": 1701.53125
+        }
+      ],
+      "fonts": {
+        "description": 17,
+        "supplement": 14,
+        "sampleTitle": 18,
+        "sampleDescription": 15
+      },
+      "horizontalOverflow": false
+    },
+    {
+      "phase": "after-report",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "fonts": {
+        "body": 17,
+        "theme": 17,
+        "table": 15,
+        "checklist": 17,
+        "checklistTable": 15,
+        "source": 16,
+        "sourceSupplement": 14,
+        "legend": 14
+      }
+    },
+    {
+      "phase": "before",
+      "viewport": {
+        "width": 320,
+        "height": 760
+      },
+      "devicePixelRatio": 1,
+      "title": {
+        "top": 137.59375,
+        "bottom": 276.15625,
+        "height": 138.5625
+      },
+      "start": {
+        "top": 518.9375,
+        "bottom": 575.734375,
+        "height": 56.796875
+      },
+      "sampleCards": [
+        {
+          "top": 1444.203125,
+          "bottom": 1600.96875
+        },
+        {
+          "top": 1444.203125,
+          "bottom": 1600.96875
+        },
+        {
+          "top": 1610.96875,
+          "bottom": 1767.734375
+        },
+        {
+          "top": 1610.96875,
+          "bottom": 1767.734375
+        }
+      ],
+      "fonts": {
+        "description": 14,
+        "supplement": 12,
+        "sampleTitle": 13,
+        "sampleDescription": 12
+      },
+      "horizontalOverflow": false
+    },
+    {
+      "phase": "after",
+      "viewport": {
+        "width": 320,
+        "height": 760
+      },
+      "devicePixelRatio": 1,
+      "title": {
+        "top": 179.171875,
+        "bottom": 323.171875,
+        "height": 144
+      },
+      "start": {
+        "top": 547.328125,
+        "bottom": 601.328125,
+        "height": 54
+      },
+      "sampleCards": [
+        {
+          "top": 1392.953125,
+          "bottom": 1518.890625
+        },
+        {
+          "top": 1532.890625,
+          "bottom": 1658.828125
+        },
+        {
+          "top": 1672.828125,
+          "bottom": 1798.765625
+        },
+        {
+          "top": 1812.765625,
+          "bottom": 1963.453125
+        }
+      ],
+      "fonts": {
+        "description": 17,
+        "supplement": 14,
+        "sampleTitle": 18,
+        "sampleDescription": 15
+      },
+      "horizontalOverflow": false
+    },
+    {
+      "phase": "after-report",
+      "viewport": {
+        "width": 320,
+        "height": 760
+      },
+      "fonts": {
+        "body": 17,
+        "theme": 17,
+        "table": 15,
+        "checklist": 17,
+        "checklistTable": 15,
+        "source": 16,
+        "sourceSupplement": 14,
+        "legend": 14
+      }
+    }
+  ],
+  "httpRequests": [],
+  "pageErrors": []
+}

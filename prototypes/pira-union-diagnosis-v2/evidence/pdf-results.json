@@ -1,0 +1,53 @@
+[
+  {
+    "file": "workforce-report.pdf",
+    "pages": 4,
+    "pageTextLengths": [
+      1322,
+      672,
+      400,
+      718
+    ],
+    "sixSections": true,
+    "officialUrls": true,
+    "contentVersion": true,
+    "countDefinitions": true,
+    "a4": true,
+    "blankPages": false,
+    "status": "PASS"
+  },
+  {
+    "file": "purchasing-report.pdf",
+    "pages": 4,
+    "pageTextLengths": [
+      1322,
+      520,
+      378,
+      714
+    ],
+    "sixSections": true,
+    "officialUrls": true,
+    "contentVersion": true,
+    "countDefinitions": true,
+    "a4": true,
+    "blankPages": false,
+    "status": "PASS"
+  },
+  {
+    "file": "membership-report.pdf",
+    "pages": 4,
+    "pageTextLengths": [
+      1322,
+      485,
+      304,
+      595
+    ],
+    "sixSections": true,
+    "officialUrls": true,
+    "contentVersion": true,
+    "countDefinitions": true,
+    "a4": true,
+    "blankPages": false,
+    "status": "PASS"
+  }
+]

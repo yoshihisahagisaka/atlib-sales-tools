@@ -1,0 +1,400 @@
+{
+  "prototype": true,
+  "definitionId": "PIRA_UNION_SELF_CHECK",
+  "answerContractVersion": "PIRA-A-2.0.0",
+  "ruleSetVersion": "PIRA-R-2.0.0",
+  "contentVersion": "PIRA-C-20261018.1",
+  "narrativeVersion": "PIRA-N-2.0.0",
+  "reportContractVersion": "PIRA-P-2.0.0",
+  "rendererVersion": "PIRA-PROTOTYPE-1.0.0",
+  "sourceDesignSha": "48ef973b749021ef314cbe01ac80b210a7dac3e4",
+  "answerRevision": 11,
+  "reportRevision": 1,
+  "inputHash": "5a7aa63f98b8ea097465ab4aa9267a2da1dddaf93adfb1e9fea1d5359a994a3d",
+  "resultHash": "d8132c1a5c853326571d19698230ba98afdc6d44fef0c102adf77d7598ac25f9",
+  "renderedContentHash": "52731869e9413a6715b43a441494d2a5839dabba83ee39ea71910ac039c56a2a",
+  "executionKey": "ee006b13732ab45fc4fd38c71f99b756ead5f5700b97ddab88870e41561cf065",
+  "answers": [
+    {
+      "questionId": "C01",
+      "responseState": "ANSWERED",
+      "optionIds": [
+        "WORKFORCE"
+      ]
+    },
+    {
+      "questionId": "C02",
+      "responseState": "ANSWERED",
+      "optionIds": [
+        "IDENTITY",
+        "CASE_RECORD"
+      ]
+    },
+    {
+      "questionId": "C03",
+      "responseState": "ANSWERED",
+      "optionIds": [
+        "PARTIAL"
+      ]
+    },
+    {
+      "questionId": "C04",
+      "responseState": "ANSWERED",
+      "optionIds": [
+        "NOT_DONE"
+      ]
+    },
+    {
+      "questionId": "C05",
+      "responseState": "ANSWERED",
+      "optionIds": [
+        "READY"
+      ]
+    },
+    {
+      "questionId": "C06",
+      "responseState": "ANSWERED",
+      "optionIds": [
+        "READY"
+      ]
+    },
+    {
+      "questionId": "C07",
+      "responseState": "UNKNOWN",
+      "optionIds": []
+    },
+    {
+      "questionId": "B01",
+      "responseState": "ANSWERED",
+      "optionIds": [
+        "NOT_DONE"
+      ]
+    },
+    {
+      "questionId": "B02",
+      "responseState": "SKIPPED_BY_BRANCH",
+      "optionIds": []
+    },
+    {
+      "questionId": "B03",
+      "responseState": "SKIPPED_BY_BRANCH",
+      "optionIds": []
+    },
+    {
+      "questionId": "B04",
+      "responseState": "ANSWERED",
+      "optionIds": [
+        "READY"
+      ]
+    }
+  ],
+  "result": {
+    "definitionId": "PIRA_UNION_SELF_CHECK",
+    "answerContractVersion": "PIRA-A-2.0.0",
+    "ruleSetVersion": "PIRA-R-2.0.0",
+    "contentVersion": "PIRA-C-20261018.1",
+    "narrativeVersion": "PIRA-N-2.0.0",
+    "reportContractVersion": "PIRA-P-2.0.0",
+    "rendererVersion": "PIRA-PROTOTYPE-1.0.0",
+    "status": "ACTION_CONFIRMATION",
+    "businessIds": [
+      "WORKFORCE"
+    ],
+    "informationIds": [
+      "IDENTITY",
+      "CASE_RECORD"
+    ],
+    "currentStates": [
+      {
+        "questionId": "C01",
+        "state": "REPORTED_SELECTION",
+        "optionIds": [
+          "WORKFORCE"
+        ]
+      },
+      {
+        "questionId": "C02",
+        "state": "REPORTED_SELECTION",
+        "optionIds": [
+          "IDENTITY",
+          "CASE_RECORD"
+        ]
+      },
+      {
+        "questionId": "C03",
+        "state": "REPORTED_PARTIAL",
+        "optionIds": [
+          "PARTIAL"
+        ]
+      },
+      {
+        "questionId": "C04",
+        "state": "REPORTED_NOT_DONE",
+        "optionIds": [
+          "NOT_DONE"
+        ]
+      },
+      {
+        "questionId": "C05",
+        "state": "REPORTED_READY",
+        "optionIds": [
+          "READY"
+        ]
+      },
+      {
+        "questionId": "C06",
+        "state": "REPORTED_READY",
+        "optionIds": [
+          "READY"
+        ]
+      },
+      {
+        "questionId": "C07",
+        "state": "UNCONFIRMED",
+        "optionIds": []
+      },
+      {
+        "questionId": "B01",
+        "state": "REPORTED_NOT_DONE",
+        "optionIds": [
+          "NOT_DONE"
+        ]
+      },
+      {
+        "questionId": "B04",
+        "state": "REPORTED_READY",
+        "optionIds": [
+          "READY"
+        ]
+      }
+    ],
+    "relevanceThemeIds": [
+      "T01",
+      "T02",
+      "T03",
+      "T04",
+      "T05",
+      "T08"
+    ],
+    "candidateThemeIds": [
+      "T01",
+      "T02",
+      "T03"
+    ],
+    "priorityThemeIds": [
+      "T01",
+      "T02",
+      "T03"
+    ],
+    "deferredThemeIds": [],
+    "themeEvidence": {
+      "T01": [
+        "B01"
+      ],
+      "T02": [
+        "C04"
+      ],
+      "T03": [
+        "C03"
+      ]
+    },
+    "unknownQuestionIds": [
+      "C07"
+    ],
+    "authorityQuestionIds": [],
+    "notApplicableQuestionIds": [],
+    "skippedQuestionIds": [
+      "B02",
+      "B03"
+    ],
+    "checklistIds": [
+      "K01",
+      "K02",
+      "K03",
+      "KU"
+    ],
+    "contentCardIds": [
+      "S01",
+      "I01",
+      "I02"
+    ],
+    "nextActionIds": [
+      "SELF_REVIEW",
+      "OPTIONAL_CONSULTATION",
+      "OPTIONAL_MEMBER_INVITATION"
+    ],
+    "appliedRuleIds": [
+      "G01",
+      "G02",
+      "G04",
+      "D01",
+      "REL01",
+      "R-T01",
+      "R-T02",
+      "R-T03",
+      "SEL01",
+      "KSEL01",
+      "H03"
+    ],
+    "normalizedAnswers": [
+      {
+        "questionId": "C01",
+        "responseState": "ANSWERED",
+        "optionIds": [
+          "WORKFORCE"
+        ]
+      },
+      {
+        "questionId": "C02",
+        "responseState": "ANSWERED",
+        "optionIds": [
+          "IDENTITY",
+          "CASE_RECORD"
+        ]
+      },
+      {
+        "questionId": "C03",
+        "responseState": "ANSWERED",
+        "optionIds": [
+          "PARTIAL"
+        ]
+      },
+      {
+        "questionId": "C04",
+        "responseState": "ANSWERED",
+        "optionIds": [
+          "NOT_DONE"
+        ]
+      },
+      {
+        "questionId": "C05",
+        "responseState": "ANSWERED",
+        "optionIds": [
+          "READY"
+        ]
+      },
+      {
+        "questionId": "C06",
+        "responseState": "ANSWERED",
+        "optionIds": [
+          "READY"
+        ]
+      },
+      {
+        "questionId": "C07",
+        "responseState": "UNKNOWN",
+        "optionIds": []
+      },
+      {
+        "questionId": "B01",
+        "responseState": "ANSWERED",
+        "optionIds": [
+          "NOT_DONE"
+        ]
+      },
+      {
+        "questionId": "B02",
+        "responseState": "SKIPPED_BY_BRANCH",
+        "optionIds": []
+      },
+      {
+        "questionId": "B03",
+        "responseState": "SKIPPED_BY_BRANCH",
+        "optionIds": []
+      },
+      {
+        "questionId": "B04",
+        "responseState": "ANSWERED",
+        "optionIds": [
+          "READY"
+        ]
+      }
+    ]
+  },
+  "report": {
+    "intro": "このレポートは回答時点の認識を整理したものです。実態を監査し、安全性を認証するものではありません。",
+    "sections": [
+      {
+        "key": "S1",
+        "title": "最近の事故・統計",
+        "markdown": "警察庁の2026年3月資料は、2025年に国内でランサムウェア被害226件を認知したとしています。これは全国の認知件数で、組合の被害率や発生確率ではありません。\n出典：警察庁「Cyber Police Agency Letter 2025 Vol.15（R8.3）」、公表2026年3月（日未確認）。 https://www.npa.go.jp/bureau/cyber/pdf/R7_Vol.15cpal.pdf\n\n2025年12月12日、東京都のセミナー案内で、1名の氏名・ログイン用IDが9,086名宛のメールに記載されました。漏えい対象は1名、送信先は9,086名です。\n出典：東京都人事委員会「個人情報の漏えいについて」、公表2025年12月12日。 https://www.saiyou.metro.tokyo.lg.jp/information/press/2025/12/20251212\n\n兵庫県は、2025年11月7日に送信したWord集計資料に元データが紐付き、代表者600名分の氏名等が5市町で閲覧可能だったと公表しました。県は5市町から外部への流出はなかったとしています。\n出典：兵庫県「集落営農組織アンケート結果における個人情報の漏えい」、公表2025年12月12日18時。 https://web.pref.hyogo.lg.jp/nk04/press/20251212.html\n\n以上はPIRA会員の事故を示すものではありません。確認済みの固定資料版PIRA-C-20261018.1を掲載しています。2026年上半期を含む最新統計の網羅を意味しません。出典確認日：2026年10月18日。"
+      },
+      {
+        "key": "S2",
+        "title": "組合の業務と重要情報",
+        "markdown": "ご回答では、外国人材の監理・支援を行っています。扱う情報として、旅券・在留資格等の本人確認情報と、面談・訪問・相談記録を選択しています。実物や番号は受け取っていません。"
+      },
+      {
+        "key": "S3",
+        "title": "現在の管理状況",
+        "markdown": "|確認した対象|今回の回答|\n|---|---|\n|退職・異動時の権限解除|一部で運用しているという回答です|\n|重要情報の外部送信前確認|手順を設けていないという回答です|\n|外部利用アカウントの多要素認証|対象で使用しているという回答です|\n|業務PCのOS更新|担当と手順を決め更新しているという回答です|\n|電子データの復元確認|今回は分かりませんでした|\n|監理・支援資料の保管期限と期限後処理|期限後の処理を決めていないという回答です|\n|事故時の第一連絡先|連絡先を決め周知しているという回答です|\n\n共同購買の振込先確認と会員向け一斉案内は、選択業務外のため評価していません。担当外・該当なしの回答はありません。復元確認が分からないことだけで、バックアップがないとは判断していません。表示上限外の確認テーマはありません。"
+      },
+      {
+        "key": "S4",
+        "title": "優先確認テーマ",
+        "markdown": "以下は危険度の順ではなく、実務を整理する固定の手順順です。\n- 本人資料・記録の保管期限：保管期限と期限後処理を決めていないという回答を受け、資料の種類ごとの期限と処理担当を確認します。現在の手順を続けるか見直すかの判断材料になります。残すものは、種類・期限根拠・担当・処理記録欄の表です。（根拠B01、R-T01）\n- 外部送信・一斉案内：重要情報の外部送信前確認の手順を設けていないという回答を受け、宛先と送る内容を照合する工程を確認します。現在の手順を続けるか見直すかの判断材料になります。残すものは送信確認票です。（根拠C04、R-T02）\n- 退職異動時の権限：権限解除を一部で運用しているという回答を受け、解除する対象と担当を確認します。現在の手順を続けるか見直すかの判断材料になります。残すものは権限変更依頼票です。（根拠C03、R-T03）"
+      },
+      {
+        "key": "S5",
+        "title": "実務チェックリスト",
+        "markdown": "- 対象資料の種類ごとに保管期限と期限後の処理担当を表にする。現在の処理と照合する。法令・契約等で必要な保存期間は担当者に確認してから決める。成果物：種類／期限根拠／担当／処理記録欄の表。\n- 実際の送信前に宛先一覧と送るファイル・共有範囲を照合する手順を一枚にする。成果物：送信確認票。埋込データの有無も確認対象の例として示し、存在を断定しない。\n- 退職・異動時に解除すべきアカウントの種類、依頼先、実施確認欄をまとめる。実際のIDやパスワードは診断へ入力しない。成果物：権限変更依頼票。\n- 分からない項目と担当外の項目を分け、確認する相手と回答更新日を整理する。今回の未確認項目は電子データの復元確認（C07）、担当外の項目はありません。成果物：質問ID／未確認・担当外／確認先／確認日欄の表。対策不足の一覧として扱わない。"
+      },
+      {
+        "key": "S6",
+        "title": "次の取り組み",
+        "markdown": "まず、今回の資料を事務局内や現在の委託先との確認にお使いください。追加の相談は任意です。資料が役立つと感じた場合は、所属企業にも自己点検の機会を案内できます。所属企業の回答や名簿を組合へ提出する必要はありません。商品購入や案内への協力は、結果を受け取る条件ではありません。\n\n自組合で確認を進める、無料相談の案内を見る、所属企業向けの共通案内文を受け取る、のいずれも自由に選べます。今回は申込や送信は行っていません。"
+      }
+    ],
+    "markdown": "このレポートは回答時点の認識を整理したものです。実態を監査し、安全性を認証するものではありません。\n\n### 1. 最近の事故・統計\n警察庁の2026年3月資料は、2025年に国内でランサムウェア被害226件を認知したとしています。これは全国の認知件数で、組合の被害率や発生確率ではありません。\n出典：警察庁「Cyber Police Agency Letter 2025 Vol.15（R8.3）」、公表2026年3月（日未確認）。 https://www.npa.go.jp/bureau/cyber/pdf/R7_Vol.15cpal.pdf\n\n2025年12月12日、東京都のセミナー案内で、1名の氏名・ログイン用IDが9,086名宛のメールに記載されました。漏えい対象は1名、送信先は9,086名です。\n出典：東京都人事委員会「個人情報の漏えいについて」、公表2025年12月12日。 https://www.saiyou.metro.tokyo.lg.jp/information/press/2025/12/20251212\n\n兵庫県は、2025年11月7日に送信したWord集計資料に元データが紐付き、代表者600名分の氏名等が5市町で閲覧可能だったと公表しました。県は5市町から外部への流出はなかったとしています。\n出典：兵庫県「集落営農組織アンケート結果における個人情報の漏えい」、公表2025年12月12日18時。 https://web.pref.hyogo.lg.jp/nk04/press/20251212.html\n\n以上はPIRA会員の事故を示すものではありません。確認済みの固定資料版PIRA-C-20261018.1を掲載しています。2026年上半期を含む最新統計の網羅を意味しません。出典確認日：2026年10月18日。\n\n### 2. 組合の業務と重要情報\nご回答では、外国人材の監理・支援を行っています。扱う情報として、旅券・在留資格等の本人確認情報と、面談・訪問・相談記録を選択しています。実物や番号は受け取っていません。\n\n### 3. 現在の管理状況\n|確認した対象|今回の回答|\n|---|---|\n|退職・異動時の権限解除|一部で運用しているという回答です|\n|重要情報の外部送信前確認|手順を設けていないという回答です|\n|外部利用アカウントの多要素認証|対象で使用しているという回答です|\n|業務PCのOS更新|担当と手順を決め更新しているという回答です|\n|電子データの復元確認|今回は分かりませんでした|\n|監理・支援資料の保管期限と期限後処理|期限後の処理を決めていないという回答です|\n|事故時の第一連絡先|連絡先を決め周知しているという回答です|\n\n共同購買の振込先確認と会員向け一斉案内は、選択業務外のため評価していません。担当外・該当なしの回答はありません。復元確認が分からないことだけで、バックアップがないとは判断していません。表示上限外の確認テーマはありません。\n\n### 4. 優先確認テーマ\n以下は危険度の順ではなく、実務を整理する固定の手順順です。\n- 本人資料・記録の保管期限：保管期限と期限後処理を決めていないという回答を受け、資料の種類ごとの期限と処理担当を確認します。現在の手順を続けるか見直すかの判断材料になります。残すものは、種類・期限根拠・担当・処理記録欄の表です。（根拠B01、R-T01）\n- 外部送信・一斉案内：重要情報の外部送信前確認の手順を設けていないという回答を受け、宛先と送る内容を照合する工程を確認します。現在の手順を続けるか見直すかの判断材料になります。残すものは送信確認票です。（根拠C04、R-T02）\n- 退職異動時の権限：権限解除を一部で運用しているという回答を受け、解除する対象と担当を確認します。現在の手順を続けるか見直すかの判断材料になります。残すものは権限変更依頼票です。（根拠C03、R-T03）\n\n### 5. 実務チェックリスト\n- 対象資料の種類ごとに保管期限と期限後の処理担当を表にする。現在の処理と照合する。法令・契約等で必要な保存期間は担当者に確認してから決める。成果物：種類／期限根拠／担当／処理記録欄の表。\n- 実際の送信前に宛先一覧と送るファイル・共有範囲を照合する手順を一枚にする。成果物：送信確認票。埋込データの有無も確認対象の例として示し、存在を断定しない。\n- 退職・異動時に解除すべきアカウントの種類、依頼先、実施確認欄をまとめる。実際のIDやパスワードは診断へ入力しない。成果物：権限変更依頼票。\n- 分からない項目と担当外の項目を分け、確認する相手と回答更新日を整理する。今回の未確認項目は電子データの復元確認（C07）、担当外の項目はありません。成果物：質問ID／未確認・担当外／確認先／確認日欄の表。対策不足の一覧として扱わない。\n\n### 6. 次の取り組み\nまず、今回の資料を事務局内や現在の委託先との確認にお使いください。追加の相談は任意です。資料が役立つと感じた場合は、所属企業にも自己点検の機会を案内できます。所属企業の回答や名簿を組合へ提出する必要はありません。商品購入や案内への協力は、結果を受け取る条件ではありません。\n\n自組合で確認を進める、無料相談の案内を見る、所属企業向けの共通案内文を受け取る、のいずれも自由に選べます。今回は申込や送信は行っていません。",
+    "sourceCards": [
+      {
+        "id": "S01",
+        "publisher": "警察庁",
+        "title": "Cyber Police Agency Letter 2025 Vol.15（R8.3）",
+        "url": "https://www.npa.go.jp/bureau/cyber/pdf/R7_Vol.15cpal.pdf",
+        "publicationDate": "2026-03",
+        "publicationDatePrecision": "MONTH",
+        "eventPeriod": "2025年",
+        "count": 226,
+        "countMeaning": "国内で警察庁が認知したランサムウェア被害件数。全被害件数・被害率ではありません。",
+        "summary": "2025年に国内で226件の被害を認知。",
+        "limitations": "PIRAの発生確率は示しません。2026年の最新統計を網羅していません。",
+        "confirmedAt": "2026-10-18",
+        "verified": true,
+        "contentVersion": "PIRA-C-20261018.1"
+      },
+      {
+        "id": "I01",
+        "publisher": "東京都人事委員会",
+        "title": "個人情報の漏えいについて",
+        "url": "https://www.saiyou.metro.tokyo.lg.jp/information/press/2025/12/20251212",
+        "publicationDate": "2025-12-12",
+        "publicationDatePrecision": "DAY",
+        "eventPeriod": "2025-12-12",
+        "count": 1,
+        "countMeaning": "漏えい対象は1名。送信先9,086名とは異なります。",
+        "summary": "セミナー案内の差込設定により、1名の氏名・ログインIDを9,086名宛に記載。",
+        "limitations": "PIRA会員の事例ではありません。",
+        "confirmedAt": "2026-10-18",
+        "verified": true,
+        "contentVersion": "PIRA-C-20261018.1"
+      },
+      {
+        "id": "I02",
+        "publisher": "兵庫県",
+        "title": "集落営農組織アンケート結果における個人情報の漏えい",
+        "url": "https://web.pref.hyogo.lg.jp/nk04/press/20251212.html",
+        "publicationDate": "2025-12-12T18:00:00+09:00",
+        "publicationDatePrecision": "MINUTE",
+        "eventPeriod": "送信2025-11-07、発覚2025-12-08",
+        "count": 600,
+        "countMeaning": "元データに含まれた代表者600名分。5市町で閲覧可能な状態。",
+        "summary": "Word集計資料に元データが紐付き、氏名等が閲覧可能な状態に。",
+        "limitations": "県は5市町から外部への流出はなかったと確認。PDF化一般の安全性を保証しません。",
+        "confirmedAt": "2026-10-18",
+        "verified": true,
+        "contentVersion": "PIRA-C-20261018.1"
+      }
+    ]
+  }
+}
