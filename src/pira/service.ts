@@ -25,7 +25,7 @@ export class PiraService {
     check(m,'ACCESS_DENIED',403); return m.data.role as string;
   }
   private async audit(tx:Transaction,a:Actor,action:string,target:RecordRow,before:unknown=null,reason:string|null=null) {
-    await tx.save('audit',row({actorId:a.id,action,targetId:target.id,targetVersion:target.version,before,after:target.data,reason,at:this.now()},target.associationId,target.companyId));
+    await tx.save('audit',row({actorId:a.id,machine:a.machine??null,requestId:a.requestId??null,action,targetId:target.id,targetVersion:target.version,before,after:target.data,reason,at:this.now()},target.associationId,target.companyId));
   }
   private async event(tx:Transaction,type:string,target:RecordRow, associationEmail?:string) {
     const eventId=key(type,target.id,String(target.version));
@@ -119,7 +119,7 @@ export class PiraService {
   async approveTerms(a:Actor,input:any) {return this.run(async tx=>{
     await this.authorize(tx,a,undefined,undefined,'admin');const aid=uuid(input.associationId);check((await tx.get('association',aid))?.data.active,'ASSOCIATION_NOT_ACTIVE');
     check(services.includes(input.service),'INVALID_SERVICE',400);let estimate=null,cid=null;
-    if(input.service==='INFRAVISION'){cid=uuid(input.companyId);estimate=await tx.confirmedEstimate(uuid(input.estimateId));check(estimate,'CONFIRMED_ESTIMATE_REQUIRED');}
+    if(input.service==='INFRAVISION'){cid=uuid(input.companyId);estimate=await tx.confirmedEstimate(uuid(input.estimateId),cid);check(estimate,'CONFIRMED_ESTIMATE_REQUIRED');}
     const r=row({service:input.service,label:text(input.label),baseMonthlyYen:number(input.baseMonthlyYen),unitMonthlyYen:number(input.unitMonthlyYen),initialYen:number(input.initialYen),minQuantity:number(input.minQuantity,1,100000),maxQuantity:number(input.maxQuantity,1,100000),
       conditions:text(input.conditions,3000),estimate,approvedBy:a.id,approvedAt:this.now(),active:true,billingQuantityConfirmed:input.service!=='GUARD'},aid,cid);
     check(r.data.maxQuantity>=r.data.minQuantity,'INVALID_QUANTITY_RANGE',400);await tx.save('terms',r);await this.audit(tx,a,'terms_approved',r);return r;
@@ -127,7 +127,7 @@ export class PiraService {
   private async offer(tx:Transaction,aid:string,cid:string,termsId:string,quantity:number) {
     const t=await tx.get('terms',uuid(termsId));check(t?.associationId===aid&&(!t.companyId||t.companyId===cid),'TERMS_NOT_FOUND',404);
     check(t.data.active && quantity>=t.data.minQuantity&&quantity<=t.data.maxQuantity,'TERMS_OR_QUANTITY_INVALID');
-    if(t.data.service==='INFRAVISION'){const e=await tx.confirmedEstimate(t.data.estimate.id);check(e?.revision===t.data.estimate.revision,'ESTIMATE_CHANGED');}
+    if(t.data.service==='INFRAVISION'){const e=await tx.confirmedEstimate(t.data.estimate.id,cid);check(e?.revision===t.data.estimate.revision,'ESTIMATE_CHANGED');}
     return {termsId:t.id,termsVersion:t.version,service:t.data.service,quantity,baseMonthlyYen:t.data.baseMonthlyYen,unitMonthlyYen:t.data.unitMonthlyYen,initialYen:t.data.initialYen,conditions:t.data.conditions,estimate:t.data.estimate,billingQuantityConfirmed:t.data.billingQuantityConfirmed};
   }
   async submit(a:Actor,input:any) {return this.run(async tx=>{

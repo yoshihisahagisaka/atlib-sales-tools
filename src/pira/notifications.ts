@@ -6,8 +6,9 @@ export interface Delivery { slack?(message:string):Promise<boolean>; email?(addr
 /** Explicit worker entry point; never starts in web process. One attempt per call.
  * At-least-once: a receiver may accept a message before its response is lost.
  */
-export async function deliverPiraNotice(store:Store,id:string,delivery:Delivery,origin:string,now=()=>Date.now()):Promise<string> {
-  check(new URL(origin).origin===origin,'INVALID_ORIGIN');
+export async function deliverPiraNotice(store:Store,id:string,delivery:Delivery,origin:string|{portal:string;sales:string},now=()=>Date.now()):Promise<string> {
+  const origins=typeof origin==='string'?{portal:origin,sales:origin}:origin;
+  for(const value of Object.values(origins))check(new URL(value).origin===value,'INVALID_ORIGIN');
   const leaseId=randomUUID();
   const claim=await store.transaction('pira-phase1-business',async tx=>{
     const n=await tx.get('outbox',id);check(n,'NOTICE_NOT_FOUND',404);const d=n.data;
@@ -17,7 +18,7 @@ export async function deliverPiraNotice(store:Store,id:string,delivery:Delivery,
     const assoc=n.associationId?await tx.get('association',n.associationId):null;
     const company=n.companyId?await tx.company(n.companyId):null;
     if(d.destination==='association_email')check(assoc?.data.active&&assoc.data.email,'NOTICE_CONTACT_UNAVAILABLE');
-    const url=d.destination==='association_email'?`${origin}/pira/?application=${encodeURIComponent(d.targetId)}`:`${origin}/admin/pira.html?${d.type==='application_submitted'?'application':'order'}=${encodeURIComponent(d.targetId)}`;
+    const url=d.destination==='association_email'?`${origins.portal}/pira/?application=${encodeURIComponent(d.targetId)}`:`${origins.sales}/admin/pira.html?${d.type==='application_submitted'?'application':'order'}=${encodeURIComponent(d.targetId)}`;
     const safe=(v:unknown)=>String(v??'').replace(/[<>&\r\n]/g,' ').slice(0,200);
     const message=`【共同購買 ${d.type==='order_confirmed'?'正式発注':'サービス申込'}】\n組合: ${safe(assoc?.data.name)}\n企業: ${safe(company?.name)}\nサービス: ${safe(d.service)}\n番号: ${safe(d.number)}\n${url}\nevent: ${d.eventId}`;
     n.version++;n.data={...d,state:'sending',attempts:d.attempts+1,leaseId,leaseUntil:new Date(now()+60000).toISOString()};await tx.save('outbox',n);

@@ -33,7 +33,10 @@
     "test:cleanup-contract": "node -r ts-node/register --test test/productionTestDataCleanup.contract.test.ts",
     "test:cleanup-rehearsal": "node -r ts-node/register --test test/productionTestDataCleanup.rehearsal.test.ts",
     "rehearse:cleanup": "node scripts/cleanup/rehearseProductionTestDataCleanup.cjs cleanup-manifests/production-test-data-cleanup-20261013.json",
-    "migrate:artifact": "node dist/db/migrateCli.js"
+    "migrate:artifact": "node dist/db/migrateCli.js",
+    "start:pira:portal": "node dist/pira/portalServer.js",
+    "start:pira:core": "node dist/pira/coreServer.js",
+    "test:pira:phase2": "npm run build && node --test test/piraPhase2.test.cjs"
   },
   "engines": {
     "node": ">=20"
@@ -66,4 +69,3 @@
     "typescript": "^5.4.5"
   }
 }
-

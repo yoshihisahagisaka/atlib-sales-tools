@@ -1,0 +1,16 @@
+TAP version 13
+# Subtest: Survey v2縺ｮSSOT譁・嶌譯医・雉ｪ蝠乗枚繝ｻ驕ｸ謚櫁い繝ｻtype繝ｻ蠢・亥玄蛻・・code繝ｻversion繧貞ｮ悟・縺ｫ菫晄戟
+ok 1 - Survey v2縺ｮSSOT譁・嶌譯医・雉ｪ蝠乗枚繝ｻ驕ｸ謚櫁い繝ｻtype繝ｻ蠢・亥玄蛻・・code繝ｻversion繧貞ｮ悟・縺ｫ菫晄戟
+  ---
+  duration_ms: 2190.356
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6193.1878
