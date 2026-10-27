@@ -1,0 +1,75 @@
+{
+  "originalSpecSha256": "0d33e2f5cc48a811b1b598c1787796e2d4222babdac54a5710cae8b492234514",
+  "amendedSpecSha256": "34fcf0289a1d52a43181d9189908abb683c336d401917a62767ca9ac2d1690e7",
+  "onlyAuthorizedAmendments": true,
+  "preserved": [
+    {
+      "path": "diagnosis.js",
+      "sha256": "ac677de145ed8ea94c75f87e8477dec09be9beefdecf78dd6e6ddb3ea6a22ba8"
+    },
+    {
+      "path": "data.js",
+      "sha256": "a0b3a91e58a92a6c70e4280ba8a11597ed1727c813a7426472084f4cb58504fa"
+    },
+    {
+      "path": "demos.js",
+      "sha256": "b5315b04ee2f16a2bb56c31a7da74cb3fbb5b2abfb46c84afc4cdbb800eb9934"
+    },
+    {
+      "path": "resources.js",
+      "sha256": "00d7f85e88bec81fd6b1dd150bf466d0619a1fda2d8a17842a811649d3c8cab9"
+    },
+    {
+      "path": "phase3-content.js",
+      "sha256": "358cfdab397ce36b39f9a6a0bb1ded9a4dea9eaca97aaf4bc216d47065ff563e"
+    },
+    {
+      "path": "test/fixtures/expected.json",
+      "sha256": "ccd44d4120f20556b3497b405e0be473333d82c5f9b3ab0880dcb7c383b05fcf"
+    },
+    {
+      "path": "test/fixtures/F01-report.md",
+      "sha256": "e7abf83394bedb5c2d70840a62fcfdab4345a86d5d55fd54a6b8f29c804beb82"
+    },
+    {
+      "path": "test/fixtures/F02-report.md",
+      "sha256": "e4e283def0eefb28006e0f1037501d33ff548bb9b87ab80e02f14ab76615cf15"
+    },
+    {
+      "path": "test/fixtures/F03-report.md",
+      "sha256": "9bfb7403647776ed19e64206cbb326870e2bd4b8120c4004000ffb99a082b2b1"
+    },
+    {
+      "path": "test/fixtures/inputs.json",
+      "sha256": "c1ed4e4e692bca859a839e074aa2021cfcbabeb7be406213264fefe664b1c56d"
+    },
+    {
+      "path": "test/fixtures/phase3-expected.json",
+      "sha256": "598cc70774eba8cae76a6c1d99d4984e3fd2c4094eb5f5c236824e34e902d3ba"
+    },
+    {
+      "path": "materials/PIRA_Account_Change_Check_v4_final.xlsx",
+      "sha256": "7d078c66d3d8b03779c9bbe85ab13194ff79066fd36ab81e23048162c2cf1420"
+    },
+    {
+      "path": "materials/PIRA_Annual_Security_Calendar_v2.xlsx",
+      "sha256": "1cba5e54d9644c28d8c5d9661ca8f84626b395f2d5b60826a9ea92c98d2f7196"
+    },
+    {
+      "path": "materials/PIRA_Incident_Kit_v4.xlsx",
+      "sha256": "5a3959c9f8600b3464078c9a082c51ba73670f7777b8b1d82feefabd4b1d3de2"
+    },
+    {
+      "path": "materials/PIRA_Incident_Response_Guide_v1.pdf",
+      "sha256": "9632da3f1a431b07dd4ff25b7602e4192c3f8e39c9d294a413ddc3e4263b3d2e"
+    },
+    {
+      "path": "materials/PIRA_Mail_Templates_v3.xlsx",
+      "sha256": "3c7291a13b965f8f646071e95023b9bbb35345ea61907d0ae9aa74192f156660"
+    },
+    {
+      "path": "materials/PIRA_Staff_Security_Handout_v1.pdf",
+      "sha256": "29dc19180eb57b381b3ff5c3334678b7da589c419fdf33a5014ac7715a5e4b64"
+    }
+  ]
+}

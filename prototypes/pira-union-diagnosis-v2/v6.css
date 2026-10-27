@@ -1,0 +1,11 @@
+/* Keep Phase 3 readable typography and print styling. */
+.v6 [data-report-text],.v6-static p{white-space:pre-line}
+.v6 .report-section>h3{margin-top:28px;font-size:21px}
+.v6 .source-copy{overflow-wrap:anywhere}
+.v6-static{max-width:1040px;margin:30px auto;padding:0 24px}
+.v6-static p{font-size:17px;line-height:1.95}
+.v6-static h2{font-size:24px}
+.v6 .theme-card p{margin-bottom:22px}
+.v6 .resource-card p{white-space:pre-line}
+.v6 [data-supplement="CONTACT"] p:last-child{font-weight:700}
+@media(max-width:620px){.v6-static{padding:0 16px}.v6 .theme-card{padding:20px 18px}}

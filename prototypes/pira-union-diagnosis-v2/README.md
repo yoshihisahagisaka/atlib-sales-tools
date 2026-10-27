@@ -1,3 +1,27 @@
+# 知識提供型無料診断 v6（2026-10-25）
+
+**統括レビュー待ち。ローカルデモ専用。**
+
+ZIPを展開して index.html を開くとPIRA組合版を利用できます。インストール・サーバーは不要です。
+企業版はブラウザのURL末尾に ?audience=MEMBER_COMPANY または ?audience=ATLIB_GENERAL を追加します。
+
+- [実装結果・Fit/Gap・検証・未完了事項](V6_IMPLEMENTATION_RESULT_20261025.md)
+- [STOP解除の確定記録](DECISION_V6_STOP_RESOLVED_20261025.md)
+- [改訂済みv6仕様](spec/PIRA_knowledge_first_spec_v6_approved.md)
+- [全8テーマの基礎知識集](v6-knowledge.html)
+- [全5種類の実務資料](v6-materials.html)
+- [旧Phase 3](phase3.html)
+
+共通8問・38回答ID、C方式、固定原稿、4章構成。企業版の相談文言は通常テキストで、リンク・ボタンはありません。
+「PDFで表示」は印刷ダイアログを呼ばず、ブラウザ内でPDFを作成します。任意フィードバックは利用条件ではありません。
+
+npm test：既存55＋v6 35＝90件。npm run test:browser：v6 40件。npm run test:pdf：27PDFを照合。
+証跡は evidence/v6-20261025/。旧版の期待値はそのまま残します。
+
+---
+
+以下は過去の実装記録です。現在の仕様・検証は上記のv6記録を優先してください。
+
 # Phase 3：固定解説レポート（2026-10-21）
 
 `index.html` を開くと最新の5セクション版を利用できます。インストールやサーバーは不要です。

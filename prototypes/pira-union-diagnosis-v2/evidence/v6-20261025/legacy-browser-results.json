@@ -1,0 +1,87 @@
+{
+  "results": [
+    {
+      "name": "real answers, back and forward, five-section result",
+      "status": "PASS"
+    },
+    {
+      "name": "own answers survive sample and top navigation",
+      "status": "PASS"
+    },
+    {
+      "name": "record carries new report versions and immutable semantic result",
+      "status": "PASS"
+    },
+    {
+      "name": "answer edit prunes hidden branch and requires new branch answers",
+      "status": "PASS"
+    },
+    {
+      "name": "F01 HTML evidence and exact shared PDF content",
+      "status": "PASS"
+    },
+    {
+      "name": "F02 HTML evidence and exact shared PDF content",
+      "status": "PASS"
+    },
+    {
+      "name": "F03 HTML evidence and exact shared PDF content",
+      "status": "PASS"
+    },
+    {
+      "name": "F04 HTML evidence and exact shared PDF content",
+      "status": "PASS"
+    },
+    {
+      "name": "F05 HTML evidence and exact shared PDF content",
+      "status": "PASS"
+    },
+    {
+      "name": "F06 HTML evidence and exact shared PDF content",
+      "status": "PASS"
+    },
+    {
+      "name": "four landing samples and explicit home links",
+      "status": "PASS"
+    },
+    {
+      "name": "optional feedback has no send and is not a PDF condition",
+      "status": "PASS"
+    },
+    {
+      "name": "PDF button creates real PDF and opens a tab without print dialog",
+      "status": "PASS"
+    },
+    {
+      "name": "all five unchanged original materials accessible",
+      "status": "PASS"
+    },
+    {
+      "name": "1366px readable top/question/report without overflow",
+      "status": "PASS"
+    },
+    {
+      "name": "1440px readable top/question/report without overflow",
+      "status": "PASS"
+    },
+    {
+      "name": "390px readable top/question/report without overflow",
+      "status": "PASS"
+    },
+    {
+      "name": "320px readable top/question/report without overflow",
+      "status": "PASS"
+    },
+    {
+      "name": "keyboard, offline and reload has no persistence",
+      "status": "PASS"
+    },
+    {
+      "name": "no HTTP requests or browser errors",
+      "status": "PASS"
+    }
+  ],
+  "passed": 20,
+  "http": [],
+  "pageErrors": []
+}

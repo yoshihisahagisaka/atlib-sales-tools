@@ -1,6 +1,12 @@
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./diagnosis.js'),require('./data.js'),require('./phase3-content.js'),require('./resources.js'));else root.PiraReport=factory(root.PiraDiagnosis,root.PiraContent,root.PiraExplanations,root.PiraResources);})(typeof globalThis!=='undefined'?globalThis:this,function(D,C,E,R){
 'use strict';
 const block=(id,text,kind='paragraph')=>({id,text,kind});
+function incidentBlocks(){
+ const sourceBlocks=C.sourceCards.filter(c=>c.verified).flatMap(c=>[
+  block(c.id+'-TITLE',c.title,'heading'),block(c.id+'-SUMMARY',c.summary),block(c.id+'-COUNT',c.countMeaning),block(c.id+'-LIMIT',c.limitations),block(c.id+'-SOURCE','出典：'+c.publisher+'／公表：'+c.publicationDate+(c.publicationDatePrecision==='MONTH'?'（年月確認）':'')+'／対象・期間：'+c.eventPeriod+'／確認日：'+c.confirmedAt,'source'),block(c.id+'-URL',c.url,'source'),block(c.id+'-VERSION','事故・統計コンテンツ版：'+c.contentVersion,'source')]);
+ sourceBlocks.push(block('S01-NOTE','これらは公表された事例・統計です。PIRA会員の事故件数や、個別の組合の被害確率を示すものではありません。2025年の集計・公表事例を用いています。'));
+ return sourceBlocks;
+}
 function build(r){
  const a=Object.fromEntries(r.normalizedAnswers.map(x=>[x.questionId,x]));
  const controls=r.currentStates.filter(x=>!['C01','C02'].includes(x.questionId));
@@ -29,9 +35,7 @@ function build(r){
  const confirmation=themes.flatMap(t=>[block(t.id+'-TITLE',t.title,'heading'),...t.blocks]);
  if(!themes.length){const id=r.status==='CONFIRMATION_PENDING'?'ZERO_PENDING':r.notApplicableQuestionIds.length?'ZERO_NA':'ZERO_READY';confirmation.push(block('S04-'+id,E.summary[id]));}
  const resources=selectResources(r);
- const sourceBlocks=C.sourceCards.filter(c=>c.verified).flatMap(c=>[
-  block(c.id+'-TITLE',c.title,'heading'),block(c.id+'-SUMMARY',c.summary),block(c.id+'-COUNT',c.countMeaning),block(c.id+'-LIMIT',c.limitations),block(c.id+'-SOURCE','出典：'+c.publisher+'／公表：'+c.publicationDate+(c.publicationDatePrecision==='MONTH'?'（年月確認）':'')+'／対象・期間：'+c.eventPeriod+'／確認日：'+c.confirmedAt,'source'),block(c.id+'-URL',c.url,'source'),block(c.id+'-VERSION','事故・統計コンテンツ版：'+c.contentVersion,'source')]);
- sourceBlocks.push(block('S01-NOTE','これらは公表された事例・統計です。PIRA会員の事故件数や、個別の組合の被害確率を示すものではありません。2025年の集計・公表事例を用いています。'));
+ const sourceBlocks=incidentBlocks();
  const resourceBlocks=resources.flatMap(x=>[block(x.id+'-TITLE',x.title,'heading'),block(x.id+'-DESCRIPTION',x.description),block(x.id+'-FORMAT',x.format+'／'+x.files.map(f=>f.label).join('・'),'source')]);
  resourceBlocks.push(block('RESOURCE-ALL','今回紹介した資料のほかにも、実務資料一覧で全5種類をご覧いただけます。必要なものを日々の業務に合わせてお使いください。'));
  const sections=[sourceBlocks,operations,summary,confirmation,resourceBlocks].map((blocks,i)=>({key:'S'+(i+1),title:E.titles[i],blocks}));
@@ -51,5 +55,5 @@ function selectResources(r){
  pick('EDUCATION');pick('CALENDAR');
  return ids.slice(0,3).map(id=>R.items.find(x=>x.id===id));
 }
-return {build,selectResources};
+return {build,selectResources,incidentBlocks};
 });

@@ -1,0 +1,172 @@
+[
+  {
+    "id": "ALL_READY",
+    "options": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "themes": [
+      "T06",
+      "T02",
+      "T08"
+    ],
+    "summary": "S1"
+  },
+  {
+    "id": "ALL_UNKNOWN",
+    "options": [
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4
+    ],
+    "themes": [
+      "T06",
+      "T02",
+      "T08"
+    ],
+    "summary": "S2"
+  },
+  {
+    "id": "MIXED",
+    "options": [
+      1,
+      2,
+      2,
+      1,
+      1,
+      4,
+      5,
+      3
+    ],
+    "themes": [
+      "T06",
+      "T02",
+      "T08"
+    ],
+    "summary": "S3"
+  },
+  {
+    "id": "MAJOR_READY",
+    "options": [
+      3,
+      1,
+      2,
+      3,
+      2,
+      1,
+      1,
+      1
+    ],
+    "themes": [
+      "T04",
+      "T03",
+      "T01"
+    ],
+    "summary": "S3"
+  },
+  {
+    "id": "MANY_NA",
+    "options": [
+      2,
+      1,
+      5,
+      5,
+      5,
+      4,
+      5,
+      1
+    ],
+    "themes": [
+      "T06",
+      "T01",
+      "T02"
+    ],
+    "summary": "S3"
+  },
+  {
+    "id": "DELEGATED",
+    "options": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      3,
+      1,
+      1
+    ],
+    "themes": [
+      "T06",
+      "T02",
+      "T08"
+    ],
+    "summary": "S3"
+  },
+  {
+    "id": "TWO_TARGETS",
+    "options": [
+      1,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      1
+    ],
+    "themes": [
+      "T08",
+      "T01"
+    ],
+    "summary": "S1"
+  },
+  {
+    "id": "OS_PARTIAL",
+    "options": [
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1
+    ],
+    "themes": [
+      "T05",
+      "T06",
+      "T02"
+    ],
+    "summary": "S3"
+  },
+  {
+    "id": "BANK_NOT_DONE",
+    "options": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      3,
+      1
+    ],
+    "themes": [
+      "T07",
+      "T06",
+      "T02"
+    ],
+    "summary": "S3"
+  }
+]
