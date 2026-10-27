@@ -1,0 +1,77 @@
+{
+  "browser": "Chromium",
+  "deviceViewports": [
+    "1440x1050",
+    "390x844",
+    "320x760"
+  ],
+  "results": [
+    {
+      "name": "real questionnaire: multi-select, forward/back, completion, six sections",
+      "status": "PASS"
+    },
+    {
+      "name": "local record is versioned and contains correct result without download or submission",
+      "status": "PASS"
+    },
+    {
+      "name": "report edit clears old result, prunes old branch and requires new answer",
+      "status": "PASS"
+    },
+    {
+      "name": "optional consultation and member invitation do not submit",
+      "status": "PASS"
+    },
+    {
+      "name": "workforce report print media: six sections, no controls, fixed sources",
+      "status": "PASS"
+    },
+    {
+      "name": "purchasing report print media: six sections, no controls, fixed sources",
+      "status": "PASS"
+    },
+    {
+      "name": "membership report print media: six sections, no controls, fixed sources",
+      "status": "PASS"
+    },
+    {
+      "name": "UNKNOWN and no-confirmation demos stay normal",
+      "status": "PASS"
+    },
+    {
+      "name": "multi-business caps at eleven questions and three worksheets",
+      "status": "PASS"
+    },
+    {
+      "name": "education demo uses the unchanged MEMBERSHIP branch",
+      "status": "PASS"
+    },
+    {
+      "name": "limited-scope no-confirmation and UI consistency error guard",
+      "status": "PASS"
+    },
+    {
+      "name": "keyboard access: start and choice buttons are operable",
+      "status": "PASS"
+    },
+    {
+      "name": "mobile 390px: question and six-section report do not overflow",
+      "status": "PASS"
+    },
+    {
+      "name": "narrow 320px: no horizontal page overflow",
+      "status": "PASS"
+    },
+    {
+      "name": "offline file reload starts empty, no browser persistence",
+      "status": "PASS"
+    },
+    {
+      "name": "no HTTP requests and no browser exceptions",
+      "status": "PASS"
+    }
+  ],
+  "httpRequests": [],
+  "pageErrors": [],
+  "passed": 16
+}

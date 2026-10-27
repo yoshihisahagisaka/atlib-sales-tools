@@ -1,0 +1,130 @@
+TAP version 13
+# Subtest: F01 PR15 exact semantic output
+ok 1 - F01 PR15 exact semantic output
+  ---
+  duration_ms: 3.0721
+  type: 'test'
+  ...
+# Subtest: F02 PR15 exact semantic output
+ok 2 - F02 PR15 exact semantic output
+  ---
+  duration_ms: 0.4625
+  type: 'test'
+  ...
+# Subtest: F03 PR15 exact semantic output
+ok 3 - F03 PR15 exact semantic output
+  ---
+  duration_ms: 0.2716
+  type: 'test'
+  ...
+# Subtest: F04 PR15 exact semantic output
+ok 4 - F04 PR15 exact semantic output
+  ---
+  duration_ms: 1.1716
+  type: 'test'
+  ...
+# Subtest: F05 PR15 exact semantic output
+ok 5 - F05 PR15 exact semantic output
+  ---
+  duration_ms: 0.2891
+  type: 'test'
+  ...
+# Subtest: F06 PR15 exact semantic output
+ok 6 - F06 PR15 exact semantic output
+  ---
+  duration_ms: 0.4066
+  type: 'test'
+  ...
+# Subtest: F07 PR15 exact semantic output
+ok 7 - F07 PR15 exact semantic output
+  ---
+  duration_ms: 0.2644
+  type: 'test'
+  ...
+# Subtest: F01 canonical completed report: all six sections exactly match
+ok 8 - F01 canonical completed report: all six sections exactly match
+  ---
+  duration_ms: 0.7777
+  type: 'test'
+  ...
+# Subtest: F02 canonical completed report: all six sections exactly match
+ok 9 - F02 canonical completed report: all six sections exactly match
+  ---
+  duration_ms: 0.5534
+  type: 'test'
+  ...
+# Subtest: F03 canonical completed report: all six sections exactly match
+ok 10 - F03 canonical completed report: all six sections exactly match
+  ---
+  duration_ms: 0.5619
+  type: 'test'
+  ...
+# Subtest: UNKNOWN and authority stay distinct; no UNKNOWN-only finding
+ok 11 - UNKNOWN and authority stay distinct; no UNKNOWN-only finding
+  ---
+  duration_ms: 0.4459
+  type: 'test'
+  ...
+# Subtest: branch state cannot be supplied by caller or retain old branch answers
+ok 12 - branch state cannot be supplied by caller or retain old branch answers
+  ---
+  duration_ms: 0.7852
+  type: 'test'
+  ...
+# Subtest: validation rejects empty, invalid, duplicate, contradictory, extra input
+ok 13 - validation rejects empty, invalid, duplicate, contradictory, extra input
+  ---
+  duration_ms: 0.678
+  type: 'test'
+  ...
+# Subtest: B01 non-applicable sensitive records require explicit other-workflow confirmation
+ok 14 - B01 non-applicable sensitive records require explicit other-workflow confirmation
+  ---
+  duration_ms: 0.3097
+  type: 'test'
+  ...
+# Subtest: T02 merges evidence and only selects the applicable checklist steps
+ok 15 - T02 merges evidence and only selects the applicable checklist steps
+  ---
+  duration_ms: 0.2252
+  type: 'test'
+  ...
+# Subtest: dependency does not invent a theme; overflow is explicit
+ok 16 - dependency does not invent a theme; overflow is explicit
+  ---
+  duration_ms: 0.3377
+  type: 'test'
+  ...
+# Subtest: same answers and versions yield same complete output and hashes
+ok 17 - same answers and versions yield same complete output and hashes
+  ---
+  duration_ms: 13.0592
+  type: 'test'
+  ...
+# Subtest: canonical serializer reuses existing object sorting and preserves arrays
+ok 18 - canonical serializer reuses existing object sorting and preserves arrays
+  ---
+  duration_ms: 0.2887
+  type: 'test'
+  ...
+# Subtest: fixed incident sources, count meanings, publication precision and content version
+ok 19 - fixed incident sources, count meanings, publication precision and content version
+  ---
+  duration_ms: 0.1577
+  type: 'test'
+  ...
+# Subtest: browser app has no network, persistence, product registration or AI calls
+ok 20 - browser app has no network, persistence, product registration or AI calls
+  ---
+  duration_ms: 1.7863
+  type: 'test'
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 20
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 121.8291

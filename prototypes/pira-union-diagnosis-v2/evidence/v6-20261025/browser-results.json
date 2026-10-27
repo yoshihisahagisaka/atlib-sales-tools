@@ -1,0 +1,167 @@
+{
+  "passed": 40,
+  "results": [
+    {
+      "name": "ALL_READY / PIRA_UNION exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "ALL_READY / MEMBER_COMPANY exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "ALL_READY / ATLIB_GENERAL exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "ALL_UNKNOWN / PIRA_UNION exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "ALL_UNKNOWN / MEMBER_COMPANY exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "ALL_UNKNOWN / ATLIB_GENERAL exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "MIXED / PIRA_UNION exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "MIXED / MEMBER_COMPANY exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "MIXED / ATLIB_GENERAL exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "MAJOR_READY / PIRA_UNION exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "MAJOR_READY / MEMBER_COMPANY exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "MAJOR_READY / ATLIB_GENERAL exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "MANY_NA / PIRA_UNION exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "MANY_NA / MEMBER_COMPANY exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "MANY_NA / ATLIB_GENERAL exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "DELEGATED / PIRA_UNION exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "DELEGATED / MEMBER_COMPANY exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "DELEGATED / ATLIB_GENERAL exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "TWO_TARGETS / PIRA_UNION exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "TWO_TARGETS / MEMBER_COMPANY exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "TWO_TARGETS / ATLIB_GENERAL exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "OS_PARTIAL / PIRA_UNION exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "OS_PARTIAL / MEMBER_COMPANY exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "OS_PARTIAL / ATLIB_GENERAL exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "BANK_NOT_DONE / PIRA_UNION exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "BANK_NOT_DONE / MEMBER_COMPANY exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "BANK_NOT_DONE / ATLIB_GENERAL exact HTML/PDF model",
+      "status": "PASS"
+    },
+    {
+      "name": "real eight-question journey, back, home, resume and answer edit",
+      "status": "PASS"
+    },
+    {
+      "name": "edit without changes resumes the question screen",
+      "status": "PASS"
+    },
+    {
+      "name": "reset is explicit and cancel keeps answers",
+      "status": "PASS"
+    },
+    {
+      "name": "all eight fixed knowledge texts match approved source",
+      "status": "PASS"
+    },
+    {
+      "name": "all five full material descriptions and real files",
+      "status": "PASS"
+    },
+    {
+      "name": "unknown audience fails closed to PIRA",
+      "status": "PASS"
+    },
+    {
+      "name": "PDF opens tab without printing and without feedback gate",
+      "status": "PASS"
+    },
+    {
+      "name": "1366x768 readable viewport",
+      "status": "PASS"
+    },
+    {
+      "name": "1440x900 readable viewport",
+      "status": "PASS"
+    },
+    {
+      "name": "390x844 readable viewport",
+      "status": "PASS"
+    },
+    {
+      "name": "320x760 readable viewport",
+      "status": "PASS"
+    },
+    {
+      "name": "offline, keyboard and no persistence",
+      "status": "PASS"
+    },
+    {
+      "name": "zero HTTP requests and browser errors",
+      "status": "PASS"
+    }
+  ],
+  "httpRequests": [],
+  "pageErrors": []
+}

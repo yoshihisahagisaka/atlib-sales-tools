@@ -1,0 +1,86 @@
+{
+  "version": "v6-20261025",
+  "sourceHead": "f3dc8377d4440e305cd20326196ba143d136b003",
+  "runtime": [
+    {
+      "path": "index.html",
+      "sha256": "538895ca6bdede4784cf0688559b927891f34efc5c61c98d303869e6acba92ae"
+    },
+    {
+      "path": "styles.css",
+      "sha256": "bd42abcd063780d4bd5e1e835ed637220db95eb12d2922f606b6ea5a27ef9d52"
+    },
+    {
+      "path": "readability.css",
+      "sha256": "ed9a1af37afc7196cd72eed5907af3a806e20662c89dbc5601d818913646732e"
+    },
+    {
+      "path": "phase3.css",
+      "sha256": "33e0abe25500382fc2463d724d4ea37033da209afefe79a64f679811704ddba6"
+    },
+    {
+      "path": "v6.css",
+      "sha256": "a350bed1c3f24b97e68bce1cb291fcce8599a6931e837e6d542d4fbc1bf74012"
+    },
+    {
+      "path": "data.js",
+      "sha256": "a0b3a91e58a92a6c70e4280ba8a11597ed1727c813a7426472084f4cb58504fa"
+    },
+    {
+      "path": "diagnosis.js",
+      "sha256": "ac677de145ed8ea94c75f87e8477dec09be9beefdecf78dd6e6ddb3ea6a22ba8"
+    },
+    {
+      "path": "resources.js",
+      "sha256": "00d7f85e88bec81fd6b1dd150bf466d0619a1fda2d8a17842a811649d3c8cab9"
+    },
+    {
+      "path": "phase3-content.js",
+      "sha256": "358cfdab397ce36b39f9a6a0bb1ded9a4dea9eaca97aaf4bc216d47065ff563e"
+    },
+    {
+      "path": "phase3-report.js",
+      "sha256": "6f3a6a657330758ffc12436feda64bb4555e3185515b09ab4c752a7300de689a"
+    },
+    {
+      "path": "v6-content.js",
+      "sha256": "27c37f0c5b4fa337306afe6d489947da74699c457aa83572a76f8ab9fc5c2e1a"
+    },
+    {
+      "path": "v6.js",
+      "sha256": "3b8de63ccdafdce4dfc47c9f6834fc959e6461f0da45443720445dcc9e4b2d72"
+    },
+    {
+      "path": "v6-demos.js",
+      "sha256": "4db3fdbb7cb47ea925fb39e84c79759ba09f41a39dd39550d64721db6668847c"
+    },
+    {
+      "path": "v6-app.js",
+      "sha256": "80fb533c83f671ba459539fb57e5e0d8139cd8095f0f23c4e77216bb6d7b49ae"
+    },
+    {
+      "path": "vendor/pdf-lib.min.js",
+      "sha256": "0f9a5cad07941f0826586c94e089d89b918c46e5c17cf2d5a3c6f666e3bc694f"
+    },
+    {
+      "path": "vendor/pdf-font.js",
+      "sha256": "34e1bd92f08d23fde6a880ee2f8d6ef9b930f2590b03b6ba9324aab477074447"
+    },
+    {
+      "path": "phase3-pdf.js",
+      "sha256": "ee238b7ef0e49a28b2f0864437b4a30daa87514ec18de03ba79734c1c876d648"
+    },
+    {
+      "path": "v6-knowledge.html",
+      "sha256": "b48bdc7974f538a24a679c3828dcae554ff5948837e900609cd366d5a431df1b"
+    },
+    {
+      "path": "v6-materials.html",
+      "sha256": "e19e8b54fe438574f849b0bd2138b3f206f83472d15558c6dd99b15d53730009"
+    },
+    {
+      "path": "v6-static.js",
+      "sha256": "2510373d4e722f6e6edf2ebdef3bb4fd302b3b0761edb9b66e060e7a9941d0e1"
+    }
+  ]
+}

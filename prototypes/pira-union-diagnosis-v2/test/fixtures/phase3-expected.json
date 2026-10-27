@@ -1,0 +1,3938 @@
+[
+  {
+    "case": "F01",
+    "expectedThemes": [
+      "T01",
+      "T02",
+      "T03"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_TECH",
+      "S03-FOCUS_DATA_SYSTEM",
+      "S03-UNKNOWN",
+      "S03-RECOVERY_UNKNOWN",
+      "T01-TITLE",
+      "T01-COMMON",
+      "T01-B01-NOT_DONE",
+      "T01-EXAMPLE-WORKFORCE",
+      "T01-CHECK",
+      "T02-TITLE",
+      "T02-COMMON",
+      "T02-C04-NOT_DONE",
+      "T02-EXAMPLE-WORKFORCE",
+      "T02-CHECK",
+      "T03-TITLE",
+      "T03-COMMON",
+      "T03-C03-PARTIAL",
+      "T03-EXAMPLE-WORKFORCE",
+      "T03-CHECK",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "ACCOUNT-TITLE",
+      "ACCOUNT-DESCRIPTION",
+      "ACCOUNT-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_TECH",
+          "text": "業務アカウントの多要素認証と、パソコンのOS更新に取り組んでいると回答されています。利用するサービスや端末が増えた際も、対象を確認する流れを続けていきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_DATA_SYSTEM",
+          "text": "情報の保管・受け渡しと、業務サービスなどの管理について、担当者と確認しておきたい点があります。日常の手順と利用環境を一緒に整理すると、対応する範囲を決めやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-UNKNOWN",
+          "text": "分からない項目は、担当者や保守会社に現在の運用を確かめるところから始めましょう。確認する相手と時期を決めておくと、その後の引き継ぎにも役立ちます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_UNKNOWN",
+          "text": "電子データを戻す手順については、バックアップの担当者に、保存先と戻し方、復元を試した範囲を確かめてみましょう。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T01-TITLE",
+          "text": "本人資料・記録の保管期限",
+          "kind": "heading"
+        },
+        {
+          "id": "T01-COMMON",
+          "text": "旅券の写しや相談記録などを必要以上に長く残すと、誤送信や不正アクセスが起きたときに影響する情報が増えます。一方、必要な記録まで消してしまうと、照会への回答や支援の経緯確認が難しくなります。資料ごとに保存の目的と必要な期間を整理し、期限後の処理を決めることが、業務の継続と情報の保護の両方に役立ちます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T01-B01-NOT_DONE",
+          "text": "期限後の処理をまだ決めていないとの回答でした。必要な保存期間の根拠を担当者と確認したうえで、誰がいつ処理するかを決めるところから始められます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T01-EXAMPLE-WORKFORCE",
+          "text": "監理・支援業務では、本人確認資料や相談記録の種類ごとに、保存目的と期限後の処理を整理する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T01-CHECK",
+          "text": "資料の種類ごとに、保存期間の根拠、保管先、処理を判断する担当者、廃棄・削除後に残す記録を確認してください。法令や契約による保存義務がある場合は、その条件も確認します。",
+          "kind": "check"
+        },
+        {
+          "id": "T02-TITLE",
+          "text": "外部送信・一斉案内",
+          "kind": "heading"
+        },
+        {
+          "id": "T02-COMMON",
+          "text": "メールの宛先や添付ファイルを取り違えると、関係のない相手に個人情報や取引情報が届くことがあります。一斉案内では、宛名の差し込み違いや配布対象の設定違いが、複数の会員への誤送信につながる場合もあります。実際に送る相手と内容を送信前に照合し、一斉案内はテスト送信で見え方を確かめることで、送信後には取り消しにくい間違いに気づきやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-C04-NOT_DONE",
+          "text": "外部送信前の確認手順をまだ設けていないとの回答でした。送信する直前に、宛先と内容を一緒に照合する工程を決めることから始められます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-EXAMPLE-WORKFORCE",
+          "text": "監理・支援業務では、受入企業や関係機関へ資料を送る際に、対象者と送付先、添付内容を照合する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-CHECK",
+          "text": "実際の送信前に、宛先一覧、添付ファイルの中身、共有リンクの閲覧範囲を誰が確認するかを確かめてください。一斉案内を行う場合は、宛名差し込みと配布対象をダミーデータでテストする工程も確認します。",
+          "kind": "check"
+        },
+        {
+          "id": "T03-TITLE",
+          "text": "退職異動時の権限",
+          "kind": "heading"
+        },
+        {
+          "id": "T03-COMMON",
+          "text": "退職・異動した方のアカウントや以前の権限が残ると、現在の担当外の情報を閲覧できる状態が続く場合があります。逆に、必要なデータの引き継ぎ前に削除すると、業務に支障が出ることもあります。人の異動に合わせて、引き継ぎ、権限の変更、利用停止、不要ライセンスの整理を一つの流れで確認すると、情報保護と事務の引き継ぎを両立しやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T03-C03-PARTIAL",
+          "text": "権限を解除する手順は一部で実施されているとの回答でした。対象から漏れているサービスや、依頼後の完了確認ができていない場面がないかを整理しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T03-EXAMPLE-WORKFORCE",
+          "text": "監理・支援の担当者が変わる際は、以前の担当者の閲覧範囲と、新しい担当者への記録の引き継ぎを一緒に確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-CHECK",
+          "text": "メール、ファイル共有、業務システムのアカウントを対象に、変更の依頼先、作業する人、完了を確かめる人、引き継ぐデータの扱いを確認してください。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "F02",
+    "expectedThemes": [
+      "T04",
+      "T06",
+      "T07"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_ADMIN",
+      "S03-FOCUS_SYSTEM_CONTACT",
+      "T04-TITLE",
+      "T04-COMMON",
+      "T04-C05-PARTIAL",
+      "T04-EXAMPLE-PURCHASING",
+      "T04-CHECK",
+      "T06-TITLE",
+      "T06-COMMON",
+      "T06-C07-NOT_DONE",
+      "T06-EXAMPLE-PURCHASING",
+      "T06-CHECK",
+      "T07-TITLE",
+      "T07-COMMON",
+      "T07-B02-NOT_DONE",
+      "T07-EXAMPLE-PURCHASING",
+      "T07-CHECK",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_ADMIN",
+          "text": "退職・異動時の権限変更と、重要情報を送る前の確認は、手順を運用していると回答されています。担当変更や資料の送付など、日々の業務を支える取り組みとして継続していきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_SYSTEM_CONTACT",
+          "text": "業務サービスなどの管理と、依頼やトラブルがあった際の連絡・確認の流れに、確かめておきたい点があります。管理を担当する方と業務の担当者が、対応の分担を共有できると進めやすくなります。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T04-TITLE",
+          "text": "多要素認証",
+          "kind": "heading"
+        },
+        {
+          "id": "T04-COMMON",
+          "text": "パスワードが漏れたり使い回されたりすると、第三者が職員になりすまして業務サービスにログインすることがあります。多要素認証は、確認コードなど別の方法でも本人を確かめる仕組みです。パスワードだけを知られた場合の不正ログインを防ぐ助けになります。すべての攻撃を防ぐものではないため、確認要求を不用意に承認しない運用や、端末を失ったときの手順も大切です。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T04-C05-PARTIAL",
+          "text": "多要素認証は一部の対象で使用しているとの回答でした。外部から利用できるサービスを整理し、未設定の対象や設定できない理由を担当者と確かめましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T04-EXAMPLE-PURCHASING",
+          "text": "外部から使う購買・会計サービスがある場合は、利用者だけでなく管理者の認証方法も確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T04-CHECK",
+          "text": "外部から使えるメールやファイル共有について、多要素認証への対応可否、設定対象、例外となるアカウント、端末紛失時の復旧方法を管理者や保守会社に確認してください。",
+          "kind": "check"
+        },
+        {
+          "id": "T06-TITLE",
+          "text": "電子データ復元確認",
+          "kind": "heading"
+        },
+        {
+          "id": "T06-COMMON",
+          "text": "ランサムウェアは、保存されたデータを暗号化して使えなくし、元に戻すことなどと引き換えに金銭を要求する攻撃です。会員への案内や請求、支援記録の確認ができなくなると、日常業務が止まるおそれがあります。バックアップから必要なデータを復元できれば、業務を再開する助けになります。そのため、保存できているかだけでなく、必要なデータを実際に戻せるかを確かめることが大切です。バックアップは情報流出を防ぐ対策ではありません。データを持ち出された可能性がある場合は、復元とは別に影響範囲を確認する必要があります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T06-C07-NOT_DONE",
+          "text": "復元確認はまだ行っていないとの回答でした。バックアップの保存先と担当者を確かめ、安全に試せるデータで戻し方と所要時間を確認するところから始められます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T06-EXAMPLE-PURCHASING",
+          "text": "注文や請求の電子データを扱う場合は、処理途中の取引も含めて業務を再開できるかを確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T06-CHECK",
+          "text": "どのデータを、どの時点まで、どこへ戻すかを担当者や保守会社に確認してください。保存先が攻撃の影響を受けにくい構成か、復元の実施者、必要な機器や手順、再開までの見込み時間も確認します。本番データを不用意に上書きせず、安全な場所で試します。",
+          "kind": "check"
+        },
+        {
+          "id": "T07-TITLE",
+          "text": "振込先変更の確認",
+          "kind": "heading"
+        },
+        {
+          "id": "T07-COMMON",
+          "text": "取引先になりすましたメールなどで振込先の変更を求め、別の口座へ送金させる手口があります。メールが本物に見えても、相手のアカウントが不正に使われている場合があります。変更依頼に書かれた連絡先ではなく、以前から把握している電話番号などで確かめることで、依頼そのものが正しいかを別の経路で確認できます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T07-B02-NOT_DONE",
+          "text": "別経路で確認する手順をまだ設けていないとの回答でした。振込先の変更を受け付けたときに、既知の連絡先で確かめてから登録・支払いを行う流れを確認しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T07-EXAMPLE-PURCHASING",
+          "text": "共同購買では、仕入先から振込先変更の連絡があった際、以前から把握している連絡先で確かめる場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T07-CHECK",
+          "text": "変更を受け付ける人、以前から把握している連絡先、確認結果の記録、登録や振込を承認する人を確かめてください。依頼メールへの返信だけで確認を終えていないかも確認します。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "F03",
+    "expectedThemes": [
+      "T02",
+      "T08"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_TECH",
+      "S03-FOCUS_DATA_CONTACT",
+      "S03-RECOVERY_READY",
+      "T02-TITLE",
+      "T02-COMMON",
+      "T02-C04-PARTIAL",
+      "T02-B03-NOT_DONE",
+      "T02-EXAMPLE-MEMBERSHIP",
+      "T02-CHECK",
+      "T08-TITLE",
+      "T08-COMMON",
+      "T08-B04-NOT_DONE",
+      "T08-EXAMPLE-MEMBERSHIP",
+      "T08-CHECK",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "INCIDENT-TITLE",
+      "INCIDENT-DESCRIPTION",
+      "INCIDENT-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_TECH",
+          "text": "業務アカウントの多要素認証と、パソコンのOS更新に取り組んでいると回答されています。利用するサービスや端末が増えた際も、対象を確認する流れを続けていきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_DATA_CONTACT",
+          "text": "情報の保管・受け渡しと、依頼やトラブルがあった際の連絡・確認の流れが、今回の見直しにつながる点です。普段の仕事から、例外が起きたときまでの流れを関係者と確かめてみましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T02-TITLE",
+          "text": "外部送信・一斉案内",
+          "kind": "heading"
+        },
+        {
+          "id": "T02-COMMON",
+          "text": "メールの宛先や添付ファイルを取り違えると、関係のない相手に個人情報や取引情報が届くことがあります。一斉案内では、宛名の差し込み違いや配布対象の設定違いが、複数の会員への誤送信につながる場合もあります。実際に送る相手と内容を送信前に照合し、一斉案内はテスト送信で見え方を確かめることで、送信後には取り消しにくい間違いに気づきやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-C04-PARTIAL",
+          "text": "外部送信前の確認は一部で実施されているとの回答でした。確認する人や場面によって手順が変わっていないか、宛先と送信する内容を照合する流れを確かめましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-B03-NOT_DONE",
+          "text": "一斉案内のテスト送信は行っていないとの回答でした。本番前にダミーデータで送信し、宛名と配布対象、添付内容が合っているかを確認しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-EXAMPLE-MEMBERSHIP",
+          "text": "会員管理や研修案内では、参加対象と配布先、宛名差し込みが合っているかをテストする場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-CHECK",
+          "text": "実際の送信前に、宛先一覧、添付ファイルの中身、共有リンクの閲覧範囲を誰が確認するかを確かめてください。一斉案内を行う場合は、宛名差し込みと配布対象をダミーデータでテストする工程も確認します。",
+          "kind": "check"
+        },
+        {
+          "id": "T08-TITLE",
+          "text": "事故時の第一連絡先",
+          "kind": "heading"
+        },
+        {
+          "id": "T08-COMMON",
+          "text": "誤送信や端末の紛失、不審なログインに気づいたとき、連絡先が分からないと、状況の確認や被害拡大を抑える対応が遅れることがあります。最初に知らせる相手と不在時の連絡先を共有しておくと、職員が一人で抱え込まずに対応を始められます。発見した時刻と対応内容を記録することは、関係者への引き継ぎや、その後の影響確認にも役立ちます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T08-B04-NOT_DONE",
+          "text": "事故時の最初の連絡先をまだ決めていないとの回答でした。組合内の責任者と、必要に応じて連絡する保守会社などを整理し、職員がすぐ見られる場所に置きましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T08-EXAMPLE-MEMBERSHIP",
+          "text": "会員向け案内の誤送信に気づいた場合など、送信担当と責任者が情報を共有する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T08-CHECK",
+          "text": "第一連絡先、不在時の代行先、連絡手段、発見時に伝える内容を確認してください。発見時刻や行った対応を残し、メールや操作記録などを安易に削除しないことも共有します。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "F04",
+    "expectedThemes": [],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-UNKNOWN",
+      "S03-UNKNOWN",
+      "S03-RECOVERY_UNKNOWN",
+      "S04-ZERO_PENDING",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-UNKNOWN",
+          "text": "分からない項目は、担当者や保守会社に現在の運用を確かめるところから始めましょう。確認する相手と時期を決めておくと、その後の引き継ぎにも役立ちます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_UNKNOWN",
+          "text": "電子データを戻す手順については、バックアップの担当者に、保存先と戻し方、復元を試した範囲を確かめてみましょう。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "S04-ZERO_PENDING",
+          "text": "まずは分からなかったことや担当外だったことを、担当者と確かめてみましょう。確認できた内容で回答を見直すと、次に確かめたいことを整理できます。",
+          "kind": "paragraph"
+        }
+      ]
+    }
+  },
+  {
+    "case": "F05",
+    "expectedThemes": [],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_COMBINED",
+      "S03-RECOVERY_READY",
+      "S04-ZERO_READY",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_COMBINED",
+          "text": "退職・異動時の権限変更や送信前の確認に加え、業務アカウントの多要素認証とパソコンのOS更新にも取り組んでいると回答されています。日常の手順と技術的な対策をあわせて続けていくことが、組合の情報管理を支えます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "S04-ZERO_READY",
+          "text": "今回の回答では、追加で確認したいテーマはありません。現在の取り組みを継続し、担当者の変更や新しいサービスの利用時に見直していきましょう。",
+          "kind": "paragraph"
+        }
+      ]
+    }
+  },
+  {
+    "case": "F06",
+    "expectedThemes": [
+      "T01",
+      "T02",
+      "T03"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-OPEN_ONLY",
+      "S03-FOCUS_DATA_SYSTEM_CONTACT",
+      "S03-OVERFLOW",
+      "T01-TITLE",
+      "T01-COMMON",
+      "T01-B01-NOT_DONE",
+      "T01-EXAMPLE-WORKFORCE",
+      "T01-CHECK",
+      "T02-TITLE",
+      "T02-COMMON",
+      "T02-C04-NOT_DONE",
+      "T02-B03-NOT_DONE",
+      "T02-EXAMPLE-WORKFORCE",
+      "T02-EXAMPLE-PURCHASING",
+      "T02-EXAMPLE-MEMBERSHIP",
+      "T02-CHECK",
+      "T03-TITLE",
+      "T03-COMMON",
+      "T03-C03-PARTIAL",
+      "T03-EXAMPLE-WORKFORCE",
+      "T03-EXAMPLE-PURCHASING",
+      "T03-EXAMPLE-MEMBERSHIP",
+      "T03-CHECK",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "ACCOUNT-TITLE",
+      "ACCOUNT-DESCRIPTION",
+      "ACCOUNT-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-OPEN_ONLY",
+          "text": "今回の回答には、一部の対応にとどまることや、まだ手順が決まっていないことがありました。実際にどこまで対応できているかを担当者と整理すると、次の取り組みを決めやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_DATA_SYSTEM_CONTACT",
+          "text": "今回の回答からは、情報の保管・受け渡し、業務サービスなどの管理、依頼やトラブル時の連絡・確認について、現在の運用を整理することが役立ちそうです。一度に変える必要はありません。担当者と取り組む範囲を決めて、順に確認していきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-OVERFLOW",
+          "text": "このほかにも見直しを検討したい点があります。回答内容を担当者と共有し、取り組めるところから順に確認してください。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T01-TITLE",
+          "text": "本人資料・記録の保管期限",
+          "kind": "heading"
+        },
+        {
+          "id": "T01-COMMON",
+          "text": "旅券の写しや相談記録などを必要以上に長く残すと、誤送信や不正アクセスが起きたときに影響する情報が増えます。一方、必要な記録まで消してしまうと、照会への回答や支援の経緯確認が難しくなります。資料ごとに保存の目的と必要な期間を整理し、期限後の処理を決めることが、業務の継続と情報の保護の両方に役立ちます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T01-B01-NOT_DONE",
+          "text": "期限後の処理をまだ決めていないとの回答でした。必要な保存期間の根拠を担当者と確認したうえで、誰がいつ処理するかを決めるところから始められます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T01-EXAMPLE-WORKFORCE",
+          "text": "監理・支援業務では、本人確認資料や相談記録の種類ごとに、保存目的と期限後の処理を整理する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T01-CHECK",
+          "text": "資料の種類ごとに、保存期間の根拠、保管先、処理を判断する担当者、廃棄・削除後に残す記録を確認してください。法令や契約による保存義務がある場合は、その条件も確認します。",
+          "kind": "check"
+        },
+        {
+          "id": "T02-TITLE",
+          "text": "外部送信・一斉案内",
+          "kind": "heading"
+        },
+        {
+          "id": "T02-COMMON",
+          "text": "メールの宛先や添付ファイルを取り違えると、関係のない相手に個人情報や取引情報が届くことがあります。一斉案内では、宛名の差し込み違いや配布対象の設定違いが、複数の会員への誤送信につながる場合もあります。実際に送る相手と内容を送信前に照合し、一斉案内はテスト送信で見え方を確かめることで、送信後には取り消しにくい間違いに気づきやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-C04-NOT_DONE",
+          "text": "外部送信前の確認手順をまだ設けていないとの回答でした。送信する直前に、宛先と内容を一緒に照合する工程を決めることから始められます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-B03-NOT_DONE",
+          "text": "一斉案内のテスト送信は行っていないとの回答でした。本番前にダミーデータで送信し、宛名と配布対象、添付内容が合っているかを確認しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-EXAMPLE-WORKFORCE",
+          "text": "監理・支援業務では、受入企業や関係機関へ資料を送る際に、対象者と送付先、添付内容を照合する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-EXAMPLE-PURCHASING",
+          "text": "共同購買や契約請求の業務では、注文内容や請求書を別の企業へ送ってしまわないように、取引先とファイルを照合する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-EXAMPLE-MEMBERSHIP",
+          "text": "会員管理や研修案内では、参加対象と配布先、宛名差し込みが合っているかをテストする場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-CHECK",
+          "text": "実際の送信前に、宛先一覧、添付ファイルの中身、共有リンクの閲覧範囲を誰が確認するかを確かめてください。一斉案内を行う場合は、宛名差し込みと配布対象をダミーデータでテストする工程も確認します。",
+          "kind": "check"
+        },
+        {
+          "id": "T03-TITLE",
+          "text": "退職異動時の権限",
+          "kind": "heading"
+        },
+        {
+          "id": "T03-COMMON",
+          "text": "退職・異動した方のアカウントや以前の権限が残ると、現在の担当外の情報を閲覧できる状態が続く場合があります。逆に、必要なデータの引き継ぎ前に削除すると、業務に支障が出ることもあります。人の異動に合わせて、引き継ぎ、権限の変更、利用停止、不要ライセンスの整理を一つの流れで確認すると、情報保護と事務の引き継ぎを両立しやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T03-C03-PARTIAL",
+          "text": "権限を解除する手順は一部で実施されているとの回答でした。対象から漏れているサービスや、依頼後の完了確認ができていない場面がないかを整理しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T03-EXAMPLE-WORKFORCE",
+          "text": "監理・支援の担当者が変わる際は、以前の担当者の閲覧範囲と、新しい担当者への記録の引き継ぎを一緒に確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-EXAMPLE-PURCHASING",
+          "text": "購買や請求の担当変更では、取引システムや共有フォルダーの権限を引き継ぎに合わせて見直す場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-EXAMPLE-MEMBERSHIP",
+          "text": "会員管理や研修の担当変更時は、名簿や案内システムへの閲覧・編集権限を整理する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-CHECK",
+          "text": "メール、ファイル共有、業務システムのアカウントを対象に、変更の依頼先、作業する人、完了を確かめる人、引き継ぐデータの扱いを確認してください。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "F07",
+    "expectedThemes": [],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_ONLY",
+      "S03-NA",
+      "S04-ZERO_NA",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_ONLY",
+          "text": "今回の回答では、対象を決めて取り組んでいる対策が確認できました。今の運用を続け、担当者や利用するサービスが変わるときにも引き継げるようにしておくと安心です。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-NA",
+          "text": "業務の対象にならないと回答された項目があります。今後、扱う情報や利用するサービスが変わったときに、確認が必要かを見直しましょう。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "S04-ZERO_NA",
+          "text": "今回対象とした業務について、追加で確認したいテーマはありません。今後、業務や扱う情報が変わったときに、もう一度確認してみましょう。",
+          "kind": "paragraph"
+        }
+      ]
+    }
+  },
+  {
+    "case": "ALL_READY",
+    "expectedThemes": [],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_COMBINED",
+      "S03-RECOVERY_READY",
+      "S04-ZERO_READY",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_COMBINED",
+          "text": "退職・異動時の権限変更や送信前の確認に加え、業務アカウントの多要素認証とパソコンのOS更新にも取り組んでいると回答されています。日常の手順と技術的な対策をあわせて続けていくことが、組合の情報管理を支えます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "S04-ZERO_READY",
+          "text": "今回の回答では、追加で確認したいテーマはありません。現在の取り組みを継続し、担当者の変更や新しいサービスの利用時に見直していきましょう。",
+          "kind": "paragraph"
+        }
+      ]
+    }
+  },
+  {
+    "case": "ALL_UNKNOWN",
+    "expectedThemes": [],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-UNKNOWN",
+      "S02-INFO-UNKNOWN",
+      "S03-UNKNOWN",
+      "S03-RECOVERY_UNKNOWN",
+      "S04-ZERO_PENDING",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-UNKNOWN",
+          "text": "分からない項目は、担当者や保守会社に現在の運用を確かめるところから始めましょう。確認する相手と時期を決めておくと、その後の引き継ぎにも役立ちます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_UNKNOWN",
+          "text": "電子データを戻す手順については、バックアップの担当者に、保存先と戻し方、復元を試した範囲を確かめてみましょう。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "S04-ZERO_PENDING",
+          "text": "まずは分からなかったことや担当外だったことを、担当者と確かめてみましょう。確認できた内容で回答を見直すと、次に確かめたいことを整理できます。",
+          "kind": "paragraph"
+        }
+      ]
+    }
+  },
+  {
+    "case": "AUTHORITY",
+    "expectedThemes": [],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_ADMIN",
+      "S03-AUTHORITY",
+      "S03-RECOVERY_READY",
+      "S04-ZERO_PENDING",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_ADMIN",
+          "text": "退職・異動時の権限変更と、重要情報を送る前の確認は、手順を運用していると回答されています。担当変更や資料の送付など、日々の業務を支える取り組みとして継続していきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-AUTHORITY",
+          "text": "回答者の担当外となる項目は、業務を担当している方と一緒に確認することができます。分かった内容を事務局内で共有し、必要なときに確かめられる状態にしておきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "S04-ZERO_PENDING",
+          "text": "まずは分からなかったことや担当外だったことを、担当者と確かめてみましょう。確認できた内容で回答を見直すと、次に確かめたいことを整理できます。",
+          "kind": "paragraph"
+        }
+      ]
+    }
+  },
+  {
+    "case": "NOT_APPLICABLE",
+    "expectedThemes": [],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_ONLY",
+      "S03-NA",
+      "S04-ZERO_NA",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_ONLY",
+          "text": "今回の回答では、対象を決めて取り組んでいる対策が確認できました。今の運用を続け、担当者や利用するサービスが変わるときにも引き継げるようにしておくと安心です。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-NA",
+          "text": "業務の対象にならないと回答された項目があります。今後、扱う情報や利用するサービスが変わったときに、確認が必要かを見直しましょう。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "S04-ZERO_NA",
+          "text": "今回対象とした業務について、追加で確認したいテーマはありません。今後、業務や扱う情報が変わったときに、もう一度確認してみましょう。",
+          "kind": "paragraph"
+        }
+      ]
+    }
+  },
+  {
+    "case": "MULTI_BUSINESS",
+    "expectedThemes": [
+      "T01",
+      "T02",
+      "T03"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-OPEN_ONLY",
+      "S03-FOCUS_DATA_SYSTEM_CONTACT",
+      "S03-OVERFLOW",
+      "T01-TITLE",
+      "T01-COMMON",
+      "T01-B01-NOT_DONE",
+      "T01-EXAMPLE-WORKFORCE",
+      "T01-CHECK",
+      "T02-TITLE",
+      "T02-COMMON",
+      "T02-C04-NOT_DONE",
+      "T02-B03-NOT_DONE",
+      "T02-EXAMPLE-WORKFORCE",
+      "T02-EXAMPLE-PURCHASING",
+      "T02-EXAMPLE-MEMBERSHIP",
+      "T02-CHECK",
+      "T03-TITLE",
+      "T03-COMMON",
+      "T03-C03-PARTIAL",
+      "T03-EXAMPLE-WORKFORCE",
+      "T03-EXAMPLE-PURCHASING",
+      "T03-EXAMPLE-MEMBERSHIP",
+      "T03-CHECK",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "ACCOUNT-TITLE",
+      "ACCOUNT-DESCRIPTION",
+      "ACCOUNT-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-OPEN_ONLY",
+          "text": "今回の回答には、一部の対応にとどまることや、まだ手順が決まっていないことがありました。実際にどこまで対応できているかを担当者と整理すると、次の取り組みを決めやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_DATA_SYSTEM_CONTACT",
+          "text": "今回の回答からは、情報の保管・受け渡し、業務サービスなどの管理、依頼やトラブル時の連絡・確認について、現在の運用を整理することが役立ちそうです。一度に変える必要はありません。担当者と取り組む範囲を決めて、順に確認していきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-OVERFLOW",
+          "text": "このほかにも見直しを検討したい点があります。回答内容を担当者と共有し、取り組めるところから順に確認してください。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T01-TITLE",
+          "text": "本人資料・記録の保管期限",
+          "kind": "heading"
+        },
+        {
+          "id": "T01-COMMON",
+          "text": "旅券の写しや相談記録などを必要以上に長く残すと、誤送信や不正アクセスが起きたときに影響する情報が増えます。一方、必要な記録まで消してしまうと、照会への回答や支援の経緯確認が難しくなります。資料ごとに保存の目的と必要な期間を整理し、期限後の処理を決めることが、業務の継続と情報の保護の両方に役立ちます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T01-B01-NOT_DONE",
+          "text": "期限後の処理をまだ決めていないとの回答でした。必要な保存期間の根拠を担当者と確認したうえで、誰がいつ処理するかを決めるところから始められます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T01-EXAMPLE-WORKFORCE",
+          "text": "監理・支援業務では、本人確認資料や相談記録の種類ごとに、保存目的と期限後の処理を整理する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T01-CHECK",
+          "text": "資料の種類ごとに、保存期間の根拠、保管先、処理を判断する担当者、廃棄・削除後に残す記録を確認してください。法令や契約による保存義務がある場合は、その条件も確認します。",
+          "kind": "check"
+        },
+        {
+          "id": "T02-TITLE",
+          "text": "外部送信・一斉案内",
+          "kind": "heading"
+        },
+        {
+          "id": "T02-COMMON",
+          "text": "メールの宛先や添付ファイルを取り違えると、関係のない相手に個人情報や取引情報が届くことがあります。一斉案内では、宛名の差し込み違いや配布対象の設定違いが、複数の会員への誤送信につながる場合もあります。実際に送る相手と内容を送信前に照合し、一斉案内はテスト送信で見え方を確かめることで、送信後には取り消しにくい間違いに気づきやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-C04-NOT_DONE",
+          "text": "外部送信前の確認手順をまだ設けていないとの回答でした。送信する直前に、宛先と内容を一緒に照合する工程を決めることから始められます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-B03-NOT_DONE",
+          "text": "一斉案内のテスト送信は行っていないとの回答でした。本番前にダミーデータで送信し、宛名と配布対象、添付内容が合っているかを確認しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-EXAMPLE-WORKFORCE",
+          "text": "監理・支援業務では、受入企業や関係機関へ資料を送る際に、対象者と送付先、添付内容を照合する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-EXAMPLE-PURCHASING",
+          "text": "共同購買や契約請求の業務では、注文内容や請求書を別の企業へ送ってしまわないように、取引先とファイルを照合する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-EXAMPLE-MEMBERSHIP",
+          "text": "会員管理や研修案内では、参加対象と配布先、宛名差し込みが合っているかをテストする場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-CHECK",
+          "text": "実際の送信前に、宛先一覧、添付ファイルの中身、共有リンクの閲覧範囲を誰が確認するかを確かめてください。一斉案内を行う場合は、宛名差し込みと配布対象をダミーデータでテストする工程も確認します。",
+          "kind": "check"
+        },
+        {
+          "id": "T03-TITLE",
+          "text": "退職異動時の権限",
+          "kind": "heading"
+        },
+        {
+          "id": "T03-COMMON",
+          "text": "退職・異動した方のアカウントや以前の権限が残ると、現在の担当外の情報を閲覧できる状態が続く場合があります。逆に、必要なデータの引き継ぎ前に削除すると、業務に支障が出ることもあります。人の異動に合わせて、引き継ぎ、権限の変更、利用停止、不要ライセンスの整理を一つの流れで確認すると、情報保護と事務の引き継ぎを両立しやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T03-C03-PARTIAL",
+          "text": "権限を解除する手順は一部で実施されているとの回答でした。対象から漏れているサービスや、依頼後の完了確認ができていない場面がないかを整理しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T03-EXAMPLE-WORKFORCE",
+          "text": "監理・支援の担当者が変わる際は、以前の担当者の閲覧範囲と、新しい担当者への記録の引き継ぎを一緒に確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-EXAMPLE-PURCHASING",
+          "text": "購買や請求の担当変更では、取引システムや共有フォルダーの権限を引き継ぎに合わせて見直す場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-EXAMPLE-MEMBERSHIP",
+          "text": "会員管理や研修の担当変更時は、名簿や案内システムへの閲覧・編集権限を整理する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-CHECK",
+          "text": "メール、ファイル共有、業務システムのアカウントを対象に、変更の依頼先、作業する人、完了を確かめる人、引き継ぐデータの扱いを確認してください。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T02_COMPOUND",
+    "expectedThemes": [
+      "T02"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_TECH",
+      "S03-FOCUS_DATA",
+      "S03-RECOVERY_READY",
+      "T02-TITLE",
+      "T02-COMMON",
+      "T02-C04-PARTIAL",
+      "T02-B03-NOT_DONE",
+      "T02-EXAMPLE-WORKFORCE",
+      "T02-EXAMPLE-PURCHASING",
+      "T02-EXAMPLE-MEMBERSHIP",
+      "T02-CHECK",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_TECH",
+          "text": "業務アカウントの多要素認証と、パソコンのOS更新に取り組んでいると回答されています。利用するサービスや端末が増えた際も、対象を確認する流れを続けていきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_DATA",
+          "text": "情報を保管したり外部へ受け渡したりする場面について、現在の手順を確かめることが今回の見直しに役立ちます。職員の間で扱いをそろえるために、実際の仕事の流れに沿って確認してみましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T02-TITLE",
+          "text": "外部送信・一斉案内",
+          "kind": "heading"
+        },
+        {
+          "id": "T02-COMMON",
+          "text": "メールの宛先や添付ファイルを取り違えると、関係のない相手に個人情報や取引情報が届くことがあります。一斉案内では、宛名の差し込み違いや配布対象の設定違いが、複数の会員への誤送信につながる場合もあります。実際に送る相手と内容を送信前に照合し、一斉案内はテスト送信で見え方を確かめることで、送信後には取り消しにくい間違いに気づきやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-C04-PARTIAL",
+          "text": "外部送信前の確認は一部で実施されているとの回答でした。確認する人や場面によって手順が変わっていないか、宛先と送信する内容を照合する流れを確かめましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-B03-NOT_DONE",
+          "text": "一斉案内のテスト送信は行っていないとの回答でした。本番前にダミーデータで送信し、宛名と配布対象、添付内容が合っているかを確認しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-EXAMPLE-WORKFORCE",
+          "text": "監理・支援業務では、受入企業や関係機関へ資料を送る際に、対象者と送付先、添付内容を照合する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-EXAMPLE-PURCHASING",
+          "text": "共同購買や契約請求の業務では、注文内容や請求書を別の企業へ送ってしまわないように、取引先とファイルを照合する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-EXAMPLE-MEMBERSHIP",
+          "text": "会員管理や研修案内では、参加対象と配布先、宛名差し込みが合っているかをテストする場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-CHECK",
+          "text": "実際の送信前に、宛先一覧、添付ファイルの中身、共有リンクの閲覧範囲を誰が確認するかを確かめてください。一斉案内を行う場合は、宛名差し込みと配布対象をダミーデータでテストする工程も確認します。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T02_EXTERNAL_ONLY",
+    "expectedThemes": [
+      "T02"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_TECH",
+      "S03-FOCUS_DATA",
+      "S03-RECOVERY_READY",
+      "T02-TITLE",
+      "T02-COMMON",
+      "T02-C04-NOT_DONE",
+      "T02-EXAMPLE-WORKFORCE",
+      "T02-EXAMPLE-PURCHASING",
+      "T02-EXAMPLE-MEMBERSHIP",
+      "T02-CHECK",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_TECH",
+          "text": "業務アカウントの多要素認証と、パソコンのOS更新に取り組んでいると回答されています。利用するサービスや端末が増えた際も、対象を確認する流れを続けていきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_DATA",
+          "text": "情報を保管したり外部へ受け渡したりする場面について、現在の手順を確かめることが今回の見直しに役立ちます。職員の間で扱いをそろえるために、実際の仕事の流れに沿って確認してみましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T02-TITLE",
+          "text": "外部送信・一斉案内",
+          "kind": "heading"
+        },
+        {
+          "id": "T02-COMMON",
+          "text": "メールの宛先や添付ファイルを取り違えると、関係のない相手に個人情報や取引情報が届くことがあります。一斉案内では、宛名の差し込み違いや配布対象の設定違いが、複数の会員への誤送信につながる場合もあります。実際に送る相手と内容を送信前に照合し、一斉案内はテスト送信で見え方を確かめることで、送信後には取り消しにくい間違いに気づきやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-C04-NOT_DONE",
+          "text": "外部送信前の確認手順をまだ設けていないとの回答でした。送信する直前に、宛先と内容を一緒に照合する工程を決めることから始められます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-EXAMPLE-WORKFORCE",
+          "text": "監理・支援業務では、受入企業や関係機関へ資料を送る際に、対象者と送付先、添付内容を照合する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-EXAMPLE-PURCHASING",
+          "text": "共同購買や契約請求の業務では、注文内容や請求書を別の企業へ送ってしまわないように、取引先とファイルを照合する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-EXAMPLE-MEMBERSHIP",
+          "text": "会員管理や研修案内では、参加対象と配布先、宛名差し込みが合っているかをテストする場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-CHECK",
+          "text": "実際の送信前に、宛先一覧、添付ファイルの中身、共有リンクの閲覧範囲を誰が確認するかを確かめてください。一斉案内を行う場合は、宛名差し込みと配布対象をダミーデータでテストする工程も確認します。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T02_NOTICE_ONLY",
+    "expectedThemes": [
+      "T02"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_COMBINED",
+      "S03-FOCUS_DATA",
+      "S03-RECOVERY_READY",
+      "T02-TITLE",
+      "T02-COMMON",
+      "T02-B03-PARTIAL",
+      "T02-EXAMPLE-WORKFORCE",
+      "T02-EXAMPLE-PURCHASING",
+      "T02-EXAMPLE-MEMBERSHIP",
+      "T02-CHECK",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_COMBINED",
+          "text": "退職・異動時の権限変更や送信前の確認に加え、業務アカウントの多要素認証とパソコンのOS更新にも取り組んでいると回答されています。日常の手順と技術的な対策をあわせて続けていくことが、組合の情報管理を支えます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_DATA",
+          "text": "情報を保管したり外部へ受け渡したりする場面について、現在の手順を確かめることが今回の見直しに役立ちます。職員の間で扱いをそろえるために、実際の仕事の流れに沿って確認してみましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T02-TITLE",
+          "text": "外部送信・一斉案内",
+          "kind": "heading"
+        },
+        {
+          "id": "T02-COMMON",
+          "text": "メールの宛先や添付ファイルを取り違えると、関係のない相手に個人情報や取引情報が届くことがあります。一斉案内では、宛名の差し込み違いや配布対象の設定違いが、複数の会員への誤送信につながる場合もあります。実際に送る相手と内容を送信前に照合し、一斉案内はテスト送信で見え方を確かめることで、送信後には取り消しにくい間違いに気づきやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-B03-PARTIAL",
+          "text": "一斉案内のテスト送信は一部で実施されているとの回答でした。宛名差し込みと配布対象の両方を、本番前に確かめる流れを確認しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-EXAMPLE-WORKFORCE",
+          "text": "監理・支援業務では、受入企業や関係機関へ資料を送る際に、対象者と送付先、添付内容を照合する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-EXAMPLE-PURCHASING",
+          "text": "共同購買や契約請求の業務では、注文内容や請求書を別の企業へ送ってしまわないように、取引先とファイルを照合する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-EXAMPLE-MEMBERSHIP",
+          "text": "会員管理や研修案内では、参加対象と配布先、宛名差し込みが合っているかをテストする場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-CHECK",
+          "text": "実際の送信前に、宛先一覧、添付ファイルの中身、共有リンクの閲覧範囲を誰が確認するかを確かめてください。一斉案内を行う場合は、宛名差し込みと配布対象をダミーデータでテストする工程も確認します。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T06_NOT_DONE",
+    "expectedThemes": [
+      "T06"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_COMBINED",
+      "S03-FOCUS_SYSTEM",
+      "T06-TITLE",
+      "T06-COMMON",
+      "T06-C07-NOT_DONE",
+      "T06-EXAMPLE-WORKFORCE",
+      "T06-EXAMPLE-PURCHASING",
+      "T06-EXAMPLE-MEMBERSHIP",
+      "T06-CHECK",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_COMBINED",
+          "text": "退職・異動時の権限変更や送信前の確認に加え、業務アカウントの多要素認証とパソコンのOS更新にも取り組んでいると回答されています。日常の手順と技術的な対策をあわせて続けていくことが、組合の情報管理を支えます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_SYSTEM",
+          "text": "業務サービスやパソコン、電子データを日々使う際の運用に、確認しておきたい点があります。管理する範囲と担当者を確かめることが、次の取り組みにつながります。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T06-TITLE",
+          "text": "電子データ復元確認",
+          "kind": "heading"
+        },
+        {
+          "id": "T06-COMMON",
+          "text": "ランサムウェアは、保存されたデータを暗号化して使えなくし、元に戻すことなどと引き換えに金銭を要求する攻撃です。会員への案内や請求、支援記録の確認ができなくなると、日常業務が止まるおそれがあります。バックアップから必要なデータを復元できれば、業務を再開する助けになります。そのため、保存できているかだけでなく、必要なデータを実際に戻せるかを確かめることが大切です。バックアップは情報流出を防ぐ対策ではありません。データを持ち出された可能性がある場合は、復元とは別に影響範囲を確認する必要があります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T06-C07-NOT_DONE",
+          "text": "復元確認はまだ行っていないとの回答でした。バックアップの保存先と担当者を確かめ、安全に試せるデータで戻し方と所要時間を確認するところから始められます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T06-EXAMPLE-WORKFORCE",
+          "text": "支援記録や訪問予定を電子データで管理している場合は、担当者が次の対応を続けられる状態まで戻せるかを確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T06-EXAMPLE-PURCHASING",
+          "text": "注文や請求の電子データを扱う場合は、処理途中の取引も含めて業務を再開できるかを確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T06-EXAMPLE-MEMBERSHIP",
+          "text": "会員の連絡先や研修の参加記録を電子データで扱う場合は、案内や受付を再開できる状態まで戻せるかを確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T06-CHECK",
+          "text": "どのデータを、どの時点まで、どこへ戻すかを担当者や保守会社に確認してください。保存先が攻撃の影響を受けにくい構成か、復元の実施者、必要な機器や手順、再開までの見込み時間も確認します。本番データを不用意に上書きせず、安全な場所で試します。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T06_PARTIAL",
+    "expectedThemes": [
+      "T06"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_COMBINED",
+      "S03-FOCUS_SYSTEM",
+      "T06-TITLE",
+      "T06-COMMON",
+      "T06-C07-PARTIAL",
+      "T06-EXAMPLE-WORKFORCE",
+      "T06-EXAMPLE-PURCHASING",
+      "T06-EXAMPLE-MEMBERSHIP",
+      "T06-CHECK",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_COMBINED",
+          "text": "退職・異動時の権限変更や送信前の確認に加え、業務アカウントの多要素認証とパソコンのOS更新にも取り組んでいると回答されています。日常の手順と技術的な対策をあわせて続けていくことが、組合の情報管理を支えます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_SYSTEM",
+          "text": "業務サービスやパソコン、電子データを日々使う際の運用に、確認しておきたい点があります。管理する範囲と担当者を確かめることが、次の取り組みにつながります。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T06-TITLE",
+          "text": "電子データ復元確認",
+          "kind": "heading"
+        },
+        {
+          "id": "T06-COMMON",
+          "text": "ランサムウェアは、保存されたデータを暗号化して使えなくし、元に戻すことなどと引き換えに金銭を要求する攻撃です。会員への案内や請求、支援記録の確認ができなくなると、日常業務が止まるおそれがあります。バックアップから必要なデータを復元できれば、業務を再開する助けになります。そのため、保存できているかだけでなく、必要なデータを実際に戻せるかを確かめることが大切です。バックアップは情報流出を防ぐ対策ではありません。データを持ち出された可能性がある場合は、復元とは別に影響範囲を確認する必要があります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T06-C07-PARTIAL",
+          "text": "復元確認は一部だけ実施しているとの回答でした。確認済みのデータと未確認のデータを分け、業務再開に必要な範囲まで戻せるかを確かめましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T06-EXAMPLE-WORKFORCE",
+          "text": "支援記録や訪問予定を電子データで管理している場合は、担当者が次の対応を続けられる状態まで戻せるかを確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T06-EXAMPLE-PURCHASING",
+          "text": "注文や請求の電子データを扱う場合は、処理途中の取引も含めて業務を再開できるかを確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T06-EXAMPLE-MEMBERSHIP",
+          "text": "会員の連絡先や研修の参加記録を電子データで扱う場合は、案内や受付を再開できる状態まで戻せるかを確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T06-CHECK",
+          "text": "どのデータを、どの時点まで、どこへ戻すかを担当者や保守会社に確認してください。保存先が攻撃の影響を受けにくい構成か、復元の実施者、必要な機器や手順、再開までの見込み時間も確認します。本番データを不用意に上書きせず、安全な場所で試します。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T06_READY",
+    "expectedThemes": [],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_COMBINED",
+      "S03-RECOVERY_READY",
+      "S04-ZERO_READY",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_COMBINED",
+          "text": "退職・異動時の権限変更や送信前の確認に加え、業務アカウントの多要素認証とパソコンのOS更新にも取り組んでいると回答されています。日常の手順と技術的な対策をあわせて続けていくことが、組合の情報管理を支えます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "S04-ZERO_READY",
+          "text": "今回の回答では、追加で確認したいテーマはありません。現在の取り組みを継続し、担当者の変更や新しいサービスの利用時に見直していきましょう。",
+          "kind": "paragraph"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T06_UNKNOWN",
+    "expectedThemes": [],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_COMBINED",
+      "S03-UNKNOWN",
+      "S03-RECOVERY_UNKNOWN",
+      "S04-ZERO_PENDING",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_COMBINED",
+          "text": "退職・異動時の権限変更や送信前の確認に加え、業務アカウントの多要素認証とパソコンのOS更新にも取り組んでいると回答されています。日常の手順と技術的な対策をあわせて続けていくことが、組合の情報管理を支えます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-UNKNOWN",
+          "text": "分からない項目は、担当者や保守会社に現在の運用を確かめるところから始めましょう。確認する相手と時期を決めておくと、その後の引き継ぎにも役立ちます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_UNKNOWN",
+          "text": "電子データを戻す手順については、バックアップの担当者に、保存先と戻し方、復元を試した範囲を確かめてみましょう。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "S04-ZERO_PENDING",
+          "text": "まずは分からなかったことや担当外だったことを、担当者と確かめてみましょう。確認できた内容で回答を見直すと、次に確かめたいことを整理できます。",
+          "kind": "paragraph"
+        }
+      ]
+    }
+  },
+  {
+    "case": "ZERO_THEMES",
+    "expectedThemes": [],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_COMBINED",
+      "S03-RECOVERY_READY",
+      "S04-ZERO_READY",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_COMBINED",
+          "text": "退職・異動時の権限変更や送信前の確認に加え、業務アカウントの多要素認証とパソコンのOS更新にも取り組んでいると回答されています。日常の手順と技術的な対策をあわせて続けていくことが、組合の情報管理を支えます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "S04-ZERO_READY",
+          "text": "今回の回答では、追加で確認したいテーマはありません。現在の取り組みを継続し、担当者の変更や新しいサービスの利用時に見直していきましょう。",
+          "kind": "paragraph"
+        }
+      ]
+    }
+  },
+  {
+    "case": "OVER_THREE",
+    "expectedThemes": [
+      "T01",
+      "T02",
+      "T03"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-OPEN_ONLY",
+      "S03-FOCUS_DATA_SYSTEM_CONTACT",
+      "S03-OVERFLOW",
+      "T01-TITLE",
+      "T01-COMMON",
+      "T01-B01-NOT_DONE",
+      "T01-EXAMPLE-WORKFORCE",
+      "T01-CHECK",
+      "T02-TITLE",
+      "T02-COMMON",
+      "T02-C04-NOT_DONE",
+      "T02-B03-NOT_DONE",
+      "T02-EXAMPLE-WORKFORCE",
+      "T02-EXAMPLE-PURCHASING",
+      "T02-EXAMPLE-MEMBERSHIP",
+      "T02-CHECK",
+      "T03-TITLE",
+      "T03-COMMON",
+      "T03-C03-PARTIAL",
+      "T03-EXAMPLE-WORKFORCE",
+      "T03-EXAMPLE-PURCHASING",
+      "T03-EXAMPLE-MEMBERSHIP",
+      "T03-CHECK",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "ACCOUNT-TITLE",
+      "ACCOUNT-DESCRIPTION",
+      "ACCOUNT-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-OPEN_ONLY",
+          "text": "今回の回答には、一部の対応にとどまることや、まだ手順が決まっていないことがありました。実際にどこまで対応できているかを担当者と整理すると、次の取り組みを決めやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_DATA_SYSTEM_CONTACT",
+          "text": "今回の回答からは、情報の保管・受け渡し、業務サービスなどの管理、依頼やトラブル時の連絡・確認について、現在の運用を整理することが役立ちそうです。一度に変える必要はありません。担当者と取り組む範囲を決めて、順に確認していきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-OVERFLOW",
+          "text": "このほかにも見直しを検討したい点があります。回答内容を担当者と共有し、取り組めるところから順に確認してください。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T01-TITLE",
+          "text": "本人資料・記録の保管期限",
+          "kind": "heading"
+        },
+        {
+          "id": "T01-COMMON",
+          "text": "旅券の写しや相談記録などを必要以上に長く残すと、誤送信や不正アクセスが起きたときに影響する情報が増えます。一方、必要な記録まで消してしまうと、照会への回答や支援の経緯確認が難しくなります。資料ごとに保存の目的と必要な期間を整理し、期限後の処理を決めることが、業務の継続と情報の保護の両方に役立ちます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T01-B01-NOT_DONE",
+          "text": "期限後の処理をまだ決めていないとの回答でした。必要な保存期間の根拠を担当者と確認したうえで、誰がいつ処理するかを決めるところから始められます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T01-EXAMPLE-WORKFORCE",
+          "text": "監理・支援業務では、本人確認資料や相談記録の種類ごとに、保存目的と期限後の処理を整理する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T01-CHECK",
+          "text": "資料の種類ごとに、保存期間の根拠、保管先、処理を判断する担当者、廃棄・削除後に残す記録を確認してください。法令や契約による保存義務がある場合は、その条件も確認します。",
+          "kind": "check"
+        },
+        {
+          "id": "T02-TITLE",
+          "text": "外部送信・一斉案内",
+          "kind": "heading"
+        },
+        {
+          "id": "T02-COMMON",
+          "text": "メールの宛先や添付ファイルを取り違えると、関係のない相手に個人情報や取引情報が届くことがあります。一斉案内では、宛名の差し込み違いや配布対象の設定違いが、複数の会員への誤送信につながる場合もあります。実際に送る相手と内容を送信前に照合し、一斉案内はテスト送信で見え方を確かめることで、送信後には取り消しにくい間違いに気づきやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-C04-NOT_DONE",
+          "text": "外部送信前の確認手順をまだ設けていないとの回答でした。送信する直前に、宛先と内容を一緒に照合する工程を決めることから始められます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-B03-NOT_DONE",
+          "text": "一斉案内のテスト送信は行っていないとの回答でした。本番前にダミーデータで送信し、宛名と配布対象、添付内容が合っているかを確認しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T02-EXAMPLE-WORKFORCE",
+          "text": "監理・支援業務では、受入企業や関係機関へ資料を送る際に、対象者と送付先、添付内容を照合する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-EXAMPLE-PURCHASING",
+          "text": "共同購買や契約請求の業務では、注文内容や請求書を別の企業へ送ってしまわないように、取引先とファイルを照合する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-EXAMPLE-MEMBERSHIP",
+          "text": "会員管理や研修案内では、参加対象と配布先、宛名差し込みが合っているかをテストする場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T02-CHECK",
+          "text": "実際の送信前に、宛先一覧、添付ファイルの中身、共有リンクの閲覧範囲を誰が確認するかを確かめてください。一斉案内を行う場合は、宛名差し込みと配布対象をダミーデータでテストする工程も確認します。",
+          "kind": "check"
+        },
+        {
+          "id": "T03-TITLE",
+          "text": "退職異動時の権限",
+          "kind": "heading"
+        },
+        {
+          "id": "T03-COMMON",
+          "text": "退職・異動した方のアカウントや以前の権限が残ると、現在の担当外の情報を閲覧できる状態が続く場合があります。逆に、必要なデータの引き継ぎ前に削除すると、業務に支障が出ることもあります。人の異動に合わせて、引き継ぎ、権限の変更、利用停止、不要ライセンスの整理を一つの流れで確認すると、情報保護と事務の引き継ぎを両立しやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T03-C03-PARTIAL",
+          "text": "権限を解除する手順は一部で実施されているとの回答でした。対象から漏れているサービスや、依頼後の完了確認ができていない場面がないかを整理しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T03-EXAMPLE-WORKFORCE",
+          "text": "監理・支援の担当者が変わる際は、以前の担当者の閲覧範囲と、新しい担当者への記録の引き継ぎを一緒に確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-EXAMPLE-PURCHASING",
+          "text": "購買や請求の担当変更では、取引システムや共有フォルダーの権限を引き継ぎに合わせて見直す場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-EXAMPLE-MEMBERSHIP",
+          "text": "会員管理や研修の担当変更時は、名簿や案内システムへの閲覧・編集権限を整理する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-CHECK",
+          "text": "メール、ファイル共有、業務システムのアカウントを対象に、変更の依頼先、作業する人、完了を確かめる人、引き継ぐデータの扱いを確認してください。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T01_PARTIAL",
+    "expectedThemes": [
+      "T01"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_COMBINED",
+      "S03-FOCUS_DATA",
+      "S03-RECOVERY_READY",
+      "T01-TITLE",
+      "T01-COMMON",
+      "T01-B01-PARTIAL",
+      "T01-EXAMPLE-WORKFORCE",
+      "T01-CHECK",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_COMBINED",
+          "text": "退職・異動時の権限変更や送信前の確認に加え、業務アカウントの多要素認証とパソコンのOS更新にも取り組んでいると回答されています。日常の手順と技術的な対策をあわせて続けていくことが、組合の情報管理を支えます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_DATA",
+          "text": "情報を保管したり外部へ受け渡したりする場面について、現在の手順を確かめることが今回の見直しに役立ちます。職員の間で扱いをそろえるために、実際の仕事の流れに沿って確認してみましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T01-TITLE",
+          "text": "本人資料・記録の保管期限",
+          "kind": "heading"
+        },
+        {
+          "id": "T01-COMMON",
+          "text": "旅券の写しや相談記録などを必要以上に長く残すと、誤送信や不正アクセスが起きたときに影響する情報が増えます。一方、必要な記録まで消してしまうと、照会への回答や支援の経緯確認が難しくなります。資料ごとに保存の目的と必要な期間を整理し、期限後の処理を決めることが、業務の継続と情報の保護の両方に役立ちます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T01-B01-PARTIAL",
+          "text": "保管期限と期限後の処理は一部で実施されているとの回答でした。既に決まっている資料と、まだ扱いがそろっていない資料を分けて確認しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T01-EXAMPLE-WORKFORCE",
+          "text": "監理・支援業務では、本人確認資料や相談記録の種類ごとに、保存目的と期限後の処理を整理する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T01-CHECK",
+          "text": "資料の種類ごとに、保存期間の根拠、保管先、処理を判断する担当者、廃棄・削除後に残す記録を確認してください。法令や契約による保存義務がある場合は、その条件も確認します。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T01_NOT_DONE",
+    "expectedThemes": [
+      "T01"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_COMBINED",
+      "S03-FOCUS_DATA",
+      "S03-RECOVERY_READY",
+      "T01-TITLE",
+      "T01-COMMON",
+      "T01-B01-NOT_DONE",
+      "T01-EXAMPLE-WORKFORCE",
+      "T01-CHECK",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_COMBINED",
+          "text": "退職・異動時の権限変更や送信前の確認に加え、業務アカウントの多要素認証とパソコンのOS更新にも取り組んでいると回答されています。日常の手順と技術的な対策をあわせて続けていくことが、組合の情報管理を支えます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_DATA",
+          "text": "情報を保管したり外部へ受け渡したりする場面について、現在の手順を確かめることが今回の見直しに役立ちます。職員の間で扱いをそろえるために、実際の仕事の流れに沿って確認してみましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T01-TITLE",
+          "text": "本人資料・記録の保管期限",
+          "kind": "heading"
+        },
+        {
+          "id": "T01-COMMON",
+          "text": "旅券の写しや相談記録などを必要以上に長く残すと、誤送信や不正アクセスが起きたときに影響する情報が増えます。一方、必要な記録まで消してしまうと、照会への回答や支援の経緯確認が難しくなります。資料ごとに保存の目的と必要な期間を整理し、期限後の処理を決めることが、業務の継続と情報の保護の両方に役立ちます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T01-B01-NOT_DONE",
+          "text": "期限後の処理をまだ決めていないとの回答でした。必要な保存期間の根拠を担当者と確認したうえで、誰がいつ処理するかを決めるところから始められます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T01-EXAMPLE-WORKFORCE",
+          "text": "監理・支援業務では、本人確認資料や相談記録の種類ごとに、保存目的と期限後の処理を整理する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T01-CHECK",
+          "text": "資料の種類ごとに、保存期間の根拠、保管先、処理を判断する担当者、廃棄・削除後に残す記録を確認してください。法令や契約による保存義務がある場合は、その条件も確認します。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T03_PARTIAL",
+    "expectedThemes": [
+      "T03"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_TECH",
+      "S03-FOCUS_SYSTEM",
+      "S03-RECOVERY_READY",
+      "T03-TITLE",
+      "T03-COMMON",
+      "T03-C03-PARTIAL",
+      "T03-EXAMPLE-WORKFORCE",
+      "T03-EXAMPLE-PURCHASING",
+      "T03-EXAMPLE-MEMBERSHIP",
+      "T03-CHECK",
+      "ACCOUNT-TITLE",
+      "ACCOUNT-DESCRIPTION",
+      "ACCOUNT-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_TECH",
+          "text": "業務アカウントの多要素認証と、パソコンのOS更新に取り組んでいると回答されています。利用するサービスや端末が増えた際も、対象を確認する流れを続けていきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_SYSTEM",
+          "text": "業務サービスやパソコン、電子データを日々使う際の運用に、確認しておきたい点があります。管理する範囲と担当者を確かめることが、次の取り組みにつながります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T03-TITLE",
+          "text": "退職異動時の権限",
+          "kind": "heading"
+        },
+        {
+          "id": "T03-COMMON",
+          "text": "退職・異動した方のアカウントや以前の権限が残ると、現在の担当外の情報を閲覧できる状態が続く場合があります。逆に、必要なデータの引き継ぎ前に削除すると、業務に支障が出ることもあります。人の異動に合わせて、引き継ぎ、権限の変更、利用停止、不要ライセンスの整理を一つの流れで確認すると、情報保護と事務の引き継ぎを両立しやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T03-C03-PARTIAL",
+          "text": "権限を解除する手順は一部で実施されているとの回答でした。対象から漏れているサービスや、依頼後の完了確認ができていない場面がないかを整理しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T03-EXAMPLE-WORKFORCE",
+          "text": "監理・支援の担当者が変わる際は、以前の担当者の閲覧範囲と、新しい担当者への記録の引き継ぎを一緒に確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-EXAMPLE-PURCHASING",
+          "text": "購買や請求の担当変更では、取引システムや共有フォルダーの権限を引き継ぎに合わせて見直す場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-EXAMPLE-MEMBERSHIP",
+          "text": "会員管理や研修の担当変更時は、名簿や案内システムへの閲覧・編集権限を整理する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-CHECK",
+          "text": "メール、ファイル共有、業務システムのアカウントを対象に、変更の依頼先、作業する人、完了を確かめる人、引き継ぐデータの扱いを確認してください。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T03_NOT_DONE",
+    "expectedThemes": [
+      "T03"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_TECH",
+      "S03-FOCUS_SYSTEM",
+      "S03-RECOVERY_READY",
+      "T03-TITLE",
+      "T03-COMMON",
+      "T03-C03-NOT_DONE",
+      "T03-EXAMPLE-WORKFORCE",
+      "T03-EXAMPLE-PURCHASING",
+      "T03-EXAMPLE-MEMBERSHIP",
+      "T03-CHECK",
+      "ACCOUNT-TITLE",
+      "ACCOUNT-DESCRIPTION",
+      "ACCOUNT-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_TECH",
+          "text": "業務アカウントの多要素認証と、パソコンのOS更新に取り組んでいると回答されています。利用するサービスや端末が増えた際も、対象を確認する流れを続けていきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_SYSTEM",
+          "text": "業務サービスやパソコン、電子データを日々使う際の運用に、確認しておきたい点があります。管理する範囲と担当者を確かめることが、次の取り組みにつながります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T03-TITLE",
+          "text": "退職異動時の権限",
+          "kind": "heading"
+        },
+        {
+          "id": "T03-COMMON",
+          "text": "退職・異動した方のアカウントや以前の権限が残ると、現在の担当外の情報を閲覧できる状態が続く場合があります。逆に、必要なデータの引き継ぎ前に削除すると、業務に支障が出ることもあります。人の異動に合わせて、引き継ぎ、権限の変更、利用停止、不要ライセンスの整理を一つの流れで確認すると、情報保護と事務の引き継ぎを両立しやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T03-C03-NOT_DONE",
+          "text": "権限を解除する手順をまだ設けていないとの回答でした。利用しているサービスを一覧にし、退職・異動の連絡を誰が受け、誰へ変更を依頼するかを決めると進めやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T03-EXAMPLE-WORKFORCE",
+          "text": "監理・支援の担当者が変わる際は、以前の担当者の閲覧範囲と、新しい担当者への記録の引き継ぎを一緒に確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-EXAMPLE-PURCHASING",
+          "text": "購買や請求の担当変更では、取引システムや共有フォルダーの権限を引き継ぎに合わせて見直す場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-EXAMPLE-MEMBERSHIP",
+          "text": "会員管理や研修の担当変更時は、名簿や案内システムへの閲覧・編集権限を整理する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T03-CHECK",
+          "text": "メール、ファイル共有、業務システムのアカウントを対象に、変更の依頼先、作業する人、完了を確かめる人、引き継ぐデータの扱いを確認してください。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T04_PARTIAL",
+    "expectedThemes": [
+      "T04"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_ADMIN",
+      "S03-FOCUS_SYSTEM",
+      "S03-RECOVERY_READY",
+      "T04-TITLE",
+      "T04-COMMON",
+      "T04-C05-PARTIAL",
+      "T04-EXAMPLE-WORKFORCE",
+      "T04-EXAMPLE-PURCHASING",
+      "T04-EXAMPLE-MEMBERSHIP",
+      "T04-CHECK",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_ADMIN",
+          "text": "退職・異動時の権限変更と、重要情報を送る前の確認は、手順を運用していると回答されています。担当変更や資料の送付など、日々の業務を支える取り組みとして継続していきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_SYSTEM",
+          "text": "業務サービスやパソコン、電子データを日々使う際の運用に、確認しておきたい点があります。管理する範囲と担当者を確かめることが、次の取り組みにつながります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T04-TITLE",
+          "text": "多要素認証",
+          "kind": "heading"
+        },
+        {
+          "id": "T04-COMMON",
+          "text": "パスワードが漏れたり使い回されたりすると、第三者が職員になりすまして業務サービスにログインすることがあります。多要素認証は、確認コードなど別の方法でも本人を確かめる仕組みです。パスワードだけを知られた場合の不正ログインを防ぐ助けになります。すべての攻撃を防ぐものではないため、確認要求を不用意に承認しない運用や、端末を失ったときの手順も大切です。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T04-C05-PARTIAL",
+          "text": "多要素認証は一部の対象で使用しているとの回答でした。外部から利用できるサービスを整理し、未設定の対象や設定できない理由を担当者と確かめましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T04-EXAMPLE-WORKFORCE",
+          "text": "訪問先から支援記録を確認するサービスなどがあれば、外部から使うアカウントの認証方法を確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T04-EXAMPLE-PURCHASING",
+          "text": "外部から使う購買・会計サービスがある場合は、利用者だけでなく管理者の認証方法も確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T04-EXAMPLE-MEMBERSHIP",
+          "text": "外部から会員向け案内を送るサービスなどがあれば、なりすましで案内が送られないよう認証方法を確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T04-CHECK",
+          "text": "外部から使えるメールやファイル共有について、多要素認証への対応可否、設定対象、例外となるアカウント、端末紛失時の復旧方法を管理者や保守会社に確認してください。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T04_NOT_DONE",
+    "expectedThemes": [
+      "T04"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_ADMIN",
+      "S03-FOCUS_SYSTEM",
+      "S03-RECOVERY_READY",
+      "T04-TITLE",
+      "T04-COMMON",
+      "T04-C05-NOT_DONE",
+      "T04-EXAMPLE-WORKFORCE",
+      "T04-EXAMPLE-PURCHASING",
+      "T04-EXAMPLE-MEMBERSHIP",
+      "T04-CHECK",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_ADMIN",
+          "text": "退職・異動時の権限変更と、重要情報を送る前の確認は、手順を運用していると回答されています。担当変更や資料の送付など、日々の業務を支える取り組みとして継続していきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_SYSTEM",
+          "text": "業務サービスやパソコン、電子データを日々使う際の運用に、確認しておきたい点があります。管理する範囲と担当者を確かめることが、次の取り組みにつながります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T04-TITLE",
+          "text": "多要素認証",
+          "kind": "heading"
+        },
+        {
+          "id": "T04-COMMON",
+          "text": "パスワードが漏れたり使い回されたりすると、第三者が職員になりすまして業務サービスにログインすることがあります。多要素認証は、確認コードなど別の方法でも本人を確かめる仕組みです。パスワードだけを知られた場合の不正ログインを防ぐ助けになります。すべての攻撃を防ぐものではないため、確認要求を不用意に承認しない運用や、端末を失ったときの手順も大切です。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T04-C05-NOT_DONE",
+          "text": "多要素認証は使用していないとの回答でした。今使っているサービスが対応しているか、設定すると日常業務やログイン方法がどう変わるかを確かめましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T04-EXAMPLE-WORKFORCE",
+          "text": "訪問先から支援記録を確認するサービスなどがあれば、外部から使うアカウントの認証方法を確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T04-EXAMPLE-PURCHASING",
+          "text": "外部から使う購買・会計サービスがある場合は、利用者だけでなく管理者の認証方法も確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T04-EXAMPLE-MEMBERSHIP",
+          "text": "外部から会員向け案内を送るサービスなどがあれば、なりすましで案内が送られないよう認証方法を確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T04-CHECK",
+          "text": "外部から使えるメールやファイル共有について、多要素認証への対応可否、設定対象、例外となるアカウント、端末紛失時の復旧方法を管理者や保守会社に確認してください。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T05_PARTIAL",
+    "expectedThemes": [
+      "T05"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_ADMIN",
+      "S03-FOCUS_SYSTEM",
+      "S03-RECOVERY_READY",
+      "T05-TITLE",
+      "T05-COMMON",
+      "T05-C06-PARTIAL",
+      "T05-EXAMPLE-WORKFORCE",
+      "T05-EXAMPLE-PURCHASING",
+      "T05-EXAMPLE-MEMBERSHIP",
+      "T05-CHECK",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_ADMIN",
+          "text": "退職・異動時の権限変更と、重要情報を送る前の確認は、手順を運用していると回答されています。担当変更や資料の送付など、日々の業務を支える取り組みとして継続していきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_SYSTEM",
+          "text": "業務サービスやパソコン、電子データを日々使う際の運用に、確認しておきたい点があります。管理する範囲と担当者を確かめることが、次の取り組みにつながります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T05-TITLE",
+          "text": "PCのOS更新",
+          "kind": "heading"
+        },
+        {
+          "id": "T05-COMMON",
+          "text": "パソコンの基本ソフトには、後から安全上の問題が見つかることがあります。OS更新には、その問題を修正するものが含まれます。更新が保留されたままだと、既に知られている弱点を悪用される可能性が残ります。更新する担当と時期を決め、再起動や業務ソフトへの影響も確かめると、仕事を止めずに更新を続けやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T05-C06-PARTIAL",
+          "text": "OS更新は一部で実施されているとの回答でした。更新が保留されたパソコンや、再起動待ちで完了していないものがないかを確認しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T05-EXAMPLE-WORKFORCE",
+          "text": "訪問や面談に使うパソコンがある場合は、持ち出し中も更新を続けられるかを確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T05-EXAMPLE-PURCHASING",
+          "text": "発注や請求に使うパソコンでは、締め処理の時期も考慮しながら更新を計画する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T05-EXAMPLE-MEMBERSHIP",
+          "text": "会員への案内に使うパソコンでは、送信予定も考慮しながら更新と再起動の時期を決める場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T05-CHECK",
+          "text": "対象のパソコン、更新を行う担当者、再起動する時間、更新に失敗した場合の連絡先、サポート期限が切れたOSの有無を確認してください。ウイルス対策ソフトの状況とは分けて確認します。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T05_NOT_DONE",
+    "expectedThemes": [
+      "T05"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_ADMIN",
+      "S03-FOCUS_SYSTEM",
+      "S03-RECOVERY_READY",
+      "T05-TITLE",
+      "T05-COMMON",
+      "T05-C06-NOT_DONE",
+      "T05-EXAMPLE-WORKFORCE",
+      "T05-EXAMPLE-PURCHASING",
+      "T05-EXAMPLE-MEMBERSHIP",
+      "T05-CHECK",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_ADMIN",
+          "text": "退職・異動時の権限変更と、重要情報を送る前の確認は、手順を運用していると回答されています。担当変更や資料の送付など、日々の業務を支える取り組みとして継続していきましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_SYSTEM",
+          "text": "業務サービスやパソコン、電子データを日々使う際の運用に、確認しておきたい点があります。管理する範囲と担当者を確かめることが、次の取り組みにつながります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T05-TITLE",
+          "text": "PCのOS更新",
+          "kind": "heading"
+        },
+        {
+          "id": "T05-COMMON",
+          "text": "パソコンの基本ソフトには、後から安全上の問題が見つかることがあります。OS更新には、その問題を修正するものが含まれます。更新が保留されたままだと、既に知られている弱点を悪用される可能性が残ります。更新する担当と時期を決め、再起動や業務ソフトへの影響も確かめると、仕事を止めずに更新を続けやすくなります。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T05-C06-NOT_DONE",
+          "text": "更新の担当と手順をまだ決めていないとの回答でした。まず対象のパソコンと現在の更新方法を確認し、誰が更新と完了確認を行うかを整理しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T05-EXAMPLE-WORKFORCE",
+          "text": "訪問や面談に使うパソコンがある場合は、持ち出し中も更新を続けられるかを確認する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T05-EXAMPLE-PURCHASING",
+          "text": "発注や請求に使うパソコンでは、締め処理の時期も考慮しながら更新を計画する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T05-EXAMPLE-MEMBERSHIP",
+          "text": "会員への案内に使うパソコンでは、送信予定も考慮しながら更新と再起動の時期を決める場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T05-CHECK",
+          "text": "対象のパソコン、更新を行う担当者、再起動する時間、更新に失敗した場合の連絡先、サポート期限が切れたOSの有無を確認してください。ウイルス対策ソフトの状況とは分けて確認します。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T07_PARTIAL",
+    "expectedThemes": [
+      "T07"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_COMBINED",
+      "S03-FOCUS_CONTACT",
+      "S03-RECOVERY_READY",
+      "T07-TITLE",
+      "T07-COMMON",
+      "T07-B02-PARTIAL",
+      "T07-EXAMPLE-PURCHASING",
+      "T07-CHECK",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_COMBINED",
+          "text": "退職・異動時の権限変更や送信前の確認に加え、業務アカウントの多要素認証とパソコンのOS更新にも取り組んでいると回答されています。日常の手順と技術的な対策をあわせて続けていくことが、組合の情報管理を支えます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_CONTACT",
+          "text": "いつもと違う依頼やトラブルがあった際の、連絡・確認の流れを整理することが今回の見直しに役立ちます。担当者の不在時にも対応できるかを、関係する方と確かめてみましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T07-TITLE",
+          "text": "振込先変更の確認",
+          "kind": "heading"
+        },
+        {
+          "id": "T07-COMMON",
+          "text": "取引先になりすましたメールなどで振込先の変更を求め、別の口座へ送金させる手口があります。メールが本物に見えても、相手のアカウントが不正に使われている場合があります。変更依頼に書かれた連絡先ではなく、以前から把握している電話番号などで確かめることで、依頼そのものが正しいかを別の経路で確認できます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T07-B02-PARTIAL",
+          "text": "振込先変更の別経路確認は一部で実施されているとの回答でした。急ぎの依頼や担当者不在時にも同じ確認ができるかを整理しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T07-EXAMPLE-PURCHASING",
+          "text": "共同購買では、仕入先から振込先変更の連絡があった際、以前から把握している連絡先で確かめる場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T07-CHECK",
+          "text": "変更を受け付ける人、以前から把握している連絡先、確認結果の記録、登録や振込を承認する人を確かめてください。依頼メールへの返信だけで確認を終えていないかも確認します。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T07_NOT_DONE",
+    "expectedThemes": [
+      "T07"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_COMBINED",
+      "S03-FOCUS_CONTACT",
+      "S03-RECOVERY_READY",
+      "T07-TITLE",
+      "T07-COMMON",
+      "T07-B02-NOT_DONE",
+      "T07-EXAMPLE-PURCHASING",
+      "T07-CHECK",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "CALENDAR-TITLE",
+      "CALENDAR-DESCRIPTION",
+      "CALENDAR-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_COMBINED",
+          "text": "退職・異動時の権限変更や送信前の確認に加え、業務アカウントの多要素認証とパソコンのOS更新にも取り組んでいると回答されています。日常の手順と技術的な対策をあわせて続けていくことが、組合の情報管理を支えます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_CONTACT",
+          "text": "いつもと違う依頼やトラブルがあった際の、連絡・確認の流れを整理することが今回の見直しに役立ちます。担当者の不在時にも対応できるかを、関係する方と確かめてみましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T07-TITLE",
+          "text": "振込先変更の確認",
+          "kind": "heading"
+        },
+        {
+          "id": "T07-COMMON",
+          "text": "取引先になりすましたメールなどで振込先の変更を求め、別の口座へ送金させる手口があります。メールが本物に見えても、相手のアカウントが不正に使われている場合があります。変更依頼に書かれた連絡先ではなく、以前から把握している電話番号などで確かめることで、依頼そのものが正しいかを別の経路で確認できます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T07-B02-NOT_DONE",
+          "text": "別経路で確認する手順をまだ設けていないとの回答でした。振込先の変更を受け付けたときに、既知の連絡先で確かめてから登録・支払いを行う流れを確認しましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T07-EXAMPLE-PURCHASING",
+          "text": "共同購買では、仕入先から振込先変更の連絡があった際、以前から把握している連絡先で確かめる場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T07-CHECK",
+          "text": "変更を受け付ける人、以前から把握している連絡先、確認結果の記録、登録や振込を承認する人を確かめてください。依頼メールへの返信だけで確認を終えていないかも確認します。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T08_PARTIAL",
+    "expectedThemes": [
+      "T08"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_COMBINED",
+      "S03-FOCUS_CONTACT",
+      "S03-RECOVERY_READY",
+      "T08-TITLE",
+      "T08-COMMON",
+      "T08-B04-PARTIAL",
+      "T08-EXAMPLE-WORKFORCE",
+      "T08-EXAMPLE-PURCHASING",
+      "T08-EXAMPLE-MEMBERSHIP",
+      "T08-CHECK",
+      "INCIDENT-TITLE",
+      "INCIDENT-DESCRIPTION",
+      "INCIDENT-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_COMBINED",
+          "text": "退職・異動時の権限変更や送信前の確認に加え、業務アカウントの多要素認証とパソコンのOS更新にも取り組んでいると回答されています。日常の手順と技術的な対策をあわせて続けていくことが、組合の情報管理を支えます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_CONTACT",
+          "text": "いつもと違う依頼やトラブルがあった際の、連絡・確認の流れを整理することが今回の見直しに役立ちます。担当者の不在時にも対応できるかを、関係する方と確かめてみましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T08-TITLE",
+          "text": "事故時の第一連絡先",
+          "kind": "heading"
+        },
+        {
+          "id": "T08-COMMON",
+          "text": "誤送信や端末の紛失、不審なログインに気づいたとき、連絡先が分からないと、状況の確認や被害拡大を抑える対応が遅れることがあります。最初に知らせる相手と不在時の連絡先を共有しておくと、職員が一人で抱え込まずに対応を始められます。発見した時刻と対応内容を記録することは、関係者への引き継ぎや、その後の影響確認にも役立ちます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T08-B04-PARTIAL",
+          "text": "事故時の連絡先は一部だけ決めているとの回答でした。どの事故を誰へ知らせるかと、担当者が不在のときの連絡先を確かめましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T08-EXAMPLE-WORKFORCE",
+          "text": "訪問先で端末や書類の紛失に気づいた場合など、事務局へ速やかに連絡する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T08-EXAMPLE-PURCHASING",
+          "text": "請求情報の誤送信や不審な変更依頼に気づいたとき、支払担当と責任者へ連絡する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T08-EXAMPLE-MEMBERSHIP",
+          "text": "会員向け案内の誤送信に気づいた場合など、送信担当と責任者が情報を共有する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T08-CHECK",
+          "text": "第一連絡先、不在時の代行先、連絡手段、発見時に伝える内容を確認してください。発見時刻や行った対応を残し、メールや操作記録などを安易に削除しないことも共有します。",
+          "kind": "check"
+        }
+      ]
+    }
+  },
+  {
+    "case": "T08_NOT_DONE",
+    "expectedThemes": [
+      "T08"
+    ],
+    "selectedTextIds": [
+      "S01-TITLE",
+      "S01-SUMMARY",
+      "S01-COUNT",
+      "S01-LIMIT",
+      "S01-SOURCE",
+      "S01-URL",
+      "S01-VERSION",
+      "I01-TITLE",
+      "I01-SUMMARY",
+      "I01-COUNT",
+      "I01-LIMIT",
+      "I01-SOURCE",
+      "I01-URL",
+      "I01-VERSION",
+      "I02-TITLE",
+      "I02-SUMMARY",
+      "I02-COUNT",
+      "I02-LIMIT",
+      "I02-SOURCE",
+      "I02-URL",
+      "I02-VERSION",
+      "S01-NOTE",
+      "S02-BUSINESS-ANSWERED",
+      "S02-INFO-SELECTED",
+      "S03-READY_COMBINED",
+      "S03-FOCUS_CONTACT",
+      "S03-RECOVERY_READY",
+      "T08-TITLE",
+      "T08-COMMON",
+      "T08-B04-NOT_DONE",
+      "T08-EXAMPLE-WORKFORCE",
+      "T08-EXAMPLE-PURCHASING",
+      "T08-EXAMPLE-MEMBERSHIP",
+      "T08-CHECK",
+      "INCIDENT-TITLE",
+      "INCIDENT-DESCRIPTION",
+      "INCIDENT-FORMAT",
+      "MAIL-TITLE",
+      "MAIL-DESCRIPTION",
+      "MAIL-FORMAT",
+      "EDUCATION-TITLE",
+      "EDUCATION-DESCRIPTION",
+      "EDUCATION-FORMAT",
+      "RESOURCE-ALL"
+    ],
+    "versions": {
+      "answer": "PIRA-A-2.0.0",
+      "rule": "PIRA-R-2.0.0",
+      "incident": "PIRA-C-20261018.1",
+      "explanation": "PIRA-EX-20261021.1",
+      "report": "PIRA-REPORT-3.0.0",
+      "renderer": "PIRA-HTMLPDF-3.0.0",
+      "resources": "PIRA-MATERIALS-20261020.1"
+    },
+    "summary": {
+      "key": "S3",
+      "title": "今回の回答から見えた管理状況",
+      "blocks": [
+        {
+          "id": "S03-READY_COMBINED",
+          "text": "退職・異動時の権限変更や送信前の確認に加え、業務アカウントの多要素認証とパソコンのOS更新にも取り組んでいると回答されています。日常の手順と技術的な対策をあわせて続けていくことが、組合の情報管理を支えます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-FOCUS_CONTACT",
+          "text": "いつもと違う依頼やトラブルがあった際の、連絡・確認の流れを整理することが今回の見直しに役立ちます。担当者の不在時にも対応できるかを、関係する方と確かめてみましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "S03-RECOVERY_READY",
+          "text": "電子データは、対象を決めて復元確認を行っていると回答されています。データやシステムの変更時にも、必要なものを戻せるかを確認する運用が役立ちます。",
+          "kind": "paragraph"
+        }
+      ]
+    },
+    "details": {
+      "key": "S4",
+      "title": "今回の診断で確認しておきたいこと",
+      "blocks": [
+        {
+          "id": "T08-TITLE",
+          "text": "事故時の第一連絡先",
+          "kind": "heading"
+        },
+        {
+          "id": "T08-COMMON",
+          "text": "誤送信や端末の紛失、不審なログインに気づいたとき、連絡先が分からないと、状況の確認や被害拡大を抑える対応が遅れることがあります。最初に知らせる相手と不在時の連絡先を共有しておくと、職員が一人で抱え込まずに対応を始められます。発見した時刻と対応内容を記録することは、関係者への引き継ぎや、その後の影響確認にも役立ちます。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T08-B04-NOT_DONE",
+          "text": "事故時の最初の連絡先をまだ決めていないとの回答でした。組合内の責任者と、必要に応じて連絡する保守会社などを整理し、職員がすぐ見られる場所に置きましょう。",
+          "kind": "paragraph"
+        },
+        {
+          "id": "T08-EXAMPLE-WORKFORCE",
+          "text": "訪問先で端末や書類の紛失に気づいた場合など、事務局へ速やかに連絡する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T08-EXAMPLE-PURCHASING",
+          "text": "請求情報の誤送信や不審な変更依頼に気づいたとき、支払担当と責任者へ連絡する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T08-EXAMPLE-MEMBERSHIP",
+          "text": "会員向け案内の誤送信に気づいた場合など、送信担当と責任者が情報を共有する場面が考えられます。",
+          "kind": "example"
+        },
+        {
+          "id": "T08-CHECK",
+          "text": "第一連絡先、不在時の代行先、連絡手段、発見時に伝える内容を確認してください。発見時刻や行った対応を残し、メールや操作記録などを安易に削除しないことも共有します。",
+          "kind": "check"
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,164 @@
+[
+  {
+    "file": "ALL_READY-ATLIB_GENERAL.pdf",
+    "pages": 6,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "ATLIB_GENERAL"
+  },
+  {
+    "file": "ALL_READY-MEMBER_COMPANY.pdf",
+    "pages": 6,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "MEMBER_COMPANY"
+  },
+  {
+    "file": "ALL_READY-PIRA_UNION.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "PIRA_UNION"
+  },
+  {
+    "file": "ALL_UNKNOWN-ATLIB_GENERAL.pdf",
+    "pages": 6,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "ATLIB_GENERAL"
+  },
+  {
+    "file": "ALL_UNKNOWN-MEMBER_COMPANY.pdf",
+    "pages": 6,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "MEMBER_COMPANY"
+  },
+  {
+    "file": "ALL_UNKNOWN-PIRA_UNION.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "PIRA_UNION"
+  },
+  {
+    "file": "BANK_NOT_DONE-ATLIB_GENERAL.pdf",
+    "pages": 6,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "ATLIB_GENERAL"
+  },
+  {
+    "file": "BANK_NOT_DONE-MEMBER_COMPANY.pdf",
+    "pages": 6,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "MEMBER_COMPANY"
+  },
+  {
+    "file": "BANK_NOT_DONE-PIRA_UNION.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "PIRA_UNION"
+  },
+  {
+    "file": "DELEGATED-ATLIB_GENERAL.pdf",
+    "pages": 6,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "ATLIB_GENERAL"
+  },
+  {
+    "file": "DELEGATED-MEMBER_COMPANY.pdf",
+    "pages": 6,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "MEMBER_COMPANY"
+  },
+  {
+    "file": "DELEGATED-PIRA_UNION.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "PIRA_UNION"
+  },
+  {
+    "file": "MAJOR_READY-ATLIB_GENERAL.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "ATLIB_GENERAL"
+  },
+  {
+    "file": "MAJOR_READY-MEMBER_COMPANY.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "MEMBER_COMPANY"
+  },
+  {
+    "file": "MAJOR_READY-PIRA_UNION.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "PIRA_UNION"
+  },
+  {
+    "file": "MANY_NA-ATLIB_GENERAL.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "ATLIB_GENERAL"
+  },
+  {
+    "file": "MANY_NA-MEMBER_COMPANY.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "MEMBER_COMPANY"
+  },
+  {
+    "file": "MANY_NA-PIRA_UNION.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "PIRA_UNION"
+  },
+  {
+    "file": "MIXED-ATLIB_GENERAL.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "ATLIB_GENERAL"
+  },
+  {
+    "file": "MIXED-MEMBER_COMPANY.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "MEMBER_COMPANY"
+  },
+  {
+    "file": "MIXED-PIRA_UNION.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "PIRA_UNION"
+  },
+  {
+    "file": "OS_PARTIAL-ATLIB_GENERAL.pdf",
+    "pages": 6,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "ATLIB_GENERAL"
+  },
+  {
+    "file": "OS_PARTIAL-MEMBER_COMPANY.pdf",
+    "pages": 6,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "MEMBER_COMPANY"
+  },
+  {
+    "file": "OS_PARTIAL-PIRA_UNION.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "PIRA_UNION"
+  },
+  {
+    "file": "TWO_TARGETS-ATLIB_GENERAL.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "ATLIB_GENERAL"
+  },
+  {
+    "file": "TWO_TARGETS-MEMBER_COMPANY.pdf",
+    "pages": 5,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "MEMBER_COMPANY"
+  },
+  {
+    "file": "TWO_TARGETS-PIRA_UNION.pdf",
+    "pages": 4,
+    "fullBodyAndVersions": "EXACT_MATCH",
+    "audience": "PIRA_UNION"
+  }
+]

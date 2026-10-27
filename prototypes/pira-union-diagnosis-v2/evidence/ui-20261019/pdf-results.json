@@ -1,0 +1,26 @@
+[
+  {
+    "file": "workforce-report.pdf",
+    "pages": 4,
+    "a4": true,
+    "originalTextExactMatch": true,
+    "textSha256": "95b82706326bc921b8761b67fdfd95ea214f11d4159f5bb7cf59501911c06066",
+    "status": "PASS"
+  },
+  {
+    "file": "purchasing-report.pdf",
+    "pages": 4,
+    "a4": true,
+    "originalTextExactMatch": true,
+    "textSha256": "9756abd20c80444ccae41cfa25384467c13baae4e4f002d70cd45f7a5e146d43",
+    "status": "PASS"
+  },
+  {
+    "file": "membership-report.pdf",
+    "pages": 4,
+    "a4": true,
+    "originalTextExactMatch": true,
+    "textSha256": "44a635a4099f04259e267acdb2f8780eff0d6b6d5f42aa2ae51b6108366976f9",
+    "status": "PASS"
+  }
+]

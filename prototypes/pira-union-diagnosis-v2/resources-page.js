@@ -1,0 +1,3 @@
+'use strict';
+const escapeResource=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+document.getElementById('materials-list').innerHTML=PiraResources.items.map(x=>'<section class="report-section resource-card"><h2>'+escapeResource(x.title)+'</h2><p>'+escapeResource(x.description).replace(/\n/g,'<br>')+'</p><p class="small">'+escapeResource(x.format)+'</p><div class="material-links">'+x.files.map(f=>'<a class="btn secondary" href="'+escapeResource(f.href)+'" target="_blank" rel="noopener">'+escapeResource(f.label)+'</a>').join('')+'</div></section>').join('');

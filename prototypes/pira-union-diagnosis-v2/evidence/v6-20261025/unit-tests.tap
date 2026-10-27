@@ -1,0 +1,550 @@
+TAP version 13
+# Subtest: F01 PR15 exact semantic output
+ok 1 - F01 PR15 exact semantic output
+  ---
+  duration_ms: 4.0875
+  type: 'test'
+  ...
+# Subtest: F02 PR15 exact semantic output
+ok 2 - F02 PR15 exact semantic output
+  ---
+  duration_ms: 0.4687
+  type: 'test'
+  ...
+# Subtest: F03 PR15 exact semantic output
+ok 3 - F03 PR15 exact semantic output
+  ---
+  duration_ms: 0.3269
+  type: 'test'
+  ...
+# Subtest: F04 PR15 exact semantic output
+ok 4 - F04 PR15 exact semantic output
+  ---
+  duration_ms: 0.3176
+  type: 'test'
+  ...
+# Subtest: F05 PR15 exact semantic output
+ok 5 - F05 PR15 exact semantic output
+  ---
+  duration_ms: 0.2562
+  type: 'test'
+  ...
+# Subtest: F06 PR15 exact semantic output
+ok 6 - F06 PR15 exact semantic output
+  ---
+  duration_ms: 1.0714
+  type: 'test'
+  ...
+# Subtest: F07 PR15 exact semantic output
+ok 7 - F07 PR15 exact semantic output
+  ---
+  duration_ms: 0.2935
+  type: 'test'
+  ...
+# Subtest: F01 canonical completed report: all six sections exactly match
+ok 8 - F01 canonical completed report: all six sections exactly match
+  ---
+  duration_ms: 0.7218
+  type: 'test'
+  ...
+# Subtest: F02 canonical completed report: all six sections exactly match
+ok 9 - F02 canonical completed report: all six sections exactly match
+  ---
+  duration_ms: 0.6248
+  type: 'test'
+  ...
+# Subtest: F03 canonical completed report: all six sections exactly match
+ok 10 - F03 canonical completed report: all six sections exactly match
+  ---
+  duration_ms: 0.7087
+  type: 'test'
+  ...
+# Subtest: UNKNOWN and authority stay distinct; no UNKNOWN-only finding
+ok 11 - UNKNOWN and authority stay distinct; no UNKNOWN-only finding
+  ---
+  duration_ms: 0.4879
+  type: 'test'
+  ...
+# Subtest: branch state cannot be supplied by caller or retain old branch answers
+ok 12 - branch state cannot be supplied by caller or retain old branch answers
+  ---
+  duration_ms: 0.7213
+  type: 'test'
+  ...
+# Subtest: validation rejects empty, invalid, duplicate, contradictory, extra input
+ok 13 - validation rejects empty, invalid, duplicate, contradictory, extra input
+  ---
+  duration_ms: 0.6705
+  type: 'test'
+  ...
+# Subtest: B01 non-applicable sensitive records require explicit other-workflow confirmation
+ok 14 - B01 non-applicable sensitive records require explicit other-workflow confirmation
+  ---
+  duration_ms: 0.3336
+  type: 'test'
+  ...
+# Subtest: T02 merges evidence and only selects the applicable checklist steps
+ok 15 - T02 merges evidence and only selects the applicable checklist steps
+  ---
+  duration_ms: 0.2371
+  type: 'test'
+  ...
+# Subtest: dependency does not invent a theme; overflow is explicit
+ok 16 - dependency does not invent a theme; overflow is explicit
+  ---
+  duration_ms: 0.3548
+  type: 'test'
+  ...
+# Subtest: same answers and versions yield same complete output and hashes
+ok 17 - same answers and versions yield same complete output and hashes
+  ---
+  duration_ms: 12.8235
+  type: 'test'
+  ...
+# Subtest: canonical serializer reuses existing object sorting and preserves arrays
+ok 18 - canonical serializer reuses existing object sorting and preserves arrays
+  ---
+  duration_ms: 0.4464
+  type: 'test'
+  ...
+# Subtest: fixed incident sources, count meanings, publication precision and content version
+ok 19 - fixed incident sources, count meanings, publication precision and content version
+  ---
+  duration_ms: 0.2607
+  type: 'test'
+  ...
+# Subtest: browser app has no network, persistence, product registration or AI calls
+ok 20 - browser app has no network, persistence, product registration or AI calls
+  ---
+  duration_ms: 2.4132
+  type: 'test'
+  ...
+# Subtest: F01 fixed explanation contract
+ok 21 - F01 fixed explanation contract
+  ---
+  duration_ms: 6.5853
+  type: 'test'
+  ...
+# Subtest: F02 fixed explanation contract
+ok 22 - F02 fixed explanation contract
+  ---
+  duration_ms: 1.5625
+  type: 'test'
+  ...
+# Subtest: F03 fixed explanation contract
+ok 23 - F03 fixed explanation contract
+  ---
+  duration_ms: 1.0652
+  type: 'test'
+  ...
+# Subtest: F04 fixed explanation contract
+ok 24 - F04 fixed explanation contract
+  ---
+  duration_ms: 1.8923
+  type: 'test'
+  ...
+# Subtest: F05 fixed explanation contract
+ok 25 - F05 fixed explanation contract
+  ---
+  duration_ms: 0.5551
+  type: 'test'
+  ...
+# Subtest: F06 fixed explanation contract
+ok 26 - F06 fixed explanation contract
+  ---
+  duration_ms: 0.6463
+  type: 'test'
+  ...
+# Subtest: F07 fixed explanation contract
+ok 27 - F07 fixed explanation contract
+  ---
+  duration_ms: 0.4162
+  type: 'test'
+  ...
+# Subtest: ALL_READY fixed explanation contract
+ok 28 - ALL_READY fixed explanation contract
+  ---
+  duration_ms: 0.3706
+  type: 'test'
+  ...
+# Subtest: ALL_UNKNOWN fixed explanation contract
+ok 29 - ALL_UNKNOWN fixed explanation contract
+  ---
+  duration_ms: 0.4134
+  type: 'test'
+  ...
+# Subtest: AUTHORITY fixed explanation contract
+ok 30 - AUTHORITY fixed explanation contract
+  ---
+  duration_ms: 0.5147
+  type: 'test'
+  ...
+# Subtest: NOT_APPLICABLE fixed explanation contract
+ok 31 - NOT_APPLICABLE fixed explanation contract
+  ---
+  duration_ms: 0.3398
+  type: 'test'
+  ...
+# Subtest: MULTI_BUSINESS fixed explanation contract
+ok 32 - MULTI_BUSINESS fixed explanation contract
+  ---
+  duration_ms: 0.424
+  type: 'test'
+  ...
+# Subtest: T02_COMPOUND fixed explanation contract
+ok 33 - T02_COMPOUND fixed explanation contract
+  ---
+  duration_ms: 0.3995
+  type: 'test'
+  ...
+# Subtest: T02_EXTERNAL_ONLY fixed explanation contract
+ok 34 - T02_EXTERNAL_ONLY fixed explanation contract
+  ---
+  duration_ms: 0.3578
+  type: 'test'
+  ...
+# Subtest: T02_NOTICE_ONLY fixed explanation contract
+ok 35 - T02_NOTICE_ONLY fixed explanation contract
+  ---
+  duration_ms: 0.3741
+  type: 'test'
+  ...
+# Subtest: T06_NOT_DONE fixed explanation contract
+ok 36 - T06_NOT_DONE fixed explanation contract
+  ---
+  duration_ms: 0.4108
+  type: 'test'
+  ...
+# Subtest: T06_PARTIAL fixed explanation contract
+ok 37 - T06_PARTIAL fixed explanation contract
+  ---
+  duration_ms: 0.3425
+  type: 'test'
+  ...
+# Subtest: T06_READY fixed explanation contract
+ok 38 - T06_READY fixed explanation contract
+  ---
+  duration_ms: 0.3256
+  type: 'test'
+  ...
+# Subtest: T06_UNKNOWN fixed explanation contract
+ok 39 - T06_UNKNOWN fixed explanation contract
+  ---
+  duration_ms: 0.4413
+  type: 'test'
+  ...
+# Subtest: ZERO_THEMES fixed explanation contract
+ok 40 - ZERO_THEMES fixed explanation contract
+  ---
+  duration_ms: 0.3669
+  type: 'test'
+  ...
+# Subtest: OVER_THREE fixed explanation contract
+ok 41 - OVER_THREE fixed explanation contract
+  ---
+  duration_ms: 0.5364
+  type: 'test'
+  ...
+# Subtest: T01_PARTIAL fixed explanation contract
+ok 42 - T01_PARTIAL fixed explanation contract
+  ---
+  duration_ms: 0.4316
+  type: 'test'
+  ...
+# Subtest: T01_NOT_DONE fixed explanation contract
+ok 43 - T01_NOT_DONE fixed explanation contract
+  ---
+  duration_ms: 0.3822
+  type: 'test'
+  ...
+# Subtest: T03_PARTIAL fixed explanation contract
+ok 44 - T03_PARTIAL fixed explanation contract
+  ---
+  duration_ms: 0.6217
+  type: 'test'
+  ...
+# Subtest: T03_NOT_DONE fixed explanation contract
+ok 45 - T03_NOT_DONE fixed explanation contract
+  ---
+  duration_ms: 0.4817
+  type: 'test'
+  ...
+# Subtest: T04_PARTIAL fixed explanation contract
+ok 46 - T04_PARTIAL fixed explanation contract
+  ---
+  duration_ms: 1.373
+  type: 'test'
+  ...
+# Subtest: T04_NOT_DONE fixed explanation contract
+ok 47 - T04_NOT_DONE fixed explanation contract
+  ---
+  duration_ms: 0.4776
+  type: 'test'
+  ...
+# Subtest: T05_PARTIAL fixed explanation contract
+ok 48 - T05_PARTIAL fixed explanation contract
+  ---
+  duration_ms: 0.5025
+  type: 'test'
+  ...
+# Subtest: T05_NOT_DONE fixed explanation contract
+ok 49 - T05_NOT_DONE fixed explanation contract
+  ---
+  duration_ms: 0.4625
+  type: 'test'
+  ...
+# Subtest: T07_PARTIAL fixed explanation contract
+ok 50 - T07_PARTIAL fixed explanation contract
+  ---
+  duration_ms: 0.4336
+  type: 'test'
+  ...
+# Subtest: T07_NOT_DONE fixed explanation contract
+ok 51 - T07_NOT_DONE fixed explanation contract
+  ---
+  duration_ms: 0.3041
+  type: 'test'
+  ...
+# Subtest: T08_PARTIAL fixed explanation contract
+ok 52 - T08_PARTIAL fixed explanation contract
+  ---
+  duration_ms: 0.331
+  type: 'test'
+  ...
+# Subtest: T08_NOT_DONE fixed explanation contract
+ok 53 - T08_NOT_DONE fixed explanation contract
+  ---
+  duration_ms: 0.4589
+  type: 'test'
+  ...
+# Subtest: write case trace and reviewable exact text baseline
+ok 54 - write case trace and reviewable exact text baseline
+  ---
+  duration_ms: 8.1525
+  type: 'test'
+  ...
+# Subtest: approved material bytes and description original
+ok 55 - approved material bytes and description original
+  ---
+  duration_ms: 2.8587
+  type: 'test'
+  ...
+# Subtest: ALL_READY PIRA_UNION approved contract
+ok 56 - ALL_READY PIRA_UNION approved contract
+  ---
+  duration_ms: 3.974
+  type: 'test'
+  ...
+# Subtest: ALL_READY MEMBER_COMPANY approved contract
+ok 57 - ALL_READY MEMBER_COMPANY approved contract
+  ---
+  duration_ms: 0.6518
+  type: 'test'
+  ...
+# Subtest: ALL_READY ATLIB_GENERAL approved contract
+ok 58 - ALL_READY ATLIB_GENERAL approved contract
+  ---
+  duration_ms: 0.4928
+  type: 'test'
+  ...
+# Subtest: ALL_UNKNOWN PIRA_UNION approved contract
+ok 59 - ALL_UNKNOWN PIRA_UNION approved contract
+  ---
+  duration_ms: 0.4136
+  type: 'test'
+  ...
+# Subtest: ALL_UNKNOWN MEMBER_COMPANY approved contract
+ok 60 - ALL_UNKNOWN MEMBER_COMPANY approved contract
+  ---
+  duration_ms: 0.4414
+  type: 'test'
+  ...
+# Subtest: ALL_UNKNOWN ATLIB_GENERAL approved contract
+ok 61 - ALL_UNKNOWN ATLIB_GENERAL approved contract
+  ---
+  duration_ms: 0.5297
+  type: 'test'
+  ...
+# Subtest: MIXED PIRA_UNION approved contract
+ok 62 - MIXED PIRA_UNION approved contract
+  ---
+  duration_ms: 1.1466
+  type: 'test'
+  ...
+# Subtest: MIXED MEMBER_COMPANY approved contract
+ok 63 - MIXED MEMBER_COMPANY approved contract
+  ---
+  duration_ms: 0.2715
+  type: 'test'
+  ...
+# Subtest: MIXED ATLIB_GENERAL approved contract
+ok 64 - MIXED ATLIB_GENERAL approved contract
+  ---
+  duration_ms: 0.3482
+  type: 'test'
+  ...
+# Subtest: MAJOR_READY PIRA_UNION approved contract
+ok 65 - MAJOR_READY PIRA_UNION approved contract
+  ---
+  duration_ms: 0.6664
+  type: 'test'
+  ...
+# Subtest: MAJOR_READY MEMBER_COMPANY approved contract
+ok 66 - MAJOR_READY MEMBER_COMPANY approved contract
+  ---
+  duration_ms: 0.3508
+  type: 'test'
+  ...
+# Subtest: MAJOR_READY ATLIB_GENERAL approved contract
+ok 67 - MAJOR_READY ATLIB_GENERAL approved contract
+  ---
+  duration_ms: 0.3038
+  type: 'test'
+  ...
+# Subtest: MANY_NA PIRA_UNION approved contract
+ok 68 - MANY_NA PIRA_UNION approved contract
+  ---
+  duration_ms: 0.2594
+  type: 'test'
+  ...
+# Subtest: MANY_NA MEMBER_COMPANY approved contract
+ok 69 - MANY_NA MEMBER_COMPANY approved contract
+  ---
+  duration_ms: 0.243
+  type: 'test'
+  ...
+# Subtest: MANY_NA ATLIB_GENERAL approved contract
+ok 70 - MANY_NA ATLIB_GENERAL approved contract
+  ---
+  duration_ms: 0.2555
+  type: 'test'
+  ...
+# Subtest: DELEGATED PIRA_UNION approved contract
+ok 71 - DELEGATED PIRA_UNION approved contract
+  ---
+  duration_ms: 0.2425
+  type: 'test'
+  ...
+# Subtest: DELEGATED MEMBER_COMPANY approved contract
+ok 72 - DELEGATED MEMBER_COMPANY approved contract
+  ---
+  duration_ms: 0.2864
+  type: 'test'
+  ...
+# Subtest: DELEGATED ATLIB_GENERAL approved contract
+ok 73 - DELEGATED ATLIB_GENERAL approved contract
+  ---
+  duration_ms: 0.3487
+  type: 'test'
+  ...
+# Subtest: TWO_TARGETS PIRA_UNION approved contract
+ok 74 - TWO_TARGETS PIRA_UNION approved contract
+  ---
+  duration_ms: 0.2891
+  type: 'test'
+  ...
+# Subtest: TWO_TARGETS MEMBER_COMPANY approved contract
+ok 75 - TWO_TARGETS MEMBER_COMPANY approved contract
+  ---
+  duration_ms: 0.3352
+  type: 'test'
+  ...
+# Subtest: TWO_TARGETS ATLIB_GENERAL approved contract
+ok 76 - TWO_TARGETS ATLIB_GENERAL approved contract
+  ---
+  duration_ms: 0.304
+  type: 'test'
+  ...
+# Subtest: OS_PARTIAL PIRA_UNION approved contract
+ok 77 - OS_PARTIAL PIRA_UNION approved contract
+  ---
+  duration_ms: 0.4646
+  type: 'test'
+  ...
+# Subtest: OS_PARTIAL MEMBER_COMPANY approved contract
+ok 78 - OS_PARTIAL MEMBER_COMPANY approved contract
+  ---
+  duration_ms: 0.2791
+  type: 'test'
+  ...
+# Subtest: OS_PARTIAL ATLIB_GENERAL approved contract
+ok 79 - OS_PARTIAL ATLIB_GENERAL approved contract
+  ---
+  duration_ms: 0.2692
+  type: 'test'
+  ...
+# Subtest: BANK_NOT_DONE PIRA_UNION approved contract
+ok 80 - BANK_NOT_DONE PIRA_UNION approved contract
+  ---
+  duration_ms: 0.276
+  type: 'test'
+  ...
+# Subtest: BANK_NOT_DONE MEMBER_COMPANY approved contract
+ok 81 - BANK_NOT_DONE MEMBER_COMPANY approved contract
+  ---
+  duration_ms: 0.4418
+  type: 'test'
+  ...
+# Subtest: BANK_NOT_DONE ATLIB_GENERAL approved contract
+ok 82 - BANK_NOT_DONE ATLIB_GENERAL approved contract
+  ---
+  duration_ms: 0.3411
+  type: 'test'
+  ...
+# Subtest: all 38 answer IDs, exact question/option text and source original paragraphs
+ok 83 - all 38 answer IDs, exact question/option text and source original paragraphs
+  ---
+  duration_ms: 1.5845
+  type: 'test'
+  ...
+# Subtest: each answer variant is selected intact when its topic is prioritized
+ok 84 - each answer variant is selected intact when its topic is prioritized
+  ---
+  duration_ms: 3.2566
+  type: 'test'
+  ...
+# Subtest: STOP01 T05 prioritizes calendar, never education by T05 mapping
+ok 85 - STOP01 T05 prioritizes calendar, never education by T05 mapping
+  ---
+  duration_ms: 0.2293
+  type: 'test'
+  ...
+# Subtest: READY recovery never claims tested; delegation not converted to done/not-done
+ok 86 - READY recovery never claims tested; delegation not converted to done/not-done
+  ---
+  duration_ms: 0.2817
+  type: 'test'
+  ...
+# Subtest: validation rejects missing, duplicate, unknown, injected state, old answer IDs
+ok 87 - validation rejects missing, duplicate, unknown, injected state, old answer IDs
+  ---
+  duration_ms: 0.4719
+  type: 'test'
+  ...
+# Subtest: all original material bytes are unchanged
+ok 88 - all original material bytes are unchanged
+  ---
+  duration_ms: 1.8173
+  type: 'test'
+  ...
+# Subtest: reproducible report hashes include audience and v6 versions
+ok 89 - reproducible report hashes include audience and v6 versions
+  ---
+  duration_ms: 16.9054
+  type: 'test'
+  ...
+# Subtest: write actual case trace
+ok 90 - write actual case trace
+  ---
+  duration_ms: 7.5772
+  type: 'test'
+  ...
+1..90
+# tests 90
+# suites 0
+# pass 90
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 254.1788

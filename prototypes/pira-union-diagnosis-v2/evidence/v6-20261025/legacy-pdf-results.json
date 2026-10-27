@@ -1,0 +1,50 @@
+[
+  {
+    "case": "F01",
+    "pages": 5,
+    "bodyAndVersion": "EXACT_BLOCK_MATCH",
+    "searchableJapanese": true,
+    "pageSize": "A4",
+    "textBounds": "PASS"
+  },
+  {
+    "case": "F02",
+    "pages": 4,
+    "bodyAndVersion": "EXACT_BLOCK_MATCH",
+    "searchableJapanese": true,
+    "pageSize": "A4",
+    "textBounds": "PASS"
+  },
+  {
+    "case": "F03",
+    "pages": 4,
+    "bodyAndVersion": "EXACT_BLOCK_MATCH",
+    "searchableJapanese": true,
+    "pageSize": "A4",
+    "textBounds": "PASS"
+  },
+  {
+    "case": "F04",
+    "pages": 3,
+    "bodyAndVersion": "EXACT_BLOCK_MATCH",
+    "searchableJapanese": true,
+    "pageSize": "A4",
+    "textBounds": "PASS"
+  },
+  {
+    "case": "F05",
+    "pages": 3,
+    "bodyAndVersion": "EXACT_BLOCK_MATCH",
+    "searchableJapanese": true,
+    "pageSize": "A4",
+    "textBounds": "PASS"
+  },
+  {
+    "case": "F06",
+    "pages": 6,
+    "bodyAndVersion": "EXACT_BLOCK_MATCH",
+    "searchableJapanese": true,
+    "pageSize": "A4",
+    "textBounds": "PASS"
+  }
+]
