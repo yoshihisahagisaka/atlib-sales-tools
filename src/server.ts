@@ -75,6 +75,8 @@ import { FreeDiagnosisDesignV2ReportPdfService } from './services/freeDiagnosisD
 import { MarketingInitiativeRepo } from './services/marketingInitiativeRepo';
 import { createAdminMarketingInitiativeRouter } from './routes/adminMarketingInitiative';
 import { TestCaseManagementRepo } from './services/testCaseManagementRepo';
+import { WscSalesService } from './services/wscSalesService';
+import { createAdminWebSecurityCheckRouter } from './routes/adminWebSecurityCheck';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -107,6 +109,7 @@ async function main(): Promise<void> {
   const estimateRepo = new EstimateRepo(pool);
   const aiAssistService = new AiAssistService(config.aiAssist.anthropicApiKey, marketRateRepo, estimatePreconditionRepo);
   const staffAuthService = new StaffAuthService(config.staffAuth.jwtSecret);
+  const wscSalesService = new WscSalesService();
   const itManagementDiagnosisRepo = new ItManagementDiagnosisRepo(pool);
   const preparationRepo = new DiagnosisPreparationRepo(pool);
   const preparationProvider = new AnthropicPreDiagnosisProvider(config.aiAssist.anthropicApiKey);
@@ -150,6 +153,9 @@ async function main(): Promise<void> {
   // 60分診断の文字起こし貼り付けはデフォルトの100KB上限を超えることがある。
   // グローバルより前に、このパスだけ大きめのexpress.json()を先にマウントする（見積AIと同じ対応）。
   app.use('/api/admin/kaizen-assessment', express.json({ limit: '2mb' }));
+  // Staff-only WSC CSV validation sends the source once, while actual
+  // diagnostics remain individual requests. Keep the larger body scope narrow.
+  app.use('/api/admin/web-security-check', express.json({ limit: '2mb' }));
   app.use(express.json());
   app.use(cookieParser());
 
@@ -214,6 +220,7 @@ async function main(): Promise<void> {
     createAdminKaizenAssessmentRouter(kaizenAssessmentRepo, kaizenAssessmentAiService),
   );
   app.use('/api/admin/market-rates', ...adminAuthGate, createAdminMarketRatesRouter(marketRateRepo));
+  app.use('/api/admin/web-security-check', ...adminAuthGate, createAdminWebSecurityCheckRouter(wscSalesService));
   app.use(
     '/api/admin/estimate-preconditions',
     ...adminAuthGate,

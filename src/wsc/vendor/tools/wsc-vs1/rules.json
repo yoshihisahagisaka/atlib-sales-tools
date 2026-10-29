@@ -1,0 +1,150 @@
+{
+  "ruleVersion": "WSC-R-1.0.0-draft",
+  "inputSchemaVersion": "2.0",
+  "classification": {
+    "confirmed": "設定確認済み",
+    "review": "追加確認推奨",
+    "internalOnly": "INTERNAL_ONLY"
+  },
+  "evaluationOrder": [
+    "validate_input",
+    "classify_acquisition",
+    "validate_field_types",
+    "select_finding",
+    "deduplicate",
+    "render"
+  ],
+  "findings": [
+    {
+      "id": "TLS_VALID",
+      "condition": "tls.status == VALIDATED AND tls.policyErrors == None",
+      "status": "設定確認済み",
+      "evidenceFields": [
+        "tls.status",
+        "tls.policyErrors",
+        "tls.negotiatedProtocol",
+        "tls.notAfter"
+      ]
+    },
+    {
+      "id": "TLS_EXPIRING",
+      "condition": "tls.status == VALIDATED AND 0 <= tls.daysRemaining <= 30",
+      "status": "追加確認推奨",
+      "evidenceFields": [
+        "tls.daysRemaining",
+        "tls.notAfter"
+      ]
+    },
+    {
+      "id": "TLS_INVALID",
+      "condition": "tls.status == VALIDATION_FAILED AND tls.policyErrors != None",
+      "status": "追加確認推奨",
+      "evidenceFields": [
+        "tls.status",
+        "tls.policyErrors"
+      ]
+    },
+    {
+      "id": "HSTS_ENABLED",
+      "condition": "http.status == OK AND HSTS.maxAge > 0",
+      "status": "設定確認済み",
+      "evidenceFields": [
+        "http.headers.Strict-Transport-Security"
+      ]
+    },
+    {
+      "id": "HSTS_DISABLED",
+      "condition": "http.status == OK AND (HSTS missing OR HSTS.maxAge == 0)",
+      "status": "追加確認推奨",
+      "evidenceFields": [
+        "http.headers.Strict-Transport-Security"
+      ]
+    },
+    {
+      "id": "CSP_HEADER_ABSENT",
+      "condition": "http.status == OK AND CSP header null",
+      "status": "追加確認推奨",
+      "evidenceFields": [
+        "http.headers.Content-Security-Policy"
+      ]
+    },
+    {
+      "id": "CSP_HEADER_PRESENT",
+      "condition": "http.status == OK AND CSP header nonempty",
+      "status": "設定確認済み",
+      "evidenceFields": [
+        "http.headers.Content-Security-Policy"
+      ]
+    },
+    {
+      "id": "FRAME_HEADER_ABSENT",
+      "condition": "http.status == OK AND XFO header null AND CSP header null",
+      "status": "追加確認推奨",
+      "evidenceFields": [
+        "http.headers.X-Frame-Options",
+        "http.headers.Content-Security-Policy"
+      ]
+    },
+    {
+      "id": "NOSNIFF_ENABLED",
+      "condition": "http.status == OK AND X-Content-Type-Options == nosniff",
+      "status": "設定確認済み",
+      "evidenceFields": [
+        "http.headers.X-Content-Type-Options"
+      ]
+    },
+    {
+      "id": "SPF_PRESENT",
+      "condition": "dns.spf.lookupStatus == FOUND AND recordCount == 1 AND record starts v=spf1",
+      "status": "設定確認済み",
+      "evidenceFields": [
+        "dns.spf.records",
+        "dns.spf.recordCount"
+      ]
+    },
+    {
+      "id": "SPF_MULTIPLE",
+      "condition": "dns.spf.lookupStatus == FOUND AND recordCount > 1",
+      "status": "追加確認推奨",
+      "evidenceFields": [
+        "dns.spf.recordCount"
+      ]
+    },
+    {
+      "id": "DMARC_NONE",
+      "condition": "dns.dmarc.lookupStatus == FOUND AND recordCount == 1 AND tags.p == none",
+      "status": "追加確認推奨",
+      "evidenceFields": [
+        "dns.dmarc.records",
+        "dns.dmarc.tags.p"
+      ]
+    },
+    {
+      "id": "DMARC_ENFORCING",
+      "condition": "dns.dmarc.lookupStatus == FOUND AND recordCount == 1 AND tags.p in [quarantine,reject]",
+      "status": "設定確認済み",
+      "evidenceFields": [
+        "dns.dmarc.tags.p"
+      ]
+    },
+    {
+      "id": "DMARC_ABSENT",
+      "condition": "dns.dmarc.lookupStatus == NO_RECORD",
+      "status": "追加確認推奨",
+      "evidenceFields": [
+        "dns.dmarc.lookupStatus"
+      ]
+    }
+  ],
+  "guards": [
+    "Only infer header absence when http.status == OK and the named header is explicitly null.",
+    "Unknown, error, missing field, malformed record, and unrecognized enum values yield INTERNAL_ONLY; never CONFIRMED.",
+    "TLS_EXPIRING is additional to TLS_VALID; do not count them as independent overall security scores.",
+    "If CSP exists, do not emit FRAME_HEADER_ABSENT; frame-ancestors must be parsed separately before claiming embedding protection.",
+    "Do not claim CSP presence establishes an effective policy.",
+    "SPF and DMARC validity are not proven by presence; basic syntax-only findings must say so.",
+    "Use checkedAt from input, not current system time, for reproducible output.",
+    "Raw HTML and user-supplied fields must be escaped.",
+    "All network operations are prohibited in evaluate and render."
+  ]
+}

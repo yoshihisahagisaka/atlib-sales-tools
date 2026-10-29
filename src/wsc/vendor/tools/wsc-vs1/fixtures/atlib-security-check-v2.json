@@ -1,0 +1,77 @@
+﻿{
+    "schemaVersion":  "2.0",
+    "targetUrl":  "https://www.atlib.jp/",
+    "mailDomain":  "atlib.jp",
+    "checkedAt":  "2026-10-25T15:21:34.0728129+09:00",
+    "http":  {
+                 "redirectNotFollowed":  true,
+                 "status":  "OK",
+                 "headers":  {
+                                 "Strict-Transport-Security":  "max-age=31536000; includeSubDomains",
+                                 "Content-Security-Policy":  null,
+                                 "X-Content-Type-Options":  "nosniff",
+                                 "X-Frame-Options":  null,
+                                 "Referrer-Policy":  "strict-origin-when-cross-origin",
+                                 "Permissions-Policy":  "camera=(), microphone=(), geolocation=()",
+                                 "Location":  null
+                             },
+                 "statusCode":  200
+             },
+    "tls":  {
+                "issuer":  "CN=YE1, O=Let\u0027s Encrypt, C=US",
+                "negotiatedProtocol":  "Tls13",
+                "policyErrors":  "None",
+                "notAfter":  "2027-01-21T03:29:26.0000000+09:00",
+                "notBefore":  "2026-10-23T03:29:27.0000000+09:00",
+                "subject":  "CN=www.atlib.jp",
+                "daysRemaining":  87,
+                "status":  "VALIDATED",
+                "chainStatus":  [
+
+                                ]
+            },
+    "dns":  {
+                "spf":  {
+                            "records":  [
+                                            "v=spf1 include:_spf.google.com include:spf.bmv.jp ~all"
+                                        ],
+                            "recordCount":  1,
+                            "lookupStatus":  "FOUND",
+                            "qualifierAll":  "~",
+                            "note":  "Only basic syntax is parsed; SPF DNS lookup budget is not evaluated."
+                        },
+                "dmarc":  {
+                              "records":  [
+                                              "v=DMARC1; p=none"
+                                          ],
+                              "recordCount":  1,
+                              "lookupStatus":  "FOUND",
+                              "tags":  {
+                                           "v":  "DMARC1",
+                                           "p":  "none"
+                                       }
+                          },
+                "mx":  {
+                           "status":  "FOUND",
+                           "values":  [
+                                          "alt3.aspmx.l.google.com priority=10",
+                                          "aspmx.l.google.com priority=1",
+                                          "alt1.aspmx.l.google.com priority=5",
+                                          "alt2.aspmx.l.google.com priority=5",
+                                          "alt4.aspmx.l.google.com priority=10"
+                                      ]
+                       },
+                "ds":  {
+                           "status":  "NO_RECORD",
+                           "values":  [
+
+                                      ]
+                       }
+            },
+    "limitations":  [
+                        "This checks one HTTPS GET response only; other pages may differ.",
+                        "SPF/DMARC checks apply to the specified mail domain, which may differ from the actual sending domain.",
+                        "DNSSEC DS presence is not DNSSEC validation.",
+                        "No DKIM selectors, actual mail authentication, or application vulnerabilities are tested."
+                    ]
+}

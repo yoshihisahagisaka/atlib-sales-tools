@@ -1,0 +1,36 @@
+{
+  "fixture": "atlib-security-check-v2.json",
+  "sourceCheckedAt": "2026-10-25T15:21:34.0728129+09:00",
+  "ruleVersion": "WSC-R-1.0.0-draft",
+  "contentVersion": "WSC-C-1.0.0-draft",
+  "expectedFindingIds": [
+    "TLS_VALID",
+    "HSTS_ENABLED",
+    "CSP_HEADER_ABSENT",
+    "FRAME_HEADER_ABSENT",
+    "NOSNIFF_ENABLED",
+    "SPF_PRESENT",
+    "DMARC_NONE"
+  ],
+  "expectedStatuses": {
+    "TLS_VALID": "設定確認済み",
+    "HSTS_ENABLED": "設定確認済み",
+    "CSP_HEADER_ABSENT": "追加確認推奨",
+    "FRAME_HEADER_ABSENT": "追加確認推奨",
+    "NOSNIFF_ENABLED": "設定確認済み",
+    "SPF_PRESENT": "設定確認済み",
+    "DMARC_NONE": "追加確認推奨"
+  },
+  "expectedInternalOnly": [
+    "DNSSEC_DS_NOT_FOUND",
+    "MX_FOUND"
+  ],
+  "expectedNoFindings": [
+    "TLS_EXPIRING",
+    "TLS_INVALID",
+    "SPF_MULTIPLE",
+    "DMARC_ABSENT",
+    "DMARC_ENFORCING"
+  ],
+  "note": "Expectation is authored from observed JSON. Run against implementation and compare exact IDs and fixed text; this file does not assert a test has run."
+}
