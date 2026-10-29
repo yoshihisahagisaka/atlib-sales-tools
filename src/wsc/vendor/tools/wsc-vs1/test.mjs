@@ -44,15 +44,16 @@ assert.match(protectedHtml, /data:image\/png;base64,/, 'FV icons embedded');
 assert.match(protectedHtml, /data:image\/jpeg;base64,/, 'cover image embedded');
 const atlibReport = evaluate(json('atlib-security-check-v2.json'), opts);
 const atlibHtml = render(atlibReport, json('atlib-company.json'));
-for (const approvedImpact of [
-  'Webサイトでやり取りする情報を第三者に盗み見られたり、通信内容を改ざんされたりするおそれがあります。',
-  '利用者が暗号化されていない通信へ誘導され、通信内容の盗聴や改ざんにつながるおそれがあります。',
-  'Webサイトのファイルが悪用され、閲覧した人のパソコンで不正なプログラムが動いたり、情報を盗まれたりするおそれがあります。',
-  'Webサイトに不正なプログラムが入り込んだ場合、利用者の情報が盗まれたり、不正なサイトへ誘導されたりする被害を抑えにくくなります。',
-  '偽装された画面を使い、利用者が気づかないうちに意図しない操作をさせられるおそれがあります。',
-  '自社を装った偽メールが取引先に届き、偽の請求書や振込先変更の案内による詐欺被害につながるおそれがあります。',
-  '自社を装った偽メールによって取引先に金銭被害や情報漏えいが発生し、自社の信用低下や取引停止につながりかねません。'
-]) assert.ok(atlibHtml.includes(approvedImpact), `approved customer impact: ${approvedImpact}`);
+for (const approvedCopy of [
+  'Webサイトのアドレスが「https://」で始まっているのを見たことがあると思います。これは、Webサイトと利用者の間でやり取りする情報を暗号化し、第三者に盗み見られたり、途中で書き換えられたりすることを防ぐための仕組みです。',
+  'HSTSは、ブラウザに対して、次回以降も暗号化されたHTTPS通信を使うよう指示する仕組みです。暗号化されていない通信へ戻ってしまう危険を減らします。',
+  'CSPは、こうしたプログラムをどこから読み込んでよいかなどを制限する仕組みです。万が一、不正なプログラムが入り込んだ場合でも、勝手な動作や情報の持ち出しを抑えるために役立ちます。',
+  '画面埋め込み制御は、自社のWebページが他のサイト内に勝手に組み込まれることを制限する仕組みです。悪意のあるサイトに自社の画面を利用され、利用者が気づかないうちに意図しない操作をさせられる攻撃を防ぐために役立ちます。',
+  'NOSNIFFは、ブラウザがファイルの種類を勝手に判断して、想定外の方法で扱うことを防ぐための仕組みです。',
+  'SPFは、その会社のドメインからメールを送信してよいサーバーをあらかじめ登録しておく仕組みです。受信側が送信元を確認する際の手がかりになり、なりすましメールを見分けるために役立ちます。',
+  'DMARCは、自社を装ったメールが認証に失敗した場合、受信側に対して隔離や拒否などの対応方針を伝える仕組みです。自社の名前を悪用した偽メールが取引先などに届く危険を減らすために役立ちます。'
+]) assert.ok(atlibHtml.includes(approvedCopy), `approved customer copy: ${approvedCopy}`);
+assert.match(atlibHtml, /どのような対策なのか/, 'protection explanation heading');
 assert.match(atlibHtml, /対策が不十分だと、どうなるのか/, 'customer impact heading');
 assert.match(atlibHtml, /warning-icon/, 'review findings use the warning triangle');
 assert.ok(!atlibHtml.includes('原値：') && !atlibHtml.includes('RFC 8446') && !atlibHtml.includes('MDN CSP'), 'customer HTML excludes raw values and technical references');
