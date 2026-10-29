@@ -195,7 +195,7 @@ render = (report, company) => {
       return finding ? customerFinding(finding) : original;
     })
     .replace(/<section class="detail report-section" id="next-steps">[\s\S]*?<\/section><\/body>/, `${closing}</body>`)
-    .replace('</style>', '.warning-icon{color:#D39A00;font-size:1.05em;margin-right:3px}</style>');
+    .replace('</style>', '.warning-icon{color:#D39A00;font-size:1.05em;margin-right:3px}body{font-family:"Noto Sans JP","Noto Sans CJK JP","Yu Gothic","Meiryo",sans-serif!important}</style>');
 };
 
 function main() {

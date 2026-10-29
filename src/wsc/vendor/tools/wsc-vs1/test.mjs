@@ -56,6 +56,7 @@ for (const approvedCopy of [
 assert.match(atlibHtml, /どのような対策なのか/, 'protection explanation heading');
 assert.match(atlibHtml, /対策が不十分だと、どうなるのか/, 'customer impact heading');
 assert.match(atlibHtml, /warning-icon/, 'review findings use the warning triangle');
+assert.match(atlibHtml, /font-family:"Noto Sans JP","Noto Sans CJK JP","Yu Gothic","Meiryo",sans-serif/, 'Japanese Noto Sans font stack is emitted');
 assert.ok(!atlibHtml.includes('原値：') && !atlibHtml.includes('RFC 8446') && !atlibHtml.includes('MDN CSP'), 'customer HTML excludes raw values and technical references');
 assert.ok(!atlibHtml.includes('data-finding-id') && !atlibHtml.includes('ルール版：'), 'customer HTML excludes internal identifiers and versions');
 assert.ok(atlibReport.findings.find((finding) => finding.id === 'TLS_VALID').details.some((detail) => detail.raw === 'Tls13'), 'raw protocol remains in the internal report');
