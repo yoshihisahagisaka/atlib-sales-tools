@@ -5,7 +5,7 @@
 - `/admin/web-security-check.html` と `/api/admin/web-security-check` は、既存の Google Workspace スタッフ認証ゲート配下に追加した。
 - 完成済み WSC VS1、Phase 2A〜2C のモジュールは、`src/wsc/vendor/` に原文のまま取り込んだ。Sales Tools 側には、認証済みの単一実行を Phase 2C の一回限り能力契約へ接続し、VS1 HTML と既存 Playwright によるPDF出力をつなぐ薄いアダプターだけを置いた。
 - 診断JSON・HTML・PDFをDBまたはGCSへ保存しない。PDFのバイト列だけを応答し、ブラウザの File System Access API が利用者の選択先へ書き込む。
-- CSVはブラウザが読み込み、各物理行を既存 WSC CSV パーサーで検証してから、一社ずつ `/diagnose` を呼び出す。所在地は既存仕様どおり空欄可。
+- CSVはブラウザが一度だけ送信し、既存 WSC CSV パーサーが全体を検証する。ブラウザは返された有効企業だけを一社ずつ `/diagnose` へ送る。所在地は既存仕様どおり空欄可。
 
 ## 未実装：CSV ZIP
 

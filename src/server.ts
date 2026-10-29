@@ -153,6 +153,9 @@ async function main(): Promise<void> {
   // 60分診断の文字起こし貼り付けはデフォルトの100KB上限を超えることがある。
   // グローバルより前に、このパスだけ大きめのexpress.json()を先にマウントする（見積AIと同じ対応）。
   app.use('/api/admin/kaizen-assessment', express.json({ limit: '2mb' }));
+  // Staff-only WSC CSV validation sends the source once, while actual
+  // diagnostics remain individual requests. Keep the larger body scope narrow.
+  app.use('/api/admin/web-security-check', express.json({ limit: '2mb' }));
   app.use(express.json());
   app.use(cookieParser());
 

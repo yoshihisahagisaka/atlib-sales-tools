@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { WscSalesService } from '../src/services/wscSalesService';
 
 const diagnosis = {
@@ -27,4 +29,17 @@ test('uses the completed WSC evaluator and renderer through a synthetic safe tra
 test('rejects a non-HTTPS target before transport', async () => {
   const service = new WscSalesService({ renderPdf: async () => Buffer.alloc(0) });
   await assert.rejects(() => service.diagnose({ name: '検証', url: 'http://example.org/', executor: 'staff@atlib.jp' }), /WSC_URL_HTTPS_REQUIRED/);
+});
+
+test('reuses the WSC CSV parser for BOM, quoted fields, and invalid rows', async () => {
+  type ParsedCsv = { companies: Array<{ name: string; headOffice: string; url: string }>; errors: Array<{ row: number; code: string }> };
+  type CsvModule = { parseCompaniesCsv(source: string): ParsedCsv };
+  const nativeImport = Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<CsvModule>;
+  const csv = await nativeImport(pathToFileURL(path.resolve(process.cwd(), 'src/wsc/vendor/tools/wsc-phase2a/csv.mjs')).href);
+  const result = csv.parseCompaniesCsv('\uFEFF企業名,本店所在地,URL\n"検証,株式会社",,https://example.org/\nURLなし,,\n');
+  assert.equal(result.companies.length, 1);
+  assert.equal(result.companies[0]?.name, '検証,株式会社');
+  assert.equal(result.companies[0]?.headOffice, '');
+  assert.equal(result.errors[0]?.row, 3);
+  assert.equal(result.errors[0]?.code, 'CSV_REQUIRED_VALUE_MISSING');
 });
