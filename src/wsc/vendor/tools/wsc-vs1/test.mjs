@@ -42,12 +42,23 @@ assert.ok(!protectedHtml.includes('偽メールの隔離・拒否を求める設
 assert.ok(!protectedHtml.includes('<svg'), 'detail SVG illustrations removed');
 assert.match(protectedHtml, /data:image\/png;base64,/, 'FV icons embedded');
 assert.match(protectedHtml, /data:image\/jpeg;base64,/, 'cover image embedded');
-const atlibHtml = render(evaluate(json('atlib-security-check-v2.json'), opts), json('atlib-company.json'));
-assert.match(atlibHtml, /証明書検証.*成功/, 'Japanese TLS result');
-assert.match(atlibHtml, /通信方式.*TLS 1\.3/, 'Japanese protocol');
-assert.match(atlibHtml, /原値：Tls13/, 'raw value retained');
-assert.match(atlibHtml, /RFC 8446/, 'TLS source');
-assert.match(atlibHtml, /https:\/\/developer\.mozilla\.org\/ja\/docs\/Web\/HTTP\/Reference\/Headers\/Content-Security-Policy/, 'CSP source URL');
+const atlibReport = evaluate(json('atlib-security-check-v2.json'), opts);
+const atlibHtml = render(atlibReport, json('atlib-company.json'));
+for (const approvedImpact of [
+  'Webサイトでやり取りする情報を第三者に盗み見られたり、通信内容を改ざんされたりするおそれがあります。',
+  '利用者が暗号化されていない通信へ誘導され、通信内容の盗聴や改ざんにつながるおそれがあります。',
+  'Webサイトのファイルが悪用され、閲覧した人のパソコンで不正なプログラムが動いたり、情報を盗まれたりするおそれがあります。',
+  'Webサイトに不正なプログラムが入り込んだ場合、利用者の情報が盗まれたり、不正なサイトへ誘導されたりする被害を抑えにくくなります。',
+  '偽装された画面を使い、利用者が気づかないうちに意図しない操作をさせられるおそれがあります。',
+  '自社を装った偽メールが取引先に届き、偽の請求書や振込先変更の案内による詐欺被害につながるおそれがあります。',
+  '自社を装った偽メールによって取引先に金銭被害や情報漏えいが発生し、自社の信用低下や取引停止につながりかねません。'
+]) assert.ok(atlibHtml.includes(approvedImpact), `approved customer impact: ${approvedImpact}`);
+assert.match(atlibHtml, /対策が不十分だと、どうなるのか/, 'customer impact heading');
+assert.match(atlibHtml, /warning-icon/, 'review findings use the warning triangle');
+assert.ok(!atlibHtml.includes('原値：') && !atlibHtml.includes('RFC 8446') && !atlibHtml.includes('MDN CSP'), 'customer HTML excludes raw values and technical references');
+assert.ok(!atlibHtml.includes('data-finding-id') && !atlibHtml.includes('ルール版：'), 'customer HTML excludes internal identifiers and versions');
+assert.ok(atlibReport.findings.find((finding) => finding.id === 'TLS_VALID').details.some((detail) => detail.raw === 'Tls13'), 'raw protocol remains in the internal report');
+assert.match(atlibHtml, /診断結果を、これからの対策につなげるために/, 'approved customer closing');
 assert.equal(assertUrlMatch('https://EXAMPLE.test:443/', 'https://example.test/'), 'https://example.test/', 'presentation-only URL difference');
 assert.throws(() => assertUrlMatch('https://example.test/', 'https://www.example.test/'), /一致しない/, 'different host rejected');
 assert.throws(() => assertUrlMatch('http://example.test/', 'https://example.test/'), /一致しない/, 'redirect is not assumed');

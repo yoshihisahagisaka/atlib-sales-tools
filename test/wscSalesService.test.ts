@@ -24,6 +24,10 @@ test('uses the completed WSC evaluator and renderer through a synthetic safe tra
   assert.deepEqual(result.pdf, Buffer.from('synthetic-pdf'));
   assert.match(rendered, /通信の暗号化ができています/);
   assert.match(rendered, /検証株式会社 御中/);
+  assert.match(rendered, /Webサイトのファイルが悪用され、閲覧した人のパソコンで不正なプログラムが動いたり、情報を盗まれたりするおそれがあります。/);
+  assert.match(rendered, /<span class="warning-icon" aria-hidden="true">⚠<\/span>追加確認推奨/);
+  assert.match(rendered, /診断結果を、これからの対策につなげるために/);
+  assert.doesNotMatch(rendered, /原値：|RFC 8446|MDN CSP|data-finding-id/);
 });
 
 test('rejects a non-HTTPS target before transport', async () => {

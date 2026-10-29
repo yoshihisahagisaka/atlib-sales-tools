@@ -39,6 +39,22 @@ export function assertUrlMatch(companyUrl, targetUrl) {
 const FV_COPY = Object.freeze({
   TLS_VALID: '通信の暗号化ができています', HSTS_ENABLED: '暗号化通信を継続する設定があります', NOSNIFF_ENABLED: 'ファイルの誤った取り扱いを抑える設定があります', CSP_HEADER_ABSENT: 'プログラムの読み込み制限について確認をおすすめします', FRAME_HEADER_ABSENT: '他サイトへの画面表示の制限について確認をおすすめします', SPF_PRESENT: 'メールの送信元を示す設定があります', DMARC_NONE: '偽メールの隔離・拒否を求める設定にはなっていません'
 });
+const IMPACT_COPY = Object.freeze({
+  TLS_VALID: 'Webサイトでやり取りする情報を第三者に盗み見られたり、通信内容を改ざんされたりするおそれがあります。',
+  TLS_EXPIRING: 'Webサイトでやり取りする情報を第三者に盗み見られたり、通信内容を改ざんされたりするおそれがあります。',
+  TLS_INVALID: 'Webサイトでやり取りする情報を第三者に盗み見られたり、通信内容を改ざんされたりするおそれがあります。',
+  HSTS_ENABLED: '利用者が暗号化されていない通信へ誘導され、通信内容の盗聴や改ざんにつながるおそれがあります。',
+  HSTS_DISABLED: '利用者が暗号化されていない通信へ誘導され、通信内容の盗聴や改ざんにつながるおそれがあります。',
+  NOSNIFF_ENABLED: 'Webサイトのファイルが悪用され、閲覧した人のパソコンで不正なプログラムが動いたり、情報を盗まれたりするおそれがあります。',
+  CSP_HEADER_ABSENT: 'Webサイトに不正なプログラムが入り込んだ場合、利用者の情報が盗まれたり、不正なサイトへ誘導されたりする被害を抑えにくくなります。',
+  CSP_HEADER_PRESENT: 'Webサイトに不正なプログラムが入り込んだ場合、利用者の情報が盗まれたり、不正なサイトへ誘導されたりする被害を抑えにくくなります。',
+  FRAME_HEADER_ABSENT: '偽装された画面を使い、利用者が気づかないうちに意図しない操作をさせられるおそれがあります。',
+  SPF_PRESENT: '自社を装った偽メールが取引先に届き、偽の請求書や振込先変更の案内による詐欺被害につながるおそれがあります。',
+  SPF_MULTIPLE: '自社を装った偽メールが取引先に届き、偽の請求書や振込先変更の案内による詐欺被害につながるおそれがあります。',
+  DMARC_NONE: '自社を装った偽メールによって取引先に金銭被害や情報漏えいが発生し、自社の信用低下や取引停止につながりかねません。',
+  DMARC_ENFORCING: '自社を装った偽メールによって取引先に金銭被害や情報漏えいが発生し、自社の信用低下や取引停止につながりかねません。',
+  DMARC_ABSENT: '自社を装った偽メールによって取引先に金銭被害や情報漏えいが発生し、自社の信用低下や取引停止につながりかねません。'
+});
 const SOURCES = Object.freeze({
   TLS_VALID: [['RFC 8446', 'https://www.rfc-editor.org/rfc/rfc8446']], TLS_EXPIRING: [['RFC 8446', 'https://www.rfc-editor.org/rfc/rfc8446']], TLS_INVALID: [['RFC 8446', 'https://www.rfc-editor.org/rfc/rfc8446']],
   HSTS_ENABLED: [['RFC 6797', 'https://www.rfc-editor.org/rfc/rfc6797']], HSTS_DISABLED: [['RFC 6797', 'https://www.rfc-editor.org/rfc/rfc6797']],
@@ -137,6 +153,29 @@ render = (report, company) => {
   return assetDecoratedRender(report, company)
     .replace(`<strong>${html(originalName)}</strong>`, `<strong>${html(coverName)}</strong>`)
     .replace(`<span>${html(company.url)}</span><span>`, `<span>調査対象URL：${html(company.url)}</span><span>`);
+};
+
+// The customer-facing report deliberately exposes only the approved result and
+// impact copy. Raw evidence, rule IDs, and technical references remain in the
+// evaluated report object for internal use, but are not rendered into this HTML.
+const customerFacingRender = render;
+render = (report, company) => {
+  const findingById = new Map(report.findings.map((finding) => [finding.id, finding]));
+  const status = (finding) => {
+    const review = finding.status === '追加確認推奨';
+    return `<span class="tag${review ? ' review' : ''}">${review ? '<span class="warning-icon" aria-hidden="true">⚠</span>' : ''}${html(finding.status)}</span>`;
+  };
+  const customerFinding = (finding) => `<article class="finding${finding.status === '追加確認推奨' ? ' review' : ''}">${status(finding)}<h3>${html(finding.title)}</h3><h4>今回の診断結果</h4><p>${html(finding.observation)}</p><h4>対策が不十分だと、どうなるのか</h4><p>${html(IMPACT_COPY[finding.id] || finding.knowledge)}</p></article>`;
+  const closing = `<section class="detail report-section" id="next-steps"><h2>診断結果を、これからの対策につなげるために</h2><p>今回の診断では、Webサイトやメールに関する公開設定を確認しました。</p><p>「追加確認推奨」となった項目については、現在の管理状況や他の対策の有無も含め、Webサイトの制作会社、保守会社、メール管理担当者などに確認することをおすすめします。</p><p>セキュリティ対策は、自社だけの問題ではありません。</p><p>自社のWebサイトやメールが悪用されれば、お客様や取引先にも被害が及び、信用問題や取引関係への影響につながりかねません。</p><p>今回の結果を、必要な対策を見直すきっかけとしてお役立てください。</p><div class="final-note"><b>診断の範囲について</b><p>本診断はインターネット上に公開されているWebサイトやメールの設定を確認したものであり、企業全体のセキュリティ対策や安全性を評価するものではありません。</p><p>「追加確認推奨」は管理担当者や保守会社への確認をおすすめするものであり、atLIBによる追加調査を約束するものではありません。</p></div></section>`;
+  return customerFacingRender(report, company)
+    .replace(/<div class="ov-item">([\s\S]*?)<small>[\s\S]*?<\/small>/g, '<div class="ov-item">$1')
+    .replace(/<span class="ov-status review">/g, '<span class="ov-status review"><span class="warning-icon" aria-hidden="true">⚠</span>')
+    .replace(/<article class="finding[^>]*data-finding-id="([^"]+)"[^>]*>[\s\S]*?<\/article>/g, (original, id) => {
+      const finding = findingById.get(id);
+      return finding ? customerFinding(finding) : original;
+    })
+    .replace(/<section class="detail report-section" id="next-steps">[\s\S]*?<\/section><\/body>/, `${closing}</body>`)
+    .replace('</style>', '.warning-icon{color:#D39A00;font-size:1.05em;margin-right:3px}</style>');
 };
 
 function main() {
