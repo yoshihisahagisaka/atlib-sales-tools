@@ -1,0 +1,117 @@
+{
+  "contentVersion": "WSC-C-1.0.0-draft",
+  "entries": {
+    "TLS_VALID": {
+      "title": "Webサイトの通信を守る仕組み",
+      "observation": "今回の接続では暗号化通信が成立し、証明書の検証にも成功しました。",
+      "evidenceExplanation": "通信方式と証明書の検証結果を確認しました。",
+      "knowledge": "暗号化通信は、Webサイトとのやり取りを途中で読み取られたり、書き換えられたりする危険を減らす仕組みです。HTTPSだけでサイト全体の安全性が保証されるわけではありません。",
+      "nextAction": "証明書が期限切れにならないよう、更新の管理方法を確認しておきましょう。",
+      "reference": "RFC 8446"
+    },
+    "TLS_EXPIRING": {
+      "title": "Webサイトの証明書の更新",
+      "observation": "Webサイトの証明書の有効期限が近づいています。",
+      "evidenceExplanation": "取得した証明書の有効期限と診断時点の残日数に基づいています。",
+      "knowledge": "証明書の期限が切れると、利用者のブラウザに警告が表示されることがあります。",
+      "nextAction": "Webサイト管理者に、更新予定と自動更新の状態を確認してください。",
+      "reference": null
+    },
+    "TLS_INVALID": {
+      "title": "Webサイトの証明書",
+      "observation": "今回の接続で証明書の検証に問題が報告されました。",
+      "evidenceExplanation": "証明書検証で報告されたエラーの種類を根拠にしています。",
+      "knowledge": "証明書の問題があると、閲覧者が正しい接続先であることを確認しにくくなります。",
+      "nextAction": "Webサイト管理者に証明書と接続先の設定を確認してもらってください。",
+      "reference": null
+    },
+    "HSTS_ENABLED": {
+      "title": "暗号化通信を使い続ける設定",
+      "observation": "ブラウザにHTTPSを利用するよう指示する設定があります。",
+      "evidenceExplanation": "HSTSの有効期間を示すmax-ageが正の値です。",
+      "knowledge": "この設定は、対応するブラウザがHTTPへ戻ることを防ぐために役立ちます。",
+      "nextAction": "Webサイト管理者に、設定の継続管理を確認しておきましょう。",
+      "reference": null
+    },
+    "HSTS_DISABLED": {
+      "title": "暗号化通信を使い続ける設定",
+      "observation": "HTTPSを継続利用させる設定について、確認をおすすめします。",
+      "evidenceExplanation": "今回の応答でHSTSがないか、有効期間が0に指定されています。",
+      "knowledge": "HSTSは、ブラウザが暗号化されない接続へ戻る危険を減らす仕組みです。",
+      "nextAction": "Webサイト管理者に、HSTSを利用する必要があるか確認してください。",
+      "reference": null
+    },
+    "CSP_HEADER_ABSENT": {
+      "title": "Webサイトで動くプログラムの制限",
+      "observation": "Webサイトのプログラムの読み込み制限について、確認をおすすめします。",
+      "evidenceExplanation": "今回のトップページのHTTP応答にはCSPヘッダーがありませんでした。HTML内の設定や他ページは調べていません。",
+      "knowledge": "CSPは、読み込めるプログラムなどを制限し、万一の不正な動作の影響を抑えるために役立ちます。",
+      "nextAction": "Webサイトの制作会社に、読み込み制限の設定が必要か確認してください。",
+      "reference": "MDN Content-Security-Policy"
+    },
+    "CSP_HEADER_PRESENT": {
+      "title": "Webサイトで動くプログラムの制限",
+      "observation": "プログラムなどの読み込み方針を示す設定が見つかりました。",
+      "evidenceExplanation": "今回のHTTP応答にCSPヘッダーが含まれています。設定内容の強度は評価していません。",
+      "knowledge": "CSPは、ブラウザが読み込むプログラムなどを制限するための仕組みです。",
+      "nextAction": "制作会社に、現在の設定がサイトの構成に合っているか確認しておきましょう。",
+      "reference": null
+    },
+    "FRAME_HEADER_ABSENT": {
+      "title": "他サイトへの画面の埋め込み制御",
+      "observation": "Webページを他サイト内に表示させる制限について、確認をおすすめします。",
+      "evidenceExplanation": "今回のHTTP応答ではX-Frame-OptionsとCSPヘッダーのいずれもありませんでした。",
+      "knowledge": "他サイト内に画面を重ねて表示し、利用者に意図しない操作をさせる攻撃への備えとして、埋め込み制御が役立ちます。",
+      "nextAction": "Webサイト管理者に、画面の埋め込み制限が必要か確認してください。",
+      "reference": "MDN X-Frame-Options / CSP frame-ancestors"
+    },
+    "NOSNIFF_ENABLED": {
+      "title": "ファイルの種類の取り扱い",
+      "observation": "ブラウザがファイルの種類を独自に推測しにくくする設定があります。",
+      "evidenceExplanation": "HTTP応答にnosniffが指定されています。",
+      "knowledge": "ブラウザが意図しない種類としてファイルを扱うことを抑える仕組みです。",
+      "nextAction": "この設定を維持できるよう、Webサイト管理者と共有しておきましょう。",
+      "reference": null
+    },
+    "SPF_PRESENT": {
+      "title": "メールの送信元を示す設定",
+      "observation": "自社ドメインのメール送信元を示す公開設定があります。",
+      "evidenceExplanation": "SPFレコードが1件登録されています。参照先を含む設定全体の妥当性は検証していません。",
+      "knowledge": "SPFは、どの送信サーバーがそのドメインのメールを送れるかを示す仕組みです。",
+      "nextAction": "メール管理担当者に、実際に利用する送信サービスが設定に含まれているか確認しておきましょう。",
+      "reference": "RFC 7208"
+    },
+    "SPF_MULTIPLE": {
+      "title": "メール送信元の設定",
+      "observation": "SPFの公開設定が複数登録されています。",
+      "evidenceExplanation": "同じドメインに複数のSPFレコードが見つかりました。",
+      "knowledge": "SPFでは複数レコードがあると、正しい認証処理ができなくなる場合があります。",
+      "nextAction": "メール管理担当者にSPFレコードの整理を依頼してください。",
+      "reference": "RFC 7208"
+    },
+    "DMARC_NONE": {
+      "title": "自社を装った偽メールへの対策",
+      "observation": "なりすましメールの扱いについて、現在の設定を確認することをおすすめします。",
+      "evidenceExplanation": "DMARCの公開設定はp=noneです。認証に失敗したメールの隔離や拒否を受信側へ要求しない指定です。",
+      "knowledge": "自社を装った偽の請求書や振込先変更メールは、取引先に被害を与えるおそれがあります。DMARCはその対策の一つです。",
+      "nextAction": "メール管理担当者に、正規メールへの影響を確認したうえで設定を強化できるか相談してください。",
+      "reference": "DMARC specification"
+    },
+    "DMARC_ENFORCING": {
+      "title": "自社を装った偽メールへの対策",
+      "observation": "認証に失敗したメールへの対応方針が公開されています。",
+      "evidenceExplanation": "DMARCのp値に隔離または拒否が指定されています。実際の配信・認証状況は検証していません。",
+      "knowledge": "DMARCは、送信元認証に失敗したメールの扱いを受信側に伝える仕組みです。",
+      "nextAction": "メール管理担当者に、運用状況を継続確認してもらいましょう。",
+      "reference": "DMARC specification"
+    },
+    "DMARC_ABSENT": {
+      "title": "自社を装った偽メールへの対策",
+      "observation": "なりすましメールへの対処方針について、設定の確認をおすすめします。",
+      "evidenceExplanation": "対象ドメインのDMARCレコードが存在しないというDNS応答でした。",
+      "knowledge": "DMARCは、ドメインを装ったメールの認証に失敗した場合の扱いを示す仕組みです。",
+      "nextAction": "メール管理担当者にDMARC導入の必要性を確認してください。",
+      "reference": "DMARC specification"
+    }
+  }
+}

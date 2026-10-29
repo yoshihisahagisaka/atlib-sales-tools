@@ -4,7 +4,15 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
-RUN npm run build
+# WSC is vendored unchanged from its completed main branch.  It remains an
+# ES module because the approved engine is shared verbatim; only the Sales
+# Tools adapter is TypeScript.
+RUN npm run build \
+    && mkdir -p dist/wsc/vendor/tools \
+    && cp -R src/wsc/vendor/tools/wsc-vs1 dist/wsc/vendor/tools/ \
+    && cp -R src/wsc/vendor/tools/wsc-phase2a dist/wsc/vendor/tools/ \
+    && cp -R src/wsc/vendor/tools/wsc-phase2b dist/wsc/vendor/tools/ \
+    && cp -R src/wsc/vendor/tools/wsc-phase2c dist/wsc/vendor/tools/
 
 FROM node:20-bookworm-slim AS production-deps
 WORKDIR /app

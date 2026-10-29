@@ -1,0 +1,1 @@
+{"schemaVersion":"2.0","targetUrl":"https://unavailable.test/","mailDomain":"unavailable.test","checkedAt":"2026-10-03T00:00:00.000+09:00","http":{"status":"ERROR","headers":{}},"tls":{"status":"UNVERIFIED","policyErrors":null},"dns":{"spf":{"lookupStatus":"UNVERIFIED","records":[],"recordCount":0},"dmarc":{"lookupStatus":"UNVERIFIED","records":[],"recordCount":0,"tags":{}}}}

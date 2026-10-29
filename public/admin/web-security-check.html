@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Webセキュリティ診断 | atLIB Admin</title><link rel="stylesheet" href="/css/style.css"></head>
+<body><main class="page" style="max-width:760px"><h1>Webセキュリティ診断</h1><p>公開されているWeb・メール設定を確認し、PDFレポートを作成します。</p>
+<section class="card"><h2>保存先</h2><p><button id="pick-directory" class="btn" type="button">出力先を選択</button> <span id="directory-name">未選択</span></p><p id="directory-help" class="info-message" style="display:none"></p></section>
+<section class="card"><h2>単一URL診断</h2><form id="single-form"><div class="form-row"><label for="company">企業・団体名</label><input id="company" required maxlength="500"></div><div class="form-row"><label for="url">診断対象URL</label><input id="url" type="url" required placeholder="https://example.jp/"></div><button class="btn" type="submit">診断開始・PDF保存</button></form></section>
+<section class="card"><h2>CSV一括診断</h2><p>列：企業名,本店所在地,URL（本店所在地は空欄可）</p><input id="csv" type="file" accept=".csv,text/csv"><button id="csv-start" class="btn" type="button">CSV診断開始</button><p id="progress" class="info-message" style="display:none"></p></section>
+<p id="error" class="error-message" style="display:none"></p><p id="result" class="info-message" style="display:none"></p></main><script src="/admin/web-security-check.js"></script></body></html>
