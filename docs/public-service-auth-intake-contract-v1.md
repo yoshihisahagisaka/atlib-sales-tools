@@ -194,8 +194,8 @@ JWT、セッション、API、DB、Turnstile、CORS/CSP、メール送信方式�
 | OTP検証 | `POST /v1/otp/challenges/{challengeId}/verify` | サービス識別子、6桁OTP。成功時に2時間セッショントークンを発行 |
 | OTP再送 | `POST /v1/otp/challenges/{challengeId}/resend` | 同一サービス・メール・challengeに限定し、60秒/1時間5回を検証 |
 | メールアドレス変更 | `DELETE /v1/otp/challenges/{challengeId}` | 旧challengeを失効し、クライアントをメール入力へ戻す |
-| JWT発行 | `POST /v1/auth/sessions/{sessionId}/tokens` | セッショントークンと対象サービス識別子を検証し、5分JWTを発行 |
-| 認証状態失効 | `DELETE /v1/auth/sessions/{sessionId}` | セッショントークンを照合し、当該セッションを失効。他サービスに影響させない |
+| JWT発行 | `POST /v1/otp/sessions/{sessionId}/tokens` | セッショントークンと対象サービス識別子を検証し、5分JWTを発行 |
+| 認証状態失効 | `DELETE /v1/otp/sessions/{sessionId}` | セッショントークンを照合し、当該セッションを失効。他サービスに影響させない |
 | JWKS | `GET /.well-known/jwks.json` | 公開鍵と`kid`を受け手APIへ配布 |
 
 メールアドレス変更は、`DELETE /v1/otp/challenges/{challengeId}` が成功した場合だけ旧challengeを失効してメール入力画面へ戻る。再送は旧OTPを失効して新しいOTPを発行する。認証失敗5回でchallengeを無効化する。未登録ブランドは404とする。
