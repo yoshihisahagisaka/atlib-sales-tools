@@ -1,10 +1,13 @@
 BEGIN;
 CREATE SCHEMA IF NOT EXISTS public_auth;
-CREATE TABLE public_auth.otp_challenges (challenge_id TEXT PRIMARY KEY, service_id TEXT NOT NULL, email_protected TEXT NOT NULL, otp_digest TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL, resend_not_before TIMESTAMPTZ NOT NULL, failures INTEGER NOT NULL DEFAULT 0, consumed_at TIMESTAMPTZ, invalidated_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE TABLE public_auth.otp_challenges (challenge_id TEXT PRIMARY KEY, reservation_id TEXT UNIQUE, service_id TEXT NOT NULL, email_protected TEXT NOT NULL, otp_digest TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL, resend_not_before TIMESTAMPTZ NOT NULL, activated_at TIMESTAMPTZ, failures INTEGER NOT NULL DEFAULT 0, consumed_at TIMESTAMPTZ, invalidated_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
 CREATE INDEX otp_challenges_expiry_idx ON public_auth.otp_challenges(expires_at);
 CREATE TABLE public_auth.otp_send_locks (service_id TEXT NOT NULL, email_protected TEXT NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY(service_id,email_protected));
 CREATE TABLE public_auth.otp_send_events (event_id TEXT PRIMARY KEY, service_id TEXT NOT NULL, email_protected TEXT NOT NULL, sent_at TIMESTAMPTZ NOT NULL DEFAULT now());
 CREATE INDEX otp_send_events_window_idx ON public_auth.otp_send_events(service_id,email_protected,sent_at DESC);
+CREATE TYPE public_auth.otp_delivery_status AS ENUM ('RESERVED','SENDING','SENT','FAILED','UNKNOWN');
+CREATE TABLE public_auth.otp_send_reservations (reservation_id TEXT PRIMARY KEY, service_id TEXT NOT NULL, email_protected TEXT NOT NULL, otp_digest TEXT NOT NULL, status public_auth.otp_delivery_status NOT NULL DEFAULT 'RESERVED', challenge_id TEXT NOT NULL, replaces_challenge_id TEXT, reserved_at TIMESTAMPTZ NOT NULL DEFAULT now(), lease_until TIMESTAMPTZ NOT NULL DEFAULT now() + interval '5 minutes', lease_generation BIGINT NOT NULL DEFAULT 0, sending_at TIMESTAMPTZ, sent_at TIMESTAMPTZ, failed_at TIMESTAMPTZ, unknown_at TIMESTAMPTZ, failure_code TEXT);
+CREATE INDEX otp_send_reservations_claim_idx ON public_auth.otp_send_reservations(status,reserved_at);
 CREATE TABLE public_auth.otp_sessions (session_id TEXT PRIMARY KEY, service_id TEXT NOT NULL, email_protected TEXT NOT NULL, token_digest TEXT NOT NULL UNIQUE, expires_at TIMESTAMPTZ NOT NULL, revoked_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
 CREATE INDEX otp_sessions_expiry_idx ON public_auth.otp_sessions(expires_at);
 CREATE TABLE public_auth.otp_auth_audit (event_id TEXT PRIMARY KEY, challenge_id TEXT, service_id TEXT NOT NULL, result_code TEXT NOT NULL, occurred_at TIMESTAMPTZ NOT NULL DEFAULT now());
