@@ -186,18 +186,19 @@ JWT、セッション、API、DB、Turnstile、CORS/CSP、メール送信方式�
 
 ### 12.3 確定API Contract
 
-以下は専用OTPサービスの確定APIである。HTTP status、エラーコードの具体値は第12.6節の固定文にないため、Deployment Configurationへ分離する。
+以下は専用OTPサービスの確定APIである。エラーコードと固定表示文言は第12.5.1節に従う。
 
 | 論理操作 | API | 必要な入力または保証 |
 | --- | --- | --- |
 | OTP送信 | `POST /v1/otp/challenges` | サービス識別子、メールアドレス、Turnstile token。6桁OTPとchallengeを発行 |
 | OTP検証 | `POST /v1/otp/challenges/{challengeId}/verify` | サービス識別子、6桁OTP。成功時に2時間セッショントークンを発行 |
 | OTP再送 | `POST /v1/otp/challenges/{challengeId}/resend` | 同一サービス・メール・challengeに限定し、60秒/1時間5回を検証 |
+| メールアドレス変更 | `DELETE /v1/otp/challenges/{challengeId}` | 旧challengeを失効し、クライアントをメール入力へ戻す |
 | JWT発行 | `POST /v1/auth/sessions/{sessionId}/tokens` | セッショントークンと対象サービス識別子を検証し、5分JWTを発行 |
 | 認証状態失効 | `DELETE /v1/auth/sessions/{sessionId}` | セッショントークンを照合し、当該セッションを失効。他サービスに影響させない |
 | JWKS | `GET /.well-known/jwks.json` | 公開鍵と`kid`を受け手APIへ配布 |
 
-メールアドレス変更は旧challengeを失効してメール入力画面へ戻る。再送は旧OTPを失効して新しいOTPを発行する。認証失敗5回でchallengeを無効化する。未登録ブランドは404とする。
+メールアドレス変更は、`DELETE /v1/otp/challenges/{challengeId}` が成功した場合だけ旧challengeを失効してメール入力画面へ戻る。再送は旧OTPを失効して新しいOTPを発行する。認証失敗5回でchallengeを無効化する。未登録ブランドは404とする。
 
 ### 12.4 OTP専用DB Contract
 
@@ -206,14 +207,15 @@ JWT、セッション、API、DB、Turnstile、CORS/CSP、メール送信方式�
 | テーブル | 必要カラム | 索引・制約 |
 | --- | --- | --- |
 | `otp_challenges` | `challenge_id`、`service_id`、メールの正規化値または保護表現、`otp_digest`、`expires_at`、`verified_at`、`consumed_at`、`failure_count`、`locked_at`、`resend_not_before_at`、`created_at`、`updated_at` | PK: `challenge_id`。サービス・メール・作成時刻、`expires_at`、`consumed_at`の索引 |
-| `otp_send_windows` | `service_id`、メール保護表現、`window_started_at`、`send_count`、`updated_at` | `(service_id, メール保護表現)`を一意にし、1時間5回を判定 |
+| `otp_send_locks` | `service_id`、メール保護表現、`updated_at` | `(service_id, メール保護表現)`を一意にし、送信判定のロック対象を必ず作る |
+| `otp_send_events` | `event_id`、`service_id`、メール保護表現、`sent_at` | PK: `event_id`、`(service_id, メール保護表現, sent_at DESC)`。直近60分の送信件数を判定 |
 | `otp_auth_audit` | `event_id`、`challenge_id`、`service_id`、結果種別、時刻、最小限のIP保護表現 | PK: `event_id`。OTP、JWT、メール平文を保存しない |
 | `otp_sessions` | `session_id`、`service_id`、認証済みemail、`session_token_digest`、`expires_at`、`revoked_at`、`created_at`、`updated_at` | PK: `session_id`、`session_token_digest`一意、期限掃除用`expires_at` |
-| `otp_consumed_jti` | `jti`、`service_id`、`consumed_at`、`expires_at` | PK: `jti`、期限掃除用`expires_at`。受付APIが原子的に一回だけ記録 |
+| `otp_consumed_jti` | 各サービス受付DBに置く: `jti`、`consumed_at`、`expires_at` | 共通OTP DBの所有対象外。各受付APIが一意制約で原子的に一回だけ記録 |
 
 OTP平文・復元可能なOTP値、診断回答、診断結果、PDFを保存しない。メールアドレスの保護表現は、JWTに含める認証済みemailとは別に、DB内の保護要件を満たす方式をDeployment Configurationで定める。
 
-送信窓更新とchallenge発行、challenge検証と`consumed_at`更新、セッション失効とJWT発行を一つのDB transactionで処理し、対象行を`SELECT ... FOR UPDATE`でロックする。一意制約と併用し、同時再送、二重消費、失敗回数競合、`jti`再利用を防ぐ。OTP・セッション記録は24時間で削除し、安全ログは30日保持する。
+OTP送信時は、当該サービス・メールの`otp_send_locks`行をtransaction内で作成または`SELECT ... FOR UPDATE`でロックし、`sent_at > 現在時刻 - 60分` の`otp_send_events`件数が5未満の場合だけchallengeと送信イベントを作成する。これにより、境界時刻を含めて直近60分の上限を原子的に判定する。challenge検証と`consumed_at`更新、セッション失効とJWT発行も一つのDB transactionで処理し、対象行を`SELECT ... FOR UPDATE`でロックする。一意制約と併用し、同時再送、二重消費、失敗回数競合を防ぐ。`jti`再利用は各サービス受付DBで防ぐ。OTP・セッション記録は24時間で削除し、安全ログは30日保持する。
 
 ### 12.5 セキュリティContract
 
@@ -227,23 +229,26 @@ PIRAの静的試作は外部通信を許可しないCSPを前提としている�
 
 ### 12.5.1 APIエラーContract
 
-APIは次の機械可読コードを返す。利用者向け表示は第12.6節の固定文が存在する場合だけ逐語表示し、OTP、JWT、メールアドレスを含めない。
+APIは次の機械可読コードを返す。利用者向け表示は、固定文が定義されているコードでは逐語表示し、OTP、JWT、メールアドレスを含めない。
 
-| コード | 発生条件 |
-| --- | --- |
-| `BRAND_NOT_FOUND` | 未登録ブランド。HTTP 404 |
-| `INVALID_REQUEST` | schema、サービス識別子、形式不正 |
-| `TURNSTILE_DENIED` | Turnstile失敗または障害 |
-| `IP_RATE_LIMITED` | IP 10分20回上限 |
-| `RESEND_COOLDOWN` | 60秒の再送待機中 |
-| `SEND_LIMIT_REACHED` | メール別1時間5回上限 |
-| `CHALLENGE_INVALID` | 無効、失効、サービス不一致、使用済みchallenge |
-| `OTP_EXPIRED` | 10分有効期限切れ |
-| `OTP_INVALID` | OTP不一致。ただし試行残数を開示しない |
-| `CHALLENGE_LOCKED` | 5回失敗によるchallenge無効化 |
-| `SESSION_INVALID` | セッション無効、失効、期限切れ、トークン不一致 |
-| `JWT_INVALID` | JWTの署名、`kid`、`iss`、`aud`、`exp`検証失敗 |
-| `JWT_REPLAYED` | 受付APIで消費済みの`jti` |
+| APIコード | 発生条件 | 固定表示文言 |
+| --- | --- | --- |
+| `BRAND_NOT_FOUND` | 未登録ブランド。HTTP 404 | — |
+| `INVALID_REQUEST` | schema、サービス識別子、形式不正 | — |
+| `TURNSTILE_DENIED` | Turnstile失敗または障害 | 確認が完了しませんでした。もう一度お試しください。 |
+| `IP_RATE_LIMITED` | IP 10分20回上限 | — |
+| `RESEND_COOLDOWN` | 60秒の再送待機中 | 認証コードは60秒経過後に再送できます。 |
+| `SEND_LIMIT_REACHED` | メール別1時間5回上限 | 送信回数の上限に達しました。しばらく時間をおいてお試しください。 |
+| `MAIL_SEND_FAILED` | SMTP送信失敗 | 認証コードを送信できませんでした。しばらく時間をおいてお試しください。 |
+| `CHALLENGE_INVALID` | 無効、失効、サービス不一致、使用済みchallenge | — |
+| `OTP_EXPIRED` | 10分有効期限切れ | 認証コードの有効期限が切れました。再度認証コードを送信してください。 |
+| `OTP_INVALID` | OTP不一致。ただし試行残数を開示しない | 認証コードが正しくありません。もう一度ご確認ください。 |
+| `CHALLENGE_LOCKED` | 5回失敗によるchallenge無効化 | 認証回数の上限に達しました。認証コードを再送してください。 |
+| `SESSION_INVALID` | セッション無効、失効、期限切れ、トークン不一致 | 認証の有効期限が切れました。もう一度メールアドレスの確認を行ってください。 |
+| `JWT_INVALID` | JWTの署名、`kid`、`iss`、`aud`、`exp`検証失敗 | — |
+| `JWT_REPLAYED` | 受付APIで消費済みの`jti` | — |
+
+`NETWORK_ERROR` はフロントエンド専用コードであり、APIは返さない。固定表示文言は「通信に失敗しました。通信環境をご確認のうえ、もう一度お試しください。」とする。
 
 ### 12.6 OTP画面・メール固定文（承認済み）
 
@@ -313,7 +318,7 @@ APIは次の機械可読コードを返す。利用者向け表示は第12.6節�
 
 `{サービス名}` はURL別ブランド設定から取得する。`{6桁の認証コード}` は当該challengeにだけ対応するOTPを表示する。メール本文にはOTP以外の個人情報、JWT、診断結果、PDF、営業情報を含めない。
 
-期限切れ、試行上限、再送待機・上限、Turnstile不成功、通信失敗の画面文言、ならびにHTTP statusと機械可読エラーコードは、今回の固定文に含まれないため未決定である。
+OTPメール本文では、当該challengeの6桁OTPを表示する。OTPはメール本文以外のアプリケーションログ、監視通知、API応答、ブラウザ履歴、URL、localStorage、sessionStorageへ出力しない。
 
 ### 12.7 E2E受入補完
 
@@ -324,7 +329,7 @@ APIは次の機械可読コードを返す。利用者向け表示は第12.6節�
 3. 対象サービスの2時間認証状態は、ブラウザ再読み込み後に残らない。
 4. 同時再送、同一OTPの二重検証、同一JWTの再利用で、認証・回数制限が矛盾しない。
 5. Turnstile不成功、IP 10分20回超過、再送60秒内、メール別1時間5回、OTP誤入力5回を安全に処理する。
-6. ログ、監査、メール本文、ブラウザ履歴にOTP、JWT、メールアドレスの機密値が出ない。
+6. 6桁OTPは固定OTPメール本文だけに表示され、ログ、監視通知、API応答、ブラウザ履歴、URL、localStorage、sessionStorageには出ない。JWTとセッショントークンも同じ保存・出力禁止を守る。
 
 ## 13. Deployment Configuration・本番適用STOP条件
 
@@ -339,7 +344,6 @@ APIは次の機械可読コードを返す。利用者向け表示は第12.6節�
 | Cloud SQL | OTP専用Schema名、runtime/migration role、メール保護方式、接続暗号化 | 既存Sales Tools・営業・WSCデータを読めない権限確認なしに適用しない |
 | 保持運用 | 24時間削除ジョブ、安全ログ30日削除、バックアップ復元時の扱い | 削除・復元手順を検証せず本番適用しない |
 | メール | SMTPの既存Mailer設定、差出人アドレス、送信失敗監視 | 値をSecretで管理し、送信失敗を安全に扱えることを確認せず公開しない |
-| UI文言 | 期限切れ、試行上限、再送待機・上限、Turnstile不成功、通信失敗の統括確定文言 | 確定文言が提供されるまで該当画面を実装・公開しない |
 
 ## 14. v1.1 Decision Record
 
