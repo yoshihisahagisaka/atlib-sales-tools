@@ -1,7 +1,10 @@
+import { timingSafeEqual } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 
 export type Delivery = 'RESERVED' | 'SENDING' | 'SENT' | 'FAILED' | 'UNKNOWN';
 export type ReservationLease = { reservationId: string; generation: number };
+export type ChallengeForResend = { challengeId: string; serviceId: string; email: string; resendNotBefore: Date };
+export type VerifyResult = 'OTP_INVALID' | 'OTP_EXPIRED' | 'CHALLENGE_LOCKED' | 'CHALLENGE_INVALID' | 'OK';
 const LEASE_MS = 5 * 60_000;
 
 /** PostgreSQL is the authority for delivery ownership. */
@@ -63,6 +66,39 @@ export class PostgresOtpReservationRepo {
       if (activated.rowCount !== 1) throw Error('CHALLENGE_NOT_RESERVED');
       if (reservation.replaces_challenge_id) await c.query('UPDATE public_auth.otp_challenges SET invalidated_at=$2 WHERE challenge_id=$1 AND activated_at IS NOT NULL AND consumed_at IS NULL AND invalidated_at IS NULL', [reservation.replaces_challenge_id, now]);
       return true;
+    });
+  }
+
+  async challengeForResend(challengeId: string): Promise<ChallengeForResend | undefined> {
+    const { rows: [row] } = await this.pool.query<{ challenge_id: string; service_id: string; email_protected: string; resend_not_before: Date }>(
+      'SELECT challenge_id,service_id,email_protected,resend_not_before FROM public_auth.otp_challenges WHERE challenge_id=$1 AND activated_at IS NOT NULL AND consumed_at IS NULL',
+      [challengeId],
+    );
+    return row ? { challengeId: row.challenge_id, serviceId: row.service_id, email: row.email_protected, resendNotBefore: row.resend_not_before } : undefined;
+  }
+
+  /** The challenge row is locked so failure counting, consumption, and session creation are one operation. */
+  async verifyAndCreateSession(input: { challengeId: string; serviceId: string; otpDigest: string; sessionId: string; sessionDigest: string; now: Date }): Promise<{ result: VerifyResult; session?: { id: string; email: string; expiresAt: Date } }> {
+    return this.tx(async c => {
+      const { rows: [challenge] } = await c.query<{ service_id: string; email_protected: string; otp_digest: string; expires_at: Date; failures: number; activated_at: Date | null; consumed_at: Date | null; invalidated_at: Date | null }>(
+        'SELECT service_id,email_protected,otp_digest,expires_at,failures,activated_at,consumed_at,invalidated_at FROM public_auth.otp_challenges WHERE challenge_id=$1 FOR UPDATE',
+        [input.challengeId],
+      );
+      if (!challenge || challenge.service_id !== input.serviceId || !challenge.activated_at || challenge.consumed_at || challenge.invalidated_at) return { result: 'CHALLENGE_INVALID' };
+      if (challenge.expires_at <= input.now) return { result: 'OTP_EXPIRED' };
+      if (challenge.failures >= 5) return { result: 'CHALLENGE_LOCKED' };
+      const expected = Buffer.from(challenge.otp_digest, 'hex');
+      const provided = Buffer.from(input.otpDigest, 'hex');
+      const matches = expected.length === provided.length && timingSafeEqual(expected, provided);
+      if (!matches) {
+        const nextFailures = challenge.failures + 1;
+        await c.query('UPDATE public_auth.otp_challenges SET failures=$2,invalidated_at=CASE WHEN $2>=5 THEN $3 ELSE invalidated_at END WHERE challenge_id=$1', [input.challengeId, nextFailures, input.now]);
+        return { result: nextFailures >= 5 ? 'CHALLENGE_LOCKED' : 'OTP_INVALID' };
+      }
+      const expiresAt = new Date(input.now.getTime() + 2 * 60 * 60_000);
+      await c.query('UPDATE public_auth.otp_challenges SET consumed_at=$2 WHERE challenge_id=$1 AND consumed_at IS NULL', [input.challengeId, input.now]);
+      await c.query('INSERT INTO public_auth.otp_sessions(session_id,service_id,email_protected,token_digest,expires_at) VALUES($1,$2,$3,$4,$5)', [input.sessionId, input.serviceId, challenge.email_protected, input.sessionDigest, expiresAt]);
+      return { result: 'OK', session: { id: input.sessionId, email: challenge.email_protected, expiresAt } };
     });
   }
 }
