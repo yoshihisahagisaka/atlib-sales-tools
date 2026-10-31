@@ -78,6 +78,11 @@ export class PostgresOtpReservationRepo {
     return row ? { challengeId: row.challenge_id, serviceId: row.service_id, email: row.email_protected, resendNotBefore: row.resend_not_before } : undefined;
   }
 
+  async invalidateChallenge(challengeId: string, serviceId: string, now: Date): Promise<boolean> {
+    const result = await this.pool.query('UPDATE public_auth.otp_challenges SET invalidated_at=$3 WHERE challenge_id=$1 AND service_id=$2 AND consumed_at IS NULL AND invalidated_at IS NULL', [challengeId, serviceId, now]);
+    return (result.rowCount ?? 0) === 1;
+  }
+
   /** The challenge row is locked so failure counting, consumption, and session creation are one operation. */
   async verifyAndCreateSession(input: { challengeId: string; serviceId: string; otpDigest: string; sessionId: string; sessionDigest: string; now: Date }): Promise<{ result: VerifyResult; session?: { id: string; email: string; expiresAt: Date } }> {
     return this.tx(async c => {

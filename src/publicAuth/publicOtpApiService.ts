@@ -98,6 +98,7 @@ export class PublicOtpApiService {
     if (result.result !== 'OK' || !result.session) throw new AuthError(result.result as Exclude<typeof result.result, 'OK'>);
     return { sessionId: result.session.id, sessionToken, expiresAt: result.session.expiresAt.toISOString() };
   }
+  async changeEmail(input: { serviceId: string; challengeId: string; origin: string }) { this.assertOrigin(input.serviceId, input.origin); if (!(await this.repo.invalidateChallenge(input.challengeId, input.serviceId, this.now()))) throw new AuthError('CHALLENGE_INVALID'); }
   async issueJwt(input: { serviceId: string; sessionId: string; sessionToken: string; origin: string }) {
     this.assertOrigin(input.serviceId, input.origin); const config = this.jwtConfig; if (!config) throw Error('JWT_NOT_CONFIGURED'); const session = await this.repo.activeSession(input.sessionId, input.serviceId, this.now());
     const supplied = Buffer.from(this.digest('session', input.sessionToken), 'hex'); const expected = session ? Buffer.from(session.tokenDigest, 'hex') : Buffer.alloc(0);
