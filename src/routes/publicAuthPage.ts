@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { Router } from 'express';
 
-export type PublicAuthPageBrand = { serviceId: string; apiBase: string; intakeStartUrl: string };
+export type PublicAuthPageBrand = { serviceId: string; apiBase: string; intakeStartUrl: string; turnstileSiteKey?: string };
 
 /** Server-owned host mapping prevents the browser from choosing another service or brand. */
 export function createPublicAuthPageRouter(pagePath: string, brandsByHost: ReadonlyMap<string, PublicAuthPageBrand>): Router {

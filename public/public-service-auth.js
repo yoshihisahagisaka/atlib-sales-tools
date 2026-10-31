@@ -13,6 +13,7 @@
     catch (fault) { if (!fault.code) fault.code = 'NETWORK_ERROR'; throw fault; }
   };
   const turnstileToken = () => window.turnstile?.getResponse?.() || window.publicAuthTurnstileToken?.() || '';
+  if (config?.turnstileSiteKey && window.turnstile?.render) window.turnstile.render('#turnstile', { sitekey: config.turnstileSiteKey });
   const reset = () => { if (state.timer) clearInterval(state.timer); state = { challengeId:null, sessionId:null, sessionToken:null, timer:null }; code.value=''; message(''); show('email'); email.focus(); };
   const countdown = until => { if (state.timer) clearInterval(state.timer); const tick = () => { const seconds = Math.max(0, Math.ceil((until - Date.now()) / 1000)); resend.disabled = seconds > 0; wait.textContent = seconds > 0 ? `再送できるまで${seconds}秒` : ''; if (seconds === 0) clearInterval(state.timer); }; tick(); state.timer = setInterval(tick, 250); };
   const sendCode = async (isResend = false) => {
