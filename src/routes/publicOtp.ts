@@ -12,9 +12,9 @@ const messages: Record<string, string> = {
   OTP_INVALID: '認証コードが正しくありません。もう一度ご確認ください。', OTP_EXPIRED: '認証コードの有効期限が切れました。再度認証コードを送信してください。', CHALLENGE_LOCKED: '認証回数の上限に達しました。認証コードを再送してください。', RESEND_COOLDOWN: '認証コードは60秒経過後に再送できます。', SEND_LIMIT_REACHED: '送信回数の上限に達しました。しばらく時間をおいてお試しください。', TURNSTILE_DENIED: '確認が完了しませんでした。もう一度お試しください。', MAIL_SEND_FAILED: '認証コードを送信できませんでした。しばらく時間をおいてお試しください。', SESSION_INVALID: '認証の有効期限が切れました。もう一度メールアドレスの確認を行ってください。',
 };
 function sendError(res: Response, error: unknown) {
-  const code = error instanceof AuthError ? error.code : 'INVALID_REQUEST';
+  const code = error instanceof AuthError ? error.code : 'INTERNAL_ERROR';
   const status = code === 'BRAND_NOT_FOUND' ? 404 : code === 'RESEND_COOLDOWN' || code === 'SEND_LIMIT_REACHED' || code === 'IP_RATE_LIMITED' ? 429 : code === 'TURNSTILE_DENIED' ? 403 : 400;
-  res.status(status).json({ error: { code, message: messages[code] ?? '入力内容を確認してください。' } });
+  res.status(code === 'INTERNAL_ERROR' ? 500 : status).json({ error: { code, ...(messages[code] ? { message: messages[code] } : {}) } });
 }
 function origin(req: Request) { return req.get('origin'); }
 function allowOrigin(req: Request, res: Response, serviceId: string, service: PublicOtpApiService): string | undefined {

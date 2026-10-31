@@ -81,6 +81,19 @@ test('five invalid codes lock the challenge and active resend observes the 60 se
   const rapid = await request(`/challenges/${created.body.challengeId}/resend`, { serviceId: 'pira', email: 'a@example.test', turnstileToken: 'token' }); assert.equal(rapid.body.error.code, 'RESEND_COOLDOWN');
 });
 
+test('repository delivery limits become Contract 429 API responses', async () => {
+  await reset(); let challengeId = '';
+  for (let index = 0; index < 5; index += 1) {
+    const created = index === 0
+      ? await request('/challenges', { serviceId: 'pira', email: 'limit@example.test', turnstileToken: 'token' })
+      : await request(`/challenges/${challengeId}/resend`, { serviceId: 'pira', email: 'limit@example.test', turnstileToken: 'token' });
+    assert.equal(created.response.status, 201); challengeId = created.body.challengeId; clock = new Date(clock.getTime() + 60_000);
+  }
+  const limited = await request(`/challenges/${challengeId}/resend`, { serviceId: 'pira', email: 'limit@example.test', turnstileToken: 'token' });
+  assert.equal(limited.response.status, 429); assert.equal(limited.body.error.code, 'SEND_LIMIT_REACHED');
+});
+
+
 test('IP limiter returns the Contract machine-readable code on request 21', async () => {
   await reset();
   for (let index = 0; index < 20; index += 1) { const result = await request('/challenges', {}, 'https://pira.example.test', '198.51.100.42'); assert.equal(result.response.status, 400); }

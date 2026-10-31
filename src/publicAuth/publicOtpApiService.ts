@@ -5,6 +5,7 @@ import type { Mailer } from '../services/mailer';
 
 export type PublicServiceBrand = Brand & { origins: readonly string[] };
 export type DeliveryMailer = OtpMailer;
+export class OtpDeliveryError extends Error { constructor(public readonly outcome: 'FAILED' | 'UNKNOWN') { super(outcome); } }
 
 /** Production adapter: it never logs the token and fails closed on network errors. */
 export class CloudflareTurnstileVerifier implements Turnstile {
@@ -21,7 +22,14 @@ export class CloudflareTurnstileVerifier implements Turnstile {
 
 /** Binds the existing SMTP implementation to the OTP-only mailer boundary. */
 export function createMailerOtpAdapter(mailer: Mailer): DeliveryMailer {
-  return { sendOtp: (to, brandName, code) => mailer.sendPublicServiceOtp(to, brandName, code) };
+  return { sendOtp: async (to, brandName, code) => {
+    try { await mailer.sendPublicServiceOtp(to, brandName, code); }
+    catch (error) {
+      const value = error as { code?: string; responseCode?: number };
+      const unknown = ['ETIMEDOUT', 'ECONNRESET', 'ECONNABORTED', 'ESOCKET'].includes(value?.code ?? '') || value?.responseCode === undefined;
+      throw new OtpDeliveryError(unknown ? 'UNKNOWN' : 'FAILED');
+    }
+  } };
 }
 
 export class PublicOtpApiService {
@@ -59,13 +67,19 @@ export class PublicOtpApiService {
     }
     const code = this.code();
     const challengeId = this.id();
-    const reservation = await this.repo.reserve({ id: this.id(), challengeId, serviceId: input.serviceId, email, otpDigest: this.digest('otp', code), replaces: input.replacesChallengeId, now });
+    let reservation;
+    try { reservation = await this.repo.reserve({ id: this.id(), challengeId, serviceId: input.serviceId, email, otpDigest: this.digest('otp', code), replaces: input.replacesChallengeId, now }); }
+    catch (error) {
+      const code = error instanceof Error ? error.message : '';
+      if (code === 'RESEND_COOLDOWN' || code === 'SEND_LIMIT_REACHED') throw new AuthError(code);
+      throw error;
+    }
     const lease = await this.repo.claim(reservation, now);
     if (!lease) throw new AuthError('MAIL_SEND_FAILED');
     try {
       await this.mailer.sendOtp(email, brand.name, code);
     } catch (error) {
-      const unknown = typeof error === 'object' && error !== null && 'deliveryUnknown' in error && (error as { deliveryUnknown?: boolean }).deliveryUnknown;
+      const unknown = error instanceof OtpDeliveryError ? error.outcome === 'UNKNOWN' : typeof error === 'object' && error !== null && 'deliveryUnknown' in error && (error as { deliveryUnknown?: boolean }).deliveryUnknown;
       await this.repo.finish(lease, unknown ? 'UNKNOWN' : 'FAILED', unknown ? 'SMTP_UNKNOWN' : 'SMTP_FAILED', this.now());
       throw new AuthError('MAIL_SEND_FAILED');
     }
@@ -81,4 +95,5 @@ export class PublicOtpApiService {
     if (result.result !== 'OK' || !result.session) throw new AuthError(result.result as Exclude<typeof result.result, 'OK'>);
     return { sessionId: result.session.id, sessionToken, expiresAt: result.session.expiresAt.toISOString() };
   }
+
 }
