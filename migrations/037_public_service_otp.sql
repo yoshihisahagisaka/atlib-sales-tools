@@ -1,0 +1,11 @@
+BEGIN;
+CREATE SCHEMA IF NOT EXISTS public_auth;
+CREATE TABLE public_auth.otp_challenges (challenge_id TEXT PRIMARY KEY, service_id TEXT NOT NULL, email_protected TEXT NOT NULL, otp_digest TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL, resend_not_before TIMESTAMPTZ NOT NULL, failures INTEGER NOT NULL DEFAULT 0, consumed_at TIMESTAMPTZ, invalidated_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX otp_challenges_expiry_idx ON public_auth.otp_challenges(expires_at);
+CREATE TABLE public_auth.otp_send_locks (service_id TEXT NOT NULL, email_protected TEXT NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY(service_id,email_protected));
+CREATE TABLE public_auth.otp_send_events (event_id TEXT PRIMARY KEY, service_id TEXT NOT NULL, email_protected TEXT NOT NULL, sent_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX otp_send_events_window_idx ON public_auth.otp_send_events(service_id,email_protected,sent_at DESC);
+CREATE TABLE public_auth.otp_sessions (session_id TEXT PRIMARY KEY, service_id TEXT NOT NULL, email_protected TEXT NOT NULL, token_digest TEXT NOT NULL UNIQUE, expires_at TIMESTAMPTZ NOT NULL, revoked_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX otp_sessions_expiry_idx ON public_auth.otp_sessions(expires_at);
+CREATE TABLE public_auth.otp_auth_audit (event_id TEXT PRIMARY KEY, challenge_id TEXT, service_id TEXT NOT NULL, result_code TEXT NOT NULL, occurred_at TIMESTAMPTZ NOT NULL DEFAULT now());
+COMMIT;
