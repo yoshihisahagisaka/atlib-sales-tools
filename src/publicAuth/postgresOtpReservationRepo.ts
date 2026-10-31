@@ -33,7 +33,7 @@ export class PostgresOtpReservationRepo {
 
   /** This must happen before SMTP is invoked. */
   async claim(lease: ReservationLease, now = new Date()): Promise<ReservationLease | undefined> {
-    const { rows: [row] } = await this.pool.query<{ reservation_id: string; lease_generation: string }>("UPDATE public_auth.otp_send_reservations SET status='SENDING',sending_at=$3,lease_until=$4 WHERE reservation_id=$1 AND lease_generation=$2 AND status='RESERVED' AND lease_until>$3 RETURNING reservation_id,lease_generation", [lease.reservationId, lease.generation, now, new Date(now.getTime() + LEASE_MS)]);
+    const { rows: [row] } = await this.pool.query<{ reservation_id: string; lease_generation: string }>("UPDATE public_auth.otp_send_reservations SET status='SENDING',sending_at=$3,lease_until=$4,lease_generation=lease_generation+1 WHERE reservation_id=$1 AND lease_generation=$2 AND status='RESERVED' AND lease_until>$3 RETURNING reservation_id,lease_generation", [lease.reservationId, lease.generation, now, new Date(now.getTime() + LEASE_MS)]);
     return row ? { reservationId: row.reservation_id, generation: Number(row.lease_generation) } : undefined;
   }
 

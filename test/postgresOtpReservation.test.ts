@@ -19,7 +19,7 @@ async function status(id: string) {
 
 test('normal lease claims, sends and activates its reserved challenge', async () => {
   await reset(); const first = await reserve(); const lease = await repo.claim(first, baseTime());
-  assert.deepEqual(lease, first); assert.equal(await repo.activateChallenge(lease!, new Date(baseTime().getTime() + 1)), true);
+  assert.deepEqual(lease, { reservationId: first.reservationId, generation: 1 }); assert.equal(await repo.activateChallenge(lease!, new Date(baseTime().getTime() + 1)), true);
   const { rows: [challenge] } = await pool.query<{ activated_at: Date }>('SELECT activated_at FROM public_auth.otp_challenges WHERE reservation_id=$1', [first.reservationId]);
   assert.ok(challenge?.activated_at); assert.equal((await status(first.reservationId))?.status, 'SENT');
 });
@@ -54,7 +54,7 @@ test('expired RESERVED is reclaimed once with a new generation, then claimed nor
   const reclaimed = await repo.reclaimReserved(first, afterExpiry);
   assert.deepEqual(reclaimed, { reservationId: first.reservationId, generation: 1 });
   assert.equal(await repo.reclaimReserved(first, afterExpiry), undefined);
-  assert.deepEqual(await repo.claim(reclaimed!, new Date(afterExpiry.getTime() + 1)), reclaimed);
+  assert.deepEqual(await repo.claim(reclaimed!, new Date(afterExpiry.getTime() + 1)), { reservationId: first.reservationId, generation: 2 });
 });
 
 test('concurrent RESERVED recovery grants ownership to one worker only', async () => {
