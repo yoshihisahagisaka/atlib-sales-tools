@@ -1,4 +1,5 @@
-import { createHmac, randomBytes, randomInt } from 'node:crypto';
+import { createHmac, createPublicKey, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
+import jwt from 'jsonwebtoken';
 import { AuthError, type Brand, type OtpMailer, type Turnstile } from './otpService';
 import { PostgresOtpReservationRepo } from './postgresOtpReservationRepo';
 import type { Mailer } from '../services/mailer';
@@ -6,6 +7,8 @@ import type { Mailer } from '../services/mailer';
 export type PublicServiceBrand = Brand & { origins: readonly string[] };
 export type DeliveryMailer = OtpMailer;
 export class OtpDeliveryError extends Error { constructor(public readonly outcome: 'FAILED' | 'UNKNOWN') { super(outcome); } }
+export type JwtKey = { kid: string; privateKey: string; publicKey: string };
+export type JwtConfig = { issuer: string; activeKid: string; keys: readonly JwtKey[] };
 
 /** Production adapter: it never logs the token and fails closed on network errors. */
 export class CloudflareTurnstileVerifier implements Turnstile {
@@ -39,7 +42,7 @@ export class PublicOtpApiService {
     private readonly turnstile: Turnstile,
     private readonly brands: ReadonlyMap<string, PublicServiceBrand>,
     private readonly hmacKey: string,
-    private readonly now = () => new Date(),
+    private readonly now = () => new Date(), private readonly jwtConfig?: JwtConfig,
   ) {}
 
   private brand(id: string) { const value = this.brands.get(id); if (!value) throw new AuthError('BRAND_NOT_FOUND'); return value; }
@@ -95,5 +98,14 @@ export class PublicOtpApiService {
     if (result.result !== 'OK' || !result.session) throw new AuthError(result.result as Exclude<typeof result.result, 'OK'>);
     return { sessionId: result.session.id, sessionToken, expiresAt: result.session.expiresAt.toISOString() };
   }
-
+  async issueJwt(input: { serviceId: string; sessionId: string; sessionToken: string; origin: string }) {
+    this.assertOrigin(input.serviceId, input.origin); const config = this.jwtConfig; if (!config) throw Error('JWT_NOT_CONFIGURED'); const session = await this.repo.activeSession(input.sessionId, input.serviceId, this.now());
+    const supplied = Buffer.from(this.digest('session', input.sessionToken), 'hex'); const expected = session ? Buffer.from(session.tokenDigest, 'hex') : Buffer.alloc(0);
+    if (!session || supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) throw new AuthError('SESSION_INVALID');
+    const key = config.keys.find(value => value.kid === config.activeKid); if (!key) throw Error('JWT_NOT_CONFIGURED');
+    return jwt.sign({ email: session.email }, key.privateKey, { algorithm: 'RS256', keyid: key.kid, issuer: config.issuer, audience: input.serviceId, subject: session.id, jwtid: this.id(), expiresIn: 300 });
+  }
+  async revokeSession(input: { serviceId: string; sessionId: string; sessionToken: string; origin: string }) { this.assertOrigin(input.serviceId, input.origin); if (!(await this.repo.revokeSession(input.sessionId, input.serviceId, this.digest('session', input.sessionToken), this.now()))) throw new AuthError('SESSION_INVALID'); }
+  jwks() { const config = this.jwtConfig; if (!config) throw Error('JWT_NOT_CONFIGURED'); return { keys: config.keys.map(key => ({ ...createPublicKey(key.publicKey).export({ format: 'jwk' }), kid: key.kid, alg: 'RS256', use: 'sig' })) }; }
+  verifyJwtForService(token: string, serviceId: string) { const config = this.jwtConfig; if (!config) throw new AuthError('JWT_INVALID'); const decoded = jwt.decode(token, { complete: true }); const kid = decoded && typeof decoded !== 'string' ? decoded.header.kid : undefined; const key = typeof kid === 'string' ? config.keys.find(value => value.kid === kid) : undefined; if (!key) throw new AuthError('JWT_INVALID'); try { return jwt.verify(token, key.publicKey, { algorithms: ['RS256'], issuer: config.issuer, audience: serviceId }); } catch { throw new AuthError('JWT_INVALID'); } }
 }

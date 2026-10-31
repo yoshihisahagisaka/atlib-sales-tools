@@ -5,6 +5,7 @@ export type Delivery = 'RESERVED' | 'SENDING' | 'SENT' | 'FAILED' | 'UNKNOWN';
 export type ReservationLease = { reservationId: string; generation: number };
 export type ChallengeForResend = { challengeId: string; serviceId: string; email: string; resendNotBefore: Date };
 export type VerifyResult = 'OTP_INVALID' | 'OTP_EXPIRED' | 'CHALLENGE_LOCKED' | 'CHALLENGE_INVALID' | 'OK';
+export type ActiveSession = { id: string; serviceId: string; email: string; tokenDigest: string; expiresAt: Date };
 const LEASE_MS = 5 * 60_000;
 
 /** PostgreSQL is the authority for delivery ownership. */
@@ -101,4 +102,9 @@ export class PostgresOtpReservationRepo {
       return { result: 'OK', session: { id: input.sessionId, email: challenge.email_protected, expiresAt } };
     });
   }
+  async activeSession(sessionId: string, serviceId: string, now: Date): Promise<ActiveSession | undefined> {
+    const { rows: [row] } = await this.pool.query<{ session_id: string; service_id: string; email_protected: string; token_digest: string; expires_at: Date }>('SELECT session_id,service_id,email_protected,token_digest,expires_at FROM public_auth.otp_sessions WHERE session_id=$1 AND service_id=$2 AND revoked_at IS NULL AND expires_at>$3', [sessionId, serviceId, now]);
+    return row ? { id: row.session_id, serviceId: row.service_id, email: row.email_protected, tokenDigest: row.token_digest, expiresAt: row.expires_at } : undefined;
+  }
+  async revokeSession(sessionId: string, serviceId: string, tokenDigest: string, now: Date): Promise<boolean> { const result = await this.pool.query('UPDATE public_auth.otp_sessions SET revoked_at=$4 WHERE session_id=$1 AND service_id=$2 AND token_digest=$3 AND revoked_at IS NULL AND expires_at>$4', [sessionId, serviceId, tokenDigest, now]); return (result.rowCount ?? 0) === 1; }
 }
