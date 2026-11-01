@@ -51,9 +51,10 @@ export class PiraIntakeService {
     });
   }
   async updateState(context: PiraContext, claims: PiraJwtClaims, receiptId: string, next: SubmissionState) {
+    const initiative = await this.initiative(context);
     return this.tx(async c => {
-      const { rows: [row] } = await c.query<{ submission_id: string; initiative_kind: InitiativeKind; verified_email: string; state: SubmissionState }>('SELECT submission_id,initiative_kind,verified_email,state FROM pira.pira_submission WHERE receipt_id=$1 FOR UPDATE', [receiptId]);
-      if (!row || row.initiative_kind !== context.kind || row.verified_email !== claims.email) throw new PiraIntakeError(404, 'RECEIPT_NOT_FOUND');
+      const { rows: [row] } = await c.query<{ submission_id: string; initiative_id: string; initiative_kind: InitiativeKind; verified_email: string; state: SubmissionState }>('SELECT submission_id,initiative_id,initiative_kind,verified_email,state FROM pira.pira_submission WHERE receipt_id=$1 FOR UPDATE', [receiptId]);
+      if (!row || row.initiative_id !== initiative.initiative_id || row.initiative_kind !== context.kind || row.verified_email !== claims.email) throw new PiraIntakeError(404, 'RECEIPT_NOT_FOUND');
       const expected: Record<SubmissionState, SubmissionState | undefined> = { RECEIVED: 'ANSWERING', ANSWERING: 'COMPLETED', COMPLETED: undefined };
       if (expected[row.state] !== next) throw new PiraIntakeError(409, 'INVALID_STATE_TRANSITION');
       try { await c.query('INSERT INTO pira.pira_consumed_jti(jti,submission_id,operation,expires_at) VALUES($1,$2,$3,$4)', [claims.jti, row.submission_id, 'UPDATE_STATE', new Date(claims.exp * 1000)]); }

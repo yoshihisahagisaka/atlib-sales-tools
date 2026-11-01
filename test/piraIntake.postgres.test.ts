@@ -21,7 +21,7 @@ const service = new PiraIntakeService(pool, true);
 function token(serviceId: string, email = 'verified@example.test', overrides: jwt.SignOptions = {}) { return jwt.sign({ email }, privateKey, { algorithm: 'RS256', keyid: 'e1-test', issuer, audience: serviceId, subject: 'otp-session', jwtid: randomUUID(), expiresIn: 300, ...overrides }); }
 function payload(kind: 'UNION' | 'GENERAL', key = randomUUID()) { return { initiativeCode: kind === 'UNION' ? 'pira-union' : 'pira-general', companyName: '  PIRA株式会社 ', contactName: '担当者', websiteUrl: 'https://example.test/', phone: '03-0000-0000', ...(kind === 'UNION' ? { unionName: '国連協', address: '東京都千代田区' } : {}), accepted: true, consentVersion: kind === 'UNION' ? 'PIRA-UNION-CONSENT-V1.0' : 'ATLIB-GENERAL-CONSENT-DRAFT-V0.1', idempotencyKey: key }; }
 let api: ReturnType<typeof express>; let server: ReturnType<typeof api.listen>;
-async function reset() { await pool.query('TRUNCATE pira.pira_consumed_jti,pira.pira_submission,pira.pira_initiative CASCADE'); await pool.query("INSERT INTO pira.pira_initiative(initiative_code,initiative_kind,display_name) VALUES('pira-union','UNION','国連協'),('pira-general','GENERAL','一般')"); }
+async function reset() { await pool.query('TRUNCATE pira.pira_consumed_jti,pira.pira_submission,pira.pira_initiative CASCADE'); await pool.query("INSERT INTO pira.pira_initiative(initiative_code,initiative_kind,display_name) VALUES('pira-union','UNION','国連協'),('pira-union-alt','UNION','国連協別施策'),('pira-general','GENERAL','一般')"); }
 function endpoint(host: string, path: string) { return `${base}${host === 'www.atlib.jp' ? '/security-check' : ''}/api/public/pira/v1${path}`; }
 async function post(path: string, body: unknown, bearer?: string, host = 'pira.atlib.jp') { const r = await fetch(endpoint(host, path), { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-host': host, ...(bearer ? { authorization: `Bearer ${bearer}` } : {}) }, body: JSON.stringify(body) }); return { r, body: await r.json() as any }; }
 
@@ -68,6 +68,7 @@ test('parallel jti consumption permits one receipt only', async () => {
 
 test('state transition needs new JWT, rejects reverse transition, and enforces completed 24 hour limit', async () => {
   await reset(); const created = await post('/submissions', payload('UNION'), token('pira-union')); const receipt = created.body.receiptId;
+  await assert.rejects(service.updateState({ serviceId: 'pira-union', initiativeCode: 'pira-union-alt', kind: 'UNION' }, { iss: issuer, aud: 'pira-union', sub: 'session', jti: randomUUID(), iat: 1, exp: 9_999_999_999, email: 'verified@example.test' }, receipt, 'ANSWERING'), (error: any) => error?.code === 'RECEIPT_NOT_FOUND');
   const answering = await post(`/submissions/${receipt}/state`, { state: 'ANSWERING' }, token('pira-union')); assert.equal(answering.r.status, 200);
   const completed = await post(`/submissions/${receipt}/state`, { state: 'COMPLETED' }, token('pira-union')); assert.equal(completed.r.status, 200);
   const backward = await post(`/submissions/${receipt}/state`, { state: 'ANSWERING' }, token('pira-union')); assert.equal(backward.r.status, 409);
