@@ -43,10 +43,8 @@ test('HA-1 manual review flow reaches the first diagnosis question', { timeout: 
     await page.fill('[name=websiteUrl]', 'https://example.test');
     await page.fill('[name=unionName]', 'レビュー用組合');
     await page.fill('[name=address]', '東京都テスト区');
-    await page.check('[name=accepted]');
-    await page.click('#pira-form button[type=submit]');
-    await page.waitForSelector('.v7-public-start');
-    await page.getByRole('button', { name: 'セルフチェックをはじめる' }).click();
+    assert.equal(await page.locator('[name=accepted]').count(), 0);
+    await page.getByRole('button', { name: '同意して診断に進む' }).click();
     await page.waitForSelector('.v7-public-question');
     const response = await page.request.get(`http://127.0.0.1:${address.port}/__ha/status`);
     const status = await response.json();

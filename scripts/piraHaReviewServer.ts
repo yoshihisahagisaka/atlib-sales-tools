@@ -24,7 +24,7 @@ export function createPiraHaReviewApp(root = path.resolve(__dirname, '..')) {
     const reviewNotice = '<aside class="ha-review-notice" role="note">こちらは動作確認用の画面です。認証メールは送信されません。確認コードには246810を入力してください。</aside>';
     response.type('html').set('cache-control', 'no-store').send(source
       .replace('</head>', `${reviewHead}</head>`)
-      .replace('<body>', `<body class="ha-review">${reviewNotice}`));
+      .replace('<body class="pira-e2">', `<body class="pira-e2 ha-review">${reviewNotice}`));
   });
   app.use('/pira', express.static(path.join(root, 'prototypes/pira-union-diagnosis-v2')));
 
