@@ -15,10 +15,16 @@ export function createPiraHaReviewApp(root = path.resolve(__dirname, '..')) {
   app.disable('x-powered-by');
   app.use(express.json({ limit: '32kb' }));
   app.use(express.static(path.join(root, 'public')));
+  app.get('/__ha/review.css', (_request, response) => {
+    response.type('css').set('cache-control', 'no-store').send(readFileSync(path.join(root, 'scripts/piraHaReview.css'), 'utf8'));
+  });
   app.get('/pira/pira-e2.html', (_request, response) => {
     const source = readFileSync(path.join(root, 'prototypes/pira-union-diagnosis-v2/pira-e2.html'), 'utf8');
-    const reviewBootstrap = '<script>window.publicAuthTurnstileToken=()=>\'ha-review\';</script>';
-    response.type('html').set('cache-control', 'no-store').send(source.replace('<head>', `<head>${reviewBootstrap}`));
+    const reviewHead = '<script>window.publicAuthTurnstileToken=()=>\'ha-review\';</script><link rel="stylesheet" href="/__ha/review.css">';
+    const reviewNotice = '<aside class="ha-review-notice" role="note">こちらは動作確認用の画面です。認証メールは送信されません。確認コードには246810を入力してください。</aside>';
+    response.type('html').set('cache-control', 'no-store').send(source
+      .replace('</head>', `${reviewHead}</head>`)
+      .replace('<body>', `<body class="ha-review">${reviewNotice}`));
   });
   app.use('/pira', express.static(path.join(root, 'prototypes/pira-union-diagnosis-v2')));
 
