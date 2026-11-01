@@ -39,6 +39,8 @@ export interface Config {
   publicIntakeEnabled: boolean;
   /** Fail-closed allowlist for test-case designation. Deletion is never a runtime capability. */
   testCaseAdminEmails: string[];
+  /** PIRA administrators may export and maintain initiatives; other authenticated staff are viewers. */
+  piraAdminEmails: string[];
 }
 
 /**
@@ -117,6 +119,8 @@ export async function loadConfig(): Promise<Config> {
     },
     publicIntakeEnabled: process.env.DIAGNOSIS_PUBLIC_INTAKE_ENABLED === 'true',
     testCaseAdminEmails: [...new Set((process.env.TEST_CASE_ADMIN_EMAILS ?? '').split(',')
+      .map(value => value.trim().toLowerCase()).filter(Boolean))],
+    piraAdminEmails: [...new Set((process.env.PIRA_ADMIN_EMAILS ?? '').split(',')
       .map(value => value.trim().toLowerCase()).filter(Boolean))],
   };
 }
