@@ -2,7 +2,7 @@
   const config = window.__PUBLIC_AUTH_CONFIG__;
   const byId = id => document.getElementById(id);
   const screens = { email: byId('email-screen'), code: byId('code-screen'), success: byId('success-screen') };
-  const error = byId('error'), busy = byId('busy'), email = byId('email'), code = byId('code'), send = byId('send'), verify = byId('verify'), resend = byId('resend'), changeEmail = byId('change-email'), start = byId('start'), wait = byId('resend-wait');
+  const error = byId('error'), busy = byId('busy'), email = byId('email'), code = byId('code'), send = byId('send'), verify = byId('verify'), resend = byId('resend'), changeEmail = byId('change-email'), start = byId(config?.startButtonId || 'start'), wait = byId('resend-wait');
   const copy = { OTP_INVALID:'認証コードが正しくありません。もう一度ご確認ください。', OTP_EXPIRED:'認証コードの有効期限が切れました。再度認証コードを送信してください。', CHALLENGE_LOCKED:'認証回数の上限に達しました。認証コードを再送してください。', RESEND_COOLDOWN:'認証コードは60秒経過後に再送できます。', SEND_LIMIT_REACHED:'送信回数の上限に達しました。しばらく時間をおいてお試しください。', TURNSTILE_DENIED:'確認が完了しませんでした。もう一度お試しください。', NETWORK_ERROR:'通信に失敗しました。通信環境をご確認のうえ、もう一度お試しください。', MAIL_SEND_FAILED:'認証コードを送信できませんでした。しばらく時間をおいてお試しください。', SESSION_INVALID:'認証の有効期限が切れました。もう一度メールアドレスの確認を行ってください。' };
   let state = { challengeId: null, sessionId: null, sessionToken: null, timer: null };
   const show = name => Object.entries(screens).forEach(([key, element]) => { element.hidden = key !== name; });
