@@ -9,7 +9,8 @@
   const message = value => { error.textContent = copy[value] || ''; };
   const setBusy = (value, buttons = []) => { busy.textContent = value ? '処理中です。' : ''; buttons.forEach(button => { button.disabled = value; }); };
   const api = async (path, options = {}) => {
-    try { const response = await fetch(`${config.apiBase}${path}`, { ...options, headers: { 'content-type':'application/json', ...(options.headers || {}) } }); const data = response.status === 204 ? null : await response.json(); if (!response.ok) { const fault = new Error('api'); fault.code = data?.error?.code; throw fault; } return data; }
+    const apiPath = config.apiBase?.endsWith('/v1/otp') && path.startsWith('/v1/otp/') ? path.slice('/v1/otp'.length) : path;
+    try { const response = await fetch(`${config.apiBase}${apiPath}`, { ...options, headers: { 'content-type':'application/json', ...(options.headers || {}) } }); const data = response.status === 204 ? null : await response.json(); if (!response.ok) { const fault = new Error('api'); fault.code = data?.error?.code; throw fault; } return data; }
     catch (fault) { if (!fault.code) fault.code = 'NETWORK_ERROR'; throw fault; }
   };
   const turnstileToken = () => window.turnstile?.getResponse?.() || window.publicAuthTurnstileToken?.() || '';
