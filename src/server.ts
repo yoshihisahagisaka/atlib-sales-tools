@@ -77,6 +77,8 @@ import { createAdminMarketingInitiativeRouter } from './routes/adminMarketingIni
 import { TestCaseManagementRepo } from './services/testCaseManagementRepo';
 import { WscSalesService } from './services/wscSalesService';
 import { createAdminWebSecurityCheckRouter } from './routes/adminWebSecurityCheck';
+import { PiraAdminRepo } from './piraAdmin/piraAdminRepo';
+import { createAdminPiraRouter } from './routes/adminPira';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -110,6 +112,7 @@ async function main(): Promise<void> {
   const aiAssistService = new AiAssistService(config.aiAssist.anthropicApiKey, marketRateRepo, estimatePreconditionRepo);
   const staffAuthService = new StaffAuthService(config.staffAuth.jwtSecret);
   const wscSalesService = new WscSalesService();
+  const piraAdminRepo = new PiraAdminRepo(pool);
   const itManagementDiagnosisRepo = new ItManagementDiagnosisRepo(pool);
   const preparationRepo = new DiagnosisPreparationRepo(pool);
   const preparationProvider = new AnthropicPreDiagnosisProvider(config.aiAssist.anthropicApiKey);
@@ -221,6 +224,8 @@ async function main(): Promise<void> {
   );
   app.use('/api/admin/market-rates', ...adminAuthGate, createAdminMarketRatesRouter(marketRateRepo));
   app.use('/api/admin/web-security-check', ...adminAuthGate, createAdminWebSecurityCheckRouter(wscSalesService));
+  app.use('/api/admin/pira/v1', ...adminAuthGate,
+    createAdminPiraRouter(piraAdminRepo, new Set(config.piraAdminEmails)));
   app.use(
     '/api/admin/estimate-preconditions',
     ...adminAuthGate,
