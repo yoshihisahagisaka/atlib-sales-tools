@@ -11,6 +11,7 @@ const step = (name: string) => console.log(`E2_STEP:${name}`);
 let server: ReturnType<express.Express['listen']>;
 let base = '';
 let states: string[] = [];
+let submission: Record<string, unknown> = {};
 
 test.before(async () => {
   const app = express();
@@ -21,7 +22,8 @@ test.before(async () => {
   app.post('/v1/otp/challenges/c/verify', (_request, response) => response.json({ sessionId: 's', sessionToken: 't' }));
   app.post('/v1/otp/sessions/s/tokens', (_request, response) => response.json({ token: `test-${randomUUID()}` }));
   app.get('/api/public/pira/v1/intake-contract', (_request, response) => response.json({ initiativeCode: 'pira-union', initiativeKind: 'UNION', consent: { version: 'PIRA-UNION-CONSENT-V1.0' } }));
-  app.post('/api/public/pira/v1/submissions', (_request, response) => {
+  app.post('/api/public/pira/v1/submissions', (request, response) => {
+    submission = request.body;
     step('SUBMISSION_CREATED');
     response.status(201).json({ receiptId: '11111111-1111-4111-8111-111111111111' });
   });
@@ -44,6 +46,7 @@ function observePage(page: Page, pageErrors: string[], requestFailures: string[]
 
 test('OTP, intake, v7 and completion flow', { timeout: 60_000 }, async () => {
   states = [];
+  submission = {};
   step('TEST_START');
   let lastStep = 'TEST_START';
   const reached = (name: string) => { lastStep = name; step(name); };
@@ -114,13 +117,12 @@ test('OTP, intake, v7 and completion flow', { timeout: 60_000 }, async () => {
     await page.waitForSelector('#pira-form', { timeout: 10_000 });
     reached('INTAKE_DISPLAYED');
     for (const [selector, value] of [['companyName', 'テスト株式会社'], ['contactName', '担当者'], ['websiteUrl', 'https://example.test'], ['unionName', '国連協'], ['address', '東京都']] as const) await page.fill(`[name=${selector}]`, value, { timeout: 10_000 });
-    await page.check('[name=accepted]', { timeout: 10_000 });
-    await page.click('#pira-form button', { timeout: 10_000 });
-    await page.waitForSelector('.v7-public-start', { timeout: 10_000 });
-    reached('V7_START_DISPLAYED');
-    await page.getByRole('button', { name: 'セルフチェックをはじめる' }).click({ timeout: 10_000 });
+    assert.equal(await page.locator('[name=accepted]').count(), 0);
+    await page.getByRole('button', { name: '同意して診断に進む' }).click({ timeout: 10_000 });
     await page.waitForSelector('.v7-public-question', { timeout: 10_000 });
     reached('QUESTION_STARTED');
+    assert.equal(submission.accepted, true);
+    assert.equal(submission.consentVersion, 'PIRA-UNION-CONSENT-V1.0');
     for (let index = 0; index < 12; index += 1) {
       await page.locator('[data-answer]').first().click({ timeout: 10_000 });
       const next = page.locator('#next');
@@ -142,6 +144,18 @@ test('OTP, intake, v7 and completion flow', { timeout: 60_000 }, async () => {
   } finally {
     await browser.close();
     step('BROWSER_CLOSED');
+  }
+});
+
+test('standalone v7 keeps its original start screen', { timeout: 30_000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.goto(`${base}/pira/v7-prototype.html`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.v7-public-start');
+    assert.equal(await page.getByRole('button', { name: 'セルフチェックをはじめる' }).isVisible(), true);
+  } finally {
+    await browser.close();
   }
 });
 
