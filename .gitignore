@@ -1,4 +1,5 @@
 node_modules/
+.pira-ha-review/
 dist/
 .env
 test-results/
