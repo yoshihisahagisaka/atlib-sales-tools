@@ -5,7 +5,7 @@ import type { PiraJwtClaims } from './piraJwtVerifier';
 export type InitiativeKind = 'UNION' | 'GENERAL';
 export type SubmissionState = 'RECEIVED' | 'ANSWERING' | 'COMPLETED';
 export type PiraContext = { serviceId: string; initiativeCode: string; kind: InitiativeKind };
-export type IntakeForm = { companyName: string; contactName: string; websiteUrl: string; phone?: string; unionName?: string; address?: string; consentVersion: string; idempotencyKey: string };
+export type IntakeForm = { companyName: string; contactName: string; websiteUrl: string; phone?: string; unionName?: string; address?: string; accepted: boolean; consentVersion: string; idempotencyKey: string };
 export class PiraIntakeError extends Error { constructor(public readonly status: number, public readonly code: string) { super(code); } }
 
 const UNION_CONSENT = 'PIRA-UNION-CONSENT-V1.0';
@@ -25,7 +25,7 @@ export class PiraIntakeService {
     if (!row || row.initiative_kind !== context.kind) throw new PiraIntakeError(404, 'INITIATIVE_NOT_FOUND'); return row;
   }
   private validate(context: PiraContext, form: IntakeForm) {
-    const required = [form.companyName, form.contactName, form.websiteUrl, form.consentVersion, form.idempotencyKey]; if (required.some(v => !v || !normalize(v))) throw new PiraIntakeError(422, 'INVALID_REQUEST');
+    const required = [form.companyName, form.contactName, form.websiteUrl, form.consentVersion, form.idempotencyKey]; if (!form.accepted || required.some(v => !v || !normalize(v))) throw new PiraIntakeError(422, 'INVALID_REQUEST');
     if (normalize(form.companyName).length > 200 || normalize(form.contactName).length > 200 || form.websiteUrl.length > 2000 || (form.phone?.length ?? 0) > 50) throw new PiraIntakeError(422, 'INVALID_REQUEST');
     let url: URL; try { url = new URL(form.websiteUrl); } catch { throw new PiraIntakeError(422, 'INVALID_REQUEST'); }
     if (!['http:','https:'].includes(url.protocol)) throw new PiraIntakeError(422, 'INVALID_REQUEST');
@@ -36,8 +36,11 @@ export class PiraIntakeService {
     this.validate(context, form); const initiative = await this.initiative(context); const now = this.now(); const hash = payloadHash(form);
     return this.tx(async c => {
       await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [form.idempotencyKey]);
-      const { rows: [existing] } = await c.query<{ receipt_id: string; payload_hash: string }>('SELECT receipt_id,payload_hash FROM pira.pira_submission WHERE idempotency_key=$1 FOR UPDATE', [form.idempotencyKey]);
-      if (existing) { if (existing.payload_hash !== hash) throw new PiraIntakeError(409, 'IDEMPOTENCY_CONFLICT'); return { receiptId: existing.receipt_id, replayed: true }; }
+      const { rows: [existing] } = await c.query<{ receipt_id: string; payload_hash: string; initiative_id: string; initiative_kind: InitiativeKind; verified_email: string }>('SELECT receipt_id,payload_hash,initiative_id,initiative_kind,verified_email FROM pira.pira_submission WHERE idempotency_key=$1 FOR UPDATE', [form.idempotencyKey]);
+      if (existing) {
+        if (existing.payload_hash !== hash || existing.initiative_id !== initiative.initiative_id || existing.initiative_kind !== context.kind || existing.verified_email !== claims.email) throw new PiraIntakeError(409, 'IDEMPOTENCY_CONFLICT');
+        return { receiptId: existing.receipt_id, replayed: true };
+      }
       const duplicate = await c.query(`SELECT 1 FROM pira.pira_submission WHERE initiative_kind=$1 AND company_name_normalized=$2 AND verified_email=$3 AND state='COMPLETED' AND completed_at > $4 LIMIT 1`, [context.kind, normalize(form.companyName), claims.email, new Date(now.getTime() - 24 * 60 * 60_000)]);
       if (duplicate.rowCount) throw new PiraIntakeError(409, 'RETRY_RESTRICTED');
       const receiptId = randomUUID(); const submissionId = randomUUID();

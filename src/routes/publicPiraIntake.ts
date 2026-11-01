@@ -3,12 +3,21 @@ import { z } from 'zod';
 import { PiraIntakeError, type InitiativeKind, type PiraContext, type SubmissionState, PiraIntakeService } from '../piraIntake/piraIntakeService';
 import { PiraJwtError, PiraJwtVerifier } from '../piraIntake/piraJwtVerifier';
 
-const base = z.object({ initiativeCode: z.string().min(1).max(80), companyName: z.string().min(1).max(200), contactName: z.string().min(1).max(200), websiteUrl: z.string().min(1).max(2000), phone: z.string().max(50).optional(), unionName: z.string().max(200).optional(), address: z.string().max(500).optional(), consentVersion: z.string().min(1).max(100), idempotencyKey: z.string().uuid() }).strict();
+const base = z.object({ initiativeCode: z.string().min(1).max(80), companyName: z.string().min(1).max(200), contactName: z.string().min(1).max(200), websiteUrl: z.string().min(1).max(2000), phone: z.string().max(50).optional(), unionName: z.string().max(200).optional(), address: z.string().max(500).optional(), accepted: z.literal(true), consentVersion: z.string().min(1).max(100), idempotencyKey: z.string().uuid() }).strict();
 const stateSchema = z.object({ state: z.enum(['ANSWERING','COMPLETED']) }).strict();
 export type ContextResolver = (req: Request) => PiraContext | undefined;
 /** Deployment configuration maps the accepted public host to one immutable initiative. */
 export function createHostPiraContextResolver(contexts: ReadonlyMap<string, PiraContext>): ContextResolver {
   return req => contexts.get(req.hostname.toLowerCase());
+}
+export type PiraPublicRoute = { hostname: string; pathPrefix: string; context: PiraContext };
+/** Both canonical public URLs and their API prefixes must match; no body/header selects a kind. */
+export function createUrlPiraContextResolver(routes: readonly PiraPublicRoute[]): ContextResolver {
+  return req => {
+    const path = req.originalUrl.split('?')[0] ?? '';
+    const hostname = req.hostname.toLowerCase();
+    return routes.find(route => route.hostname === hostname && (path === route.pathPrefix || path.startsWith(`${route.pathPrefix}/`)))?.context;
+  };
 }
 function auth(req: Request) { const value = req.get('authorization'); return value?.startsWith('Bearer ') ? value.slice(7) : undefined; }
 function failure(res: Response, error: unknown) { if (error instanceof PiraIntakeError) return res.status(error.status).json({ error: { code: error.code } }); if (error instanceof PiraJwtError) return res.status(error.code === 'JWKS_UNAVAILABLE' ? 503 : 401).json({ error: { code: error.code } }); return res.status(500).json({ error: { code: 'INTERNAL_ERROR' } }); }
