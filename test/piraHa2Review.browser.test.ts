@@ -22,8 +22,8 @@ test('HA-2 administrator and viewer can review the real E3 admin UI', { timeout:
     const page = await browser.newPage({ acceptDownloads: true, viewport: { width: 1440, height: 1000 } });
     await page.goto(`${base}/__ha/login?role=admin`);
     await page.waitForSelector('#items tr');
-    assert.equal(await page.title(), 'SECU Insight受付管理');
-    assert.equal(await page.locator('h1').innerText(), 'SECU Insight受付管理');
+    assert.equal(await page.title(), 'SECU:MIE Insight受付管理');
+    assert.equal(await page.locator('h1').innerText(), 'SECU:MIE Insight受付管理');
     assert.equal(await page.locator('#items tr').count(), 6);
     assert.match(await page.locator('.ha2-review').innerText(), /現在の権限: 管理者/);
     assert.match(await page.locator('#items').innerText(), /国連協/);
