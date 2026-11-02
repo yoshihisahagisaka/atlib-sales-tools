@@ -23,13 +23,15 @@ Migration 037〜040にはOTP・PIRA受付テーブル、管理出力監査、監
 
 | 主体 | 許可 | 明示的に不許可 |
 | --- | --- | --- |
-| OTP runtime | `public_auth`使用、lockのSELECT/INSERT、reservation/challenge/sessionのSELECT/INSERT/UPDATE | DELETE、PIRA schema、保持関数 |
+| OTP runtime | `public_auth`使用、lockのSELECT/INSERT/UPDATE、reservation/challenge/sessionのSELECT/INSERT/UPDATE | DELETE、PIRA schema、保持関数 |
 | PIRA公開受付runtime | initiativeのSELECT、submissionのSELECT/INSERT/UPDATE、consumed_jtiのINSERT | DELETE、監査、OTP schema、保持関数 |
 | Sales Tools管理runtime | initiativeのSELECT/INSERT/UPDATE、submission/jtiのSELECT、export auditのSELECT/INSERT | auditのUPDATE/DELETE、OTP schema、保持関数 |
 | Migration主体 | Migration objectのownerとしてDDL・role設定関数を実行 | runtimeには使用しない |
 | 保持保守主体 | 候補確認関数と固定保持期間の削除関数のEXECUTE | tableへの直接SELECT/INSERT/UPDATE/DELETE |
 
 `PUBLIC`には対象schemaおよび保守関数の権限を与えない。監査保守関数は`SECURITY DEFINER`、固定`search_path`、PUBLIC EXECUTE取消を維持する。
+
+実RepositoryのSQLを専用roleで実行して確認した結果、`otp_send_locks`の`SELECT ... FOR UPDATE`にはUPDATE権限が必要だったため、そのテーブルだけUPDATEを許可した。OTP送信履歴は`otp_send_reservations`が正本であり、INSERT/UPDATE権限を付与している。現行コードは`otp_send_events`と`otp_auth_audit`へINSERTしていないため、未使用テーブルへの権限は追加していない。DB監査イベントの記録を必須化する場合は、記録タイミングとresult codeを別途Contractに整合させるまで本番権限を先行付与しない。
 
 ## Deployment Configuration
 
@@ -64,7 +66,9 @@ Migration接続:
 npm run retention:secumie
 ```
 
-既定はpreviewであり、削除しない。候補件数をJSONログへ出力する。承認された保守実行時だけ`RETENTION_EXECUTE=true`を設定する。OTPとPIRAの削除は単一DB transaction内で実行し、一方が失敗した場合は全体をrollbackする。
+既定はpreviewであり、削除しない。候補件数をJSONログへ出力する。承認された保守実行時だけ`RETENTION_EXECUTE=true`を設定する。通常実行では日時を渡さず、DBサーバーの`clock_timestamp()`を基準とする。OTPとPIRAの削除は単一DB transaction内で実行し、一方が失敗した場合は全体をrollbackする。
+
+再現用の`RETENTION_REFERENCE_AT`は現在以前だけを許可する。DB関数はNULLまたは将来日時を拒否するため、保守runtimeから保持期限を前倒しできない。過去日時は削除対象を狭めるだけで、保持期間を短縮しない。既存`pira.purge_export_audit_before()`も3年未満のcutoffを拒否し、保守roleには直接EXECUTEを付与しない。
 
 保守接続:
 
@@ -120,6 +124,9 @@ npm run retention:secumie
 - 固定期間到達分のみ削除: PASS
 - 未到達データ保護: PASS
 - 再実行安全性: PASS
+- 将来`reference_at`のDB側拒否: PASS
+- 過去`reference_at`で未到達データを保護: PASS
+- 実OTP/PIRA/Admin Repositoryを専用roleで実行: PASS
 - SECURITY DEFINER、固定search_path、PUBLIC EXECUTE取消: PASS
 
 ## 本番前No-Go
@@ -132,5 +139,6 @@ npm run retention:secumie
 - Cloud SQL backup/PITR、復元手順、初回実行前backupの確認
 - Cloud Loggingの保持、alert条件、実行ログ閲覧権限
 - 本番Migration 041適用前のstaging rehearsal
+- OTP DBセキュリティ監査をアプリケーションログで運用するか、`otp_auth_audit`へ記録するかの確定
 
 上記が確定するまでProduction No-Goを維持する。

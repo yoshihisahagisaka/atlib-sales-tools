@@ -29,6 +29,9 @@ AS $$
 DECLARE challenges_count integer; reservations_count integer; sessions_count integer;
 DECLARE events_count integer; audit_count integer; locks_count integer;
 BEGIN
+  IF reference_at IS NULL OR reference_at > clock_timestamp() THEN
+    RAISE EXCEPTION 'SECU_RETENTION_REFERENCE_AT_INVALID';
+  END IF;
   DELETE FROM public_auth.otp_challenges WHERE created_at < reference_at - interval '24 hours';
   GET DIAGNOSTICS challenges_count = ROW_COUNT;
   DELETE FROM public_auth.otp_send_reservations WHERE reserved_at < reference_at - interval '24 hours';
@@ -71,6 +74,9 @@ SET search_path = pg_catalog, pira
 AS $$
 DECLARE submissions_count integer; jti_count integer; audit_count integer;
 BEGIN
+  IF reference_at IS NULL OR reference_at > clock_timestamp() THEN
+    RAISE EXCEPTION 'SECU_RETENTION_REFERENCE_AT_INVALID';
+  END IF;
   DELETE FROM pira.pira_consumed_jti
     WHERE expires_at < reference_at
        OR submission_id IN (SELECT submission_id FROM pira.pira_submission WHERE received_at < reference_at - interval '2 years');
@@ -118,7 +124,7 @@ BEGIN
   END LOOP;
 
   EXECUTE format('GRANT USAGE ON SCHEMA public_auth TO %I', otp_runtime);
-  EXECUTE format('GRANT SELECT,INSERT ON public_auth.otp_send_locks TO %I', otp_runtime);
+  EXECUTE format('GRANT SELECT,INSERT,UPDATE ON public_auth.otp_send_locks TO %I', otp_runtime);
   EXECUTE format('GRANT SELECT,INSERT,UPDATE ON public_auth.otp_send_reservations,public_auth.otp_challenges,public_auth.otp_sessions TO %I', otp_runtime);
 
   EXECUTE format('GRANT USAGE ON SCHEMA pira TO %I', pira_runtime);

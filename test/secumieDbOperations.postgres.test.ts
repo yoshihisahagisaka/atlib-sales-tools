@@ -5,6 +5,9 @@ import test from 'node:test';
 import { Pool } from 'pg';
 import { configureSecumieDbRoles } from '../src/db/configureSecumieDbRolesCli';
 import { runSecumieRetention } from '../src/db/secumieRetentionCli';
+import { PostgresOtpReservationRepo } from '../src/publicAuth/postgresOtpReservationRepo';
+import { PiraIntakeService } from '../src/piraIntake/piraIntakeService';
+import { PiraAdminRepo } from '../src/piraAdmin/piraAdminRepo';
 
 const root = path.resolve(__dirname, '..');
 const port = 55437;
@@ -68,6 +71,28 @@ test('fresh migrations 037-041 and role configuration grant only required runtim
   assert.ok(functions.rows.every(row => row.prosecdef === true && row.public_execute === false && (row.proconfig.includes('search_path=pg_catalog, public_auth') || row.proconfig.includes('search_path=pg_catalog, pira'))));
 });
 
+test('actual OTP, intake, and admin repositories operate with their scoped roles', async () => {
+  const now = new Date('2026-11-02T00:00:00.000Z');
+  const otpRepo = new PostgresOtpReservationRepo(otp);
+  const reserved = await otpRepo.reserve({ id:'repo-reservation',challengeId:'repo-challenge',serviceId:'pira-union',email:'repo@example.test',otpDigest:'aa'.repeat(32),now });
+  const lease = await otpRepo.claim(reserved,now); assert.ok(lease);
+  assert.equal(await otpRepo.activateChallenge(lease!,now),true);
+  const verified = await otpRepo.verifyAndCreateSession({ challengeId:'repo-challenge',serviceId:'pira-union',otpDigest:'aa'.repeat(32),sessionId:'repo-session',sessionDigest:'bb'.repeat(32),now });
+  assert.equal(verified.result,'OK'); assert.ok(await otpRepo.activeSession('repo-session','pira-union',now));
+
+  const intake = new PiraIntakeService(pira,false,()=>now);
+  const context = { serviceId:'pira-union',initiativeCode:'pira-union',kind:'UNION' as const };
+  const claims = { iss:'issuer',aud:'pira-union',sub:'session',jti:'repo-jti-create',iat:1,exp:9_999_999_999,email:'repository@example.test' };
+  const created = await intake.create(context,claims,{companyName:'Repository企業',contactName:'担当者',websiteUrl:'https://example.test',unionName:'国連協',address:'東京都',accepted:true,consentVersion:'PIRA-UNION-CONSENT-V1.0',idempotencyKey:'11111111-1111-4111-8111-111111111111'});
+  await intake.updateState(context,{...claims,jti:'repo-jti-state'},created.receiptId,'ANSWERING');
+
+  const adminRepo = new PiraAdminRepo(admin);
+  assert.ok((await adminRepo.list({limit:20,offset:0})).total >= 1);
+  const adminInitiative = await adminRepo.createInitiative({code:'repo-admin',kind:'GENERAL',name:'Repository管理'});
+  await adminRepo.setInitiativeActive(adminInitiative.initiative_id,false);
+  await adminRepo.audit({actor:'admin@example.test',format:'CSV',filters:{},count:0,success:true,initiativeCodes:[]});
+});
+
 test('fixed retention windows delete only expired data and rerun safely', async () => {
   await owner.query('TRUNCATE public_auth.otp_challenges,public_auth.otp_send_reservations,public_auth.otp_send_locks,public_auth.otp_send_events,public_auth.otp_sessions,public_auth.otp_auth_audit');
   const old24 = new Date(referenceAt.getTime() - 25 * 60 * 60_000); const recent24 = new Date(referenceAt.getTime() - 23 * 60 * 60_000);
@@ -103,6 +128,23 @@ test('fixed retention windows delete only expired data and rerun safely', async 
   const rerun = await captureLog(runSecumieRetention);
   assert.deepEqual(rerun[0]?.deleted.otp,{challenges:0,reservations:0,sessions:0,sendEvents:0,securityAudit:0,sendLocks:0});
   assert.deepEqual(rerun[0]?.deleted.pira,{submissions:0,consumedJti:0,exportAudits:0});
+});
+
+test('database rejects future deletion references and past references cannot shorten retention', async () => {
+  const future = new Date(Date.now()+24*60*60_000);
+  await assert.rejects(maintenance.query('SELECT public_auth.purge_retained_data($1)',[future]),/REFERENCE_AT_INVALID/);
+  await assert.rejects(maintenance.query('SELECT pira.purge_retained_data($1)',[future]),/REFERENCE_AT_INVALID/);
+  process.env.RETENTION_REFERENCE_AT=future.toISOString(); process.env.RETENTION_EXECUTE='true';
+  await assert.rejects(runSecumieRetention(),/REFERENCE_AT_INVALID/);
+  await assert.rejects(owner.query('SELECT pira.purge_export_audit_before($1)',[future]),/RETENTION_NOT_REACHED/);
+  await assert.rejects(maintenance.query('SELECT pira.purge_export_audit_before($1)',[new Date('2020-01-01')]),/permission denied/);
+  const pastReference = new Date('2026-10-01T00:00:00.000Z');
+  process.env.RETENTION_REFERENCE_AT=pastReference.toISOString();
+  const protectedAt = new Date('2026-09-30T12:00:00.000Z');
+  await owner.query("INSERT INTO public_auth.otp_sessions(session_id,service_id,email_protected,token_digest,expires_at,created_at) VALUES('past-protected','pira-union','protected@example.test','digest',$1,$1)",[protectedAt]);
+  const result = (await maintenance.query('SELECT public_auth.purge_retained_data($1) AS value',[pastReference])).rows[0].value;
+  assert.equal(Number(result.sessions),0);
+  assert.equal((await owner.query("SELECT count(*)::int AS count FROM public_auth.otp_sessions WHERE session_id='past-protected'")).rows[0].count,1);
 });
 
 test.after(async () => {
