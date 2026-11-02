@@ -8,7 +8,7 @@ import type { ReportDraftProvider } from '../services/reportDraftProvider';
 import type { ReportDraftWorker } from '../services/reportDraftWorker';
 import { caseId,diagnosisHandler,staffActor } from './itManagementDiagnosis';
 export interface ReportServices {repo:DiagnosisReportRepo;provider:ReportDraftProvider;worker:ReportDraftWorker}
-function parse<T>(schema:z.ZodType<T,any,any>,raw:unknown):T{const p=schema.safeParse(raw);if(!p.success)throw new DiagnosisError(422,'入力内容を確認してください。');return p.data;}
+function parse<S extends z.ZodType>(schema:S,raw:unknown):z.output<S>{const p=schema.safeParse(raw);if(!p.success)throw new DiagnosisError(422,'入力内容を確認してください。');return p.data as z.output<S>;}
 export function createDiagnosisReportRouter({repo,provider,worker}:ReportServices){const router=Router(),base='/cases/:id';
  router.get(base+'/report',diagnosisHandler(async(req,res)=>{res.json(await repo.read(caseId(req),staffActor(req)));}));
  router.post(base+'/report/ai/run',diagnosisHandler(async(req,res)=>{parse(z.object({}).strict(),req.body??{});res.status(202).json(await repo.enqueue(caseId(req),staffActor(req),provider.provider,provider.model));void worker.tick().catch(()=>req.log?.warn({event:'report_worker_failed'},'Report worker failed'));}));
