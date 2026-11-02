@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 import { test, expect } from '@playwright/test';
 import express from 'express';
 import path from 'node:path';

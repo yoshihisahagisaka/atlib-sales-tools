@@ -41,12 +41,12 @@
     "express": "^4.19.2",
     "google-auth-library": "^9.14.1",
     "jsonwebtoken": "^9.0.2",
-    "nodemailer": "^9.0.3",
+    "nodemailer": "^10.3.1",
     "pg": "^8.11.5",
     "pino": "^9.0.0",
     "pino-http": "^10.0.0",
     "playwright": "1.63.0",
-    "zod": "^3.23.8"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
@@ -60,5 +60,11 @@
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.4.5"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.14.7",
+    "body-parser": "1.20.9",
+    "brace-expansion@1.1.18": "1.1.21",
+    "proxy-addr": "2.0.8"
   }
 }

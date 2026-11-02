@@ -101,18 +101,18 @@ const maturityPatchSchema = z.object({
   ),
 });
 
-const businessesPatchSchema = z.object({ businesses: z.array(z.record(z.unknown())).max(30) });
-const hypothesesPatchSchema = z.object({ hypotheses: z.array(z.record(z.unknown())).max(30) });
+const businessesPatchSchema = z.object({ businesses: z.array(z.record(z.string(), z.unknown())).max(30) });
+const hypothesesPatchSchema = z.object({ hypotheses: z.array(z.record(z.string(), z.unknown())).max(30) });
 const reportDraftPatchSchema = z.object({
   blocks: z.object({
     b01_future: z.string().max(20000),
     b02_idealJoshisu: z.string().max(20000),
-    b03_gap: z.record(z.unknown()),
-    b04_timeShift: z.record(z.unknown()),
-    b05_priorityKaizen: z.array(z.record(z.unknown())),
-    b06_next90days: z.array(z.record(z.unknown())),
+    b03_gap: z.record(z.string(), z.unknown()),
+    b04_timeShift: z.record(z.string(), z.unknown()),
+    b05_priorityKaizen: z.array(z.record(z.string(), z.unknown())),
+    b06_next90days: z.array(z.record(z.string(), z.unknown())),
   }),
-  operatingModelHypothesis: z.record(z.unknown()).optional(),
+  operatingModelHypothesis: z.record(z.string(), z.unknown()).optional(),
 });
 
 const statusUpdateSchema = z.object({ status: reviewStatusSchema });
