@@ -1,0 +1,8 @@
+.v7-reference-card{border:1px solid #d9e2ee;border-left:5px solid var(--green);padding:8px 10px;margin:8px 0;background:#fff}.v7-reference-card h3{margin:0 0 4px;color:var(--navy);font-size:15px}.v7-reference-card p{margin:3px 0;line-height:1.35}.v7-management-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:6px 0}.v7-management-grid span{background:var(--paper);border-top:3px solid var(--green);padding:6px;text-align:center;font-weight:700;color:var(--navy)}.v7-tools-page article{border-left:5px solid var(--green);padding:1px 12px 7px;margin:10px 0;background:var(--paper)}.v7-tools-page article h2{margin:8px 0 4px;font-size:16px}.v7-tools-page article p{margin:4px 0;line-height:1.35}.v7-tools-page article a{font-weight:700;color:var(--navy)}
+@media print{.v7-reference-card,.v7-management-grid span,.v7-tools-page article{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+@media print{.v7-page{break-before:page}.v7-page:first-child{break-before:auto}}
+/* Keep the HTML anchor, but make the print-only guidance non-interactive. */
+.v7-title-card{background:var(--navy)}.v7-title-band{object-fit:cover;object-position:center}
+.v7-tool-label a{font-size:0}
+.v7-tool-label a:before{content:'巻末のお役立ちツール一覧を見る';font-size:13px}
+@media print{.v7-tool-label a{color:var(--ink);text-decoration:none;pointer-events:none}.v7-tool-label a:before{content:'お役立ちツールは巻末でご紹介しています。';color:var(--ink);font-weight:400}.v7-tool-label:after{content:none}}
