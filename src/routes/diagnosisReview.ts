@@ -7,7 +7,7 @@ import type { PostDiagnosisProvider } from '../services/postDiagnosisProvider';
 import type { PostDiagnosisWorker } from '../services/postDiagnosisWorker';
 import { caseId,diagnosisHandler,staffActor } from './itManagementDiagnosis';
 export interface ReviewServices {repo:DiagnosisReviewRepo;provider:PostDiagnosisProvider;worker:PostDiagnosisWorker}
-function parse<T>(schema:z.ZodType<T,any,any>,raw:unknown):T{const p=schema.safeParse(raw);if(!p.success)throw new DiagnosisError(422,'入力内容を確認してください。');return p.data;}
+function parse<S extends z.ZodType>(schema:S,raw:unknown):z.output<S>{const p=schema.safeParse(raw);if(!p.success)throw new DiagnosisError(422,'入力内容を確認してください。');return p.data as z.output<S>;}
 export function createDiagnosisReviewRouter({repo,provider,worker}:ReviewServices){
  const router=Router(),base='/cases/:id/review';
  router.get(base,diagnosisHandler(async(req,res)=>{res.json(await repo.read(caseId(req),staffActor(req)));}));
