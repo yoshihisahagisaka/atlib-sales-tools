@@ -35,7 +35,7 @@ async function initialize(pool: Pool, root: string) {
   }
   await pool.query(`INSERT INTO pira.pira_initiative(initiative_code,initiative_kind,display_name) VALUES
     ('pira-union','UNION','国連協 情報セキュリティ診断'),
-    ('pira-general','GENERAL','SECU Insight 一般向け')`);
+    ('pira-general','GENERAL','SECU:MIE Insight 一般向け')`);
   const initiatives = await pool.query<{ initiative_id: string; initiative_code: string }>('SELECT initiative_id,initiative_code FROM pira.pira_initiative');
   const ids = Object.fromEntries(initiatives.rows.map(row => [row.initiative_code, row.initiative_id]));
   const rows = [

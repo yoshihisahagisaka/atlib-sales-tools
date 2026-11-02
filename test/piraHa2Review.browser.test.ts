@@ -28,6 +28,7 @@ test('HA-2 administrator and viewer can review the real E3 admin UI', { timeout:
     assert.match(await page.locator('.ha2-review').innerText(), /現在の権限: 管理者/);
     assert.match(await page.locator('#items').innerText(), /国連協/);
     assert.match(await page.locator('#items').innerText(), /一般向け/);
+    assert.match(await page.locator('#items').innerText(), /SECU:MIE Insight 一般向け/);
     assert.match(await page.locator('#items').innerText(), /受付済み/);
     assert.match(await page.locator('#items').innerText(), /診断中/);
     assert.match(await page.locator('#items').innerText(), /診断完了/);
