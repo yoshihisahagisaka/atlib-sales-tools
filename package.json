@@ -31,7 +31,9 @@
     "test:cleanup-contract": "node -r ts-node/register --test test/productionTestDataCleanup.contract.test.ts",
     "test:cleanup-rehearsal": "node -r ts-node/register --test test/productionTestDataCleanup.rehearsal.test.ts",
     "rehearse:cleanup": "node scripts/cleanup/rehearseProductionTestDataCleanup.cjs cleanup-manifests/production-test-data-cleanup-20261013.json",
-    "migrate:artifact": "node dist/db/migrateCli.js"
+    "migrate:artifact": "node dist/db/migrateCli.js",
+    "db:configure:secumie": "node dist/db/configureSecumieDbRolesCli.js",
+    "retention:secumie": "node dist/db/secumieRetentionCli.js"
   },
   "engines": {
     "node": ">=20"
