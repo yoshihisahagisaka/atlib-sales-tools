@@ -14,6 +14,7 @@ function fail(res:Response,error:unknown){const code=typeof error==='object'&&er
 
 export function createAdminPiraRouter(repo:PiraAdminRepo,adminEmails:ReadonlySet<string>):Router{
  const router=Router();
+ router.get('/permissions',(req,res)=>res.json({canExport:admin(req,adminEmails)}));
  router.get('/initiatives',async(_req,res)=>{try{res.json({items:await repo.initiatives()});}catch(e){fail(res,e);}});
  router.post('/initiatives',async(req,res)=>{if(!admin(req,adminEmails)){res.status(403).json({error:{code:'PIRA_ADMIN_REQUIRED'}});return;}const p=initiative.safeParse(req.body);if(!p.success){res.status(400).json({error:{code:'INVALID_REQUEST'}});return;}try{res.status(201).json(await repo.createInitiative(p.data));}catch(e){fail(res,e);}});
  router.patch('/initiatives/:id',async(req,res)=>{if(!admin(req,adminEmails)){res.status(403).json({error:{code:'PIRA_ADMIN_REQUIRED'}});return;}const p=z.object({active:z.boolean()}).strict().safeParse(req.body);if(!p.success||!z.string().uuid().safeParse(req.params.id).success){res.status(400).json({error:{code:'INVALID_REQUEST'}});return;}try{const item=await repo.setInitiativeActive(req.params.id!,p.data.active);if(!item){res.status(404).json({error:{code:'NOT_FOUND'}});return;}res.json(item);}catch(e){fail(res,e);}});

@@ -19,13 +19,24 @@ test('HA-2 administrator and viewer can review the real E3 admin UI', { timeout:
   const output = path.join(root, '.pira-ha2-review', 'test-downloads');
   await fs.mkdir(output, { recursive: true });
   try {
-    const page = await browser.newPage({ acceptDownloads: true });
+    const page = await browser.newPage({ acceptDownloads: true, viewport: { width: 1440, height: 1000 } });
     await page.goto(`${base}/__ha/login?role=admin`);
     await page.waitForSelector('#items tr');
+    assert.equal(await page.title(), 'SECU Insight受付管理');
+    assert.equal(await page.locator('h1').innerText(), 'SECU Insight受付管理');
     assert.equal(await page.locator('#items tr').count(), 6);
     assert.match(await page.locator('.ha2-review').innerText(), /現在の権限: 管理者/);
-    assert.match(await page.locator('#items').innerText(), /営業利用不可/);
-    assert.match(await page.locator('#items').innerText(), /同意範囲内/);
+    assert.match(await page.locator('#items').innerText(), /国連協/);
+    assert.match(await page.locator('#items').innerText(), /一般向け/);
+    assert.match(await page.locator('#items').innerText(), /受付済み/);
+    assert.match(await page.locator('#items').innerText(), /診断中/);
+    assert.match(await page.locator('#items').innerText(), /診断完了/);
+    assert.match(await page.locator('#items').innerText(), /利用不可/);
+    assert.match(await page.locator('#items').innerText(), /利用可/);
+    assert.equal(await page.locator('#export-toolbar').isVisible(), true);
+    assert.equal((await page.locator('body').innerText()).includes('診断回答・診断結果・PDFは保存・表示しません。'), false);
+    assert.equal((await page.locator('body').innerText()).includes('出力ファイルには営業利用可否を含めません。'), false);
+    await page.screenshot({ path: path.join(output, 'ha2-admin-list.png'), fullPage: true });
 
     await page.selectOption('[name=initiativeCode]', 'pira-union');
     await page.selectOption('[name=initiativeKind]', 'UNION');
@@ -38,10 +49,14 @@ test('HA-2 administrator and viewer can review the real E3 admin UI', { timeout:
     assert.match(await page.locator('#items').innerText(), /青空物流株式会社/);
     await page.locator('#items tr').click();
     await page.waitForSelector('#detail[open]');
-    const detail = await page.locator('#detail pre').innerText();
+    const detail = await page.locator('#detail').innerText();
+    assert.match(detail, /企業情報/);
+    assert.match(detail, /診断受付情報/);
+    assert.match(detail, /認証済みメールアドレス/);
+    assert.match(detail, /営業利用可否/);
     assert.match(detail, /PIRA-UNION-CONSENT-V1.0/);
-    assert.match(detail, /consented_at/);
-    assert.match(detail, /"sales_use_allowed": false/);
+    assert.doesNotMatch(detail, /submission_id|receipt_id|sales_use_allowed/);
+    await page.screenshot({ path: path.join(output, 'ha2-admin-detail.png'), fullPage: true });
     await page.click('#close');
 
     await page.goto(`${base}/__ha/login?role=admin`);
@@ -68,8 +83,13 @@ test('HA-2 administrator and viewer can review the real E3 admin UI', { timeout:
     await page.getByRole('link', { name: '閲覧者へ切替' }).click();
     await page.waitForSelector('#items tr');
     assert.match(await page.locator('.ha2-review').innerText(), /現在の権限: 閲覧者/);
-    await page.click('#csv');
-    await page.waitForFunction(() => document.querySelector('#status')?.textContent?.includes('PIRA_ADMIN_REQUIRED'));
+    assert.equal(await page.locator('#export-toolbar').isVisible(), false);
+    const viewerExport = await page.evaluate(async () => {
+      const response = await fetch('/api/admin/pira/v1/exports', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ format: 'CSV', filters: {} }) });
+      return { status: response.status, body: await response.json() };
+    });
+    assert.equal(viewerExport.status, 403);
+    assert.equal(viewerExport.body.error.code, 'PIRA_ADMIN_REQUIRED');
   } finally {
     await browser.close();
     await new Promise<void>(resolve => server.close(() => resolve()));
