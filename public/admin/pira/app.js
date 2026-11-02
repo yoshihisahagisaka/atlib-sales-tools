@@ -19,7 +19,7 @@
     ['施策',item.initiative_name],['受付日時',date(item.received_at)],['診断状態',stateLabels[item.state]||item.state],['同意日時',date(item.consented_at)],['同意バージョン',item.consent_version],['営業利用可否',item.sales_use_allowed?'利用可':'利用不可']
   ]));dialog.showModal()}
   async function initiatives(){const data=await json(`${api}/initiatives`),select=form.elements.initiativeCode;for(const item of data.items){const option=document.createElement('option');option.value=item.initiative_code;option.textContent=item.display_name;select.append(option)}}
-  async function permissions(){const data=await json(`${api}/permissions`);toolbar.hidden=!data.canExport}
+  async function permissions(){const response=await fetch(`${api}/retention-candidates`);if(response.ok){toolbar.hidden=false;return}if(response.status===403){toolbar.hidden=true;return}throw Error('PERMISSION_CHECK_FAILED')}
   async function output(format){const response=await fetch(`${api}/exports`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({format,filters:filters()})});if(!response.ok){status.textContent=`出力失敗: ${(await response.json()).error?.code}`;return}const link=document.createElement('a');link.href=URL.createObjectURL(await response.blob());link.download=`pira-submissions.${format.toLowerCase()}`;link.click();URL.revokeObjectURL(link.href)}
   form.onsubmit=event=>{event.preventDefault();load().catch(error=>status.textContent=error.message)};
   document.querySelector('#csv').onclick=()=>output('CSV');document.querySelector('#xlsx').onclick=()=>output('XLSX');document.querySelector('#close').onclick=()=>dialog.close();
