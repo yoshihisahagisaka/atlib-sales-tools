@@ -1,5 +1,6 @@
 **
 !Dockerfile
+!Dockerfile.secumie
 !package.json
 !package-lock.json
 !tsconfig.json
@@ -9,6 +10,8 @@
 !public/**
 !migrations/
 !migrations/*.sql
+!prototypes/pira-union-diagnosis-v2/
+!prototypes/pira-union-diagnosis-v2/**
 **/.env*
 **/*.pem
 **/*.key

@@ -1,0 +1,36 @@
+FROM node:20-bookworm-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
+
+FROM node:20-bookworm-slim AS production-deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+FROM node:20-bookworm-slim AS otp-runtime
+WORKDIR /app
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+ENV NODE_ENV=production
+COPY --from=production-deps /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+USER node
+EXPOSE 8080
+CMD ["node", "dist/publicOtpServer.js"]
+
+FROM node:20-bookworm-slim AS pira-runtime
+WORKDIR /app
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+ENV NODE_ENV=production
+COPY --from=production-deps /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY public/public-service-auth.js ./public/public-service-auth.js
+COPY prototypes/pira-union-diagnosis-v2 ./prototypes/pira-union-diagnosis-v2
+USER node
+EXPOSE 8080
+CMD ["node", "dist/piraPublicServer.js"]

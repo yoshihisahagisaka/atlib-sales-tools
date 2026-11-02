@@ -7,6 +7,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
+    "start:public-auth": "node dist/publicOtpServer.js",
+    "start:pira-public": "node dist/piraPublicServer.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "test:kaizen": "node -r ts-node/register --test test/kaizenAssessment.golden.test.ts",
     "test:diagnosis": "node -r ts-node/register --test test/itManagementDiagnosis.golden.test.ts",
@@ -25,6 +27,7 @@
     "test:report": "node -r ts-node/register --test test/diagnosisReport.golden.test.ts",
     "test:readiness": "node -r ts-node/register --test test/productionReadiness.security.test.ts",
     "test:readiness:postgres": "node -r ts-node/register --test test/productionReadiness.postgres.test.ts",
+    "test:secumie:runtime": "node -r ts-node/register --test test/secumieRuntime.postgres.browser.test.ts",
     "test:cleanup-contract": "node -r ts-node/register --test test/productionTestDataCleanup.contract.test.ts",
     "test:cleanup-rehearsal": "node -r ts-node/register --test test/productionTestDataCleanup.rehearsal.test.ts",
     "rehearse:cleanup": "node scripts/cleanup/rehearseProductionTestDataCleanup.cjs cleanup-manifests/production-test-data-cleanup-20261013.json",

@@ -24,7 +24,7 @@ export class CloudflareTurnstileVerifier implements Turnstile {
 }
 
 /** Binds the existing SMTP implementation to the OTP-only mailer boundary. */
-export function createMailerOtpAdapter(mailer: Mailer): DeliveryMailer {
+export function createMailerOtpAdapter(mailer: Pick<Mailer, 'sendPublicServiceOtp'>): DeliveryMailer {
   return { sendOtp: async (to, brandName, code) => {
     try { await mailer.sendPublicServiceOtp(to, brandName, code); }
     catch (error) {
