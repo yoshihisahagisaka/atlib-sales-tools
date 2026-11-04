@@ -390,3 +390,161 @@ Stage E終了後、test DNS/LB/NEG/certificate/IPの保持・削除を承認ど�
 本Runbookの完成はStaging実行の承認ではない。Stage A〜Eはすべて未実施であり、Production No-Goを維持する。
 
 実行へ進むには、該当Stageの承認票、担当者、保守時間、費用上限、停止条件、rollback、証跡保存先がすべて確定している必要がある。
+
+## 15. Stage A-1 再開準備追補（2026-11-04）
+
+### 15.1 責任分担
+
+| 責任 | 担当 |
+| --- | --- |
+| 最終承認・リスク受容 | atLIB経営者 |
+| 技術実行・一次停止判断 | Work |
+| 原状復帰操作 | Work |
+| 設計・証跡レビュー | 設計統括ChatGPT |
+
+Workは固定対象外の変更、既存resourceへの権限変更、監視閾値超過、cleanup不能が判明した時点で停止する。
+
+### 15.2 既存経路のFit/Gap
+
+- 既存`sales_tools_migration` / `sales_tools_runtime`には`CREATEDB` / `CREATEROLE`がなく、A-1管理者として使用できない。
+- 既存passwordは変更しない。Secret値を取得して人やローカルshellへ渡す経路は採用しない。
+- Cloud SQL Admin APIで通常のBUILT_IN userを作ると、既定では`cloudsqlsuperuser`が付与され、`CREATEROLE` / `CREATEDB` / `LOGIN`を持つ。5 runtime roleをAPIだけで直接作る方式は不適合とする。
+- 既存Cloud Run Job、Cloud SQL socket、digest固定image、`maxRetries=0`、Secret Manager参照方式は再利用できる。
+
+公式根拠:
+
+- Cloud SQL PostgreSQL user管理: https://cloud.google.com/sql/docs/postgres/create-manage-users
+- Secret version追加: https://cloud.google.com/secret-manager/docs/add-secret-version
+
+### 15.3 採用する管理経路
+
+**一時Cloud Run管理Job + 一時Service Account + memory-only bootstrap password**を採用候補とする。実行は個別承認後とする。
+
+1. digest固定の既存staging migration imageを再利用する。
+2. 一時Jobが暗号学的乱数で一時DB管理者passwordをメモリ内生成する。引数、environment、file、標準出力、Cloud Loggingへ出さない。
+3. JobがCloud SQL Admin APIで一時BUILT_IN user `secumie_rehearsal_admin_tmp`を作成する。このuserだけが一時的に`cloudsqlsuperuser`を持つ。
+4. JobはCloud SQL socketから一時管理者で接続し、固定allowlistだけを実行する。
+5. 5 roleのpasswordもJobメモリ内で個別生成し、SQL parameterとPostgreSQL `format(... %I, %L ...)`によって安全にrole DDLを構成する。DDL、password、connection stringはログへ出さない。
+6. Workが値なしで事前作成した5専用Secretへ、JobがSecret Manager APIでversionを各1件追加する。値をJob外へ返さない。
+7. 検証完了後、一時管理者をCloud SQL Admin APIで削除する。
+8. Job/一時SA/custom IAM role/bindingを撤去する。成功後も専用database、5 roles、5 runtime password SecretsはA-2/B用に残す。
+
+Jobはtask 1、parallelism 1、`maxRetries=0`、timeout 10分以下とする。実行時に対象が一つでも存在すれば修復・再利用せずSTOPする。
+
+### 15.4 作成・変更予定resource
+
+個別承認対象。現時点では未作成。
+
+| 種別 | 候補名 | 保持 |
+| --- | --- | --- |
+| Temporary SA | `secumie-rehearsal-admin-tmp` | A-1後削除 |
+| Temporary custom IAM role | `secumieRehearsalBootstrap` | A-1後削除 |
+| Temporary Cloud Run Job | `secumie-rehearsal-admin-tmp` | A-1後削除 |
+| Temporary DB admin user | `secumie_rehearsal_admin_tmp` | Job内で削除 |
+| Database | `secumie_rehearsal` | A-2/Bへ保持 |
+| Runtime DB roles | 既定5 role | A-2/Bへ保持 |
+| Password Secrets | `secumie-staging-db-{otp,pira,admin,migration,maintenance}-password` | Workが値なしで作成。Jobがversionを1件追加。A-2/Bへ保持 |
+| Artifact | 既存migration image digest + hash固定runner | evidence後は保持方針に従う |
+
+既存Staging service、database、user、password、Revision、Traffic、Secret、IAM bindingは変更しない。
+
+### 15.5 一時SAの最小権限
+
+既存project Ownerや既存runtime SAをJobへ流用しない。一時custom IAM roleは次の操作に必要なpermissionだけを含め、project単位の`roles/cloudsql.admin`や`roles/secretmanager.admin`を付与しない。
+
+- 一時custom role: `cloudsql.instances.get`, `cloudsql.users.create`, `cloudsql.users.delete`, `cloudsql.users.list`, `cloudsql.operations.get`
+- Predefined: `roles/cloudsql.client`
+- Predefined: `roles/logging.logWriter`
+- Predefined: `roles/artifactregistry.reader`（対象repositoryへ限定）
+- Predefined: `roles/secretmanager.secretVersionAdder`（固定5 Secretsへ個別付与）
+
+一時SAにはSecretの作成、参照、version参照、削除権限を付与しない。Cloud SQL user update、instance update、database API create/delete権限も付与しない。Cloud SQL user操作のcustom role bindingは対象instanceへ制限できるIAM Conditionの適用可否を実行前に検証し、非対応ならproject-levelの短時間権限としてリスクを明示する。runtime password Secretのaccessor権限はA-1では誰にも付与せず、Stage Bでruntime SAへresource単位付与する。
+
+### 15.6 Job内の固定操作
+
+Jobは次の順序以外を実行しない。
+
+1. project、instance、接続数、backup、対象名未存在を再確認。
+2. 既存database ACLと`public` schema ACLをmetadata-onlyで確認。
+3. 一時管理者を作成し、operation完了を待つ。
+4. 一時管理者で接続し、対象名未存在を再確認。
+5. 5 roleを`LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS`で作成する。
+6. `secumie_migration_rehearsal`をownerとして`secumie_rehearsal`を作成する。
+7. 新databaseで`REVOKE CONNECT ON DATABASE secumie_rehearsal FROM PUBLIC`を実行し、固定5 rolesだけにCONNECTを付与する。
+8. 固定5 Secretが空であることを確認し、versionを各1件追加する。
+9. role属性、database owner、CONNECT、既存schema/table/function privilegeをRead-only検証する。
+10. 一時管理者を削除する。
+
+Migration 037〜041、schema/table/function作成、保持関数、synthetic data投入は行わない。
+
+### 15.7 共有instanceにおける隔離制約
+
+PostgreSQLでは既存databaseが`PUBLIC CONNECT`を許可している場合、新roleだけを対象とした明示的DENYはできない。既存databaseの`PUBLIC CONNECT`をREVOKEする操作は既存serviceへ影響するためA-1対象外とする。
+
+したがってJobは変更前に既存database ACLを確認し、次を区別する。
+
+- 新roleが既存databaseへCONNECTできず、schema/table/function権限もない: PASS候補。
+- PUBLIC経由でCONNECTだけ可能だが、既存schema/table/function権限がない: **リスク受容待ちでSTOP**。経営者がCONNECT-only残余リスクを受容するか、専用Cloud SQLへ分離するかを決定する。
+- 既存schema/table/functionのUSAGE/CREATE/DML/EXECUTEが一つでもある: 即時STOP、作成済み対象をrollback。
+
+CONNECT-only残余リスクを暗黙にPASS扱いしない。
+
+### 15.8 Password / Secret取扱い
+
+- 乱数はJob内の暗号学的乱数生成器で生成し、roleごとに別値を使用する。
+- passwordはcommand、args、environment、temporary file、exception、structured logへ出さない。
+- Secret payloadはAPI request bodyのメモリ内だけに保持し、responseへ含めない。
+- Job logはresource名、operation ID、hash、PASS/STOP、件数だけを記録する。
+- 失敗時もSQL error detailやDDL全文を出さず、固定error codeとStep IDだけを記録する。
+- Secret versionは各1件。Stage Bまでaccessorなし。cleanup時はversion destroy後にSecret削除を確認する。
+
+### 15.9 Failure / compensation
+
+Jobは自動再試行しない。各Stepはtarget existenceとownerを確認し、同名の想定外resourceには触れない。
+
+- 一時管理者作成後の失敗: Cloud SQL Admin APIで一時管理者を削除する。
+- role作成途中の失敗: 一時管理者接続で、このexecutionが作成したroleだけを逆順削除する。
+- database作成後の失敗: 新規接続がないことを確認し、`secumie_rehearsal`だけを削除する。
+- Secret version追加途中の失敗: Workが追加済みversionをdestroyし、値なしで事前作成した固定Secretsを削除する。Job自身にはdestroy/delete権限を与えない。
+- process crashでpassword喪失: 一時管理者をAPIで削除し、別途承認されたcompensation executionで新しい一時管理者を作り直してcleanupだけを行う。無承認再実行は禁止。
+
+cleanupが完了しない場合、A-2へ進まずSTOPする。
+
+### 15.10 再評価した実行前Gate
+
+| Gate | 現状 | 実行直前条件 |
+| --- | --- | --- |
+| 責任分担 | PASS | 本節15.1を承認記録へ転記 |
+| 最新backup | 過去確認PASS | 実行直前にSUCCESSFULを再確認 |
+| 対象未存在 | 過去確認PASS | DB/API/catalogの両方で再確認 |
+| 接続数 | 過去SQL実測10 | instance全体18以下。20到達でSTOP |
+| CPU/5xx/latency | 過去確認正常 | 実行直前と実行中に監視 |
+| 同時接続 | 設計済み | Job pool 1。管理/migration合計2以下 |
+| Password経路 | 本追補で具体化 | runner code/hashとIAM差分の承認が必要 |
+| DB間隔離 | 未確認 | ACL preflightと残余リスク判断が必要 |
+| 費用上限 | 未確定 | Job/Secret/Loggingの上限を承認 |
+| Cleanup期限 | 未確定 | 一時resource削除期限と担当を承認 |
+
+### 15.11 費用・cleanup
+
+- Cloud Run Jobは単発・10分以下の従量。
+- Secret Managerは5 Secrets、各1 active versionの保管・access費用。
+- Database/roles自体にinstance固定費の追加なし。storage/backup/loggingは従量。
+- Temporary SA/custom role/DB admin userに直接料金なし。
+- 実行後30分以内を一時Job/SA/custom role/admin userのcleanup目標とする。
+- A-1がSTOP/rollbackとなった場合、database、5 roles、5 Secretsも同じ承認枠で削除し、既存resource diffがゼロであることを確認する。
+
+### 15.12 次に求める具体的承認
+
+次の変更差分を一つのA-1実行承認として提示する。
+
+1. 一時SA、最小custom IAM role、bindingの作成。
+2. 固定5 password Secret resourceを値なしで作成し、一時SAへ各Secretのversion追加権限だけを付与。
+3. digest固定imageを使う一時Cloud Run Job作成と1回実行。
+4. 一時DB admin userのJob内作成・削除。
+5. `secumie_rehearsal`と固定5 rolesの作成、各Secret versionの追加。
+6. metadata-only ACL検証。
+7. 一時Job/SA/custom role/bindingの削除。
+8. CONNECT-only残余リスクが検出された場合は作成を確定せずSTOPし、経営者判断を求める。
+
+承認前は上記resourceを作成・変更しない。Migration 037〜041は別承認を維持する。
