@@ -99,13 +99,42 @@ Stagingは「停止」だけではstorage等が残るため、費用を抑える
 
 現行GitのWSC実装は`/api/admin/web-security-check`配下のスタッフ認証済み機能である。CSV検証、外部サイトの制限付き診断、HTML/PDF生成を都度実行し、診断結果・PDF・能力tokenをDBへ永続保存しない。`WscSalesService`とrouterにCloud SQL操作はなく、現時点で専用Cloud SQLを必要としない。
 
-したがって次を確定する。
+一方、統括は将来のSECU:MIE Webについて、企業情報、診断実施履歴、管理帳票・Excel、Sales Tools管理画面接続をWeb側の責任範囲として確定し、Web側も採用済みである。したがって次を確定する。
 
 - ブランドが共通でもInsightとWebのデータ共有を前提にしない。
 - 現行SECU:MIE WebをMigration 037〜041や`public_auth` / `pira`へ接続しない。
-- 将来、外部利用者向けOTP/受付や履歴保存が承認された場合は、Web固有Canonicalを先に確定し、同一instance内の別database（例: `secumie_web`）と別roleを第一比較候補にする。
+- Web側は独自Cloud SQLや共通DB接続基盤を構築しない。Insight側が管理するSECU:MIE専用Cloud SQLと共通接続方式を使用する。
+- Web固有テーブル、診断実施履歴、管理帳票・Excel、Sales Tools接続、およびMigration SQL本文はWeb側が設計・実装する。Insight側はこれらを再設計しない。
+- Web固有Canonicalが確定した後、同一instance内の**別database**（候補`secumie_web`）と別roleを第一候補とする。同一schema、同一runtime role、無条件のcross-database/cross-schema参照は認めない。
 - Webが異なる保持、機密性、負荷、復旧目標を持つ場合は別instanceを再評価する。
-- 現時点でWeb用database/schema/Migrationを新規設計しない。
+- 現時点でInsight側がWeb用table、column、index、保持仕様、Migration SQL本文を新規設計しない。
+
+### 5.3 Insight / Web担当境界
+
+| 領域 | Insight側 | Web側 |
+|---|---|---|
+| Cloud SQL | instance、network、Backup/PITR、監視、接続budget、復旧 | 独自instanceを作らない。承認済み接続契約を利用 |
+| DB接続 | connector、Secret、pool、Service Account、最小権限の共通方式 | Web runtime/adminへ組み込み、固有SQLだけを実行 |
+| DB認証・role | database/schema/roleの作成、権限境界、credential rotation | 必要操作のrole matrixを提示し、割当済みroleを利用 |
+| OTP | `public_auth`、session、JWT/JWKS、service/brand/audience契約 | Web固有audienceでJWTを検証。OTP tableへ直接接続しない |
+| Migration | 番号空間、manifest、digest、ledger、適用Job、実行・証跡・rollback/restore規則 | Web固有tableのMigration SQLと検証を作成 |
+| Web業務データ | 内容を再設計しない | 企業情報、診断履歴、管理帳票・Excel、Sales Tools接続を所有 |
+
+共通OTPの利用は、InsightとWebで利用者情報、challenge、session、同意、受付履歴を共有することを意味しない。OTPはservice/brand/audienceを分離し、Web側へは認証契約で許可された短命JWT claimだけを渡す。Web runtimeまたは管理runtimeへ`public_auth` / `pira`のtable権限を付与しない。
+
+### 5.4 Web側へ提供する接続・Migrationインターフェース
+
+Insight側は、Web側の実装開始前に次の契約を提供する。
+
+1. 割当database/schema、接続名、Secret名、Service Account、runtime/admin/migration roleの識別子。秘密値そのものは文書・Git・ログへ記録しない。
+2. roleごとの許可操作と拒否操作。Web runtimeにDDL、role管理、他database/schema、`public_auth` / `pira`への権限を与えない。
+3. pool上限、timeout、transaction、TLS/connector、health check、Secret rotation時の再起動規則。
+4. Migration packageの配置、連番予約、forward-only方針、checksum/digest、ledger、適用順、排他、timeout、失敗時STOP、証跡形式。
+5. Stagingでの空DB適用、再実行、権限否定、保持、logical backup/restore、既存Insight回帰の受入条件。
+
+Web側は各Migrationについて、目的、対象object、SQL本文、必要権限、データ保持、実DBテスト、想定lock/所要時間、前後互換性、rollbackまたはrestore判断条件を提示する。Insight側は共通規約・権限・運用安全性を検証して適用を管理するが、Webの業務仕様を変更しない。
+
+番号競合を避けるため、Migration番号は単一の予約台帳でInsight側が払い出す。Web側が独自に番号を確定しない。既存037〜041はInsightの確定済み範囲として維持し、Web Migrationの開始番号は現行mainと全関連branchを再照合した時点で割り当てる。
 
 ## 6. Staging最小構成
 
@@ -149,6 +178,7 @@ HA failoverとmanaged PITR restoreはZONAL一時Stagingだけでは検証でき�
 | Sales Tools PIRA管理 | Gapあり | 現在は既存`pool`を`PiraAdminRepo`へ渡す。SECU専用第2poolを追加し、PIRA管理だけへ注入する |
 | DB role/保持 | Fit | Migration 041の5主体分離を専用instanceで適用し、owner/search_path/EXECUTEを再検証 |
 | WSC / SECU:MIE Web | 現行はDB不要 | 変更なし。将来の外部受付要件は別Canonical |
+| Web将来DB接続 | 境界Contractのみ確定 | Web側が固有DDL/Migrationを作成し、Insight側が別database/roleと共通適用管理を提供 |
 | Docker runtime | Fit | image変更不要。配備環境のCloud SQL attachment/Secretを専用化 |
 
 ## 9. 実行前承認事項とGate
@@ -167,6 +197,7 @@ HA failoverとmanaged PITR restoreはZONAL一時Stagingだけでは検証でき�
 10. Monitoring閾値、通知先、一次停止、復旧、証跡保管。
 11. GENERAL同意・公開経路は未承認のまま本番無効であること。
 12. Pricing Calculator/Billing Catalogによる発注時点の再見積り。
+13. Web用database/schema/roleの命名、Migration番号予約台帳、Web側Canonicalと保持・復旧目標。Web固有DDLの承認前には作成しない。
 
 ## 10. 旧設計との差分
 
@@ -174,6 +205,7 @@ HA failoverとmanaged PITR restoreはZONAL一時Stagingだけでは検証でき�
 - PR #38/#39のConditional Fit条件を閉じる代わりに、専用instanceの容量・復旧・費用Gateへ置換する。
 - PR #40/#41の共有Staging databaseと一時管理Jobは実行停止する。
 - 認証、受付、診断、管理、固定文、Migration 037〜041、保持仕様は変更しない。
+- Web側の独自Cloud SQL構築は採用せず、専用Cloud SQLの共通接続・権限・Migration適用契約をInsight側が提供する。ただし同一database/schema/roleや業務データ共有は採用しない。
 - 正式ブランド表記を`SECU:MIE`、`SECU:MIE Insight`、`SECU:MIE Web`に統一する。内部識別子は変更しない。
 
 ## 11. 参照
