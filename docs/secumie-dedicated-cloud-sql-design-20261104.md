@@ -2,8 +2,8 @@
 
 - 作成日: 2026-11-04（Asia/Tokyo）
 - 対象project / region: `msp-zabbix` / `asia-northeast1`
-- 基準: PR #36〜#41、PR #41 HEAD `2465b34283da344d30e47c07aa1d11cffb3a59a6`
-- 状態: 設計確定候補。実リソース作成は未承認。Production No-Goを維持する。
+- 基準: PR #36〜#43、PR #43 HEAD `18f0787565a858a4045892eb159d4c13cbe7aaa6`
+- 状態: 専用DB設計および接続実装完了。隔離Stagingの実リソース作成は未承認。Production No-Goを維持する。
 
 ## 1. Decision
 
@@ -201,7 +201,7 @@ HA failoverとmanaged PITR restoreはZONAL一時Stagingだけでは検証でき�
 |---|---|---|
 | Migration 037〜041 | Fit | 空の専用databaseへ適用。SQL内容は変更しない |
 | OTP/PIRA runtime | Conditional Fit | `DB_SOCKET_PATH`、`DB_NAME`、role Secretを新instanceへ向ける。pool上限をruntime別設定可能にする |
-| Sales Tools PIRA管理 | Gapあり | 現在は既存`pool`を`PiraAdminRepo`へ渡す。SECU専用第2poolを追加し、PIRA管理だけへ注入する |
+| Sales Tools PIRA管理 | Fit（PR #43） | SECU専用第2poolを追加し、`PiraAdminRepo`だけへ注入済み。既存業務poolの既定値は不変 |
 | DB role/保持 | Fit | Migration 041の5主体分離を専用instanceで適用し、owner/search_path/EXECUTEを再検証 |
 | WSC / SECU:MIE Web | 現行はDB不要 | 変更なし。将来の外部受付要件は別Canonical |
 | Web将来DB接続 | 境界Contractのみ確定 | Web側が固有DDL/Migrationを作成し、Insight側が別database/roleと共通適用管理を提供 |
@@ -250,3 +250,165 @@ HA failoverとmanaged PITR restoreはZONAL一時Stagingだけでは検証でき�
 初期本番はCloud SQL Enterprise、PostgreSQL 16、Tokyo、REGIONAL HA、dedicated core 1 vCPU / 3.75 GiB、SSD 20 GiB、自動拡張、daily backup、PITR 7日を推奨する。基本月額は約`$137〜145`、検証月に一時ZONAL Stagingを72時間使用する案は約`$145〜160`を目安とする。
 
 これは設計判断であり、実作成の承認ではない。専用instanceの作成、IAM、Secret、Cloud Run、LB/DNS、Migration、Sales Tools第2poolの適用は、それぞれ差分・費用・切り戻しを提示した後の個別承認を必要とする。Production No-Goを維持する。
+
+## 11. 専用Cloud SQL Staging実行前承認契約（PR #43反映）
+
+### 11.1 状態と実行境界
+
+- 基準実装: PR #43 / `18f0787565a858a4045892eb159d4c13cbe7aaa6`
+- 目的: 専用Cloud SQL、PR #43の分離pool、Migration 037〜041、OTP/PIRA runtime、管理機能を隔離Stagingで実証する。
+- 本節は作成差分と受入条件の確定であり、GCP resource作成、Migration、配備、Traffic変更を承認しない。
+- 旧共有Staging DB案と一時管理Job案は実行停止を維持する。`sales-tools-staging-db`、`sales-tools-staging`、Production、PPAP、Portalを変更しない。
+- GENERALは無効、synthetic UNION dataのみとする。顧客情報、本番Secret、本番メール送信を使用しない。
+
+### 11.2 固定するresource manifest
+
+実行時は、作成前に同名resourceが存在しないこと、project/regionが一致することを再確認する。同名の想定外resourceがあればSTOPし、自動修復や上書きを行わない。
+
+2026-11-04（Asia/Tokyo）に`msp-zabbix` / `asia-northeast1`をRead-only照合し、`secumie`を含むCloud SQL instance、Cloud Run service、Service Account、Secretが存在しないことを確認した。これは実行時点の予約を保証しないため、作成直前の再照合を必須とする。Secret値、認証情報、DB recordは取得していない。
+
+| 種別 | 固定候補名 | 主な設定 | cleanup |
+|---|---|---|---|
+| Cloud SQL | `secumie-staging-db` | PostgreSQL 16、Enterprise、ZONAL、`asia-northeast1`、custom 1 vCPU / 3.75 GiB、SSD 20 GiB、自動拡張、public IPなし、deletion protection、automated backup/PITR有効 | 最終証跡・logical backup確認後にinstance削除 |
+| Database | `secumie_insight_staging` | UTF-8。Migration role所有。PUBLIC CONNECTを撤回 | instanceと同時削除 |
+| DB users/roles | `secumie_otp_staging`, `secumie_pira_staging`, `secumie_admin_staging`, `secumie_migration_staging`, `secumie_maintenance_staging` | LOGIN、5主体分離。runtimeはNOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOREPLICATION/NOBYPASSRLS | instanceと同時削除 |
+| Service Account | `secumie-otp-staging`, `secumie-pira-staging`, `secumie-migration-staging`, `secumie-maintenance-staging` | 対象instanceへのCloud SQL Clientと、主体別Secret accessのみ | binding確認後に削除 |
+| DB password Secrets | `secumie-staging-db-{otp,pira,admin,migration,maintenance}-password` | 各1 active version。値はCLI引数・Git・ログへ出さない | version destroy後にSecret削除 |
+| JWT Secrets | `secumie-staging-jwt-private-key`, `secumie-staging-jwt-key-id`, `secumie-staging-jwt-session-hmac` | Staging専用。private keyはOTP SAだけが参照 | version destroy後にSecret削除 |
+| External adapter Secrets | `secumie-staging-turnstile-secret`, `secumie-staging-smtp-*` | Turnstile test keyとtest SMTP。実顧客宛送信不可 | version destroy後にSecret削除 |
+| Cloud Run | `secumie-otp-staging` | PR #43 artifactの`otp-runtime`、min 0/max 1、concurrency 20、pool max 2、専用SA、専用SQL attachment | Revision/Traffic証跡後にservice削除 |
+| Cloud Run | `secumie-pira-staging` | PR #43 artifactの`pira-runtime`、min 0/max 1、concurrency 20、pool max 2、GENERAL無効、専用SA、専用SQL attachment | Revision/Traffic証跡後にservice削除 |
+| Migration実行 | `secumie-migration-staging` | digest固定artifact、task 1/parallelism 1/max retries 0、専用SA、専用SQL attachment | 実行証跡後にJob削除 |
+| 保持実行 | `secumie-maintenance-staging` | preview/executeを分離、task 1/parallelism 1/max retries 0 | 保持検証後にJob削除 |
+| Artifact | `secumie-staging/otp`, `secumie-staging/pira`, migration/maintenance用同一承認SHA artifact | digestで配備しtagだけを根拠にしない | 証跡保持方針に従う |
+
+Cloud SQL zoneはinstance作成承認時に`asia-northeast1-a/b/c`から、quota・障害domain・Cloud Run配置を確認して一つを指定する。未指定のまま作成しない。Staging専用LB、NEG、DNS、証明書は今回の作成対象外とし、Cloud Run IAM認証と承認済みproxyで検証する。
+
+### 11.3 IAM・Secret境界
+
+1. OTP SAはOTP DB password、JWT private key/HMAC、SMTP、Turnstileだけを参照し、PIRA/admin/maintenance passwordを参照しない。
+2. PIRA SAはPIRA DB passwordとOTPのJWKS URLだけを使用し、JWT private key、SMTP、admin passwordを参照しない。
+3. Migration SAはmigration passwordとCloud SQL接続だけを使用する。Secret/IAM/instance設定の変更権限を持たない。
+4. Maintenance SAはmaintenance passwordとCloud SQL接続だけを使用し、table直接DELETE権限を持たない。
+5. `secumie_admin_staging` passwordはCloud Runへ付与しない。管理検証時だけ、承認済みoperator identityがCloud SQL Auth Proxyとローカルtest harnessを介して参照する。
+6. 各Secretのaccessor bindingはresource単位とし、project-wide Secret accessorを採用しない。
+7. DB user作成とpassword設定は承認済みbootstrap実行者が行う。passwordをshell履歴、command args、environment dump、Cloud Loggingへ出さない。
+
+### 11.4 Cloud SQL作成・DB初期化の固定手順
+
+以下は実行順序であり、今回実行しない。
+
+1. 実行直前にproject、region、quota、課金通知、resource未存在、実行者、停止判断者、cleanup期限を確認する。
+2. `secumie-staging-db`を固定仕様で作成し、operation成功、PostgreSQL 16、ZONAL、backup/PITR、deletion protection、接続経路をRead-onlyで再確認する。
+3. 5 DB users/rolesを作成し、elevated属性がないことを確認する。migration roleだけに専用database作成・ownerに必要な限定権限を与える。
+4. `secumie_insight_staging`を作成し、`REVOKE CONNECT ... FROM PUBLIC`、5 roleだけのCONNECTを確定する。
+5. Migration artifactのGit SHA、image digest、`037`〜`041`各SQL SHA-256を承認証跡と照合する。
+6. Migration Jobを1回だけ実行する。`DB_NAME=secumie_insight_staging`、migration user/Secret、Cloud SQL socketだけを注入し、`npm run migrate:artifact`を使用する。
+7. `schema_migrations`に037〜041が各1件・昇順で存在し、`public_auth`、`pira`、`secumie_deployment`以外の業務schema/tableがないことを確認する。
+8. `OTP_DB_ROLE`、`PIRA_DB_ROLE`、`PIRA_ADMIN_DB_ROLE`、`SECU_MAINTENANCE_DB_ROLE`へ固定role名を設定し、`npm run db:configure:secumie`を1回実行する。
+9. role別の許可SQLが成功し、DDL、他schema、監査UPDATE/DELETE、table直接保持削除が拒否されることを確認する。
+10. synthetic UNION initiative/dataだけを承認済みfixtureから投入する。GENERAL initiativeを公開有効化しない。
+
+Migration runnerは全migration directoryを番号順に処理するため、実行artifactには承認済み037〜041だけを格納した専用directoryを指定する。空の専用DBへ001〜036を誤適用しない。`MIGRATIONS_DIR`、格納ファイル一覧、各digestを実行前証跡に固定する。
+
+PR #43基準の承認候補digestは次のとおり。実行artifact内で一つでも不一致ならMigrationを開始しない。
+
+| Migration | SHA-256 |
+|---|---|
+| `037_public_service_otp.sql` | `a2b15297d894dde5c732cf9a6e74596dd17d223b09a37974ff1c490949a6d69b` |
+| `038_pira_public_intake.sql` | `c97e12560894dd76e04ae2c58d3d703e5931b9903eb261b05af1a0c26d90e677` |
+| `039_pira_admin_export.sql` | `082bbd8506110b671ac2ff7cc3750d8a4abb95701c8dc75273cca19da1606490` |
+| `040_pira_export_audit_retention.sql` | `6708892a7228925fcb1d08a19c6b0cfeb4469bcae2ed7a1e7b503d449e8fe104` |
+| `041_secumie_db_operations.sql` | `b004b4bc69b1c379bbc75993b13d3209fa3ddb803ed564cbf53d4bb4d21c09a7` |
+
+### 11.5 Runtime接続設定
+
+OTP/PIRA共通:
+
+- `DB_SOCKET_PATH=/cloudsql/msp-zabbix:asia-northeast1:secumie-staging-db`
+- `DB_NAME=secumie_insight_staging`
+- 主体別`DB_USER` / `DB_PASSWORD` Secret
+- `DB_POOL_MAX=2`, `DB_POOL_IDLE_TIMEOUT_MS=10000`
+- Cloud Run max instances 1。旧新Revisionを同時に有効化する場合も合計接続budgetへ含める。
+
+PIRA:
+
+- `PIRA_GENERAL_ENABLED=false`
+- UNION host/initiative/brandだけを有効化する。
+- OTP issuer/audience/JWKSはStaging専用値とし、Production値を使用しない。
+
+管理機能:
+
+- 既存`sales-tools` / `sales-tools-staging`のRevision、Traffic、Cloud SQL attachment、Secret、業務DBを変更しない。
+- PR #43の`PiraAdminRepo`だけが第2poolを利用することは、承認済みoperator端末上の既存HA-2/管理test harnessをCloud SQL Auth Proxy経由で`secumie_insight_staging`へ接続して確認する。
+- harnessには`SECUMIE_DB_*`だけを専用DBへ設定し、既存業務DBの資格情報を渡さない。Workspace本番認証、顧客情報、既存Sales Tools serviceを使用しない。
+- 一覧、詳細、フィルタ、CSV/XLSX、監査、viewer 403、監査失敗時の出力拒否を確認する。これは既存Sales Tools Revisionへの配備を意味しない。
+
+### 11.6 固定する受入検証
+
+| 領域 | 必須確認 | PASS条件 |
+|---|---|---|
+| 接続budget | `SHOW max_connections`、role別/全体接続、idle解放、max instance 1、pool 2 | Cloud SQL予約分を除く20%以上の余裕。各runtime 2以下。timeout/枯渇なし |
+| Migration | fresh 037〜041、ledger、schema、owner、関数search_path | 各1回、想定objectだけ、再実行は全skip |
+| 権限 | 5主体のpositive/negative SQL | 必要操作のみ成功。elevated属性・横断参照・直接監査削除なし |
+| OTP/JWT | 送信予約、6桁/10分、制限、Turnstile、RS256/JWKS/kid/aud/exp | 正常系と既存異常系PASS。Secret/OTP/JWTをログへ出さない |
+| PIRA | JWT/jti、UNION受付、状態、24時間、GENERAL拒否 | RECEIVED→ANSWERING→COMPLETED。回答/report/PDF非永続化 |
+| 管理 | staff権限、一覧/詳細、CSV/XLSX、監査 | admin成功、viewer出力403、固定11列/BOM/数式対策、監査失敗時はファイルなし |
+| 保持 | preview、期限到達/未到達、execute、再実行 | 24時間/30日/2年/3年を維持。任意日時で短縮不可。未到達data保護 |
+| 障害 | SECU DB停止、SMTP/Turnstile失敗、JWT鍵不正 | fail closed。UNKNOWN自動再送なし。既存Sales Tools/業務DBへ通信なし |
+| 終了 | SIGTERM中のHTTP停止とpool close | grace period内exit 0、接続0、未完了transactionなし |
+| 起動拒否 | 各必須Secret、DB設定、JWT設定を一つずつ欠落 | exit 1、listener未起動、秘密情報なしの固定error event |
+| 復元 | logical dump/別一時database restore、Migration/ACL/E2E | digest一致、role/owner再設定、synthetic E2E PASS |
+| 切り戻し | OTP/PIRA前Revision、Migration失敗、DB接続不良 | 専用serviceだけを戻し、既存service/DB/Traffic差分ゼロ |
+
+既存Sales Toolsへの影響確認では、実行前後の`services describe`、Revision/Traffic、Cloud SQL attachment、Secret/IAM、既存DB metadataを比較する。差分が一つでもあればSTOPし、SECU専用resourceのcleanupへ移る。
+
+### 11.7 監視・停止条件
+
+実行中はCloud SQL connections/CPU/memory/storage、Cloud Run instance/latency/5xx、Secret access、Migration/maintenance Job結果を監視する。
+
+直ちにSTOPする条件:
+
+- 対象project/region/resource/digestの不一致、同名resourceの存在。
+- 既存Sales Tools、PPAP、Portal、共有StagingへのRevision/Traffic/DB/IAM/Secret差分。
+- 顧客情報、本番Secret、OTP/JWT/private keyのログ出力。
+- GENERAL有効化、外部への実メール送信、想定外Originへの通信。
+- DB pool 2超過、role connection limit超過、利用可能接続余力20%未満。
+- Migration ledger/object/digest不一致、権限否定test失敗、監査/保持境界違反。
+- Cloud SQL CPU 80%が5分継続、storage自動増加の想定外発生、Cloud Run 5xx、接続timeout。
+- cleanup対象を厳密に識別できない、またはrollback/cleanupが失敗。
+
+### 11.8 費用上限と存続時間
+
+- 作成からcleanup完了まで72時間以内を既定とする。延長は再承認する。
+- PR #42のTokyo ZONAL参考額（約`$69〜75/月`）から、72時間のcompute/SSD按分は約`$7〜8`。Cloud Run、Artifact、Secret、Logging、backup/networkの従量を含む**実行承認上限候補を`$25`**とする。
+- 公式Pricing Calculatorで同一条件のestimateを実行承認時に保存し、Billing account固有割引・税・為替を区別する。estimateまたはbudget通知先が未確定なら作成しない。
+- managed PITR restore、専用LB/NEG/IP/証明書、REGIONAL failover検証は`$25`枠外の別承認とする。
+
+### 11.9 原状復帰
+
+1. test requestと保持Jobを停止する。
+2. OTP/PIRA専用Cloud Runを0 trafficにし、Revision/ログを保存後serviceを削除する。
+3. Migration/maintenance Jobを削除する。
+4. Staging JWT/SMTP/Turnstile/DB Secret versionを無効化・destroyし、Secretを削除する。
+5. 専用SAのresource bindingを削除し、SAを削除する。
+6. logical restore用temporary database/resourceを削除する。
+7. deletion protectionを承認済みcleanup時だけ解除し、`secumie-staging-db`を削除する。
+8. Artifactは証跡保持規則に従い削除または隔離する。
+9. 固定名resource一覧が0件であること、既存Sales Tools/Staging/PPAP/Portalに実行前差分がないことを確認する。
+10. 費用、Audit Log、Monitoring、cleanup実行者/時刻/結果を非機密証跡へ記録する。
+
+wildcard、project全体、未解決変数をcleanup対象に使用しない。削除は固定resource IDを二者確認し、各操作を個別承認されたcleanup手順で行う。
+
+### 11.10 次に必要な個別承認
+
+1. `secumie-staging-db`のzone、仕様、72時間、`$25`上限、cleanup担当・期限。
+2. 固定5 DB users/roles、database、5 DB password Secretsの作成方法とbootstrap実行者。
+3. 専用SA、resource単位IAM、JWT/SMTP/Turnstile test Secrets、Artifact push。
+4. Migration 037〜041専用artifact/digestと、Migration/role設定Jobの1回実行。
+5. OTP/PIRA Cloud Run 2サービスの作成。未認証公開、LB、DNSは含めない。
+6. operator端末のCloud SQL Auth Proxyを使う管理test harness接続。
+7. synthetic data投入、E2E、接続負荷、保持execute、logical backup/restore。
+8. 専用resource一式のcleanup。managed PITR、LB、REGIONAL failoverは別承認。
+
+上記承認前は、GCP resource、IAM、Secret、DB、Migration、Cloud Run、Trafficを変更しない。Production No-Goを維持する。
