@@ -28,6 +28,7 @@
     "test:readiness": "node -r ts-node/register --test test/productionReadiness.security.test.ts",
     "test:readiness:postgres": "node -r ts-node/register --test test/productionReadiness.postgres.test.ts",
     "test:secumie:runtime": "node -r ts-node/register --test test/secumieRuntime.postgres.browser.test.ts",
+    "test:secumie:dedicated-db": "node -r ts-node/register --test test/secumieDedicatedDbConnection.test.ts",
     "test:cleanup-contract": "node -r ts-node/register --test test/productionTestDataCleanup.contract.test.ts",
     "test:cleanup-rehearsal": "node -r ts-node/register --test test/productionTestDataCleanup.rehearsal.test.ts",
     "rehearse:cleanup": "node scripts/cleanup/rehearseProductionTestDataCleanup.cjs cleanup-manifests/production-test-data-cleanup-20261013.json",
