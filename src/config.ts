@@ -68,6 +68,25 @@ export async function loadDatabaseConfig(role: 'runtime' | 'migration' = 'runtim
   return {name,user,password,host:process.env.DB_HOST??'127.0.0.1',port:Number(process.env.DB_PORT??5432),socketPath:process.env.DB_SOCKET_PATH||undefined};
 }
 
+/**
+ * Dedicated SECU:MIE administration database used only by the PIRA admin repository.
+ * The password is injected as an environment-backed Secret Manager reference in Cloud Run.
+ * It deliberately does not fall back to the Sales Tools business database credentials.
+ */
+export async function loadSecumieAdminDatabaseConfig(): Promise<Config['db']> {
+  const required=(name:string,value:string|undefined)=>{if(!value?.trim())throw new Error(`Missing required config value: ${name}`);return value;};
+  const name=required('SECUMIE_DB_NAME',process.env.SECUMIE_DB_NAME);
+  const user=required('SECUMIE_DB_ADMIN_USER',process.env.SECUMIE_DB_ADMIN_USER);
+  const password=required('SECUMIE_DB_ADMIN_PASSWORD',process.env.SECUMIE_DB_ADMIN_PASSWORD);
+  const port=Number(process.env.SECUMIE_DB_PORT??5432);
+  if(!Number.isInteger(port)||port<1||port>65535)throw new Error('Invalid SECUMIE_DB_PORT');
+  return {
+    name,user,password,port,
+    host:process.env.SECUMIE_DB_HOST??'127.0.0.1',
+    socketPath:process.env.SECUMIE_DB_SOCKET_PATH||undefined,
+  };
+}
+
 export async function loadConfig(): Promise<Config> {
   const gcpProjectId = process.env.GCP_PROJECT_ID ?? 'msp-zabbix';
 

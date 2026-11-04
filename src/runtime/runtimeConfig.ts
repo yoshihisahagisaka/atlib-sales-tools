@@ -25,7 +25,11 @@ function strong(name: string, minimum = 32): string { const value = required(nam
 export async function databaseRuntime() {
   const db = await loadDatabaseConfig('runtime');
   const config = { db } as Config;
-  return createPool(config);
+  const max = Number(process.env.DB_POOL_MAX ?? 2);
+  const idleTimeoutMillis = Number(process.env.DB_POOL_IDLE_TIMEOUT_MS ?? 10_000);
+  if (!Number.isInteger(max) || max < 1 || max > 2) throw new Error('DB_POOL_MAX must be an integer from 1 to 2');
+  if (!Number.isInteger(idleTimeoutMillis) || idleTimeoutMillis < 1) throw new Error('DB_POOL_IDLE_TIMEOUT_MS must be a positive integer');
+  return createPool(config, { max, idleTimeoutMillis });
 }
 
 export async function otpRuntimeConfiguration() {
