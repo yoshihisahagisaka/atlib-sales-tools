@@ -38,18 +38,42 @@
 
 ### 2.1 接続budget
 
-初期上限案は次のとおりとする。実負荷試験で引き上げるまでは拡張しない。
+既存`sales-tools`のCloud Run最大instance数20は変更しない。Sales Tools管理用SECU poolを各instance最大2接続とすると、この主体だけで通常時の理論最大は40接続となる。前版の「既存service内で最大2接続」はservice全体の集計になっておらず、過少評価だったため次のように補正する。
 
-| 主体 | max instances / 同時実行 | pool上限 | 最大接続予算 |
-|---|---:|---:|---:|
-| OTP Cloud Run | 2 | 2 | 4 |
-| PIRA Cloud Run | 2 | 2 | 4 |
-| Sales Tools管理用SECU pool | 既存service内 | 2 | 2 |
-| Migration | 直列1 | 1 | 1 |
-| 保持Job | 直列1、Migrationと同時実行しない | 1 | 1 |
-| 合計 |  |  | **通常10、保守時最大11** |
+| 主体 | Cloud Run / Job上限 | pool上限 | 通常時の構成上限 | DB role接続上限候補 |
+|---|---:|---:|---:|---:|
+| OTP Cloud Run | service最大2 | 2 | 4 | 6 |
+| PIRA Cloud Run | service最大2 | 2 | 4 | 6 |
+| Sales Tools管理用SECU pool | **既存service最大20** | 2 | **40** | **40** |
+| Migration | 直列1 | 1 | 1 | 1 |
+| 保持Job | 直列1 | 1 | 1 | 1 |
+| 合計 |  |  | **50** | **54** |
 
-現行`createPool()`は一律`max: 5`であるため、配備前にruntime別pool上限を環境設定可能にする最小変更が必要である。`max_connections`はmachine memoryに応じCloud SQLが初期値を決めるため、instance作成後の実値を取得し、上記最大11接続に20%以上の余裕とCloud SQL内部接続分があることをGateとする。値を推測して本番設定しない。
+Migrationと保持Jobは運用上同時実行しないが、安全評価では同時接続を含む50を通常構成上限とする。Cloud Runはmax instanceを短時間超過し得る。またrevision単位の上限の場合はdeploy時に旧新revisionが一時並存し得る。Sales Toolsの最大20がservice-levelかrevision-levelかを現物で再確認し、未確認の間はDB roleの`CONNECTION LIMIT 40`を最終防波堤とする。上限到達時は管理機能の新規DB接続を安全に失敗させ、既存業務DBやOTP/PIRAの接続枠を消費させない。
+
+Cloud SQLの内部・管理・superuser予約分を固定値と推測しない。instance作成後に`SHOW max_connections`と、アイドル時・backup時・HA/failover時の内部接続実測を取得し、次の両方を満たすことを配備Gateとする。
+
+```text
+M = SHOW max_connections
+R = max(10, ceil(M * 0.20), 実測したCloud SQL内部最大接続 + 5)
+A = M - R
+必要条件: A >= 54
+```
+
+通常構成50に対しrole上限合計54は、OTP/PIRAの短時間scale超過を各2接続だけ吸収し、それ以上はDB側で拒否する。`A < 54`ならmachine memoryの増強、pool/instance上限の再承認、または管理runtime分離のいずれかを選び、Productionへ進まない。
+
+### 2.2 Sales Tools管理poolの最小実装差分
+
+既存Sales Tools業務poolの設定、最大instance数20、既存router/repositoryを無断変更しない。追加差分は次に限定する。
+
+1. `createPool()`へ任意の`max` / `idleTimeoutMillis`を渡せる後方互換optionを追加する。既存呼出しの既定値`max: 5`は維持する。
+2. SECU専用接続設定（別instance socket、database、user、password Secret）から`max: 2`、`min: 0`相当の第2 poolを生成する。`pg.Pool`はquery取得時まで接続を作らないため、Sales Tools起動だけではSECU DB接続を生成しない。
+3. 第2 poolはPIRA/SECU管理routerが初めてqueryを実行した時だけ接続し、idle connectionを短時間で解放する。値はStaging実測後に確定し、初期候補を`idleTimeoutMillis: 10_000`とする。
+4. `PiraAdminRepo`だけへ第2 poolを注入する。既存Sales Tools業務repositoryは既存poolを使い続ける。
+5. SIGTERM時に両poolを明示的にcloseする。SECU DB障害時も既存業務poolと一般管理画面を停止させない。
+6. DB側でOTP 6、PIRA 6、管理40、Migration 1、保持1のrole別`CONNECTION LIMIT`を設定し、runtime資格情報の共用を禁止する。
+
+管理機能の利用時だけ接続を生成する方式は、通常利用量を大きく下げるが、容量判定は平均値ではなく上記の構成上限50とrole上限54で行う。
 
 ## 3. ZONAL / REGIONAL比較
 
@@ -73,13 +97,15 @@
 - Tokyo SSD参考単価: `$0.221/GiB-month`、20 GiBで`$4.42/月`
 - HAはCPU、memory、storageを2系統分として試算する。
 - EnterpriseのCloud Storage上のPITR logsは7日まで追加料金なし。automated backupの有償超過、restore用一時instance、egress、Logging/Monitoringは利用量依存として別枠にする。
-- 正式発注前にGoogle Cloud Pricing CalculatorとBilling Catalogで同じ設定を再計算する。
+- 2026-11-04にGoogle Cloud公式料金表のTokyo選択値へ再照合し、Pricing Calculatorへ入力するedition、region、vCPU、memory、availability、storage、稼働時間を同じ条件にそろえた概算である。Billing account固有の割引を含む保存済みCalculator estimateはまだ作成していない。契約割引、為替、税、実使用量は含めず、正式発注直前にBilling account上のestimateを保存して再承認する。
 
 | 案 | Compute | SSD | Backup/PITR・network等 | 基本月額概算 |
 |---|---:|---:|---:|---:|
 | A. Enterprise / ZONAL / 1 vCPU・3.75 GiB / 20 GiB | `$64.11` | `$4.42` | `$0〜数ドル` + egress | **約`$69〜75/月`** |
 | B. Enterprise / REGIONAL HA / 同構成 | `$128.22` | `$8.84` | `$0〜数ドル` + egress | **約`$137〜145/月`** |
 | C. B + 検証時だけ作成するZONAL Staging | Bと同じ | Bと同じ | Staging 72時間例: compute `$6.32`、SSD按分約`$0.44`、backup/logging等 | **通常約`$137〜145/月`、検証月約`$145〜160/月`** |
+
+固定費相当は、Production Cloud SQLのvCPU、memory、provisioned SSDであり、REGIONALでは概算`$137.06/月`（compute `$128.22` + SSD `$8.84`）である。利用量依存費用は、provisioned容量を超えるbackup、restore時の一時instance、network egress、Cloud Logging/Monitoring、Query Insights、Staging稼働時間である。PITR用Cloud Storage WALはEnterpriseの7日以内では追加料金なしだが、restoreにより作られるinstanceは別途課金される。
 
 Stagingは「停止」だけではstorage等が残るため、費用を抑える案Cは、必要時にTerraform等の承認済み構成から作成し、証跡取得後にinstanceを削除する方式を意味する。長期反復テストや継続的な変更が月1回以上になる場合は、常設ZONAL Staging（約`$69〜75/月`）の方が再現性と事故防止に優れるため再評価する。
 
