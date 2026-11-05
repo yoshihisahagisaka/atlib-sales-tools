@@ -332,3 +332,22 @@ gcloud beta sql instances create secumie-sg-shared-staging-db `
 6. synthetic data、E2E、保持、backup/restore、cleanupの各書込み操作。
 
 Secure Guard database、role、Secret、Migration、runtime接続は第5節の前提が承認されるまで全てNo-Go。Productionは引き続きNo-Goである。
+
+### 12.8 PSA限定実行結果（2026-11-05 15:02 JST）
+
+経営者承認に基づき、第12.1節の2操作だけを実行した。Cloud SQL、DB/role/Migration、Cloud Run、Secret、IAM、Firewall、VPN、DNS、LBには変更していない。
+
+| 操作 | 結果 | 確認値 |
+|---|---|---|
+| global allocated range作成 | SUCCESS、command exit 0 | `google-managed-services-default` / `172.20.0.0/16` / `INTERNAL` / `VPC_PEERING` / `RESERVED` / network `default` |
+| Service Networking PSA接続 | SUCCESS、command exit 0 | service `servicenetworking.googleapis.com` / peering `servicenetworking-googleapis-com` / range `google-managed-services-default` / state `ACTIVE` |
+
+実行直前に同名rangeおよび既存PSAが存在しないこと、subnet/route/peering/VPNに`172.20.0.0/16`との重複がないことを再確認した。実行後のnetwork差分はallocated range 1件とService Networking peering 1件である。subnet、Firewall、VPN、既存route設定は変更していない。
+
+実行後確認:
+
+- `sales-tools`、`msp-customer-portal`、`sales-tools-staging`は全てReadyだった。Traffic操作は実施していない。
+- 既存Cloud SQLは`msp-customer-portal-db`と`sales-tools-staging-db`の2件のままRUNNABLEで、新規instanceはない。
+- PSA接続はACTIVEであり、次工程のprivate IP Cloud SQL作成に必要なnetwork前提は成立した。
+
+次工程へ進む前の残条件は、Cloud SQL固有quota/custom tierの直前確認、Organization PolicyのDirect VPC許可確認、費用/cleanup担当の再確認、および第12.5節のinstance作成に対する個別承認である。PSAは共有network資産として残し、instance cleanupに連動して削除しない。
