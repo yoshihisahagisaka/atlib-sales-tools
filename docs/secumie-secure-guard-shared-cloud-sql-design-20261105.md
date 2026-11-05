@@ -195,3 +195,140 @@ No resource in this list is created by this design change.
 - Google Cloud, Cloud SQL PostgreSQL quotas and limits: determine actual `max_connections` from the created instance rather than assuming a machine-type value.
 - Google Cloud, PostgreSQL memory guidance: each idle connection consumes memory; connection limits must be tested with workload and memory headroom.
 - Google Cloud, PostgreSQL high availability: REGIONAL uses a primary and standby across zones with synchronous disk replication.
+
+## 12. Staging作成直前ネットワーク・接続Preflight（2026-11-05）
+
+この節は第2〜9節の構成を変更せず、`secumie-sg-shared-staging-db`作成前に必要な具体的差分を固定する。以下のコマンドは承認資料であり、この確認工程では実行していない。
+
+### 12.1 Private Service Access
+
+Read-only確認結果:
+
+- `default`はauto-mode VPCで、東京subnetは`10.146.0.0/20`、既存Serverless VPC Access connectorは`10.8.0.0/28`である。
+- subnet、route、global internal allocation、VPC peering、VPNを照合した時点で`172.20.0.0/16`との重複はなかった。
+- Service Networking peeringおよびPrivate Service Access用allocated rangeは未作成だった。
+- Compute Engine、Cloud Run、Cloud SQL Admin、Service Networking APIは有効だった。Organization Policy APIは未有効で、`run.allowedVPCEgress`のeffective policyをRead-only取得できなかった。API有効化または組織管理者による照合をDirect VPC配備前Gateとする。
+- `/16`はGoogle管理サービスの推奨サイズであり、東京PostgreSQLだけなら最小`/24`でも成立するが、共用基盤の将来拡張とrange再割当回避のため`172.20.0.0/16`を採用候補とする。
+
+承認が必要な具体的差分:
+
+```powershell
+gcloud compute addresses create google-managed-services-default `
+  --project=msp-zabbix `
+  --global `
+  --purpose=VPC_PEERING `
+  --addresses=172.20.0.0 `
+  --prefix-length=16 `
+  --network=default
+
+gcloud services vpc-peerings connect `
+  --project=msp-zabbix `
+  --service=servicenetworking.googleapis.com `
+  --ranges=google-managed-services-default `
+  --network=default
+```
+
+これは`default` VPC全体へGoogle service producer networkとのpeeringを1件追加する。既存subnet、route、Cloud Run trafficは変更しないが、接続作成後は同VPC上の対応Googleサービスから利用可能になる。将来このpeeringを削除すると、そのrangeを利用する全サービスのprivate connectivityを失うため、Staging cleanupではinstanceを削除してもallocated range/peeringは自動削除しない。削除は利用者ゼロを別途確認して承認する。
+
+実行直前に同じCIDR、route、peering、VPN/NCC接続を再取得し、重複または新しい接続があればSTOPする。
+
+### 12.2 Cloud Run / Job接続経路
+
+| 主体 | VPC到達 | DB接続/TLS | 備考 |
+|---|---|---|---|
+| 新規OTP/PIRA Staging service | Direct VPC egress、`default`/東京subnet、`private-ranges-only` | Cloud SQL Auth Proxy v2 sidecarを`--private-ip --address=127.0.0.1 --port=5432`で起動 | 新規revisionだけに設定し、既存connectorを共有しない |
+| Migration/bootstrap/maintenance Job | 同じDirect VPC egress | 同じProxy sidecar、task 1、parallelism 1、retry 0 | main containerはProxy readiness後に開始 |
+| 管理画面接続試験 | VPC内の専用review Job/harness | 同じProxy sidecar | ローカルPCからprivate IPへ直接接続しない |
+| Secure Guard（将来） | 現在の`msp-portal-connector`は同project/region/VPCのため到達可能 | 第2pool実装後にprivate-IP Proxy経路を追加 | baseline/pool承認まで変更・接続しない |
+
+Direct VPC egressは新規サービス/Jobだけに設定する。既存connectorの性能・障害領域を新規SECU runtimeと共有せず、connector VM費用も増やさない。Cloud Run resourceのService Accountとserverless service agentに必要なNetwork User、各runtime Service Accountに対象instance限定のCloud SQL Clientを付与する差分はIAM工程で個別承認する。
+
+Cloud SQL Auth Proxyはprivate IPへの到達経路自体を作らないため、sidecarにもDirect VPC egressが必要である。ProxyがIAMで接続を認証し、DB区間をTLS暗号化してclient/server identityを検証する。アプリからProxyのloopback区間は同一Cloud Run instanceのnetwork namespace内に限定する。
+
+### 12.3 PR #43接続コードFit/Gap
+
+| 対象 | 現状 | 判定 |
+|---|---|---|
+| `src/db/pool.ts` | Unix socketまたはhost/portを受け取り、max/idle/connect timeoutを設定可能 | Proxy sidecarへ`127.0.0.1:5432`接続できるため変更不要 |
+| `src/runtime/runtimeConfig.ts` | `DB_HOST`/`DB_PORT`、pool最大2、idle timeoutを環境設定可能 | OTP/PIRAとも環境設定だけで対応可能 |
+| `src/config.ts` | Sales Tools管理は独立した`SECUMIE_DB_*`を必須化し、業務DBへfallbackしない | review harnessおよび将来管理runtimeで環境設定だけで対応可能 |
+| Migration/role CLI | `loadDatabaseConfig('migration')`とpool 1を使用 | Jobのloopback Proxyへ環境設定だけで対応可能 |
+| TLS | node-postgres自身にはSSL optionを持たない | Proxy sidecarでTLSを終端する採用経路ならコード変更不要。Proxyを使わずprivate IPへ直結する場合だけ別途SSLコード/証明書設計が必要で、今回は採用しない |
+
+設定例（値はSecret参照から注入し、平文をGit/CLIへ書かない）:
+
+```text
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_SOCKET_PATH=<unset>
+DB_NAME=secumie_insight_staging
+DB_USER=<runtime role>
+DB_PASSWORD=<Secret reference>
+DB_POOL_MAX=2
+DB_POOL_IDLE_TIMEOUT_MS=10000
+```
+
+したがってStaging instance作成段階ではコード修正ゼロ、runtime定義（multi-container、Direct VPC、IAM、Secret）の追加だけが必要である。sidecarのimageはdigest固定し、`latest`を使わない。
+
+### 12.4 DB初期化・管理試験
+
+ローカルPCからprivate IPへの直接到達、passwordのコマンド引数渡し、public IP/authorized networkの一時追加は禁止する。
+
+1. bootstrap専用Cloud Run JobをVPC内に作り、Proxy sidecarと同一network namespaceで実行する。
+2. bootstrap SecretはJobのService Accountだけが参照し、database/role作成後に無効化または削除する。Jobはtask 1、parallelism 1、retry 0、timeoutを固定する。
+3. database/role作成結果をmetadataだけで照合し、次にMigration Jobで037〜041を適用する。Migrationは別承認でありinstance作成承認には含めない。
+4. 管理試験は専用review Job/harnessから`PiraAdminRepo`を実行し、既存Sales Tools revision/traffic/業務DBを変更しない。
+5. 各Jobは終了時にpoolをcloseし、実行後の接続数ゼロ、ログへのSecret/受付情報非出力を確認する。
+
+### 12.5 Staging instance作成コマンド（未実行）
+
+Zoneは既存2instanceが`asia-northeast1-b`にあるため、検証用の障害領域を分ける`asia-northeast1-c`に固定する。2026-11-05確認時点で東京regionは`a/b/c`を提供し、一般CPU quotaは100中4、SSD quotaは500 GiB中40 GiBだった。Cloud SQL固有quotaとcustom tier作成可否はoperation直前に再確認する。
+
+PSA作成・接続が成功し、別途instance作成承認を得た後だけ実行する:
+
+```powershell
+gcloud beta sql instances create secumie-sg-shared-staging-db `
+  --project=msp-zabbix `
+  --database-version=POSTGRES_16 `
+  --edition=ENTERPRISE `
+  --tier=db-custom-2-7680 `
+  --region=asia-northeast1 `
+  --zone=asia-northeast1-c `
+  --availability-type=ZONAL `
+  --storage-type=SSD `
+  --storage-size=20 `
+  --storage-auto-increase `
+  --storage-auto-increase-limit=100 `
+  --network=projects/msp-zabbix/global/networks/default `
+  --allocated-ip-range-name=google-managed-services-default `
+  --enforce-new-sql-network-architecture `
+  --no-assign-ip `
+  --backup-start-time=18:00 `
+  --enable-point-in-time-recovery `
+  --retained-backups-count=7 `
+  --labels=environment=staging,platform=secumie-secure-guard,temporary=true `
+  --deletion-protection
+```
+
+`18:00 UTC`は日本時間03:00であり、検証時間帯と重ならない候補である。作成後はengine/edition/tier/zone/storage/private IP/public IPなし/backup/PITR/deletion protection/connection nameをRead-onlyで照合する。不一致が1つでもあればDB作成へ進まない。
+
+### 12.6 費用・停止・cleanup
+
+- 固定見積りは第7節どおり約`$133/month`、14日約`$62`。backup/log/network/monitoringは従量で、総額上限`$75`を維持する。
+- Cloud Billing Budget APIはprojectで未有効かつ現在の実行accountにbilling account参照権限がなく、予算通知をRead-only確認できなかった。API有効化/予算作成は別承認である。それまでは毎日Billing reportとinstance稼働日数を実行者が確認する。
+- cleanup期限は作成完了から14 calendar days。責任者は技術実行・一次停止・原状復帰を担うWork、最終削除承認はatLIB経営者、証跡レビューは設計統括ChatGPTとする。
+- 即時STOP: 累計見込み`$75`超過、14日超過、接続80%、CPU 80%が5分、memory 90%、予期しないstorage増加、backup失敗、5xx/latency悪化、既存サービス差分、Secret露出、承認外IAM/network変更。
+- cleanupではCloud Run/Job/revision、synthetic data、database/role/Secrets/Service Accounts、instanceを承認順に撤去する。deletion protection解除とinstance削除は最終承認後のみ。PSA range/peeringは他利用者がないことを別途証明するまで残し、instance cleanupへ連動して削除しない。
+
+### 12.7 実行承認単位
+
+次の操作はまとめて暗黙承認せず、順に個別承認する。
+
+1. Service Networking API/必要APIが未有効の場合の有効化。
+2. `172.20.0.0/16` global allocated range作成と`default` VPCのPSA peering接続。
+3. Staging Cloud SQL instance 1件の作成（第12.5節の固定値）。
+4. bootstrap/migration/runtime用Service Account、IAM、Secret、Cloud Run Job/serviceの作成。
+5. Insight database/5 role作成とMigration 037〜041。
+6. synthetic data、E2E、保持、backup/restore、cleanupの各書込み操作。
+
+Secure Guard database、role、Secret、Migration、runtime接続は第5節の前提が承認されるまで全てNo-Go。Productionは引き続きNo-Goである。
