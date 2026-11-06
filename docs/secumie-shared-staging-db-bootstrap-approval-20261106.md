@@ -29,7 +29,7 @@ Secure Guard用database・role・Migrationは作らない。既存Cloud SQL、Sa
 - Project numberは`135863453696`。Cloud Run service agentは`roles/run.serviceAgent`を保持する。
 - 東京`default` subnetは`10.146.0.0/20`。PSA range `172.20.0.0/16`とは重複しない。
 - `run.googleapis.com`、`sqladmin.googleapis.com`、`secretmanager.googleapis.com`、`iam.googleapis.com`、`compute.googleapis.com`は有効。
-- Organization Policy APIは未有効で、`run.allowedVPCEgress` effective policyは取得できていない。Direct VPC Job作成前のSTOP条件である。
+- Organization Policy APIは有効化済み。`run.allowedVPCEgress`のeffective policyは`listPolicy.allValues = ALLOW`で、`private-ranges-only`は許容される。Direct VPC Job作成前のOrganization Policy STOP条件は解消済みである。
 - SECU名のService Account、Secret、Cloud Run Jobは存在しない。したがって本書の全GCPリソースは新規差分になる。
 
 ## 3. 作成予定リソースとIAM差分
@@ -130,7 +130,7 @@ Job作成直後は実行しない。`gcloud run jobs describe`でimage digest、
 
 ## 6. 承認後の実行順序
 
-1. Organization Policy APIを有効化するか、組織管理者が`run.allowedVPCEgress`で`private-ranges-only`を許可すると書面確認する。
+1. Organization Policy APIとeffective `run.allowedVPCEgress`を照合する（2026-11-06 PASS済み）。
 2. imageをbuildし、脆弱性scan、manifest検証、image digestを証跡化する。
 3. 2 SA、6 Secret、Secret単位IAM、Cloud SQL Clientを作成する。
 4. 組込み`postgres` passwordを安全経路で設定し、bootstrap Secret version 1と一致させる。
@@ -212,13 +212,14 @@ Cloud SQL cleanup期限は`2026-11-20 10:12 JST`。Job/一時IAM/bootstrap Secre
 
 ## 11. 個別承認が必要な操作
 
-1. Organization Policy API有効化、または組織管理者によるeffective policy確認。
-2. 2 Service Account、6 Secret、Secret version、限定IAMの作成。
-3. 組込み`postgres` passwordの初回設定。
-4. 2 Cloud Run Jobの作成（未実行）。
-5. Bootstrap Job 1回の実行。
-6. Bootstrap PASS後のMigration Job 1回の実行。
-7. 一時Job/IAM/Secret accessの撤去。
+Organization Policy API有効化とeffective policy確認は2026-11-06に完了した。次の承認対象は段階ごとに分離する。
+
+1. 2 Service Account、6 Secret、Secret version、限定IAM、`db-operations` image登録（承認A）。
+2. 組込み`postgres` passwordの初回設定（承認B、人間のCloud Console操作）。
+3. Bootstrap Cloud Run Job 1件の作成（承認C、未実行）。
+4. Bootstrap Job 1回の実行（別承認D）。
+5. Bootstrap PASS後のMigration Job作成と1回実行（別承認E/F）。
+6. 一時Job/IAM/Secret accessの撤去（別承認G）。
 
 上記承認は分離する。特にJob作成承認はJob実行承認を含まない。
 
@@ -241,23 +242,17 @@ Cloud SQL cleanup期限は`2026-11-20 10:12 JST`。Job/一時IAM/bootstrap Secre
 | Cloud SQL user | 組込み`postgres`だけ | PASS |
 | target PostgreSQL role | DB内部接続前のため未実測。Bootstrap最初のread-only queryで固定5 role不存在を確認し、1件でもあればDDL前STOP | Conditional |
 | Service Account / Secret / Job | SECU名の対象リソースは未作成 | PASS（計画差分と一致） |
-| Organization Policy API | `orgpolicy.googleapis.com`未有効 | **STOP** |
-| `run.allowedVPCEgress` | API未有効のためeffective値未取得 | **STOP** |
+| Organization Policy API | `orgpolicy.googleapis.com`有効化済み | PASS |
+| `run.allowedVPCEgress` | effective `listPolicy.allValues = ALLOW`。`private-ranges-only`許容 | PASS |
 
-Organization Policy APIを有効化する操作はpolicy自体を変更しないが、Projectの有効APIを1件増やすGCP変更である。次を個別承認対象とする。
-
-```powershell
-gcloud services enable orgpolicy.googleapis.com --project=msp-zabbix
-```
-
-承認・有効化後、次のRead-only照会だけを行う。
+2026-11-06に統括提示の実施結果を受領した。API有効化とeffective policy確認は完了扱いとし、policy変更は行わない。確認に使用したRead-only照会は次である。
 
 ```powershell
 gcloud resource-manager org-policies describe run.allowedVPCEgress `
   --project=msp-zabbix --effective --format=yaml
 ```
 
-Google-managed default、またはallowed valuesに`private-ranges-only`を含む場合だけPASSとする。`all-traffic`だけ、明示deny、取得権限不足、値不明の場合はSTOPし、policyを無断変更しない。
+結果は`listPolicy.allValues = ALLOW`であり、Job定義の`--vpc-egress=private-ranges-only`を妨げない。今後effective policyが変化した場合はJob作成・実行前にSTOPし、policyを無断変更しない。
 
 ### 12.2 書込み前接続容量Gate
 
@@ -297,16 +292,15 @@ OTP/PIRA/admin/migration/maintenanceの5 passwordも同様に別々の32 byte以
 
 | Gate | 操作 | 承認境界 | 成功条件 |
 |---|---|---|---|
-| 1 | Organization Policy API有効化 | **個別承認1** | API enabled |
-| 2 | effective `run.allowedVPCEgress`照会 | Read-only | `private-ranges-only`許容 |
-| 3 | 2 SA、6 Secret、限定IAM、artifact image作成 | **個別承認2** | PR #46との差分一致、image digest固定 |
-| 4 | `postgres` password設定とbootstrap Secret version 1 | **個別承認3、人間のConsole操作** | 値非表示、metadata一致 |
-| 5 | Bootstrap Job作成（未実行） | **個別承認4** | SA、Secret version、Direct VPC、Proxy digest、retry 0をdescribe照合 |
-| 6 | Bootstrap Job 1回実行 | **個別承認5** | capacity PASS、対象不存在、database/5 role作成、他差分なし |
-| 7 | Migration Job作成（未実行） | **個別承認6** | 037〜041だけ、Migration SA/Secretだけ |
-| 8 | Migration Job 1回実行 | **個別承認7** | ledger 5件、role grants、再試行なし |
-| 9 | Positive/Negative権限、保持preview、接続確認 | 個別承認7に含めるか明記 | 全PASS、保持executeなし |
-| 10 | Job・一時IAM・bootstrap access撤去 | **個別承認8** | 証跡保存後24時間以内、DB/roleは維持 |
+| 1 | Organization Policy API・effective policy確認 | 完了 | `private-ranges-only`許容、2026-11-06 PASS |
+| 2 | 2 SA、6 Secret、限定IAM、artifact image作成 | **次回個別承認A** | 下記12.6との差分一致、image digest固定 |
+| 3 | `postgres` password設定とbootstrap Secret version 1 | **次回個別承認B、人間のConsole操作** | 値非表示、metadata一致 |
+| 4 | Bootstrap Job作成（未実行） | **次回個別承認C** | SA、Secret version、Direct VPC、Proxy digest、retry 0をdescribe照合 |
+| 5 | Bootstrap Job 1回実行 | **未承認・別承認D** | capacity PASS、対象不存在、database/5 role作成、他差分なし |
+| 6 | Migration Job作成（未実行） | **未承認・別承認E** | 037〜041だけ、Migration SA/Secretだけ |
+| 7 | Migration Job 1回実行 | **未承認・別承認F** | ledger 5件、role grants、再試行なし |
+| 8 | Positive/Negative権限、保持preview、接続確認 | **未承認** | 全PASS、保持executeなし |
+| 9 | Job・一時IAM・bootstrap access撤去 | **未承認・別承認G** | 証跡保存後24時間以内、DB/roleは維持 |
 
 Job作成承認は実行承認を含まない。前GateがPASSするまで次の操作を行わない。
 
@@ -316,4 +310,49 @@ Job作成承認は実行承認を含まない。前GateがPASSするまで次の
 - 技術実行・一次停止判断・原状復帰: Work
 - 設計・証跡レビュー: 設計統括ChatGPT
 
-Organization Policy未確認、capacity不足、target既存、backup異常、Secret露出、予期しないIAM、既存service異常、Secure Guard領域差分のいずれかでSTOPする。無断再試行・権限追加・policy変更・cleanupを行わない。
+capacity不足、target既存、backup異常、Secret露出、予期しないIAM、effective policy変更、既存service異常、Secure Guard領域差分のいずれかでSTOPする。無断再試行・権限追加・policy変更・cleanupを行わない。
+
+### 12.6 次回実行承認A〜Cの固定差分
+
+今回統括へ求める承認は次の作成・設定までであり、Bootstrap Jobの実行、Cloud SQL内のdatabase・role作成、Migration 037〜041、Secure Guard側操作を含まない。
+
+#### 承認A: 基盤資格情報とartifact
+
+実行順序は次のとおりとする。
+
+1. Service Account `secumie-db-bootstrap-stg`と`secumie-db-migration-stg`を作成する。どちらにも管理者権限、鍵ファイル、user-managed keyを作らない。
+2. Project単位で両SAへ`roles/cloudsql.client`だけを付与する。
+3. Staging専用Secret 6件を自動replicationで作成する。Secret値はまだCLI引数へ渡さず、承認済みoperatorがCloud Consoleの非表示入力で各version 1を登録する。
+4. Secret単位IAMを設定する。Bootstrap SAには6件すべての`roles/secretmanager.secretAccessor`、Migration SAには`secumie-stg-db-migration-password`だけの同roleを付与する。他Secretへのaccessは付与しない。
+5. 承認対象commitの`Dockerfile.secumie` `db-operations` targetを既存Artifact Registry repository `cloud-run-source-deploy`へpushする。build実行主体だけが既存repositoryへの書込み権限を使用し、runtime SAへ`artifactregistry.writer`を付与しない。
+6. registryが返すdigestを取得し、manifest検証、脆弱性確認後、Job定義を`asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/secumie-db-operations@sha256:<digest>`へ固定する。tagだけでJobを作成しない。
+
+権限差分は次のとおりである。
+
+| Principal | Scope | 追加権限 |
+|---|---|---|
+| Bootstrap SA | Project | `roles/cloudsql.client` |
+| Bootstrap SA | Secret 6件それぞれ | `roles/secretmanager.secretAccessor` |
+| Migration SA | Project | `roles/cloudsql.client` |
+| Migration SA | `secumie-stg-db-migration-password`だけ | `roles/secretmanager.secretAccessor` |
+| Job作成operator | SA 2件 | Job作成時に必要な既存`iam.serviceAccountUser`の有無を確認。不足時は追加せずSTOPし、差分を再承認 |
+| runtime SA | Artifact Registry | 追加なし |
+
+Cloud SQL Admin、Secret Admin、Artifact Registry Writer、Network Admin、Service Account key作成権限をruntime SAへ付与しない。既存principalのroleを削除・変更しない。
+
+#### 承認B: 組込み`postgres`初期password
+
+承認済みoperatorが12.3の手順を人間のCloud Console操作で行う。Cloud SQLの`postgres` passwordと`secumie-stg-db-bootstrap-password:1`へ同じ32 byte以上のCSPRNG値を非表示入力する。値をCLI、PowerShell履歴、画面共有、ログ、Git、チャットへ出さない。他の5 Secretにはそれぞれ異なる値を登録する。確認対象はSecret名、version番号、enabled状態、IAM metadataだけであり、値を再表示しない。
+
+#### 承認C: Bootstrap Job作成のみ
+
+12.6のA・BがPASSした後、5.1の固定定義により`secumie-db-bootstrap-staging`を作成する。作成後は`gcloud run jobs describe`によるRead-only照合だけを行い、次を確認する。
+
+- main imageが承認済みdigest固定
+- Proxy imageが承認済みdigest固定
+- Bootstrap SA、Secret version 1、Direct VPC `default/default`、`private-ranges-only`
+- task 1、parallelism 1、retry 0、timeout 15m
+- target confirmationが共有Staging instanceと`secumie_insight_staging`に固定
+- Jobは未実行で、Executionが0件
+
+Job作成に必要な追加IAM、network権限、Organization Policy差分が判明した場合は作成せずSTOPする。承認Cは`gcloud run jobs execute`を含まない。
