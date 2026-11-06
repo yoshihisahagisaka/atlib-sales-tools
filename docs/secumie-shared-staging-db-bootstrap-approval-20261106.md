@@ -356,3 +356,49 @@ Cloud SQL Admin、Secret Admin、Artifact Registry Writer、Network Admin、Serv
 - Jobは未実行で、Executionが0件
 
 Job作成に必要な追加IAM、network権限、Organization Policy差分が判明した場合は作成せずSTOPする。承認Cは`gcloud run jobs execute`を含まない。
+
+## 13. 承認A〜C 実行記録（2026-11-06）
+
+### 13.1 実行前Gate
+
+次をRead-onlyで再確認し、PASSした。
+
+- active account `yoshihisa.hagisaka@atlib.jp`、project `msp-zabbix`
+- Cloud SQL `secumie-sg-shared-staging-db`は`RUNNABLE`、PostgreSQL 16、private IPのみ、Backup/PITR/deletion protection有効
+- 最新automated backup `1793927512122`は`SUCCESSFUL`
+- effective `run.allowedVPCEgress`は`listPolicy.allValues = ALLOW`
+- 2 SA、6 Secret、Bootstrap Jobは実行前に不存在
+- Artifact Registry repository `cloud-run-source-deploy`は既存のDocker STANDARD repository
+
+### 13.2 承認Aの部分実行とSTOP
+
+実行日時: 2026-11-06 JST。技術実行・一次停止判断: Work。
+
+次は成功した。
+
+- Service Account `secumie-db-bootstrap-stg@msp-zabbix.iam.gserviceaccount.com`を作成
+- Service Account `secumie-db-migration-stg@msp-zabbix.iam.gserviceaccount.com`を作成
+- 両SAへProject scopeの`roles/cloudsql.client`を付与
+
+最初のSecret `secumie-stg-db-bootstrap-password`作成時、PowerShellから渡した`--labels`引数がCLIに2値として解釈され、ラベル値検証エラーで終了した。Secret作成は成立していない。承認済みSTOP条件に従い、その場で処理を停止し、修正再試行、削除、権限拡大、代替設定を行っていない。
+
+停止後のRead-only照合結果:
+
+- 2 SAは存在し、追加roleは各`roles/cloudsql.client`だけ
+- 6 Secretはすべて不存在、Secret version 0件
+- Secret IAM bindingは未作成
+- Artifact imageは未build・未push
+- Bootstrap Jobは不存在、Execution 0件
+- Cloud SQL databaseは組込み`postgres`だけ。`secumie_insight_staging`、5 role、Migration 037〜041は未作成・未実行
+- 承認Bと承認Cは未着手
+
+### 13.3 再開に必要な個別承認
+
+再開には、承認Aの未完了部分だけを次の順で再実行する明示承認が必要である。
+
+1. 6 Secretを作成する。PowerShellでは`--labels='environment=staging,platform=secumie-secure-guard'`を単一引数として渡すか、ラベルを付けずに作成後metadataを別途設定する。正本との差分を増やさない第一候補は単一引数方式とする。
+2. Bootstrap SAへ6 SecretのAccessor、Migration SAへMigration SecretだけのAccessorを設定する。
+3. IAMとSecret version 0件をRead-only照合する。
+4. 承認済みcommitの`db-operations` imageをbuild・検証・pushし、registry digestを固定する。
+
+この再開承認は、Secret version登録、`postgres` password設定、Bootstrap Job作成・実行を含まない。承認Aが完全PASSした後に、承認BとCへ改めて進む。
