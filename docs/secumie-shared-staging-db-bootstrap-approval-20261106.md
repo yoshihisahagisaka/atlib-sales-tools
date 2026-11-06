@@ -152,7 +152,7 @@ Jobの自動retryは0。失敗時の再実行は禁止し、ledger/metadata確�
 - `public_auth`、`pira`、`secumie_deployment`だけが新設され、Secure Guard DB/schemaはない。
 - OTP roleは`public_auth`の必要操作だけ、PIRA roleは受付の必要操作だけ、admin roleは一覧/施策/監査だけ、maintenance roleは保持関数だけ成功する。
 - 各roleの他schema参照、監査UPDATE/DELETE、maintenanceの直接table操作は拒否される。
-- `SHOW max_connections`とrole limit合計54を比較し、Cloud SQL内部予約と20%以上の余力を満たす。満たさなければruntime配備へ進まない。
+- `SHOW max_connections`に対して共用基盤のapplication budget 78と、`max(10, ceil(M×20%), server reserved + 5, 実行時接続数 + 5)`の予約枠を満たす。満たさなければBootstrapは最初のDDL前に停止する。
 - Job終了後の接続がゼロ、ログにpassword/OTP/JWT/個人情報がない。
 
 ## 8. STOP・原状復帰
@@ -228,3 +228,92 @@ Cloud SQL cleanup期限は`2026-11-20 10:12 JST`。Job/一時IAM/bootstrap Secre
 - Cloud Run multi-container startup order: https://cloud.google.com/run/docs/configuring/jobs/containers
 - Cloud SQL Auth Proxy private IP: https://cloud.google.com/sql/docs/postgres/connect-auth-proxy
 - Cloud SQL Auth Proxy shutdown endpoint: https://github.com/GoogleCloudPlatform/cloud-sql-proxy/blob/main/docs/cmd/cloud-sql-proxy.md
+
+## 12. 実行前最終確認（2026-11-06）
+
+### 12.1 GCP Read-only結果
+
+| 項目 | 結果 | 判定 |
+|---|---|---|
+| Cloud SQL | `secumie-sg-shared-staging-db` / `RUNNABLE` / PostgreSQL 16 / private IPのみ | PASS |
+| Backup | automated backup `1793927512122`、`SUCCESSFUL`、2026-11-06 10:12 JST完了 | PASS |
+| database | `postgres`だけ。`secumie_insight_staging`不存在 | PASS |
+| Cloud SQL user | 組込み`postgres`だけ | PASS |
+| target PostgreSQL role | DB内部接続前のため未実測。Bootstrap最初のread-only queryで固定5 role不存在を確認し、1件でもあればDDL前STOP | Conditional |
+| Service Account / Secret / Job | SECU名の対象リソースは未作成 | PASS（計画差分と一致） |
+| Organization Policy API | `orgpolicy.googleapis.com`未有効 | **STOP** |
+| `run.allowedVPCEgress` | API未有効のためeffective値未取得 | **STOP** |
+
+Organization Policy APIを有効化する操作はpolicy自体を変更しないが、Projectの有効APIを1件増やすGCP変更である。次を個別承認対象とする。
+
+```powershell
+gcloud services enable orgpolicy.googleapis.com --project=msp-zabbix
+```
+
+承認・有効化後、次のRead-only照会だけを行う。
+
+```powershell
+gcloud resource-manager org-policies describe run.allowedVPCEgress `
+  --project=msp-zabbix --effective --format=yaml
+```
+
+Google-managed default、またはallowed valuesに`private-ranges-only`を含む場合だけPASSとする。`all-traffic`だけ、明示deny、取得権限不足、値不明の場合はSTOPし、policyを無断変更しない。
+
+### 12.2 書込み前接続容量Gate
+
+Bootstrap CLIは`postgres` databaseへの最初の1接続で、DDLより前に次を取得する。
+
+- `SHOW max_connections`
+- `superuser_reserved_connections`
+- PostgreSQL 16の`reserved_connections`（未設定なら0）
+- `pg_stat_activity`の実行時総接続数
+
+次を満たさなければ`SECU_BOOTSTRAP_CONNECTION_CAPACITY_INSUFFICIENT`で終了し、database/roleを一切作成しない。
+
+```text
+M = max_connections
+R = max(10, ceil(M × 0.20), superuser_reserved + reserved + 5, observed_connections + 5)
+A = M - R
+required: A >= 78
+```
+
+判定値は非機密の構造化ログ`secumie_bootstrap_capacity_gate`へ記録する。実測値を100等の想定値で代用しない。単一時点の値は長期peakの代用ではないため、Bootstrap PASS後もruntime配備前にMonitoringで接続peakを検証する。
+
+### 12.3 `postgres`初期passwordとSecret登録
+
+組込み`postgres` userには現在Secretがなく、安全な既存自動経路もない。この1操作だけは人間によるGoogle Cloud Console操作を採用する。
+
+1. atLIB経営者のBootstrap資格情報設定承認を取得する。
+2. 承認済みoperatorがローカルpassword managerで32 byte以上のCSPRNG passwordを1件生成する。
+3. Google Cloud ConsoleのCloud SQL → 対象instance → Users → `postgres` → Change passwordで設定する。画面共有、録画、チャット貼付をしない。
+4. Secret Manager Consoleで`secumie-stg-db-bootstrap-password`を作成し、同じ値をversion 1として非表示入力する。
+5. Secret metadataとversion状態だけを確認し、値は再表示しない。
+6. Bootstrap SAだけへ当該Secretのversion accessorを付与する。
+7. Migration・権限検証完了後24時間以内にBootstrap Jobとaccess bindingを撤去し、version 1を無効化する。
+
+OTP/PIRA/admin/migration/maintenanceの5 passwordも同様に別々の32 byte以上を生成し、6件すべて異なる値とする。値をCLI argument、Git、Cloud Loggingへ出さない。Cloud Console以外の安全な自動注入経路を採用する場合は、具体的差分を再承認する。
+
+### 12.4 実行順序と承認境界
+
+| Gate | 操作 | 承認境界 | 成功条件 |
+|---|---|---|---|
+| 1 | Organization Policy API有効化 | **個別承認1** | API enabled |
+| 2 | effective `run.allowedVPCEgress`照会 | Read-only | `private-ranges-only`許容 |
+| 3 | 2 SA、6 Secret、限定IAM、artifact image作成 | **個別承認2** | PR #46との差分一致、image digest固定 |
+| 4 | `postgres` password設定とbootstrap Secret version 1 | **個別承認3、人間のConsole操作** | 値非表示、metadata一致 |
+| 5 | Bootstrap Job作成（未実行） | **個別承認4** | SA、Secret version、Direct VPC、Proxy digest、retry 0をdescribe照合 |
+| 6 | Bootstrap Job 1回実行 | **個別承認5** | capacity PASS、対象不存在、database/5 role作成、他差分なし |
+| 7 | Migration Job作成（未実行） | **個別承認6** | 037〜041だけ、Migration SA/Secretだけ |
+| 8 | Migration Job 1回実行 | **個別承認7** | ledger 5件、role grants、再試行なし |
+| 9 | Positive/Negative権限、保持preview、接続確認 | 個別承認7に含めるか明記 | 全PASS、保持executeなし |
+| 10 | Job・一時IAM・bootstrap access撤去 | **個別承認8** | 証跡保存後24時間以内、DB/roleは維持 |
+
+Job作成承認は実行承認を含まない。前GateがPASSするまで次の操作を行わない。
+
+### 12.5 担当とSTOP
+
+- 最終承認・リスク受容: atLIB経営者
+- 技術実行・一次停止判断・原状復帰: Work
+- 設計・証跡レビュー: 設計統括ChatGPT
+
+Organization Policy未確認、capacity不足、target既存、backup異常、Secret露出、予期しないIAM、既存service異常、Secure Guard領域差分のいずれかでSTOPする。無断再試行・権限追加・policy変更・cleanupを行わない。

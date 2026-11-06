@@ -3,6 +3,7 @@ import { shutdownCloudSqlProxy } from './cloudSqlProxyShutdown';
 
 const TARGET_DATABASE = 'secumie_insight_staging';
 const TARGET_CONFIRMATION = 'msp-zabbix:asia-northeast1:secumie-sg-shared-staging-db/secumie_insight_staging';
+const APPROVED_APPLICATION_BUDGET = 78;
 const roles = [
   { name: 'secumie_otp_staging', passwordEnv: 'SECU_OTP_DB_PASSWORD', connectionLimit: 6 },
   { name: 'secumie_pira_staging', passwordEnv: 'SECU_PIRA_DB_PASSWORD', connectionLimit: 6 },
@@ -15,6 +16,22 @@ function required(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`SECU_BOOTSTRAP_CONFIG_MISSING: ${name}`);
   return value;
+}
+
+export function evaluateConnectionCapacity(input: {
+  maxConnections: number;
+  superuserReserved: number;
+  reserved: number;
+  observedConnections: number;
+}) {
+  const reserve = Math.max(
+    10,
+    Math.ceil(input.maxConnections * 0.20),
+    input.superuserReserved + input.reserved + 5,
+    input.observedConnections + 5,
+  );
+  const applicationAvailable = input.maxConnections - reserve;
+  return { ...input, reserve, applicationAvailable, required: APPROVED_APPLICATION_BUDGET, pass: applicationAvailable >= APPROVED_APPLICATION_BUDGET };
 }
 
 async function quotedLiteral(client: PoolClient, value: string): Promise<string> {
@@ -55,6 +72,27 @@ export async function bootstrapSecumieInsightStaging(): Promise<void> {
       if (identity.rows[0]?.database !== 'postgres' || !identity.rows[0]?.version.startsWith('16.')) {
         throw new Error('SECU_BOOTSTRAP_SERVER_IDENTITY_MISMATCH');
       }
+      const capacityResult = await client.query<{
+        max_connections: string;
+        superuser_reserved: string;
+        reserved: string;
+        observed_connections: string;
+      }>(`SELECT
+        current_setting('max_connections') AS max_connections,
+        current_setting('superuser_reserved_connections') AS superuser_reserved,
+        COALESCE(current_setting('reserved_connections', true), '0') AS reserved,
+        (SELECT count(*)::text FROM pg_stat_activity) AS observed_connections`);
+      const capacity = evaluateConnectionCapacity({
+        maxConnections: Number(capacityResult.rows[0]?.max_connections),
+        superuserReserved: Number(capacityResult.rows[0]?.superuser_reserved),
+        reserved: Number(capacityResult.rows[0]?.reserved),
+        observedConnections: Number(capacityResult.rows[0]?.observed_connections),
+      });
+      if (Object.values(capacity).some((value) => typeof value === 'number' && !Number.isFinite(value))) {
+        throw new Error('SECU_BOOTSTRAP_CAPACITY_READ_FAILED');
+      }
+      console.log(JSON.stringify({ event: 'secumie_bootstrap_capacity_gate', ...capacity }));
+      if (!capacity.pass) throw new Error('SECU_BOOTSTRAP_CONNECTION_CAPACITY_INSUFFICIENT');
       const existingDatabase = await client.query('SELECT 1 FROM pg_database WHERE datname=$1', [TARGET_DATABASE]);
       const existingRoles = await client.query('SELECT rolname FROM pg_roles WHERE rolname=ANY($1::text[])', [roles.map((role) => role.name)]);
       if (existingDatabase.rowCount || existingRoles.rowCount) throw new Error('SECU_BOOTSTRAP_TARGET_ALREADY_EXISTS');

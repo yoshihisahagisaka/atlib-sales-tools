@@ -4,6 +4,7 @@ import { mkdtempSync, copyFileSync, readFileSync, writeFileSync } from 'node:fs'
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { evaluateConnectionCapacity } from '../src/db/bootstrapSecumieInsightStagingCli';
 
 const root = path.resolve(__dirname, '..');
 const verifier = path.join(root, 'scripts', 'readiness', 'verifySecumieMigrationManifest.cjs');
@@ -56,4 +57,12 @@ test('bootstrap fails closed before opening a pool when the target confirmation 
     env: { ...process.env, SECU_BOOTSTRAP_TARGET_CONFIRMATION: '' },
   });
   assert.match(output, /SECU_BOOTSTRAP_CONFIG_MISSING/);
+});
+
+test('shared capacity budget keeps the approved 78 connections and a reserved envelope', () => {
+  assert.deepEqual(evaluateConnectionCapacity({ maxConnections:100,superuserReserved:3,reserved:0,observedConnections:6 }), {
+    maxConnections:100,superuserReserved:3,reserved:0,observedConnections:6,reserve:20,applicationAvailable:80,required:78,pass:true,
+  });
+  assert.equal(evaluateConnectionCapacity({ maxConnections:97,superuserReserved:3,reserved:0,observedConnections:6 }).pass,false);
+  assert.equal(evaluateConnectionCapacity({ maxConnections:120,superuserReserved:3,reserved:0,observedConnections:40 }).pass,false);
 });
