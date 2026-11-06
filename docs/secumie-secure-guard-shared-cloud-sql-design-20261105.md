@@ -351,3 +351,24 @@ Secure Guard database、role、Secret、Migration、runtime接続は第5節の�
 - PSA接続はACTIVEであり、次工程のprivate IP Cloud SQL作成に必要なnetwork前提は成立した。
 
 次工程へ進む前の残条件は、Cloud SQL固有quota/custom tierの直前確認、Organization PolicyのDirect VPC許可確認、費用/cleanup担当の再確認、および第12.5節のinstance作成に対する個別承認である。PSAは共有network資産として残し、instance cleanupに連動して削除しない。
+
+### 12.9 Staging Cloud SQL作成前最終Gate（2026-11-06 09:55 JST）
+
+Read-only最終確認を実施し、instance作成そのものは経営者の明示的な最終承認待ちとして実行していない。
+
+| Gate | 結果 | 根拠・扱い |
+|---|---|---|
+| 対象instance未作成 | PASS | `secumie-sg-shared-staging-db`はABSENT。既存は2instanceのみで両方RUNNABLE |
+| Instance数limit | PASS | 既存2件。新SQL network architectureの公式project limit 1,000件を大幅に下回る |
+| 東京region/tier | PASS | `asia-northeast1`でEnterprise/PostgreSQL 16と2 vCPU/7.5 GiB dedicated-core構成がサポートされ、tier一覧にも同等の`db-n1-standard-2`が存在。`db-custom-2-7680`は公式の有効なcustom tier例 |
+| 物理capacity | CONDITIONAL PASS | quotaはcapacityを保証しない。create operationでcapacity不足なら無断再試行・zone/tier変更をせずSTOP |
+| Cloud SQL Admin API quota | PASS | Cloud Quotasで20 metricを取得可能。今回の単発mutateはrate quota上の異常を示さない。429時は再試行せずSTOP |
+| PSA | PASS | `google-managed-services-default`、`172.20.0.0/16`、`VPC_PEERING`、`RESERVED`。peering `servicenetworking-googleapis-com`はACTIVE |
+| CLI整合 | PASS | Cloud SDK 575.0.0 / beta 2026.06.26で第12.5節の全19 flagをhelp照合済み |
+| 費用管理 | PASS（手動） | Billing Budget APIは未有効。作成時刻・日次Billing見込み・累計を実行者が記録し、`$75`到達見込みで停止 |
+| cleanup | PASS | 作成完了時刻+14 calendar daysを期限として即時記録。2026-11-06中に作成した場合は2026-11-20同時刻まで |
+| 責任者 | PASS | 技術実行・一次停止・原状復帰: Work、最終承認・リスク受容・削除承認: atLIB経営者、証跡レビュー: 設計統括ChatGPT |
+
+Cloud SQL作成operationの前後で対象instance名、PSA ACTIVE、既存2instanceのRUNNABLEを再確認する。operation失敗時は修復、再試行、zone/tier/CIDR変更、部分resource削除を行わず、operation IDとerrorだけを報告する。
+
+**判定: instance作成は最終承認後に限り実行可能。現時点では承認待ちのため未実行。** Organization Policyのeffective値はAPI未有効で未確認だが、これは後続Direct VPC Cloud Run/Job配備のGateであり、network/IAMを変更しないprivate-IP Cloud SQL instance単体の作成を妨げない。Direct VPC配備前には必ず解消する。
