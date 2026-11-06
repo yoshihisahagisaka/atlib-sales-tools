@@ -1,4 +1,6 @@
-# SECU:MIE 専用Cloud SQL基盤 設計判断記録
+# SECU:MIE 専用Cloud SQL基盤 設計判断記録（履歴・旧単独構成）
+
+> 2026-11-05: SECU:MIEとSecure Guardの共用Cloud SQL方針により、インスタンス構成および第11節のStaging作成手順は実行対象外となった。接続分離・権限・保持の既存判断は継承する。新しい実行正本は `docs/secumie-secure-guard-shared-cloud-sql-design-20261105.md` とする。旧名称 `secumie-staging-db` でリソースを作成してはならない。
 
 - 作成日: 2026-11-04（Asia/Tokyo）
 - 対象project / region: `msp-zabbix` / `asia-northeast1`
