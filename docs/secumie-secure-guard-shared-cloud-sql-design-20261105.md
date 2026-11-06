@@ -372,3 +372,35 @@ Read-only最終確認を実施し、instance作成そのものは経営者の明
 Cloud SQL作成operationの前後で対象instance名、PSA ACTIVE、既存2instanceのRUNNABLEを再確認する。operation失敗時は修復、再試行、zone/tier/CIDR変更、部分resource削除を行わず、operation IDとerrorだけを報告する。
 
 **判定: instance作成は最終承認後に限り実行可能。現時点では承認待ちのため未実行。** Organization Policyのeffective値はAPI未有効で未確認だが、これは後続Direct VPC Cloud Run/Job配備のGateであり、network/IAMを変更しないprivate-IP Cloud SQL instance単体の作成を妨げない。Direct VPC配備前には必ず解消する。
+
+### 12.10 共用Staging Cloud SQL instance作成・Read-only検証（2026-11-06）
+
+個別承認後、PSAを再作成せず、`secumie-sg-shared-staging-db`を1件だけ作成した。CREATE operationは`2026-11-06 10:07:04.565 JST`に開始し、`2026-11-06 10:12:12.735 JST`に`DONE`（errorなし）で完了した。作成完了をcleanup起点とし、期限は**`2026-11-20 10:12:12.735 JST`**（14 calendar days）である。
+
+作成直前のRead-only Gate:
+
+| Gate | 結果 | 実測根拠 |
+|---|---|---|
+| 対象instance | PASS | `secumie-sg-shared-staging-db`はABSENT。CLIの送信前引数検証失敗後もABSENTを再確認 |
+| Cloud SQL Admin API quota | PASS | `sqladmin.googleapis.com`の東京region mutate rateは180/min。単発CREATEに十分な作成要求枠を確認 |
+| custom tier / physical capacity | PASS | `db-custom-2-7680`を固定zone `asia-northeast1-c`でCREATEし、RUNNABLEまで到達。capacity不足は発生しなかった |
+| PSA | PASS | `google-managed-services-default`は`172.20.0.0/16`、`VPC_PEERING`、`RESERVED`のまま。既存PSAを変更・再作成していない |
+| Organization Policy | PASS | effective `constraints/sql.restrictPublicIp`および`constraints/sql.restrictAuthorizedNetworks`はいずれも空のboolean policyで、Private IP専用構成を妨げる強制値なし |
+| 費用・cleanup | PASS（手動） | 上限は`$75`かつ14日。技術実行・一次停止・原状復帰はWork、最終削除承認はatLIB経営者、証跡レビューは設計統括ChatGPT |
+
+現行Cloud SDKでは`--region`と`--zone`の同時指定を受け付けないことを実行時に確認した。第12.5節の指定値を変えず、`asia-northeast1-c`が一意に定める`asia-northeast1`を用いるため、実CREATEでは`--region`だけを省略した。また、PowerShellのカンマ解釈による`--labels`のローカル引数検証失敗が1回あった。いずれもCloud SQL APIへのCREATE operation発行前にCLIが拒否したものであり、対象instanceがABSENTであることを各回の後に確認した。APIへのCREATE operationは上記の成功operation 1件のみである。
+
+作成後のRead-only検証:
+
+| 項目 | 実測値 | 判定 |
+|---|---|---|
+| state / engine / edition | `RUNNABLE` / `POSTGRES_16` / `ENTERPRISE` | PASS |
+| tier / location / availability | `db-custom-2-7680` / `asia-northeast1`・`asia-northeast1-c` / `ZONAL` | PASS |
+| storage | `PD_SSD` 20 GiB、auto-resize有効、上限100 GiB | PASS |
+| network | `ipv4Enabled=false`、IP種別は`PRIVATE`のみ、`default` VPC、range `google-managed-services-default` | PASS |
+| backup / PITR | backup有効、開始時刻`18:00 UTC`、PITR有効、保持backup数7 | PASS |
+| protection / labels | deletion protection有効。`environment=staging`、`platform=secumie-secure-guard`、`temporary=true` | PASS |
+
+初回backup operationは作成後に自動開始され、確認時点でRUNNING・errorなしだった。これはbackup/PITR設定の検証記録であり、backup完了の証明とは扱わない。
+
+今回の変更範囲は共有Staging Cloud SQL instance 1件とこの証跡だけである。SG用database・role・Secret、Migration、Cloud Run、既存instance、Production、PSA range/peeringには変更していない。cleanup時もPSA range/peeringは他利用者がないことを別途証明して承認されるまで残す。削除保護の解除およびinstance削除は、期限前でも最終削除承認後のみ実施する。
