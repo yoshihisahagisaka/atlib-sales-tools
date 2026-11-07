@@ -438,3 +438,16 @@ STOP後の状態:
 - 承認B・Cは未着手
 
 再開には、`containeranalysis.googleapis.com`をproject `msp-zabbix`で有効化し、固定digestの脆弱性結果をRead-only取得する操作への個別承認が必要である。Critical/Highの扱いが正本の受入条件を満たすことを確認するまでB・Cへ進まない。
+
+### 13.5 Container Analysis API有効化後の再確認（2026-11-07）
+
+ユーザー本人が`containeranalysis.googleapis.com`を有効化した後、固定digestをRead-onlyで再照会した。
+
+- API enabled確認: PASS
+- image digest一致: PASS
+- 応答にpackage vulnerability、severity、scan statusが含まれない
+- 関連API確認では`containerscanning.googleapis.com`が未有効
+
+結果が空であることを「脆弱性0件」と解釈しない。自動スキャン結果が生成されていないため、承認Aは引き続きConditional/STOPとする。承認B・C、Secret version、password、Job、DB操作には進んでいない。
+
+次の個別承認対象はproject `msp-zabbix`で`containerscanning.googleapis.com`を有効化する1操作である。有効化後、固定digestを必要に応じて同一内容で再pushするかスキャン生成を待ち、同じdigestに対するscan statusとseverity別結果をRead-only取得する。API有効化、再push、スキャン待機のどこまでを認めるかを明示承認するまで実行しない。
