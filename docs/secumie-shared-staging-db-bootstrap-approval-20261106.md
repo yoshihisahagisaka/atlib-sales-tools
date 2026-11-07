@@ -451,3 +451,16 @@ STOP後の状態:
 結果が空であることを「脆弱性0件」と解釈しない。自動スキャン結果が生成されていないため、承認Aは引き続きConditional/STOPとする。承認B・C、Secret version、password、Job、DB操作には進んでいない。
 
 次の個別承認対象はproject `msp-zabbix`で`containerscanning.googleapis.com`を有効化する1操作である。有効化後、固定digestを必要に応じて同一内容で再pushするかスキャン生成を待ち、同じdigestに対するscan statusとseverity別結果をRead-only取得する。API有効化、再push、スキャン待機のどこまでを認めるかを明示承認するまで実行しない。
+
+### 13.6 Container Scanning API有効化後の再確認（2026-11-07）
+
+ユーザー本人が`containerscanning.googleapis.com`を有効化した後、固定digestを再びRead-only照会した。
+
+- `containeranalysis.googleapis.com`: enabled
+- `containerscanning.googleapis.com`: enabled
+- 固定digest一致: PASS
+- package vulnerability、severity、scan status: 引き続き応答になし
+
+API有効化前にpush済みの既存imageにはスキャン結果が生成されていない。空の応答を脆弱性0件とは扱わず、承認Aは引き続きSTOPとする。同じcommit・同じtagのimageを再pushして自動スキャンを開始させる操作は、直前の承認範囲に含まれていないため実行していない。
+
+次の個別承認対象は、既にローカルbuild・manifest検証済みの同一imageを同一tagへ1回だけ再pushし、remote digestが`sha256:26b41310d957b5dafc83913407295bc1d6a65ec3ef8e0bb7beca0f294f795492`から変化していないことを確認したうえで、scan statusとseverity別結果をRead-only照会する操作である。digestが変化した場合、push失敗、スキャン失敗、Critical/High検出時はSTOPし、B・Cへ進まない。
