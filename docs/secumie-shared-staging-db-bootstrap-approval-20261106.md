@@ -506,3 +506,106 @@ You cannot perform this action because the Google Cloud CLI component manager is
 ```
 
 承認済みSTOP条件に従い、OS package追加、別Cloud SDK imageへの切替、別Linux環境利用、再実行、IAM変更は行っていない。脆弱性件数は引き続きCritical/High/Moderate/Lowすべて未取得であり、承認AはSTOP、承認B・Cは未着手とする。
+
+## 14. サービスイン前実環境検証・工程簡素化（2026-11-07）
+
+統括方針により、Google Cloud On-Demand Scanningの追加対応を停止する。13.4〜13.8の実施結果とスキャン未完了の事実は維持するが、非公開・Synthetic data限定の共用Staging DB初期化を妨げるSTOP条件とはしない。再push、追加scanner、Cloud SDK component導入を繰り返さない。サービスイン前に、配備対象image全体のセキュリティ確認を別のGo/No-Go Gateとして実施する。
+
+### 14.1 現物棚卸し
+
+2026-11-07 JSTのRead-only確認結果:
+
+| 対象 | 現状 | 判定 |
+|---|---|---|
+| Cloud SQL | `secumie-sg-shared-staging-db`、RUNNABLE、PostgreSQL 16、private IPのみ | Fit |
+| Backup | automated backup `1793988000000`、SUCCESSFUL、2026-11-07 05:43 JST完了 | Fit |
+| Database | 組込み`postgres`だけ。`secumie_insight_staging`不存在 | 未初期化 |
+| Service Account | Bootstrap/Migration各1件が存在 | 作成済み |
+| Project IAM | 両SAに`roles/cloudsql.client`だけ | Fit |
+| Secret | 承認済み6件が存在、自動replication、Staging labels | 作成済み |
+| Secret version | 6件すべて0件 | 未設定 |
+| Secret IAM | Bootstrap SAは6件、Migration SAはMigration SecretだけAccessor | Fit |
+| Artifact | `db-operations`固定digestが存在 | Fit |
+| Bootstrap/Migration Job | どちらも不存在 | 未作成 |
+| Secure Guard領域 | database/role/Migration未作成 | 非対象・維持 |
+
+固定Artifact:
+
+```text
+asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/secumie-db-operations@sha256:26b41310d957b5dafc83913407295bc1d6a65ec3ef8e0bb7beca0f294f795492
+```
+
+### 14.2 一括実行差分
+
+経営者の次回一括承認は、以下の順序全体を対象とする。各Gateが正常である限り、工程内で追加承認を挟まない。想定外の権限・対象・データ・接続・既存service影響が判明した場合だけ即時STOPする。
+
+1. **Staging passwordとSecret version 1**
+   - 承認済みoperatorがCloud Consoleの非表示入力で6個の相互に異なる32 byte以上CSPRNG passwordを生成・登録する。
+   - 組込み`postgres` passwordと`secumie-stg-db-bootstrap-password:1`だけは同じ値にする。
+   - OTP/PIRA/admin/migration/maintenanceにはそれぞれ異なる値をversion 1として登録する。
+   - 値をCLI引数、PowerShell history、Git、Cloud Logging、画面共有、チャットへ出さない。
+   - metadataで全6 versionがENABLEDであることだけを確認する。
+2. **Bootstrap Job作成・照合**
+   - 5.1の固定定義と固定image digestで`secumie-db-bootstrap-staging`を作成する。
+   - Bootstrap SA、6 Secret version 1、Direct VPC `default/default`、`private-ranges-only`、Proxy固定digest、task 1、parallelism 1、retry 0、timeout 15mを`describe`で照合する。
+3. **Bootstrap Job 1回実行**
+   - 書込み前に`SHOW max_connections`、reserved、現在接続数を実測し、14.3の容量Gateを適用する。
+   - target database/5 role不存在、PostgreSQL 16、target confirmationを検査する。
+   - PASS時だけ`secumie_insight_staging`とOTP/PIRA/admin/migration/maintenanceの5 roleを作成する。
+   - 自動retryは0。失敗時の無断再実行は禁止する。
+4. **Migration Job作成・照合**
+   - Bootstrap完全PASS後、5.1の固定定義と同じ固定image digestで`secumie-db-migrate-staging`を作成する。
+   - Migration SAはMigration Secretだけを参照し、Migration directoryは037〜041の5ファイルだけとする。
+5. **Migration 037〜041を1回適用**
+   - manifest件数・順序・SHA-256をDB接続前に再検証する。
+   - ledgerに037〜041を記録し、Migration 041のrole権限設定まで完了する。
+   - 001〜036、Secure Guard Migration、他databaseには適用しない。
+6. **受入確認**
+   - `SHOW max_connections`と接続容量、database/role属性、schema/table/function ownerをmetadataだけで確認する。
+   - OTP/PIRA/admin/migration/maintenanceのPositive/Negative権限testを実施する。
+   - 通常runtimeによる監査UPDATE/DELETE拒否、保守主体の期限到達分だけのpreview、未到達データ保護、再実行安全性を検証する。保持executeは行わない。
+   - Synthetic dataだけを使用し、実顧客情報を投入しない。
+7. **証跡とcleanup**
+   - Job execution、Migration ledger、権限test、容量Gateを非機密証跡としてPR #46へ記録する。
+   - 一時的なJob/Bootstrap accessの撤去は、検証結果と後続runtime接続計画を確認したうえで行う。database/role/instance削除、deletion protection解除は別の経営者承認対象とする。
+
+### 14.3 一括実行の開始・成功・STOP条件
+
+開始条件:
+
+- Cloud SQL RUNNABLE、最新Backup SUCCESSFUL、既存service異常なし
+- database/5 role不存在、6 Secret version 1 ENABLED
+- Job定義と固定digestが正本一致
+- Staging削除期限`2026-11-20 10:12 JST`と費用上限の管理継続
+
+容量Gate:
+
+```text
+M = SHOW max_connections
+R = max(10, ceil(M × 0.20), superuser_reserved + reserved + 5, observed_connections + 5)
+A = M - R
+required: A >= 78
+```
+
+成功条件:
+
+- Bootstrap/Migration execution各1回が成功し、自動retry 0
+- `secumie_insight_staging`、5 role、Migration ledger 037〜041だけが作成される
+- 権限・容量・保持previewの全受入項目PASS
+- 既存Sales Tools、顧客Portal、PPAP、Secure Guard、Productionに差分・影響なし
+
+即時STOP条件:
+
+- 対象・digest・manifest・Secret metadata・IAMが正本と不一致
+- capacity不足、Backup異常、接続/VPC/Proxy不成立
+- 予期しない既存database/role/ledger、権限不足に伴う追加IAM要求
+- Secret露出、既存service指標悪化、他service/Productionへの差分
+- 部分成功、Migration失敗、データ消失の可能性
+
+STOP時は再実行、修復、削除、権限拡大を独断で行わず、metadataとexecutionログを保全して統括判断へ戻す。
+
+### 14.4 今回求める一括実行承認
+
+次回の経営者承認対象は14.2の1〜7であり、Cloud SQL内のdatabase/5 role作成、Bootstrap/Migration Job作成・各1回実行、Migration 037〜041、権限・容量・保持preview検証を含む。ただし、Production構築、公開、GENERAL有効化、Secure Guard DB/データ操作、実顧客データ、既存サービス変更は含まない。
+
+初期passwordと6 Secret version登録は人間のCloud Console操作が必要である。Workは値を取得・表示せず、metadata確認後に自動工程を継続する。
