@@ -402,3 +402,39 @@ Job作成に必要な追加IAM、network権限、Organization Policy差分が判
 4. 承認済みcommitの`db-operations` imageをbuild・検証・pushし、registry digestを固定する。
 
 この再開承認は、Secret version登録、`postgres` password設定、Bootstrap Job作成・実行を含まない。承認Aが完全PASSした後に、承認BとCへ改めて進む。
+
+### 13.4 承認A限定再開結果（2026-11-07）
+
+GCP再認証後、13.3の限定再開承認に従って実行した。
+
+PASS:
+
+- active account `yoshihisa.hagisaka@atlib.jp`、project `msp-zabbix`を再確認
+- 既存2 SAと各`roles/cloudsql.client`を再確認し、SAを再作成していない
+- 6 Secretを正本の名称、自動replication、labels `environment=staging,platform=secumie-secure-guard`で作成
+- Bootstrap SAへ6 Secretすべて、Migration SAへMigration Secretだけの`roles/secretmanager.secretAccessor`を設定
+- 6 SecretすべてでSecret version 0件を確認。値は登録・取得していない
+- commit `3def3beac1fe006598554acdd95322a8ca45a2fd`から`db-operations` targetをbuild
+- image内のMigration 037〜041 manifest、5ファイル、SHA-256照合PASS
+- 既存Artifact Registryへpushし、remote digestを確認
+
+固定image:
+
+```text
+asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/secumie-db-operations@sha256:26b41310d957b5dafc83913407295bc1d6a65ec3ef8e0bb7beca0f294f795492
+```
+
+STOP:
+
+- Artifact Registry上のpackage vulnerability確認時、`containeranalysis.googleapis.com`がproject `msp-zabbix`で無効と判明
+- API有効化は承認A限定再開に含まれないため、自動有効化・再試行を行わずSTOP
+- image digestとmanifestは確認済みだが、registry vulnerability結果は未取得のため承認Aを完全PASS扱いにしない
+
+STOP後の状態:
+
+- Bootstrap Jobは不存在、Execution 0件
+- Cloud SQL databaseは組込み`postgres`だけ
+- Secret version登録、`postgres` password変更、database/role、Migration、Secure Guard操作は未実施
+- 承認B・Cは未着手
+
+再開には、`containeranalysis.googleapis.com`をproject `msp-zabbix`で有効化し、固定digestの脆弱性結果をRead-only取得する操作への個別承認が必要である。Critical/Highの扱いが正本の受入条件を満たすことを確認するまでB・Cへ進まない。
