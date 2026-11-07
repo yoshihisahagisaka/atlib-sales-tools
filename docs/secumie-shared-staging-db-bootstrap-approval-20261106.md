@@ -486,3 +486,23 @@ push直後と45秒後に固定digestを`--show-package-vulnerability`でRead-onl
 | Low | 未取得 |
 
 承認済みSTOP条件「スキャン未完了・結果取得不可」に該当するため、承認AはSTOP。追加build、2回目の再push、API/IAM/registry設定変更、別スキャナー利用を行っていない。承認B・C、Secret version、password、Job、DB、Migrationは未着手のままである。
+
+### 13.8 On-Demand Scanning限定実行結果（2026-11-07）
+
+atLIB経営者の限定承認に基づき、次を実施した。
+
+- 固定digest一致を再確認
+- `ondemandscanning.googleapis.com`をproject `msp-zabbix`で有効化: PASS
+- Linux実行環境として公式Google Cloud CLI containerを取得
+- Cloud SDK image digest: `gcr.io/google.com/cloudsdktool/google-cloud-cli@sha256:18d8c484aaef27d7ef7b54dfb018f73712503d254a16f0a76b2626b4f6003af2`
+- 認証access tokenは標準入力から一時container内のmode 600相当ファイルだけへ渡し、CLI引数・ログ・Gitへ出していない
+- 固定remote image、location `asia`でOn-Demand Scanを1回だけ開始
+
+結果は**スキャン開始失敗**である。公式Cloud SDK containerに必須component `local-extract`がなく、このinstallationではcomponent managerが無効だった。Scan operationは作成されず、Scan IDは発行されていない。
+
+```text
+This action requires the installation of components: [local-extract]
+You cannot perform this action because the Google Cloud CLI component manager is disabled
+```
+
+承認済みSTOP条件に従い、OS package追加、別Cloud SDK imageへの切替、別Linux環境利用、再実行、IAM変更は行っていない。脆弱性件数は引き続きCritical/High/Moderate/Lowすべて未取得であり、承認AはSTOP、承認B・Cは未着手とする。
