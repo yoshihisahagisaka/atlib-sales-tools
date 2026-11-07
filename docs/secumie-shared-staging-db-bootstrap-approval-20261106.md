@@ -464,3 +464,25 @@ STOP後の状態:
 API有効化前にpush済みの既存imageにはスキャン結果が生成されていない。空の応答を脆弱性0件とは扱わず、承認Aは引き続きSTOPとする。同じcommit・同じtagのimageを再pushして自動スキャンを開始させる操作は、直前の承認範囲に含まれていないため実行していない。
 
 次の個別承認対象は、既にローカルbuild・manifest検証済みの同一imageを同一tagへ1回だけ再pushし、remote digestが`sha256:26b41310d957b5dafc83913407295bc1d6a65ec3ef8e0bb7beca0f294f795492`から変化していないことを確認したうえで、scan statusとseverity別結果をRead-only照会する操作である。digestが変化した場合、push失敗、スキャン失敗、Critical/High検出時はSTOPし、B・Cへ進まない。
+
+### 13.7 同一image再pushとスキャン結果（2026-11-07）
+
+atLIB経営者の限定承認に基づき、検証済みローカルimageを再buildせず同一tagへ1回だけ再pushした。
+
+- tag: `secumie-db-operations:3def3beac1fe006598554acdd95322a8ca45a2fd`
+- push前remote digest: `sha256:26b41310d957b5dafc83913407295bc1d6a65ec3ef8e0bb7beca0f294f795492`
+- push前local RepoDigest: 同一
+- push回数: 1回
+- push結果: 成功、全layerは既存または同一内容
+- push後remote digest: 同一（変更なし）
+
+push直後と45秒後に固定digestを`--show-package-vulnerability`でRead-only照会したが、いずれもimage summaryだけが返り、scan status、package vulnerability、severityは生成されなかった。したがって件数は次のとおり「0」ではなく**未取得**とする。
+
+| Severity | 件数 |
+|---|---:|
+| Critical | 未取得 |
+| High | 未取得 |
+| Moderate | 未取得 |
+| Low | 未取得 |
+
+承認済みSTOP条件「スキャン未完了・結果取得不可」に該当するため、承認AはSTOP。追加build、2回目の再push、API/IAM/registry設定変更、別スキャナー利用を行っていない。承認B・C、Secret version、password、Job、DB、Migrationは未着手のままである。
