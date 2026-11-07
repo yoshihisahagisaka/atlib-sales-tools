@@ -33,6 +33,8 @@
     "test:cleanup-rehearsal": "node -r ts-node/register --test test/productionTestDataCleanup.rehearsal.test.ts",
     "rehearse:cleanup": "node scripts/cleanup/rehearseProductionTestDataCleanup.cjs cleanup-manifests/production-test-data-cleanup-20261013.json",
     "migrate:artifact": "node dist/db/migrateCli.js",
+    "bootstrap:secumie:staging": "node dist/db/bootstrapSecumieInsightStagingCli.js",
+    "verify:migrations:secumie": "node scripts/readiness/verifySecumieMigrationManifest.cjs migration-manifests/secumie-insight-staging-037-041.json migrations false",
     "db:configure:secumie": "node dist/db/configureSecumieDbRolesCli.js",
     "retention:secumie": "node dist/db/secumieRetentionCli.js"
   },

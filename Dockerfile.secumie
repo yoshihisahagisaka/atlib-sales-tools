@@ -34,3 +34,17 @@ COPY prototypes/pira-union-diagnosis-v2 ./prototypes/pira-union-diagnosis-v2
 USER node
 EXPOSE 8080
 CMD ["node", "dist/piraPublicServer.js"]
+
+FROM node:20-bookworm-slim AS db-operations
+WORKDIR /app
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+ENV NODE_ENV=production
+COPY --from=production-deps /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY migration-manifests/secumie-insight-staging-037-041.json ./migration-manifests/secumie-insight-staging-037-041.json
+COPY scripts/readiness/verifySecumieMigrationManifest.cjs ./scripts/readiness/verifySecumieMigrationManifest.cjs
+COPY migrations/037_public_service_otp.sql migrations/038_pira_public_intake.sql migrations/039_pira_admin_export.sql migrations/040_pira_export_audit_retention.sql migrations/041_secumie_db_operations.sql ./migrations-secumie/
+RUN node scripts/readiness/verifySecumieMigrationManifest.cjs migration-manifests/secumie-insight-staging-037-041.json migrations-secumie true
+USER node
+CMD ["node", "dist/db/runSecumieStagingMigrationCli.js"]
