@@ -744,3 +744,77 @@ DETAIL: Only roles with the CREATEROLE attribute and the ADMIN option ... may al
 3. 共用Staging Cloud SQLを承認済み手順で再構築し、role作成前に`createrole_self_grant`を設定するか、databaseを先に作成してからrole/ownerを設計し直す（既存instance/Secret/証跡への影響大）。
 
 Migration 037〜041へは進まない。Bootstrap Job、failed Execution、Read-only inspection Execution、5 role、6 Secret、2 SA、固定Artifact、Cloud SQL instanceは証跡として維持する。
+
+## 17. Bootstrap部分失敗・復旧方式1の限定検証（2026-11-08）
+
+### 17.1 統括判断と変更境界
+
+第16節の調査結果を受け、database owner要件だけを次のとおり補正する方式1を採用候補とした。
+
+- `secumie_insight_staging`は組込み`postgres`をownerとして作成する。
+- 既存5 roleの属性、password、membershipは変更しない。
+- Migration roleには対象databaseの`CONNECT`/`CREATE`と`public` schemaの`USAGE`/`CREATE`だけを付与する。
+- databaseと`public` schemaからPUBLIC権限を撤回する。
+- Migration 037〜041のSQL本文は変更しない。
+
+GCP上のCREATE DATABASE、GRANT、REVOKEおよびMigrationは実行していない。
+
+### 17.2 一回限りのRecovery artifact
+
+`src/db/recoverSecumieInsightStagingCli.ts`を追加し、対象を固定したfail-closedなRecovery処理を実装した。処理前に次を検証する。
+
+- 接続先は`postgres`、PostgreSQL 16、実行主体は非SUPERUSERかつCREATEDB。
+- 固定5 roleがすべて存在し、LOGIN、connection limit（6/6/40/1/1）、非特権属性、NOINHERITが正本と一致する。
+- 想定外の`secumie_*_staging` roleがない。
+- `secumie_insight_staging`が存在しない。
+- 実行主体からMigration roleへの直接membershipがない。
+
+前提一致時だけ、次を実施する。
+
+1. `postgres` ownerで`secumie_insight_staging`を作成する。
+2. 新database内の単一transactionでPUBLICのdatabase/schema権限を撤回する。
+3. 固定5 roleへCONNECTを付与する。
+4. Migration roleだけへdatabase CREATE、`public` schema USAGE/CREATEを付与する。
+5. owner、ACL、5 roleのCONNECT、Migration権限をRead-onlyで検証する。
+
+CREATE DATABASEはPostgreSQLの仕様上transaction外である。database作成後にACL設定が失敗した場合、databaseは残るが、Recoveryは失敗終了し、再実行を拒否する。無断cleanupや再試行は行わず、現物確認と統括判断へ戻す。
+
+### 17.3 ローカルPostgreSQL 16検証
+
+使い捨てPostgreSQL 16で、Cloud SQL現物と同じ次の条件を再現した。
+
+- Bootstrap主体: 非SUPERUSER、CREATEDB/CREATEROLE、Migration membershipなし
+- 固定5 role: LOGIN、NOINHERIT、非特権、connection limit 6/6/40/1/1
+- 対象database: 不存在
+
+結果:
+
+| 検証 | 結果 |
+|---|---|
+| 方式1 Recovery、owner/ACL検証 | PASS |
+| Migration 037〜041のみの適用、ledger 5件 | PASS |
+| OTP/PIRA間の不要な参照拒否 | PASS |
+| OTP roleによる`public` schema CREATE拒否 | PASS |
+| role属性不一致時のdatabase作成前拒否 | PASS |
+| Recovery受入test | 2/2 PASS |
+| 既存DB Operations回帰 | 4/4 PASS |
+| 既存Staging準備回帰 | 4/4 PASS |
+| TypeScript build | PASS |
+
+Migration 037〜041のSQL本文は変更していない。
+
+### 17.4 次回の一括実行承認案
+
+次のGCP変更は未実行であり、具体的差分に対する経営者承認後だけ実施する。
+
+1. 本節のRecovery CLIを含む`db-operations` imageを承認済みcommitからbuild/pushし、新しいdigestを固定する。
+2. 既存Bootstrap Jobのmain image digestとcommandをRecovery CLIへ限定更新する。SA、6 Secret、Proxy、Direct VPC、retry 0、task/parallelism 1は維持する。
+3. `describe`で正本一致とExecution追加なしを確認する。
+4. 既存role属性とdatabase不存在を再確認後、Recovery Jobを1回だけ実行する。
+5. owner=`postgres`、PUBLIC権限撤回、固定5 role CONNECT、Migration CREATE/USAGEを検証する。
+6. Migration Jobを固定manifestで作成・照合し、037〜041だけを1回適用する。
+7. ledger、Positive/Negative SQL、監査保護、保持preview、接続容量、既存service無影響を受入検証する。
+
+現在の固定Artifact digestにはRecovery CLIが含まれないため、そのdigestのままRecoveryを実行してはならない。role再作成、password/Secret変更、membership追加、Secure Guard DB操作、Production変更は不要かつ承認対象外である。
+
+Production公開No-Goを維持する。
