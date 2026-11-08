@@ -47,7 +47,7 @@ async function assertRoles(client: PoolClient): Promise<void> {
 }
 
 export async function recoverSecumieInsightStaging(): Promise<void> {
-  if (required('SECU_RECOVERY_TARGET_CONFIRMATION') !== TARGET_CONFIRMATION) {
+  if (required('SECU_BOOTSTRAP_TARGET_CONFIRMATION') !== TARGET_CONFIRMATION) {
     throw new Error('SECU_RECOVERY_TARGET_CONFIRMATION_MISMATCH');
   }
   const connection = {

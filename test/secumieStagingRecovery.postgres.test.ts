@@ -38,7 +38,7 @@ test.before(async () => {
 
 test('owner-postgres recovery and migrations 037-041 preserve the role boundary', async () => {
   Object.assign(process.env, {
-    SECU_RECOVERY_TARGET_CONFIRMATION: 'msp-zabbix:asia-northeast1:secumie-sg-shared-staging-db/secumie_insight_staging',
+    SECU_BOOTSTRAP_TARGET_CONFIRMATION: 'msp-zabbix:asia-northeast1:secumie-sg-shared-staging-db/secumie_insight_staging',
     DB_BOOTSTRAP_HOST: '127.0.0.1', DB_BOOTSTRAP_PORT: String(port),
     DB_BOOTSTRAP_USER: bootstrap.user, DB_BOOTSTRAP_PASSWORD: bootstrap.password,
   });
