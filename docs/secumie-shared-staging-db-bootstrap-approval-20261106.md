@@ -923,6 +923,86 @@ Git ancestryとblobを照合した結果、PR #36、#43、#45は現行HEADの祖
 
 Staging host名、DNS管理主体、Cloud Run ingress/IAM、Proxy image digest、SMTP sandbox/allowlist、Turnstile Staging key、JWT `kid`、runtime image digest、initiative現物は未確定であり、次回承認前のGateである。Staging削除期限`2026-11-20 10:12 JST`、GENERAL無効、Production公開No-Goを維持する。
 
+### 17A.8 最終Fit/Gap追補（2026-11-08）
+
+#### DNS・証明書
+
+`atlib.jp`の権威NSは`nse1`〜`nse4.squarespacedns.com`であり、project `msp-zabbix`にはCloud DNS managed zoneがない。したがってDNS変更先はGCPではなくSquarespace DNS系統である。管理アカウントと変更実行者はGCPから確認できないため、atLIBのSquarespace DNS管理者を次回承認時に指名する。`pira-staging.atlib.jp`と`pira.atlib.jp`はNXDOMAIN、`www.atlib.jp`は既存`atlib.jp`、`sales.atlib.jp`は既存`ghs.googlehosted.com`を参照している。新規Staging A recordだけを追加し、これら既存3経路は変更しない。
+
+採用手順は次のとおりとする。
+
+1. global Premium IPv4 `secumie-staging-ip`を予約する。
+2. OTP/PIRA serverless NEG、backend、URL map、HTTPS proxy、port 443 forwarding ruleを新規名だけで作成する。
+3. Google-managed certificate `secumie-staging-cert`をdomain `pira-staging.atlib.jp`で作成し、target HTTPS proxyへ関連付ける。
+4. Squarespace DNSへ`pira-staging.atlib.jp A <secumie-staging-ip>`を1件追加する。既存recordの上書き、wildcard、CNAMEは使用しない。
+5. 権威NSと複数public resolverでA recordが同じ固定IPを返すこと、certificateの`managed.status=ACTIVE`と`managed.domainStatus=ACTIVE`、proxyへのcertificate関連付けを確認する。
+6. `PROVISIONING`中は公開E2Eへ進まない。DNS伝播後の証明書発行は通常60分以内が目安だが、DNS伝播自体は最大72時間の可能性がある。`FAILED_NOT_VISIBLE`、`PROVISIONING_FAILED`、異なるIP応答ではSTOPし、既存DNSへ変更を波及させない。`ACTIVE`後もLB反映へ最大30分を見込み、TLS/SANを実測してからPASSとする。
+
+これは新規subdomainであり、本番`pira.atlib.jp`、既存`www.atlib.jp`、`sales.atlib.jp`、Apache、既存LBへの切替や停止を伴わない。
+
+#### SMTP送信先制限
+
+GCP現物には既存Sales Tools StagingのSMTP設定（host/user/fromとpassword Secret）があるが、外部配送しないsandboxである証跡はなく、SECU runtimeへの流用も承認されていない。SECU用SMTP sandbox/Secretは不存在である。
+
+| 観点 | A: 外部配送しないSMTP sandbox | B: Staging recipient allowlist |
+| --- | --- | --- |
+| OTP確認 | sandbox inbox UI/APIで6桁本文を取得 | allowlist済み実メールboxで受信 |
+| 誤送信防止 | sandboxが外部配送しないため強い | アプリ側拒否に依存 |
+| コード差分 | Mailer変更なし | allowlist env、正規化、拒否、test追加が必要 |
+| Secret | sandbox SMTP password。API自動化時はinbox API tokenも別Secret | SMTP passwordとallowlist設定。実mailbox認証は別管理 |
+| 自動E2E | inbox APIがあれば容易 | mailbox API/IMAP等の追加が必要 |
+| 運用・費用 | sandbox契約/保存期限/費用の承認が必要 | 小規模だがProductionと異なるコード経路を維持 |
+
+第一候補は**A: 外部配送しないSMTP sandbox**とする。既存Mailer、固定文言、SENT/FAILED/UNKNOWN分類を変更せず、任意の入力アドレスでも外部配送されないため最小かつ安全である。次回承認前にsandbox provider/account、外部配送無効、inbox API、保持期間、費用、`secumie-stg-smtp-password`と必要時`secumie-stg-smtp-inbox-token`のSecret範囲を確定する。承認済みsandboxを用意できない場合だけBを選び、その場合は配備前に別commitでfail-closed allowlistを実装・検証する。既存Sales Tools Staging SMTPやProduction Mailerは変更・流用しない。
+
+#### Cloud Run検証経路
+
+OTP/PIRA serviceは`internal-and-cloud-load-balancing` ingressとする。この設定では外部Internetから`run.app`へ直接到達できず、外部公開は専用Application Load Balancerだけを通る。既存GCPの`run.allowedIngress`は`ALLOW`で設定自体を妨げない。
+
+LB完成前に、operator PCから正規のHTTP検証経路はない。Cloud Run内/VPC内の呼出元に専用InvokerとGoogle-signed ID tokenを与えれば`run.app`へ内部到達できるが、PIRAは確定Hostを検証し、DB poolはlazy接続で、静的`/healthz`だけではHost/Origin/DB/JWT E2Eを証明できない。検証専用Job/SAを増やす利益が小さいため、新規内部検証Jobは作らない。
+
+LB前はCloud Run `Ready`、revision設定、container startup、Secret参照、Direct VPC/Proxy sidecar、ingress/IAM、min/max/concurrencyだけをRead-only照合する。HTTP health、実DB接続、Host/Origin、Turnstile、OTP、JWT/JWKS、PIRA受付はLBと証明書がACTIVEになった後へ移す。run.appを一時的に`all` ingressへ変更しない。
+
+LB完成後の検証順序を次へ固定する。
+
+1. PIRA backend `/healthz`とOTP backendのhealth route（URL mapでOTP backend `/healthz`へrewrite）をLB host経由で確認する。
+2. `/.well-known/jwks.json`をOTP backendから取得し、公開鍵だけ、固定`kid`、TLS、CSP/CORSを確認する。
+3. 異常Host、直接run.app、GENERAL pathが拒否されることを確認する。
+4. Turnstile Staging hostnameでOTP送信を行い、OTP roleの新規DB接続、sandbox配送、6桁認証、2時間session、5分JWTを確認する。
+5. PIRAがsame-origin JWKSを取得し、issuer/audience/kidを検証してUNION受付を作成する。これによりPIRA roleの新規DB接続も確認する。
+6. `RECEIVED → ANSWERING → COMPLETED`、8問、v7 report、JWT再利用拒否を確認する。
+7. `run.app` default URLは外部直接到達不可を維持する。LB受入後にdefault URL無効化を採用する場合は、serverless NEG影響をRead-only照合して別の明示差分とする。
+
+#### 一括承認用の確定状態
+
+| 項目 | 状態 | 承認値・残条件 |
+| --- | --- | --- |
+| Staging hostname | 確定 | `pira-staging.atlib.jp`。record作成は承認待ち |
+| DNS管理主体 | 一部確定 | 権威DNSはSquarespace。実行アカウント/担当者は承認待ち |
+| LB/証明書 | 承認待ち | 新規global external Application LB、固定IPv4、2 NEG/backend、Google-managed certificate。既存LBは変更しない |
+| runtime SA/IAM | 確定・作成承認待ち | `secumie-otp-staging`、`secumie-pira-staging`。Cloud SQL Client、対応Secret Accessor、service単位Invokerだけ |
+| SMTP | 方針確定・契約承認待ち | 外部配送しないsandboxを第一候補。provider/account/費用/inbox APIは未確定 |
+| Turnstile | 承認待ち | Staging専用site/secret、許可hostname `pira-staging.atlib.jp` |
+| JWT | 設定確定・鍵生成承認待ち | issuer `https://pira-staging.atlib.jp`、JWKS同origin、初期kid `secumie-stg-202611-01`、秘密鍵はOTPだけ |
+| runtime image | 未確定 | 次回承認後に現行commitから2 targetをbuild/pushしdigest固定 |
+| Proxy image | 確定 | `gcr.io/cloud-sql-connectors/cloud-sql-proxy@sha256:7d156a5c466e31596afd6c8ed134f19c207a297418392fdad2686524ca4e7a3c` |
+| `pira-union` | 未確定 | 実DB Read-only照会後、active UNIONが不存在の場合だけ1件の冪等INSERTを承認対象とする |
+| E2E主体/データ | 確定 | WorkがLB経由Playwrightを実行。Synthetic企業・sandbox emailだけを使用 |
+| 費用/cleanup | 一部確定 | Workが停止・原状復帰担当、期限`2026-11-20 10:12 JST`。Cloud SQL `$75`上限を維持。LB/Cloud Run/sandbox追加費用上限は経営者承認待ち |
+
+一括実行は、sandbox、DNS担当、追加費用上限、Turnstile、runtime image digest、initiative現物がGateを満たした後に、17A.5の順序で連続実行する。想定外のIAM、接続不能、証明書失敗、Secret露出、既存service/DNSへの影響だけをSTOP条件とする。
+
+Synthetic submission/jtiは保持Contractの対象であり、試験直後の直接DELETEは行わない。識別可能なSynthetic値で記録し、2年保持または承認済み保持処理に従う。追記専用のexport auditは作成せず、作成された場合もUPDATE/DELETEしない。cleanupはCloud Run/LB/DNS/Secret/IAM等のStagingリソースと、Contractで許される一時資産に限定する。
+
+参照したGoogle Cloud正本:
+
+- Cloud Run ingress: https://cloud.google.com/run/docs/securing/ingress
+- Cloud Run service-to-service authentication: https://cloud.google.com/run/docs/authenticating/service-to-service
+- Serverless NEG external Application Load Balancer: https://cloud.google.com/load-balancing/docs/https/setting-up-https-serverless
+- Google-managed certificate: https://cloud.google.com/load-balancing/docs/ssl-certificates/google-managed-certs
+
+GENERAL無効、Secure Guard変更対象外、Production公開No-Goを維持する。
+
 ## 18. Recovery・Migration最終承認実行結果（2026-11-08）
 
 ### 18.1 Recovery
