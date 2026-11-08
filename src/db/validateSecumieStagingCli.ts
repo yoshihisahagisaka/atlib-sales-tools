@@ -63,10 +63,6 @@ export async function validateSecumieStaging(): Promise<void> {
     const available = Number(current.max_connections) - Math.max(10, Math.ceil(Number(current.max_connections) * 0.2));
     if (available < 78) throw new Error('SECU_ACCEPTANCE_CAPACITY_INSUFFICIENT');
 
-    const ledger = await bootstrap.query<{ filename: string }>('SELECT filename FROM schema_migrations ORDER BY filename');
-    if (JSON.stringify(ledger.rows.map(row => row.filename)) !== JSON.stringify(expectedMigrations)) {
-      throw new Error('SECU_ACCEPTANCE_LEDGER_MISMATCH');
-    }
     const roleState = await bootstrap.query<{
       rolname: string; rolcanlogin: boolean; rolconnlimit: number; rolsuper: boolean; rolcreatedb: boolean;
       rolcreaterole: boolean; rolinherit: boolean; rolreplication: boolean; rolbypassrls: boolean;
@@ -98,9 +94,14 @@ export async function validateSecumieStaging(): Promise<void> {
 
     const otp = new Pool(config('secumie_otp_staging', required('SECU_OTP_DB_PASSWORD')));
     try {
-      await otp.query('BEGIN');
-      await otp.query("INSERT INTO public_auth.otp_send_locks(service_id,email_protected) VALUES('acceptance','synthetic@example.invalid')");
-      await otp.query('ROLLBACK');
+      const client = await otp.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query("INSERT INTO public_auth.otp_send_locks(service_id,email_protected) VALUES('acceptance','synthetic@example.invalid')");
+      } finally {
+        await client.query('ROLLBACK');
+        client.release();
+      }
       await denied(otp.query('SELECT * FROM pira.pira_submission'));
       await denied(otp.query('CREATE TABLE public.acceptance_forbidden(id integer)'));
     } finally { await otp.end(); }
@@ -113,9 +114,14 @@ export async function validateSecumieStaging(): Promise<void> {
 
     const admin = new Pool(config('secumie_admin_staging', required('SECU_ADMIN_DB_PASSWORD')));
     try {
-      await admin.query('BEGIN');
-      await admin.query("INSERT INTO pira.pira_export_audit(actor_subject,filter_snapshot,format,result_count,success,initiative_ids) VALUES('synthetic-acceptance','{}','CSV',0,true,'[]')");
-      await admin.query('ROLLBACK');
+      const client = await admin.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query("INSERT INTO pira.pira_export_audit(actor_subject,filter_snapshot,format,result_count,success,initiative_ids) VALUES('synthetic-acceptance','{}','CSV',0,true,'[]')");
+      } finally {
+        await client.query('ROLLBACK');
+        client.release();
+      }
       await denied(admin.query('UPDATE pira.pira_export_audit SET success=false'));
       await denied(admin.query('DELETE FROM pira.pira_export_audit'));
     } finally { await admin.end(); }
@@ -130,16 +136,20 @@ export async function validateSecumieStaging(): Promise<void> {
     } finally { await maintenance.end(); }
 
     const migration = new Pool(config('secumie_migration_staging', required('SECU_MIGRATION_DB_PASSWORD')));
+    let ledgerFilenames: string[] = [];
     try {
-      const migrationLedger = await migration.query('SELECT count(*)::int AS count FROM schema_migrations');
-      if (migrationLedger.rows[0]?.count !== 5) throw new Error('SECU_ACCEPTANCE_MIGRATION_LEDGER_UNREADABLE');
+      const migrationLedger = await migration.query<{ filename: string }>('SELECT filename FROM schema_migrations ORDER BY filename');
+      ledgerFilenames = migrationLedger.rows.map(row => row.filename);
+      if (JSON.stringify(ledgerFilenames) !== JSON.stringify(expectedMigrations)) {
+        throw new Error('SECU_ACCEPTANCE_LEDGER_MISMATCH');
+      }
     } finally { await migration.end(); }
 
     console.log(JSON.stringify({
       event: 'secumie_staging_acceptance_completed',
       database: DATABASE,
       owner: current.owner,
-      migrations: ledger.rowCount,
+      migrations: ledgerFilenames,
       capacity: { maxConnections: Number(current.max_connections), observedConnections: Number(current.observed_connections), available, required: 78 },
       objects: owners.rows,
       retentionPreview: retention,

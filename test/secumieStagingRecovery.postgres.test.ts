@@ -6,6 +6,7 @@ import test from 'node:test';
 import { Pool } from 'pg';
 import { recoverSecumieInsightStaging } from '../src/db/recoverSecumieInsightStagingCli';
 import { runSecumieStagingMigration } from '../src/db/runSecumieStagingMigrationCli';
+import { validateSecumieStaging } from '../src/db/validateSecumieStagingCli';
 
 const port = Number(process.env.SECUMIE_PREP_PG_PORT ?? '55437');
 const superuser = { host: '127.0.0.1', port, database: 'postgres', user: 'otp_test', password: 'otp_test' };
@@ -58,10 +59,21 @@ test('owner-postgres recovery and migrations 037-041 preserve the role boundary'
     MIGRATION_MANIFEST: path.join(root, 'migration-manifests', 'secumie-insight-staging-037-041.json'),
     MIGRATION_VERIFIER: path.join(root, 'scripts', 'readiness', 'verifySecumieMigrationManifest.cjs'),
     SECU_MIGRATION_TARGET_CONFIRMATION: 'msp-zabbix:asia-northeast1:secumie-sg-shared-staging-db/secumie_insight_staging',
+    SECU_OTP_DB_PASSWORD: passwords.secumie_otp_staging,
+    SECU_PIRA_DB_PASSWORD: passwords.secumie_pira_staging,
+    SECU_ADMIN_DB_PASSWORD: passwords.secumie_admin_staging,
+    SECU_MIGRATION_DB_PASSWORD: passwords.secumie_migration_staging,
+    SECU_MAINTENANCE_DB_PASSWORD: passwords.secumie_maintenance_staging,
   });
   await runSecumieStagingMigration();
+  await validateSecumieStaging();
 
   const admin = new Pool({ ...superuser, database });
+  const synthetic = await admin.query(`SELECT
+    (SELECT count(*)::int FROM public_auth.otp_send_locks WHERE service_id='acceptance') AS otp_count,
+    (SELECT count(*)::int FROM pira.pira_export_audit WHERE actor_subject='synthetic-acceptance') AS audit_count,
+    to_regclass('public.acceptance_forbidden') AS forbidden_table`);
+  assert.deepEqual(synthetic.rows[0], { otp_count: 0, audit_count: 0, forbidden_table: null });
   const db = await admin.query("SELECT pg_get_userbyid(datdba) AS owner FROM pg_database WHERE datname=$1", [database]);
   assert.equal(db.rows[0]?.owner, bootstrap.user);
   const boundary = await admin.query(`SELECT

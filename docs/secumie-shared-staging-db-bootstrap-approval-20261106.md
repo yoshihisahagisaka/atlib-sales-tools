@@ -889,6 +889,32 @@ STATEMENT: SELECT filename FROM schema_migrations ORDER BY filename
 
 再開には、Bootstrap主体でMigration所有tableを読まないよう受入検証をrole別接続へ修正する具体的差分の承認が必要である。Migration roleでledgerを確認し、Bootstrap接続はpg_catalogのowner/ACL検証だけに限定する。既存DBへ新たなGRANTを追加する必要はない。
 
+### 18.5 受入CLI最小修正・ローカル検証
+
+統括判断に基づき、DB権限を変更せず受入CLIだけを修正した。
+
+- `schema_migrations`の完全一致照合をMigration role接続へ移動した。
+- Bootstrap接続はdatabase owner、容量、role属性/membership、schema/table/function ownerのpg_catalog確認に限定した。
+- Ledgerは件数だけでなく、037〜041のfilename配列と順序が完全一致することを必須とした。
+- OTP/AdminのSynthetic INSERTは同一PoolClientでBEGINし、finallyでROLLBACKしてから接続を解放する。
+- OTP/PIRA/Admin/MaintenanceのPositive/Negative検証はrole別接続を維持した。
+
+使い捨てPostgreSQL 16でRecovery、Migration、修正版Acceptanceを連続検証した結果:
+
+| 項目 | 結果 |
+|---|---|
+| TypeScript build / diff check | PASS |
+| Recovery・Migration・Acceptance test | 2/2 PASS |
+| Ledger 037〜041 filename完全一致 | PASS |
+| schema/table/function owner | 3/3 schema、10/10 table、7/7 function PASS |
+| OTP/PIRA/Admin/Maintenance Positive/Negative | PASS |
+| 監査UPDATE/DELETE拒否 | PASS |
+| 保持preview（executeなし） | PASS |
+| Synthetic OTP lock / export audit残存 | 0 / 0 |
+| 禁止public table残存 | なし |
+
+GCP Acceptance Jobのimage/command更新と再実行は未実施である。既存RecoveryとMigrationの成功結果を維持し、GCP再実行は修正版commit、image digest、Job差分の経営者承認後に1回だけ行う。
+
 Production公開No-Goを維持する。
 
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
