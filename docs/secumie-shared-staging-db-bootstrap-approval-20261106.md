@@ -952,6 +952,52 @@ approved candidate: sha256:e516625862078a12b02d6428f9a3721a2f170d29d2ca08abefb57
 
 command=`node`、args=`dist/db/validateSecumieStagingCli.js`、Bootstrap SA、6 Secret、Proxy digest、Direct VPC `private-ranges-only`、task/parallelism 1、retry 0は維持する。Acceptance Jobの更新・実行は未実施である。
 
+### 18.7 Acceptance最終実行結果
+
+経営者の最終承認に基づき、Acceptance Jobのmain image digestだけを承認済み候補へ更新した。command/args、Bootstrap SA、6 Secret version 1、Proxy digest、Direct VPC、task/parallelism 1、retry 0は変更していない。
+
+```text
+job: secumie-db-acceptance-staging
+generation: 2
+image: sha256:e516625862078a12b02d6428f9a3721a2f170d29d2ca08abefb57d21d2ddc9f2
+execution: secumie-db-acceptance-staging-gpgxz
+result: SUCCEEDED (succeeded=1, failed=0, retry=0)
+completed: 2026-11-08T11:53:35.172114Z
+```
+
+実環境受入結果:
+
+| 項目 | 結果 |
+|---|---|
+| Database owner | `postgres`、PASS |
+| Migration ledger | 037〜041の5 filename完全一致、PASS |
+| schema owner | 3/3 PASS |
+| table owner | 10/10 PASS |
+| function owner | 7/7 PASS |
+| 固定5 role属性・connection limit・membership | PASS |
+| OTP/PIRA/Admin/Maintenance Positive/Negative | PASS |
+| 監査UPDATE/DELETE拒否 | PASS |
+| 保持preview | PASS、全候補0、削除executeなし |
+| Synthetic transaction | ROLLBACK完了、永続残存なし |
+| Secret露出 | なし |
+
+接続容量Gate:
+
+```text
+M=400
+superuser_reserved=3
+reserved=0
+observed_connections=10
+R=max(10,80,8,15)=80
+available=320
+required=78
+result=PASS
+```
+
+実行後、既存Cloud SQL 3件はRUNNABLE、既存Cloud Run 7サービスはすべてReadyであり、既存サービスへの影響は確認されなかった。Recovery/Migrationの再実行、DB/role/Secret/IAM変更、Secure Guard/Production/GENERAL操作は行っていない。
+
+以上により、**SECU:MIE Insight共用Staging DBの初期化・Migration・受入検証は完了**と判定する。Staging削除期限`2026-11-20 10:12 JST`を維持する。
+
 Production公開No-Goを維持する。
 
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
