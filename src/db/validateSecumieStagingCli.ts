@@ -51,16 +51,29 @@ export async function validateSecumieStaging(): Promise<void> {
   const bootstrap = new Pool(config(bootstrapUser, required('DB_BOOTSTRAP_PASSWORD')));
   try {
     const identity = await bootstrap.query<{
-      database: string; owner: string; max_connections: string; observed_connections: string;
+      database: string; owner: string; max_connections: string; superuser_reserved_connections: string;
+      reserved_connections: string; observed_connections: string;
     }>(`SELECT current_database() AS database, pg_get_userbyid(d.datdba) AS owner,
         current_setting('max_connections') AS max_connections,
+        current_setting('superuser_reserved_connections') AS superuser_reserved_connections,
+        COALESCE(NULLIF(current_setting('reserved_connections', true), ''), '0') AS reserved_connections,
         (SELECT count(*)::text FROM pg_stat_activity) AS observed_connections
       FROM pg_database d WHERE d.datname=current_database()`);
     const current = identity.rows[0];
     if (!current || current.database !== DATABASE || current.owner !== bootstrapUser) {
       throw new Error('SECU_ACCEPTANCE_DATABASE_IDENTITY_MISMATCH');
     }
-    const available = Number(current.max_connections) - Math.max(10, Math.ceil(Number(current.max_connections) * 0.2));
+    const maxConnections = Number(current.max_connections);
+    const superuserReserved = Number(current.superuser_reserved_connections);
+    const reserved = Number(current.reserved_connections);
+    const observedConnections = Number(current.observed_connections);
+    const reserve = Math.max(
+      10,
+      Math.ceil(maxConnections * 0.2),
+      superuserReserved + reserved + 5,
+      observedConnections + 5,
+    );
+    const available = maxConnections - reserve;
     if (available < 78) throw new Error('SECU_ACCEPTANCE_CAPACITY_INSUFFICIENT');
 
     const roleState = await bootstrap.query<{
@@ -150,7 +163,7 @@ export async function validateSecumieStaging(): Promise<void> {
       database: DATABASE,
       owner: current.owner,
       migrations: ledgerFilenames,
-      capacity: { maxConnections: Number(current.max_connections), observedConnections: Number(current.observed_connections), available, required: 78 },
+      capacity: { maxConnections, superuserReserved, reserved, observedConnections, reserve, available, required: 78 },
       objects: owners.rows,
       retentionPreview: retention,
     }));
