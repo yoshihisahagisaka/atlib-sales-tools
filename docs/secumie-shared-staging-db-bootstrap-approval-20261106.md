@@ -819,9 +819,9 @@ Migration 037〜041のSQL本文は変更していない。
 
 Production公開No-Goを維持する。
 
-## 19. Recovery・Migration最終承認実行結果（2026-11-08）
+## 18. Recovery・Migration最終承認実行結果（2026-11-08）
 
-### 19.1 Recovery
+### 18.1 Recovery
 
 固定Job定義をoverrideなしで1回実行した。
 
@@ -833,7 +833,7 @@ Production公開No-Goを維持する。
 
 Recovery CLIの事後条件（owner=`postgres`、PUBLIC database/schema権限撤回、固定5 role CONNECT、Migration roleのDB CREATEと`public` schema USAGE/CREATE）がPASSしてExecutionは正常終了した。既存5 role、6 Secret、password、membershipは変更していない。
 
-### 19.2 Migration 037〜041
+### 18.2 Migration 037〜041
 
 承認済み固定定義で`secumie-db-migrate-staging`を新規作成し、実行前に次を照合した。
 
@@ -851,7 +851,7 @@ Recovery CLIの事後条件（owner=`postgres`、PUBLIC database/schema権限撤
 
 Migration CLIはmanifestの5件を検証・適用し、ledgerが037〜041の5件だけであることを確認して正常終了した。001〜036、Secure Guard Migration、他databaseは対象外である。
 
-### 19.3 受入検証とSTOP
+### 18.3 受入検証とSTOP
 
 実環境のrole Positive/Negative、owner、ledger、容量、監査保護、保持previewを一度の固定Jobで検証するため、`validateSecumieStagingCli.ts`を追加した。
 
@@ -875,7 +875,7 @@ STATEMENT: SELECT filename FROM schema_migrations ORDER BY filename
 
 失敗は最初のledger読取りで発生したため、Synthetic INSERT、Positive/Negative SQL、保持previewには到達しておらず、受入Jobによる永続データ変更はない。Secret値はJob定義・ログ・Gitへ露出していない。
 
-### 19.4 STOP時点の現物
+### 18.4 STOP時点の現物
 
 - `secumie_insight_staging`: 存在
 - Recovery: PASS
@@ -891,9 +891,9 @@ STATEMENT: SELECT filename FROM schema_migrations ORDER BY filename
 
 Production公開No-Goを維持する。
 
-## 18. Staging Recovery・Migration一括実行のSTOP記録（2026-11-08）
+## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
-### 18.1 ArtifactとJob更新
+### A.1 ArtifactとJob更新
 
 基準commit `a76d1c99308c8c6f1ac2edf002c2978695b90822`からRecovery CLI入り`db-operations` imageをbuild/pushし、Migration manifest 037〜041の5件とimage内Recovery artifactを確認した。最初のJob設定照合で、既存Jobの確認変数が`SECU_BOOTSTRAP_TARGET_CONFIRMATION`、Recovery CLIの要求名が`SECU_RECOVERY_TARGET_CONFIRMATION`で不一致と判明した。この状態ではDB書込み前に失敗するため、Jobの環境設定を変更せず、CLI側を既存変数名へ合わせる最小修正を行った。
 
@@ -911,7 +911,7 @@ command: node
 args: dist/db/recoverSecumieInsightStagingCli.js
 ```
 
-### 18.2 実行前Gate
+### A.2 実行前Gate
 
 次を確認した。
 
@@ -923,7 +923,7 @@ args: dist/db/recoverSecumieInsightStagingCli.js
 
 role属性、`current_user`、接続容量を同じJob接続経路で再取得するため、DB書込みを含まない一時Execution overrideを1回作成した。
 
-### 18.3 Read-only preflight失敗とSTOP
+### A.3 Read-only preflight失敗とSTOP
 
 Execution `secumie-db-bootstrap-staging-dhlw2`はFAILED。PowerShellから渡したgcloudの複数args delimiterが意図どおり解釈されず、Nodeの`-e` scriptが2引数へ誤分割された。Execution specで誤分割を確認した。NodeはDB接続処理へ到達しておらず、role/容量の再測定結果は取得できなかった。
 
