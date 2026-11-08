@@ -681,3 +681,66 @@ Bootstrap実装は5 roleのCREATEを1 transactionでCOMMITした後にCREATE DAT
 - 5 roleは作成済みの可能性が高く、次の承認済みRead-only DB metadata確認が必要
 
 再開には、5 roleの実在・属性をRead-onlyで確認し、組込み`postgres`へmigration roleの一時membershipを付与してdatabase作成後に即時REVOKEする等の最小修復案、または部分作成roleを削除して修正版Bootstrapを再実行する案を比較し、具体的差分を承認する必要がある。現状ではMigrationへ進まない。
+
+## 16. Bootstrap部分失敗・限定復旧Fit/Gap（2026-11-08）
+
+### 16.1 Read-only現物確認
+
+既存Bootstrap Jobの接続経路をExecution overrideし、Job定義を変更せず、`SELECT`だけのmetadata inspectionを実行した。Secret値・業務データは取得していない。
+
+Execution: `secumie-db-bootstrap-staging-gnz9r`
+
+5 roleはすべて存在し、正本と一致した。
+
+| role | LOGIN | connection limit | SUPERUSER | CREATEDB | CREATEROLE | INHERIT | REPLICATION | BYPASSRLS |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `secumie_otp_staging` | true | 6 | false | false | false | false | false | false |
+| `secumie_pira_staging` | true | 6 | false | false | false | false | false | false |
+| `secumie_admin_staging` | true | 40 | false | false | false | false | false | false |
+| `secumie_migration_staging` | true | 1 | false | false | false | false | false | false |
+| `secumie_maintenance_staging` | true | 1 | false | false | false | false | false | false |
+
+追加確認:
+
+- `secumie_insight_staging`: 不存在
+- 想定外の`secumie_*_staging` role: 0件
+- 想定外の`secumie*` database: 0件
+- `postgres` → `secumie_migration_staging` membership: なし
+- 既存`postgres` membershipは`cloudsqlsuperuser`だけ。ADMIN=false、INHERIT=true、SET=true、grantor=`cloudsqladmin`
+- `postgres`: SUPERUSER=false、CREATEDB=true、CREATEROLE=true
+- `cloudsqlsuperuser`: SUPERUSER=false、CREATEDB=true、CREATEROLE=true
+- `createrole_self_grant`: 空文字
+
+### 16.2 最小修復案のローカルPostgreSQL 16検証
+
+使い捨てPostgreSQL 16で、実環境と同じくSUPERUSERではないCREATEDB/CREATEROLE主体、Migration roleへのmembershipなしを再現した。
+
+第一候補の一時SET membership方式は不成立だった。
+
+```text
+GRANT secumie_migration_staging TO <bootstrap> WITH SET TRUE
+ERROR: permission denied to grant role "secumie_migration_staging"
+DETAIL: Only roles with the ADMIN option ... may grant this role.
+```
+
+代替候補の一時CREATEDB方式も、membershipなしでは不成立だった。
+
+```text
+ALTER ROLE secumie_migration_staging CREATEDB
+ERROR: permission denied to alter role
+DETAIL: Only roles with the CREATEROLE attribute and the ADMIN option ... may alter this role.
+```
+
+一方、role作成者へADMIN optionが自動付与されるローカル構成では操作可能だったが、実環境は`createrole_self_grant`が空でADMIN membershipが存在しないため、その結果を実環境へ適用できない。
+
+### 16.3 判定
+
+ユーザー指示の第一候補は、現在のCloud SQL権限境界では実行不能である。`postgres`だけでは既存Migration roleへのSET付与、属性変更、削除を安全に実施できない。限定Recovery CLI案はローカル検証不合格のため採用・Commitしていない。GCPでGRANT、ALTER ROLE、CREATE DATABASE、REVOKEは実行していない。
+
+次のいずれも新たな統括判断が必要であり、本作業では実施しない。
+
+1. database ownerを`postgres`とし、Migration roleへCONNECT/CREATEを付与する契約変更（現行owner要件から逸脱）。
+2. Cloud SQLの内部管理権限を持つ承認済み経路で既存roleへADMIN/SETを付与する（現時点で利用可能な経路未確認）。
+3. 共用Staging Cloud SQLを承認済み手順で再構築し、role作成前に`createrole_self_grant`を設定するか、databaseを先に作成してからrole/ownerを設計し直す（既存instance/Secret/証跡への影響大）。
+
+Migration 037〜041へは進まない。Bootstrap Job、failed Execution、Read-only inspection Execution、5 role、6 Secret、2 SA、固定Artifact、Cloud SQL instanceは証跡として維持する。
