@@ -818,3 +818,57 @@ Migration 037〜041のSQL本文は変更していない。
 現在の固定Artifact digestにはRecovery CLIが含まれないため、そのdigestのままRecoveryを実行してはならない。role再作成、password/Secret変更、membership追加、Secure Guard DB操作、Production変更は不要かつ承認対象外である。
 
 Production公開No-Goを維持する。
+
+## 18. Staging Recovery・Migration一括実行のSTOP記録（2026-11-08）
+
+### 18.1 ArtifactとJob更新
+
+基準commit `a76d1c99308c8c6f1ac2edf002c2978695b90822`からRecovery CLI入り`db-operations` imageをbuild/pushし、Migration manifest 037〜041の5件とimage内Recovery artifactを確認した。最初のJob設定照合で、既存Jobの確認変数が`SECU_BOOTSTRAP_TARGET_CONFIRMATION`、Recovery CLIの要求名が`SECU_RECOVERY_TARGET_CONFIRMATION`で不一致と判明した。この状態ではDB書込み前に失敗するため、Jobの環境設定を変更せず、CLI側を既存変数名へ合わせる最小修正を行った。
+
+- 修正commit: `0b2f2f31396228aa595149b6f26699d0881c9a8e`
+- ローカルPostgreSQL 16 Recovery/Migration受入: 2/2 PASS
+- TypeScript build、diff check: PASS
+- 最終Registry digest: `sha256:beb7c6d22586e1f157f142fd535eedff9cf9a9aafba08731f8398a5b919eda36`
+- RegistryがCloud Run実行時に解決したplatform manifest: `sha256:6173b8b124ddbb271cabcb23bcc1fe81efb2e4fd639e816c7c50c007fe37de10`
+
+既存Bootstrap Jobはmain imageとcommandだけを次へ更新した。SA、6 Secret version、Proxy、Direct VPC、task/parallelism 1、retry 0、timeout 15分は維持している。
+
+```text
+image: asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/secumie-db-operations@sha256:beb7c6d22586e1f157f142fd535eedff9cf9a9aafba08731f8398a5b919eda36
+command: node
+args: dist/db/recoverSecumieInsightStagingCli.js
+```
+
+### 18.2 実行前Gate
+
+次を確認した。
+
+- Cloud SQLはRUNNABLE、PostgreSQL 16、Private IPのみ。
+- 最新automated backup `1794074400000`はSUCCESSFUL。
+- 既存JobのSA、Secret参照、Proxy、Direct VPC、retry 0は正本一致。
+- Migration manifest 037〜041は5件、SHA-256一致。
+- Cloud SQL Admin API上のdatabaseは`postgres`だけで、`secumie_insight_staging`は不存在。
+
+role属性、`current_user`、接続容量を同じJob接続経路で再取得するため、DB書込みを含まない一時Execution overrideを1回作成した。
+
+### 18.3 Read-only preflight失敗とSTOP
+
+Execution `secumie-db-bootstrap-staging-dhlw2`はFAILED。PowerShellから渡したgcloudの複数args delimiterが意図どおり解釈されず、Nodeの`-e` scriptが2引数へ誤分割された。Execution specで誤分割を確認した。NodeはDB接続処理へ到達しておらず、role/容量の再測定結果は取得できなかった。
+
+確認結果:
+
+- Recovery CLI本実行: **未実行**
+- `CREATE DATABASE`、GRANT、REVOKE: **未実行**
+- `secumie_insight_staging`: 不存在
+- Migration Job作成・037〜041: **未実行**
+- Secret値のログ・Execution specへの露出: なし
+- 既存Cloud SQL 3件: RUNNABLE
+- 既存Cloud Run 7サービス: Ready
+- Bootstrap Jobの永続定義: Recovery用の正本設定を維持
+- 自動retry: 0、再実行なし
+
+想定外のpreflight Execution失敗に該当するため、承認済みSTOP条件に従い、別方式による再試行、Recovery、Migration、権限拡大、database削除は行っていない。
+
+再開には、複雑な実行時args overrideを使用せず、固定allowlistのRead-only preflight CLIをimageへ収録してJob commandを明示的に切り替える等、引数分割を事前にローカル検証できる具体的な差分の承認が必要である。preflight PASS後だけRecoveryを1回実行し、その後Migration 037〜041へ進む。
+
+Production公開No-Goを維持する。
