@@ -915,6 +915,43 @@ STATEMENT: SELECT filename FROM schema_migrations ORDER BY filename
 
 GCP Acceptance Jobのimage/command更新と再実行は未実施である。既存RecoveryとMigrationの成功結果を維持し、GCP再実行は修正版commit、image digest、Job差分の経営者承認後に1回だけ行う。
 
+### 18.6 Acceptance最終準備・容量Gate統一
+
+受入CLIの接続容量判定を承認済みCanonicalへ統一した。
+
+```text
+R = max(10, ceil(M × 0.20), superuser_reserved + reserved + 5, observed_connections + 5)
+available = M - R
+PASS: available >= 78
+```
+
+ローカルPostgreSQL 16では`M=100`、`superuser_reserved=3`、`reserved=0`、`observed=6`、`R=20`、`available=80`となりPASSした。
+
+検証結果:
+
+- Recovery/Migration/Acceptance: 2/2 PASS
+- DB Operations: 4/4 PASS
+- Staging preparation: 4/4 PASS
+- Ledger 037〜041完全一致、role別Positive/Negative、監査保護、保持preview: PASS
+- Synthetic data残存: 0件
+- TypeScript build / diff check: PASS
+
+修正版commitとArtifact:
+
+```text
+commit: e5013103ee7866800bd6d9992d01d69e627d9459
+image: asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/secumie-db-operations@sha256:e516625862078a12b02d6428f9a3721a2f170d29d2ca08abefb57d21d2ddc9f2
+```
+
+既存Acceptance Jobとの差分はmain image digestの1項目だけである。
+
+```text
+current: sha256:97de86aef0914b499a380be0d75b27ed4e0eabad557b05dcc7816dc35842a2c5
+approved candidate: sha256:e516625862078a12b02d6428f9a3721a2f170d29d2ca08abefb57d21d2ddc9f2
+```
+
+command=`node`、args=`dist/db/validateSecumieStagingCli.js`、Bootstrap SA、6 Secret、Proxy digest、Direct VPC `private-ranges-only`、task/parallelism 1、retry 0は維持する。Acceptance Jobの更新・実行は未実施である。
+
 Production公開No-Goを維持する。
 
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
