@@ -819,6 +819,78 @@ Migration 037〜041のSQL本文は変更していない。
 
 Production公開No-Goを維持する。
 
+## 19. Recovery・Migration最終承認実行結果（2026-11-08）
+
+### 19.1 Recovery
+
+固定Job定義をoverrideなしで1回実行した。
+
+- Execution: `secumie-db-bootstrap-staging-jm2cm`
+- 結果: SUCCEEDED、succeeded 1、failed 0、retry 0
+- 完了: `2026-11-08T11:06:39.118896Z`
+- Recovery image: `sha256:beb7c6d22586e1f157f142fd535eedff9cf9a9aafba08731f8398a5b919eda36`
+- database: `secumie_insight_staging`作成済み
+
+Recovery CLIの事後条件（owner=`postgres`、PUBLIC database/schema権限撤回、固定5 role CONNECT、Migration roleのDB CREATEと`public` schema USAGE/CREATE）がPASSしてExecutionは正常終了した。既存5 role、6 Secret、password、membershipは変更していない。
+
+### 19.2 Migration 037〜041
+
+承認済み固定定義で`secumie-db-migrate-staging`を新規作成し、実行前に次を照合した。
+
+- 固定image digest、Migration CLI、専用Migration SA
+- `secumie_insight_staging`、Migration role、Migration Secret version 1
+- manifestとdirectoryは037〜041だけ
+- Direct VPC、Proxy固定digest、task/parallelism 1、retry 0、timeout 15分
+- Job作成直後Execution 0
+
+照合後、1回実行した。
+
+- Execution: `secumie-db-migrate-staging-2pdmh`
+- 結果: SUCCEEDED、succeeded 1、failed 0、retry 0
+- 完了: `2026-11-08T11:08:10.845781Z`
+
+Migration CLIはmanifestの5件を検証・適用し、ledgerが037〜041の5件だけであることを確認して正常終了した。001〜036、Secure Guard Migration、他databaseは対象外である。
+
+### 19.3 受入検証とSTOP
+
+実環境のrole Positive/Negative、owner、ledger、容量、監査保護、保持previewを一度の固定Jobで検証するため、`validateSecumieStagingCli.ts`を追加した。
+
+- code commit: `fef044cd37bc6b6b635f36c4f1ddd71c6777e7bd`
+- TypeScript build: PASS
+- acceptance image digest: `sha256:97de86aef0914b499a380be0d75b27ed4e0eabad557b05dcc7816dc35842a2c5`
+- Job: `secumie-db-acceptance-staging`
+- task/parallelism 1、retry 0、Bootstrap SA、既存6 Secret、Direct VPC、固定Proxy
+
+Execution `secumie-db-acceptance-staging-72dp6`はFAILED、failed 1、retry 0で終了した。再実行していない。
+
+Cloud SQLログで原因を確定した。
+
+```text
+db=secumie_insight_staging,user=postgres
+ERROR: permission denied for table schema_migrations
+STATEMENT: SELECT filename FROM schema_migrations ORDER BY filename
+```
+
+受入CLIがBootstrap主体`postgres`からMigration role所有のledgerを直接読めると仮定していたことが原因である。これは既存role/Secret/Recovery/Migrationの失敗ではなく、最小権限により拒否された受入検証コード側の不適合である。ただし、承認済みSTOP条件「受入工程の失敗」に従い、CLI修正、Job再実行、追加GRANT、権限拡大は行っていない。
+
+失敗は最初のledger読取りで発生したため、Synthetic INSERT、Positive/Negative SQL、保持previewには到達しておらず、受入Jobによる永続データ変更はない。Secret値はJob定義・ログ・Gitへ露出していない。
+
+### 19.4 STOP時点の現物
+
+- `secumie_insight_staging`: 存在
+- Recovery: PASS
+- Migration 037〜041: PASS
+- ledger最終照合: Migration CLI内でPASS
+- 受入のowner/role/監査/保持preview総合確認: 未完了
+- Cloud SQL 3件: RUNNABLE
+- Cloud Run 7サービス: Ready
+- Secure Guard/Production/GENERAL: 変更なし
+- 残存Job: Bootstrap、Migration、Acceptance（failed Execution各証跡を含む）
+
+再開には、Bootstrap主体でMigration所有tableを読まないよう受入検証をrole別接続へ修正する具体的差分の承認が必要である。Migration roleでledgerを確認し、Bootstrap接続はpg_catalogのowner/ACL検証だけに限定する。既存DBへ新たなGRANTを追加する必要はない。
+
+Production公開No-Goを維持する。
+
 ## 18. Staging Recovery・Migration一括実行のSTOP記録（2026-11-08）
 
 ### 18.1 ArtifactとJob更新
