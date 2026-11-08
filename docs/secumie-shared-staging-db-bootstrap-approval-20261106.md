@@ -609,3 +609,75 @@ STOP時は再実行、修復、削除、権限拡大を独断で行わず、meta
 次回の経営者承認対象は14.2の1〜7であり、Cloud SQL内のdatabase/5 role作成、Bootstrap/Migration Job作成・各1回実行、Migration 037〜041、権限・容量・保持preview検証を含む。ただし、Production構築、公開、GENERAL有効化、Secure Guard DB/データ操作、実顧客データ、既存サービス変更は含まない。
 
 初期passwordと6 Secret version登録は人間のCloud Console操作が必要である。Workは値を取得・表示せず、metadata確認後に自動工程を継続する。
+
+## 15. Staging DB初期化・一括実行結果（2026-11-08）
+
+### 15.1 実行前Gate
+
+次を確認してBootstrapへ進んだ。
+
+- Git HEAD `7538ff3d3c72eb8b790cc58aa6a709fa575a39d1`、working tree clean
+- Cloud SQL RUNNABLE、PostgreSQL 16、private IPのみ、Backup/PITR有効
+- 最新automated backup `1794074400000`はSUCCESSFUL
+- 固定Artifact digest一致
+- `secumie_insight_staging`不存在
+- 6 Secretは各version 1が1件だけENABLED。値は取得・表示していない
+- Bootstrap Job不存在
+
+### 15.2 Bootstrap Job作成
+
+`secumie-db-bootstrap-staging`を正本の固定定義で作成し、実行前に次を照合した。
+
+- main/Proxy imageは正本のdigest指定
+- Direct VPC `default/default`、egress `private-ranges-only`
+- Bootstrap SA、6 Secret version 1
+- task 1、parallelism 1、max retries 0、timeout 15分
+- target confirmationは共有Staging instanceと`secumie_insight_staging`
+- 作成直後のExecutionは0件
+
+### 15.3 Bootstrap 1回実行とSTOP
+
+Execution `secumie-db-bootstrap-staging-k8wrx`を1回実行し、task attempt 0、failed count 1、succeeded count 0で終了した。再実行していない。
+
+接続・容量GateはPASSした。
+
+```text
+max_connections=400
+superuser_reserved=3
+reserved=0
+observed_connections=10
+reserve=80
+application_available=320
+required=78
+pass=true
+```
+
+Cloud SQLエラーログで原因を確定した。
+
+```text
+ERROR: must be able to SET ROLE "secumie_migration_staging"
+STATEMENT: CREATE DATABASE secumie_insight_staging OWNER secumie_migration_staging
+```
+
+Bootstrap実装は5 roleのCREATEを1 transactionでCOMMITした後にCREATE DATABASEを実行する。そのため、databaseは未作成だが5 roleはコミット済みである可能性が高い。Cloud SQL Admin APIによる確認ではdatabaseは組込み`postgres`だけで、`secumie_insight_staging`は不存在だった。role現物は新たなDB接続操作なしでは未確認のため、未確認をPASS扱いにしない。
+
+承認済みSTOP条件「部分成功」「想定外の権限不足」に該当するため、次は実施していない。
+
+- Bootstrapの再実行
+- role/databaseの削除・修復
+- Bootstrap code/image/Job定義の変更
+- Migration Job作成、Migration 037〜041
+- 権限・保持preview検証
+- Bootstrap Job・Secret accessのcleanup
+
+残存リソース:
+
+- Bootstrap Jobとfailed Execution 1件
+- Bootstrap/Migration SA
+- Secret 6件とversion 1
+- 固定Artifact
+- Cloud SQL instance
+- databaseは`postgres`だけ
+- 5 roleは作成済みの可能性が高く、次の承認済みRead-only DB metadata確認が必要
+
+再開には、5 roleの実在・属性をRead-onlyで確認し、組込み`postgres`へmigration roleの一時membershipを付与してdatabase作成後に即時REVOKEする等の最小修復案、または部分作成roleを削除して修正版Bootstrapを再実行する案を比較し、具体的差分を承認する必要がある。現状ではMigrationへ進まない。
