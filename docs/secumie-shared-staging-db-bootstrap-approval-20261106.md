@@ -819,6 +819,110 @@ Migration 037〜041のSQL本文は変更していない。
 
 Production公開No-Goを維持する。
 
+## 17A. OTP／PIRA Staging配備準備 Fit/Gap（2026-11-08）
+
+### 17A.1 正本と再利用する受入証跡
+
+本節はPR #46 commit `62dbf867c6e39028e3040866c7f9b99bb9d64b9a`を基準とする。Acceptance Execution `secumie-db-acceptance-staging-gpgxz`は`SUCCEEDED`（1/1、retry 0）であり、Migration 037〜041、固定5 roleの権限分離、監査保護、保持preview、接続容量Gateは再実行していない。アプリケーション配備によって新たに生じる接続、runtime IAM、Secret参照、Host/Path、SMTP、Turnstile、JWT/JWKSだけを後続検証対象とする。
+
+Git ancestryとblobを照合した結果、PR #36、#43、#45は現行HEADの祖先である。OTP/PIRA runtime、HA承認済み公開画面、専用DB pool分離は現行ツリーへ含まれる。`runtimeConfig.ts`、`pool.ts`、`server.ts`はPR #43のblobと一致し、OTP/PIRA poolは既定最大2、idle 10秒、SIGTERM時close、SECU管理第2pool、GENERAL fail-closedを維持する。
+
+### 17A.2 GCP現物（Read-only）
+
+確認対象はproject `msp-zabbix`、region `asia-northeast1`である。Secret値、業務行、認証情報は取得していない。
+
+| 項目 | FACT | 判定 |
+| --- | --- | --- |
+| Cloud SQL | `secumie-sg-shared-staging-db`はRUNNABLE、PostgreSQL 16、Private IP `172.20.0.3`のみ、PSA `google-managed-services-default`、backup/PITR/deletion protection有効 | Fit |
+| Backup | 最新3件はいずれもSUCCESSFUL。最新ID `1794074400000` | Fit |
+| DB Secret | `secumie-stg-db-otp-password:1`と`secumie-stg-db-pira-password:1`はenabled | 再利用可能 |
+| Cloud Run | 既存7 serviceはReady。`secumie-otp-staging`、`secumie-pira-staging`は不存在 | 新規差分 |
+| runtime SA | Bootstrap/Migration SAは存在するが、OTP/PIRA runtime SAは不存在 | 新規差分。既存SAを流用しない |
+| Artifact | Registryには`secumie-db-operations`だけが存在し、OTP/PIRA runtime imageは未登録 | 新規差分 |
+| VPC | `default` VPC、PSA peering ACTIVE。既存connector `msp-portal-connector`はREADY | Direct VPCを新規serviceだけへ設定 |
+| LB/NEG | 既存URL map/NEGはSECU用ではない。SECU用LB、serverless NEGは不存在 | 新規差分 |
+| DNS | GCP Cloud DNS zoneなし。`pira-staging.atlib.jp`と`pira.atlib.jp`は未登録、`www.atlib.jp`は既存Apache系統 | Staging専用DNS管理主体の確認が必要 |
+
+既存Cloud Run、Sales Tools、PPAP、Portal、Cloud SQL、Revision、traffic、IAMには変更を加えていない。
+
+### 17A.3 そのまま利用できる資産
+
+- Docker target `otp-runtime`、`pira-runtime`とentry point `publicOtpServer`、`piraPublicServer`。
+- `/v1/otp/*`、`/.well-known/jwks.json`、`/api/public/pira/v1/*`、`/healthz`。
+- RS256、`kid`、issuer/audience、JWKS、受付側jti一回消費、UNION Host/initiative context。
+- Direct VPC `default/default`、`private-ranges-only`とCloud SQL Auth Proxy v2 sidecarの接続方式。
+- database `secumie_insight_staging`と既存OTP/PIRA role/password Secret。
+- `PIRA_GENERAL_ENABLED=false`時の画面、route、OTP brand登録のfail-closed。
+- HA承認済み画面、8問、C方式、v7レポート。回答・結果・PDFはサーバーへ保存しない。
+
+### 17A.4 配備前の最小差分
+
+| 差分 | 固定内容 | 承認・検証条件 |
+| --- | --- | --- |
+| runtime SA | `secumie-otp-staging`、`secumie-pira-staging` | 各SAへCloud SQL Clientと、自身が参照するSecret単位のAccessorだけを付与。Bootstrap/Migration SAは流用しない |
+| runtime image | 現行commitから`otp-runtime`と`pira-runtime`をbuildし、別image名でpush、digest固定 | source commit、SBOM/依存監査、digestを記録 |
+| Cloud Run | 同名2 service、min 0/max 1、concurrency 20、DB pool max 2、Direct VPC、Proxy sidecar、private-ranges-only | ingress/IAM、sidecar digest、startup、SIGTERM closeを照合 |
+| DB | `DB_HOST=127.0.0.1`、`DB_PORT=5432`、`DB_NAME=secumie_insight_staging`、runtimeごとの既存role/Secret | 新しい接続成功、上限2、相互schema拒否を確認。Migration/保持/監査の再実行はしない |
+| OTP Secret | Staging専用SMTP password、Turnstile secret、OTP HMAC、RS256 key set | 秘密鍵はOTPだけ。PIRAへ秘密鍵を付与しない。既存DB Secretと分離 |
+| 非Secret設定 | SMTP host/port/user/from、active kid、issuer、UNION origin/host、site key、initiative code | `GENERAL=false`を両runtimeで固定し、欠落時起動拒否を確認 |
+| 公開経路 | Staging専用hostのLBで`/v1/otp/*`と`/.well-known/jwks.json`をOTP、その他をPIRAへ送る | PIRA画面が相対`/v1/otp`を使うためsame-origin LBは必須。既存LB/Apacheへ混在させない |
+| initiative | `pira-union`、kind `UNION`、active `true`のmetadata | Migrationはseedしない。現物は未照会のため、配備前Read-only確認後、不存在時だけ承認済みの冪等INSERTを1回実行。GENERAL rowは作成・有効化しない |
+
+現行MailerにはStaging宛先allowlistがない。実SMTP検証では、外部配送しないSMTP sandboxまたはサーバー側で強制するStaging recipient allowlistのどちらかを配備前に固定する。任意の入力先へ配送できる状態ではE2Eを開始しない。これは認証方式や固定メール文言を変更せず、Stagingの配送境界だけを狭める最小差分である。
+
+次回承認に提示するリソース名は以下へ固定する。既存名との競合は配備直前に再確認する。
+
+| 種別 | 名称・参照 |
+| --- | --- |
+| Service / SA | `secumie-otp-staging`、`secumie-pira-staging` |
+| Artifact image | `secumie-otp-runtime`、`secumie-pira-runtime`（いずれもdigest固定） |
+| 既存DB Secret | `secumie-stg-db-otp-password:1`、`secumie-stg-db-pira-password:1` |
+| 新規OTP Secret | `secumie-stg-smtp-password`、`secumie-stg-turnstile-secret`、`secumie-stg-otp-hmac-key`、`secumie-stg-otp-jwt-keys` |
+| Staging host候補 | `pira-staging.atlib.jp`（現在未登録。DNS管理主体と使用承認が必要） |
+| JWT/JWKS | issuer `https://pira-staging.atlib.jp`、JWKS `https://pira-staging.atlib.jp/.well-known/jwks.json` |
+| LB関連 | `secumie-staging-ip`、`secumie-staging-cert`、`secumie-otp-staging-neg`、`secumie-pira-staging-neg`、対応backend、URL map、HTTPS proxy、forwarding rule |
+
+公開serviceは`internal-and-cloud-load-balancing` ingressとし、serverless NEG経由の公開に必要なinvokerだけを付与する案を正本候補とする。run.app直アクセスを検証経路にせず、LB経由だけでHost/Origin/IP判定を確認する。既存LB、Apache、既存serviceのIAMは変更しない。
+
+### 17A.5 Staging一括実行計画
+
+1. runtime SA、Secret名、Secret単位IAM、Artifact image名、Staging host、費用/cleanup担当を承認する。
+2. OTP/PIRA imageをbuild・検証・pushし、digestを固定する。
+3. runtime SAを作成し、Cloud SQL Clientと対応Secretだけを付与する。鍵ファイル、Cloud SQL Admin、Secret Admin、Network Adminは付与しない。
+4. Staging用秘密値を非表示経路でversion登録する。RS256公開鍵だけをJWKSで公開し、秘密鍵はOTP SAだけが参照する。
+5. OTP/PIRA Cloud Run serviceをtraffic切替なしで作成し、Direct VPC、Proxy sidecar、max 1、concurrency 20、pool 2、GENERAL falseをdescribeで照合する。
+6. private service URLからhealth、DB接続、JWT/JWKS、Host拒否を検証する。DBの既受入項目は再実行しない。
+7. `pira-union` metadataをRead-only確認し、不存在時だけ承認済みINSERTを行う。
+8. Staging専用LB/NEG/証明書/DNSを作成し、same-origin path routing、CORS/CSP、`trust proxy=1`、Turnstile hostnameを確認する。
+9. 制限SMTPとSynthetic dataでOTP→JWT→UNION受付→ANSWERING→8問→レポート→COMPLETEDを実行し、JWT再利用、異常Host、GENERALを拒否する。
+10. Synthetic submission/jti等のcleanupは対象IDを固定して別途確認し、runtime Revision/Secret/IAM/DBへの想定外差分がないことを確認する。
+
+正常工程は上記差分を一括承認後に連続実行できる。digest、IAM、Secret参照、接続先、Host/issuer/JWKS、initiative、SMTP制限の不一致、既存serviceへの影響、Secret露出で即時STOPし、無断修復・権限拡大・別経路への変更を行わない。
+
+### 17A.6 ローカル確認
+
+| 確認 | 結果 |
+| --- | --- |
+| TypeScript build | PASS |
+| 専用DB設定の非DB回帰 | 2 PASS / 0 FAIL / 1 SKIP（実PostgreSQL項目はPR #46証跡を再利用） |
+| `otp-runtime` Docker target | PASS |
+| `pira-runtime` Docker target | PASS |
+| Git ancestry/blob | PR #36/#43/#45を包含、runtime資産と専用pool差分一致 |
+| Migration/role/audit/retention/capacity | 再実行せず、PR #46 Acceptance正本を採用 |
+
+### 17A.7 次回のGCP変更承認対象
+
+- runtime Service Account 2件と限定IAM。
+- OTP/PIRA runtime Secret作成・version登録・Secret単位IAM（既存DB Secretは再作成しない）。
+- OTP/PIRA Artifact 2件のpush。
+- Cloud Run service 2件、Proxy sidecar、Direct VPC設定、限定invoker/ingress。
+- Staging専用serverless NEG 2件、backend、URL map、HTTPS proxy、専用IP、証明書、DNS record。
+- Turnstile Staging hostname/site設定と制限SMTP設定。
+- `pira-union` metadataが不存在だった場合の1件だけのINSERT。
+- Synthetic E2Eデータの投入と対象限定cleanup。
+
+Staging host名、DNS管理主体、Cloud Run ingress/IAM、Proxy image digest、SMTP sandbox/allowlist、Turnstile Staging key、JWT `kid`、runtime image digest、initiative現物は未確定であり、次回承認前のGateである。Staging削除期限`2026-11-20 10:12 JST`、GENERAL無効、Production公開No-Goを維持する。
+
 ## 18. Recovery・Migration最終承認実行結果（2026-11-08）
 
 ### 18.1 Recovery
