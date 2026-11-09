@@ -1178,6 +1178,25 @@ Docker Scout v1.24.0で両imageのOS＋npmを全件対象として検査し、ig
 
 Artifact Registry push、GCP、Cloud Run、SA、Secret、IAM、LB、DNS、SMTP、Turnstile、DBは変更していない。image GateはローカルでPASSしたが、第17A.12節どおり統括照合前に配備へ自動復帰せず停止する。
 
+
+### 17A.14 Runtime hardening Gate統括照合・Staging配備STOP解除（2026-11-09）
+
+**判定：PASS。第17A.11節のimage scan STOPを解除し、第17A.10節の既承認Staging限定配備工程への復帰を認める。追加経営者承認は不要。**
+
+統括照合対象は、hardening commit `7656c6cf777a710a7d518967d0a5ee4c10c9e668`、evidence commit `9b97848d50386304c4d55ad531698eaa2446b0c1`、Work検証コメント https://github.com/yoshihisahagisaka/atlib-sales-tools/pull/46#issuecomment-6731380106、`Dockerfile.secumie` の実diff。
+
+- 修正code差分はDockerfileのみ。OTP/PIRA runtime専用のNode 24 build/deps stageとdigest固定のDistroless Node 24 final stageを採用。非root、不要なnpm/npx/shell/toolchain非同梱、両serviceのentrypoint・health・SIGTERMを確認。
+- WorkのDocker Scoutローカル証跡ではOTP/PIRAともコンテナ全体 Critical 0／High 0、ignore・suppressionなし。`npm audit --omit=dev` Critical/High 0、Moderate 7は既記録。TypeScript・readiness・PostgreSQL 16＋Playwright runtime E2E 2/2・両image起動／終了PASS。
+- `db-operations` targetとMigration manifestの既承認範囲へのcode差分なし。既存DB acceptance再実行は不要。
+- 初回runtime E2Eの一時DB未起動による`ECONNREFUSED`は、専用一時PostgreSQL 16を起動した同一テスト2/2 PASSで解消。実GCP acceptanceを実施したとはみなさない。
+- 本判定はGitHub上の差分・Workローカルscan/test証跡に基づく統括照合であり、統括が同じDocker検査を別環境で再実行したものではない。
+
+**配備再開の直前Gate：** Workは現行PR HEAD・hardening source・実際にpushする各imageのrevision label/SBOM/scan結果を照合し、Artifact Registryへpush後に返る**Registryの不変digest**でCloud Runを固定する。再build等でimage内容が変化した場合は対象imageの全体scanを再確認する。Critical/High残存、digest/source不一致、既承認構成との不整合は再STOP。ローカルimage IDとRegistry digestを混同しない。
+
+上記Gate通過後は第17A.10節の既承認範囲（新規OTP/PIRA Cloud Run 2件、SA/Secret/IAM、LB/NEG/新規HTTPS forwarding rule 1件、Mailtrap Sandbox Free、萩坂さんのSquarespace DNS A 1件およびTurnstile専用widget、条件付き`pira-union` metadata、Synthetic E2E）を追加の設計変更なく順次実行する。萩坂さん手動工程の具体値確定時はhandoffする。
+
+Production No-Go、GENERAL無効、Secure Guard対象外、既存service/DNS/IAM非変更、Migration 037〜041受入再実行禁止、追加費用運用上限`$15`（Cloud SQL既承認`$75`とは別）、Staging削除期限`2026-11-20 10:12 JST`をすべて維持。Cloud SQL instance/database/role削除とdeletion protection解除は別承認。
+
 ## 18. Recovery・Migration最終承認実行結果（2026-11-08）
 
 ### 18.1 Recovery
