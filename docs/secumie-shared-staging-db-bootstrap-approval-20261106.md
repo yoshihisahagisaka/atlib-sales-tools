@@ -1133,6 +1133,51 @@ OTP imageをDocker Scout v1.24.0でコンテナ全体（OS packageと同梱npm p
 
 **継続条件**：統括による結果照合後、Critical/High 0かつ互換性PASSなら、追加の設計変更を行わず第17A.10節の既承認Staging工程へ復帰する。Production No-Go、GENERAL無効、Secure Guard対象外、既存DB受入再実行禁止、追加費用運用上限$15（Cloud SQLの既承認$75とは別）、削除期限`2026-11-20 10:12 JST`を継続する。
 
+### 17A.13 Runtime image hardeningローカル検証結果（2026-11-09）
+
+追加承認に基づき、`Dockerfile.secumie`のOTP/PIRA runtime専用stageだけをhardeningした。`db-operations`は従来のNode 20 build/production-deps stageを継続し、target buildとMigration 037〜041 manifest検証がPASSしたため受入済みDB operationsへの波及はない。
+
+hardening code commit:
+
+```text
+7656c6cf777a710a7d518967d0a5ee4c10c9e668
+```
+
+構成:
+
+- build/production-deps: `node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9`
+- final runtime: `gcr.io/distroless/nodejs24-debian13@sha256:088a01637f22908632ba09018be2e0b516f2fa6f7869c191d29491139db43c78`
+- Node: `v24.22.2`
+- final runtime user: `nonroot`
+- npm/npx/shell/development toolchain: final runtimeに不存在
+- `NODE_ENV=production`、port 8080、Node entrypoint、OTP/PIRA server script、CA/production dependenciesを維持
+
+最終ローカルimage（OCI revision labelは上記hardening commit）:
+
+| target | local image ID | SBOM SHA-256 | Critical | High |
+|---|---|---|---:|---:|
+| OTP | `sha256:3cfb4e5e07cce3810153c8ac1b7b829f042ec052c67d7c687ff9457866051322` | `da300378a91904aadba1389f3767b36a0d409e2abc40a9f2ece889eb9d807c1a` | 0 | 0 |
+| PIRA | `sha256:4892fd38b9374da0c025cd01b5b7f6baa2abdee46fc65f81217c955227ab88b2` | `029b208b9d2898951685485a8b4ee960fdc6eed13101d132f66b56963da4e409` | 0 | 0 |
+
+Docker Scout v1.24.0で両imageのOS＋npmを全件対象として検査し、ignore、suppression、検査範囲縮小なしでCritical 0 / High 0を確認した。`npm audit --omit=dev`はCritical 0 / High 0 / Moderate 7 / Low 0である。
+
+互換性検証:
+
+| 項目 | 結果 |
+|---|---|
+| TypeScript build | PASS |
+| production readiness security | 5/5 PASS |
+| dedicated DB設定 | 2/2 PASS、実DB項目1件は当該単体実行ではskip |
+| PostgreSQL 16＋Playwright runtime E2E | 2/2 PASS（OTP→受付→8問→report→COMPLETED、unknown Host／GENERAL無効／不正JWT拒否） |
+| OTP/PIRA container startup・`/healthz` | 両方200、PASS |
+| SIGTERM | 両方exit 0、PASS |
+| `db-operations` target build／manifest | PASS、037〜041の5件一致 |
+| diff check | PASS |
+
+最初のruntime E2E単体実行はローカルPostgreSQL未起動により`ECONNREFUSED 127.0.0.1:55437`となった。コード不具合ではなく、専用の一時PostgreSQL 16を起動して同一testを再実行し2/2 PASS、終了後は当該一時containerだけを削除した。既存container/volumeは変更していない。
+
+Artifact Registry push、GCP、Cloud Run、SA、Secret、IAM、LB、DNS、SMTP、Turnstile、DBは変更していない。image GateはローカルでPASSしたが、第17A.12節どおり統括照合前に配備へ自動復帰せず停止する。
+
 ## 18. Recovery・Migration最終承認実行結果（2026-11-08）
 
 ### 18.1 Recovery
