@@ -1021,6 +1021,68 @@ Synthetic submission/jtiは保持Contractの対象であり、試験直後の直
 
 GENERAL無効、Secure Guard変更対象外、Production公開No-Goを維持する。
 
+### 17A.9 Work指示に対する残Gate Read-only確定（2026-11-09）
+
+2026-11-09のWork指示コメントとPR #46最新HEAD `fbc5a34d083c7cb3a4a250cdebdc474858760baf`を照合した。Acceptance Execution `secumie-db-acceptance-staging-gpgxz`の成功結果を正本とし、Migration 037〜041、DB権限分離、監査保護、保持preview、接続容量Gateは再実行していない。
+
+#### Cloud Run公開Gate
+
+Read-only現物確認では、effective `constraints/run.managed.requireInvokerIam` は未強制（空のboolean policy）、`constraints/run.allowedIngress` は`ALLOW`である。現行Cloud SDKは`--no-invoker-iam-check`をサポートし、実行予定者`yoshihisa.hagisaka@atlib.jp`のproject Owner権限には`run.services.create`、`run.services.update`、`run.services.setIamPolicy`、`iam.serviceAccounts.actAs`が含まれる。新規`secumie-otp-staging`／`secumie-pira-staging` service、同名runtime SA、runtime用Secretはいずれも未作成であり、既存serviceへの変更は不要である。
+
+したがって第一候補を、新規2 serviceだけ`ingress=internal-and-cloud-load-balancing`かつInvoker IAM check無効とする。`allUsers`付与、Ingress `all`、既存service IAM変更は行わない。外部Application Load Balancer経由の匿名ブラウザ到達と、外部からの`run.app`直接到達拒否を配備後Gateとする。
+
+#### DNS・証明書と管理主体
+
+`atlib.jp`の権威DNSはSquarespace DNS系統であり、GCP Cloud DNS管理対象ではない。`pira-staging.atlib.jp`用A record追加は技術的差分を固定済みだが、Squarespace DNSの実行アカウントと担当者はGCP/Gitから特定できない。**atLIBのSquarespace DNS管理者を経営者が指名することが一括承認前Gate**である。既存`www.atlib.jp`、`sales.atlib.jp`、本番`pira.atlib.jp`は変更しない。
+
+#### SMTP sandbox確定案
+
+第一候補をMailtrap Email Sandbox Freeとする。Sandboxは実宛先へ配送せず、既存MailerのSMTP接続と固定本文を変更せずにOTPをinbox UI/APIで確認できる。Freeの現行公称条件は1 user、1 sandbox、月50 test emails、送信間隔10秒、同時保持10通であり、forwardingは含まれない。固定日数の保持保証は確認できず、上限超過時はFIFOで古いmessageが除去されるため、証跡取得後にSandbox APIで削除し、E2E全体を30通以内に制限する。forwardingは設定しない。
+
+Free Terms上、無料利用は1 entityの1 authorized userであるため、Work単独運用ならFreeを採用候補とし、複数担当者が共有する場合はBasic以上を別承認とする。作成主体はatLIB、日常operatorはWork、SecretはSMTP passwordと自動E2E用API tokenを分離する。Production SMTP、既存Sales Tools Staging SMTPは変更・流用しない。
+
+#### Turnstile確定案
+
+Staging専用Turnstile widgetを作成し、許可hostnameを`pira-staging.atlib.jp`だけに固定する。site keyは公開設定、secretはOTP runtime専用Secretとし、PIRAへ付与しない。Free planは最大20 widget、1 widget最大10 hostname、challenge数無制限で今回の検証範囲を満たす。server-side Siteverifyを必須とし、tokenの5分期限・一回性は既存実装どおり維持する。
+
+Cloudflare accountの現行管理者はGCP/Gitから特定できないため、**atLIB Cloudflare管理者または作成担当者の経営者指名が一括承認前Gate**である。Production widget/secretは変更しない。
+
+#### `pira-union` metadata
+
+既存の承認済みRead-only実行経路は、固定Acceptance Jobを再実行または変更せずにinitiativeだけを照会できない。今回の禁止範囲を守り、DB照会・Job実行・INSERTは行っていない。この項目は未確認のまま後続一括実行へ含める。
+
+後続ではPIRA roleによるINSERT前にMigration接続で`initiative_code='pira-union'`を行ロックして確認し、(a) `initiative_kind='UNION'`かつactiveならno-op、(b) 不存在なら承認済み固定値を1件だけINSERT、(c) 同codeで属性不一致ならSTOPして更新しない、という冪等手順を採用する。GENERAL rowは作成・有効化しない。
+
+#### Runtime imageと費用Gate
+
+承認対象ソースをPR #46 HEAD `fbc5a34d083c7cb3a4a250cdebdc474858760baf`のclean checkoutに固定する。次回一括承認後にOTP/PIRAの2 targetを各1回buildし、`npm audit --omit=dev`、既存回帰、SBOM/manifest、Critical/High 0を確認してからArtifact Registryへpushし、digestをCloud Run定義へ固定する。scan結果を取得できない場合は配備へ進まずSTOPする。
+
+現物ではglobal forwarding ruleが既に2件あり、Google Cloud料金は同一projectのglobal rule最初の5件を合計`$0.025/hour`としている。新規HTTPS rule 1件はこの範囲内だが、既存課金への限界増分を0と断定せず、Staging専用LBのgross費用として期限まで最大約`$6.60`を計上する。forwarding ruleに割り当てる固定外部IPは追加料金なし、東京のLB data processingはin/out各`$0.008/GiB`、Google-managed RSA-2048証明書は接続単価なしである。Cloud Runはmin instances 0の従量課金、Artifact Registryはbilling account合計0.5 GiBまで無料・超過分約`$0.10/GiB-month`、Mailtrap Freeは`$0`である。
+
+Cloud SQL既承認上限`$75`とは別に、2026-11-20 10:12 JSTまでの新規LB、Cloud Run、Artifact、Secret、少量通信を含む**追加費用上限`$15`**を一括承認値とする。Mailtrap paid planが必要になった場合はこの上限外として再承認する。Workが日次Billingとresource状態を確認し、上限超過見込み、既存service異常、証明書/DNS不成立でSTOPする。cleanup責任者はWork、Cloud SQLのdeletion protection解除・削除は別承認とする。
+
+#### 一括承認が必要な変更（残Gate）
+
+1. 新規OTP/PIRA runtime SA、SecretとSecret単位IAM、2 Cloud Run service（Invoker IAM check無効、Ingress限定）、2 runtime image build/push。
+2. 新規Staging LB一式、固定IP、2 serverless NEG/backend、URL map、Google-managed certificate、Squarespace DNS A record 1件。
+3. atLIB管理のMailtrap Sandbox account/inbox、SMTP/API credential Secret、外部forwarding無効での運用。
+4. Staging専用Turnstile widget/site key/secret、hostname `pira-staging.atlib.jp`。
+5. `pira-union`の事前照合と、不存在時だけの固定1 row INSERT。属性不一致時はSTOP。
+6. 上記の追加費用上限`$15`、DNS/Cloudflare実行担当者、Workの実行・停止・cleanup責任。
+
+以上6項目以外に、既存DB受入、既存service、Production、Secure Guard、GENERALを変更する承認は含めない。
+
+追加参照正本:
+
+- Cloud Run public access: https://cloud.google.com/run/docs/authenticating/public
+- Organization Policy constraints: https://cloud.google.com/organization-policy/reference/org-policy-constraints
+- Cloud Load Balancing pricing: https://cloud.google.com/load-balancing/pricing
+- External IP pricing: https://cloud.google.com/vpc/pricing
+- Cloud Run pricing: https://cloud.google.com/run/pricing
+- Artifact Registry pricing: https://cloud.google.com/artifact-registry/pricing
+- Mailtrap Sandbox overview/limits/pricing/terms: https://docs.mailtrap.io/email-sandbox/overview / https://docs.mailtrap.io/email-sandbox/help/features-and-limits / https://mailtrap.io/pricing/ / https://mailtrap.io/terms/
+- Turnstile setup/hostname/plans: https://developers.cloudflare.com/turnstile/get-started/ / https://developers.cloudflare.com/turnstile/additional-configuration/hostname-management/ / https://developers.cloudflare.com/turnstile/plans/
+
 ## 18. Recovery・Migration最終承認実行結果（2026-11-08）
 
 ### 18.1 Recovery
