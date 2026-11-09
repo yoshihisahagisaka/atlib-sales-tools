@@ -1057,7 +1057,7 @@ Cloudflare accountの現行管理者はGCP/Gitから特定できないため、*
 
 承認対象ソースをPR #46 HEAD `fbc5a34d083c7cb3a4a250cdebdc474858760baf`のclean checkoutに固定する。次回一括承認後にOTP/PIRAの2 targetを各1回buildし、`npm audit --omit=dev`、既存回帰、SBOM/manifest、Critical/High 0を確認してからArtifact Registryへpushし、digestをCloud Run定義へ固定する。scan結果を取得できない場合は配備へ進まずSTOPする。
 
-現物ではglobal forwarding ruleが既に2件あり、Google Cloud料金は同一projectのglobal rule最初の5件を合計`$0.025/hour`としている。新規HTTPS rule 1件はこの範囲内だが、既存課金への限界増分を0と断定せず、Staging専用LBのgross費用として期限まで最大約`$6.60`を計上する。forwarding ruleに割り当てる固定外部IPは追加料金なし、東京のLB data processingはin/out各`$0.008/GiB`、Google-managed RSA-2048証明書は接続単価なしである。Cloud Runはmin instances 0の従量課金、Artifact Registryはbilling account合計0.5 GiBまで無料・超過分約`$0.10/GiB-month`、Mailtrap Freeは`$0`である。
+現物ではglobal forwarding ruleが既に2件あり、Google Cloud料金は同一projectのglobal forwarding rule最初の5件を**各ルール`$0.025/hour`**としており、5件合計の定額ではない。新規HTTPS forwarding ruleは1件だけを計画し、既存課金への限界増分を0と断定せず、Staging専用LBのgross費用として期限まで最大約`$6.60`を計上する。HTTP用の追加forwarding ruleやHTTP→HTTPS redirectの新設は今回の費用・変更承認に含めず、必要なら別途影響と費用を再確認する。forwarding ruleに割り当てる固定外部IPは追加料金なし、東京のLB data processingはin/out各`$0.008/GiB`、Google-managed RSA-2048証明書は接続単価なしである。Cloud Runはmin instances 0の従量課金、Artifact Registryはbilling account合計0.5 GiBまで無料・超過分約`$0.10/GiB-month`、Mailtrap Freeは`$0`である。
 
 Cloud SQL既承認上限`$75`とは別に、2026-11-20 10:12 JSTまでの新規LB、Cloud Run、Artifact、Secret、少量通信を含む**追加費用上限`$15`**を一括承認値とする。Mailtrap paid planが必要になった場合はこの上限外として再承認する。Workが日次Billingとresource状態を確認し、上限超過見込み、既存service異常、証明書/DNS不成立でSTOPする。cleanup責任者はWork、Cloud SQLのdeletion protection解除・削除は別承認とする。
 
