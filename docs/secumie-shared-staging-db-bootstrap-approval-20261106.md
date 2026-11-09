@@ -1033,7 +1033,7 @@ Read-only現物確認では、effective `constraints/run.managed.requireInvokerI
 
 #### DNS・証明書と管理主体
 
-`atlib.jp`の権威DNSはSquarespace DNS系統であり、GCP Cloud DNS管理対象ではない。`pira-staging.atlib.jp`用A record追加は技術的差分を固定済みだが、Squarespace DNSの実行アカウントと担当者はGCP/Gitから特定できない。**atLIBのSquarespace DNS管理者を経営者が指名することが一括承認前Gate**である。 **2026-11-09統括追補：萩坂さんご本人をSquarespace DNS変更の実行担当者に指名済み。担当指名Gateは解消したが、管理画面での操作権限と対象recordの最終照合は実行時Gateとし、Aレコード作成は一括実行承認後に限る。**既存`www.atlib.jp`、`sales.atlib.jp`、本番`pira.atlib.jp`は変更しない。
+`atlib.jp`の権威DNSはSquarespace DNS系統であり、GCP Cloud DNS管理対象ではない。`pira-staging.atlib.jp`用A record追加は技術的差分を固定済みだが、Squarespace DNSの実行アカウントと担当者はGCP/Gitから特定できない。**atLIBのSquarespace DNS管理者を経営者が指名することが一括承認前Gate**である。 **2026-11-09統括追補：萩坂さんご本人をSquarespace DNS変更の実行担当者に指名済み。担当指名Gateは解消したが、管理画面での操作権限と対象recordの最終照合は実行時Gateとし、Aレコード作成は一括実行承認後に限る。** 既存`www.atlib.jp`、`sales.atlib.jp`、本番`pira.atlib.jp`は変更しない。
 
 #### SMTP sandbox確定案
 
@@ -1045,7 +1045,7 @@ Free Terms上、無料利用は1 entityの1 authorized userであるため、Wor
 
 Staging専用Turnstile widgetを作成し、許可hostnameを`pira-staging.atlib.jp`だけに固定する。site keyは公開設定、secretはOTP runtime専用Secretとし、PIRAへ付与しない。Free planは最大20 widget、1 widget最大10 hostname、challenge数無制限で今回の検証範囲を満たす。server-side Siteverifyを必須とし、tokenの5分期限・一回性は既存実装どおり維持する。
 
-Cloudflare accountの現行管理者はGCP/Gitから特定できないため、**atLIB Cloudflare管理者または作成担当者の経営者指名が一括承認前Gate**である。 **2026-11-09統括追補：萩坂さんご本人をCloudflare Turnstile Staging widget作成の実行担当者に指名済み。担当指名Gateは解消したが、管理画面での操作権限とProduction widget非変更の最終照合は実行時Gateとし、widget作成は一括実行承認後に限る。**Production widget/secretは変更しない。
+Cloudflare accountの現行管理者はGCP/Gitから特定できないため、**atLIB Cloudflare管理者または作成担当者の経営者指名が一括承認前Gate**である。 **2026-11-09統括追補：萩坂さんご本人をCloudflare Turnstile Staging widget作成の実行担当者に指名済み。担当指名Gateは解消したが、管理画面での操作権限とProduction widget非変更の最終照合は実行時Gateとし、widget作成は一括実行承認後に限る。** Production widget/secretは変更しない。
 
 #### `pira-union` metadata
 
