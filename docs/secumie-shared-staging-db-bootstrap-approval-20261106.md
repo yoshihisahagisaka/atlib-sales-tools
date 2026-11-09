@@ -1197,6 +1197,32 @@ Artifact Registry push、GCP、Cloud Run、SA、Secret、IAM、LB、DNS、SMTP�
 
 Production No-Go、GENERAL無効、Secure Guard対象外、既存service/DNS/IAM非変更、Migration 037〜041受入再実行禁止、追加費用運用上限`$15`（Cloud SQL既承認`$75`とは別）、Staging削除期限`2026-11-20 10:12 JST`をすべて維持。Cloud SQL instance/database/role削除とdeletion protection解除は別承認。
 
+### 17A.15 Staging配備再開・Artifact／runtime基盤（2026-11-09）
+
+統括PASS後、hardening commit `7656c6cf777a710a7d518967d0a5ee4c10c9e668`の検証済みlocal imageを既存Artifact Registryへpushした。再buildは行っていない。Registryが返したdigestはlocal image IDと一致した。
+
+```text
+OTP:  asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/secumie-otp-runtime@sha256:3cfb4e5e07cce3810153c8ac1b7b829f042ec052c67d7c687ff9457866051322
+PIRA: asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/secumie-pira-runtime@sha256:4892fd38b9374da0c025cd01b5b7f6baa2abdee46fc65f81217c955227ab88b2
+```
+
+両imageは第17A.13節のCritical 0／High 0、SBOM、revision labelを維持する。Cloud Runでは上記digestだけを使用し、tagを使用しない。
+
+作成したruntime基盤:
+
+- SA `secumie-otp-staging@msp-zabbix.iam.gserviceaccount.com`
+- SA `secumie-pira-staging@msp-zabbix.iam.gserviceaccount.com`
+- 両SAへ`roles/cloudsql.client`
+- OTP SA: `secumie-stg-db-otp-password`と新規OTP Secret 4件だけにSecret Accessor
+- PIRA SA: `secumie-stg-db-pira-password`だけにSecret Accessor
+- 新規Secret: `secumie-stg-smtp-password`、`secumie-stg-turnstile-secret`、`secumie-stg-otp-hmac-key`、`secumie-stg-otp-jwt-keys`
+- HMAC/JWT SecretはCSPRNG／RSA-3072で非表示生成しversion 1を登録。JWT `kid=secumie-stg-202611-01`
+- SMTP passwordとTurnstile secretは手動設定待ちでenabled version 0
+
+Bootstrap/Migration SAの流用、runtime SAへのArtifact Writer／Secret Admin／Cloud SQL Admin、既存principalの権限変更は行っていない。秘密値はCLI引数、標準出力、ログ、Git、チャットへ出していない。
+
+Cloud Run 2 serviceは、必須SMTP/Turnstile Secretのversion 1および公開site key/SMTP接続識別子が未確定のため作成前Gateで待機する。placeholder、無効なSecret、認証迂回でserviceを作成しない。
+
 ## 18. Recovery・Migration最終承認実行結果（2026-11-08）
 
 ### 18.1 Recovery
