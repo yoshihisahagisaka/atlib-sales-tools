@@ -1101,6 +1101,25 @@ Cloud SQL既承認上限`$75`とは別に、2026-11-20 10:12 JSTまでの新規L
 
 **非承認：** Production公開、GENERAL有効化、Secure Guardの操作、受入済みMigration 037〜041の再実行、既存DB権限変更、既存service/DNS/IAM変更、課金Mailtrap、Cloud SQL instance/database/role削除、deletion protection解除。Cloud SQL本体の最終削除は別の明示的な経営者承認を要する。
 
+### 17A.11 Staging一括配備の直前Gate STOP（2026-11-09）
+
+第17A.10節およびPR #46実行指示コメントに従い、承認済み正常工程を開始した。Gitを正本commit `20e03c9618b904bd2c33dd382299a499333544e2`へfast-forwardし、GCP変更前のruntime image Gateを実施した。
+
+実施結果:
+
+- Docker Engine: `29.7.2`
+- `npm audit --omit=dev`: Critical 0 / High 0 / Moderate 7 / Low 0
+- OTP target local build: PASS、local image ID `sha256:4ca3e7c8b7b581b2463b6ce0c5e33d68fed2881faf60ce3ef1de770ef6dd9817`
+- PIRA target local build: PASS、local image ID `sha256:5145be36c89e59ecedeabb63ca1cf462bc0a67f22fac755e9100f2ce9d3683dd`
+- 両imageのOCI revision label: `20e03c9618b904bd2c33dd382299a499333544e2`
+- base image: `node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0`
+
+OTP imageをDocker Scout v1.24.0でコンテナ全体（OS packageと同梱npm packageを含む）スキャンしたところ、16 vulnerable packages、Critical 6件、High 52件を検出した。CriticalにはDebian bookwormの`perl 5.36.0-7+deb12u3`（修正版`5.36.0-7+deb12u4`）5件と、runtime image内の`npm tar 6.2.1`（CVE-2026-59873、修正版`7.5.19`）1件が含まれる。アプリのproduction dependencyだけを対象とする`npm audit`の0件と、コンテナ全体の結果は区別する。
+
+これは第17A.10節のSTOP条件「Critical/High scan未解決」に該当するため、最初の不一致で直ちに停止した。PIRA imageの重複スキャン、再build、base image更新、package更新、Artifact Registry push、SA/Secret/IAM、Cloud Run、LB/NEG/IP/証明書、DNS、Turnstile、Mailtrap、DB metadata照会/INSERTは実施していない。既存GCP、DB、DNS、Production、GENERAL、Secure Guardに変更はない。追加費用は発生していない。
+
+再開には、runtime final stageから不要なnpm/toolchainを除くこと、修正版OS packageを含むbase digestへ更新すること等の最小image hardening差分を別途確定し、OTP/PIRA両imageでCritical/High 0を再確認する必要がある。現承認は無断修復・再buildを禁止しているため、この差分は実施していない。
+
 ## 18. Recovery・Migration最終承認実行結果（2026-11-08）
 
 ### 18.1 Recovery
