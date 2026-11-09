@@ -1083,6 +1083,24 @@ Cloud SQL既承認上限`$75`とは別に、2026-11-20 10:12 JSTまでの新規L
 - Mailtrap Sandbox overview/limits/pricing/terms: https://docs.mailtrap.io/email-sandbox/overview / https://docs.mailtrap.io/email-sandbox/help/features-and-limits / https://mailtrap.io/pricing/ / https://mailtrap.io/terms/
 - Turnstile setup/hostname/plans: https://developers.cloudflare.com/turnstile/get-started/ / https://developers.cloudflare.com/turnstile/additional-configuration/hostname-management/ / https://developers.cloudflare.com/turnstile/plans/
 
+
+### 17A.10 経営者によるStagingアプリ一括実行承認（2026-11-09）
+
+**承認済み（Staging限定）／Production No-Go継続。** 萩坂さんは本チャットにて、17A.9の残Gateに基づく次の6項目について「承認します」と明示した。承認前の判断基準はPR #46 HEAD `85d0726a7cdc039cbfabb85cc999283269788fc6`および本書17A.9であり、今後の文書更新自体を実行対象の拡大とみなさない。
+
+1. **GCP runtime**：Staging専用OTP/PIRA runtime imageのbuild・scan・push・digest固定、新規runtime SA 2件、Secret/Secret単位IAM、新規Cloud Run service 2件、Direct VPCと固定Proxy、max instances 1／DB pool 2、`internal-and-cloud-load-balancing` ingress＋新規2 serviceだけのInvoker IAM check無効化。
+2. **検証経路**：Staging専用global外部HTTPS LB、固定IP、serverless NEG/backend、URL map、Google-managed証明書。HTTPS forwarding rule新設は1件のみ。既存LB、既存Cloud Run Revision/traffic、既存IAMと本番DNSを変更しない。
+3. **DNS**：萩坂さん本人がSquarespace DNSで `pira-staging.atlib.jp` の**新規A record 1件だけ**を登録。Workは固定IP確定とrecord差分・TLS/証明書状態の検証を担当する。認証情報をWorkのログ・Git・チャットへ記載しない。
+4. **メール・Bot検証**：atLIB管理のMailtrap Email Sandbox **Freeだけ**を使用し、SMTP/API credentialをStaging Secretへ設定、外部配送・forwardingなし、E2E OTP計30通以内。萩坂さん本人がCloudflareに `pira-staging.atlib.jp` 専用Turnstile Free widgetを作成し、site key/secretの適切な分離を行う。Productionキーと既存Sales Tools Staging SMTPは変更しない。課金プランが必要ならSTOPして別承認。
+5. **施策metadata**：`pira.pira_initiative` の `initiative_code='pira-union'` を承認済み最小権限経路で読み取り、一致（UNION/active）ならno-op、不存在なら事前に既存Canonicalで `display_name`を含む固定INSERT値を照合したうえで1件だけ登録、属性不一致・固定値未確定・予期しない一意制約衝突はSTOP。GENERAL rowは作成・有効化しない。
+6. **受入・費用・cleanup**：Synthetic E2E（OTP→診断開始→会社情報・同意→8問→レポート、JWT/JWKS・jti再利用拒否・異常Host/GENERAL拒否・権限境界）を実施。追加費用は既存Cloud SQL承認額`$75`と別に**`$15`を運用上限**としてWorkが日次Billing/予測で監視し、超過見込みでSTOPする。Staging削除期限は**2026-11-20 10:12 JST**。Workが承認範囲の一時runtime/LB/DNS/Secret/IAM等のcleanupを管理する。
+
+**実行方式：** Workは各工程の実行直前に対象、source commit/image digest、Secret参照、接続先、権限、コスト、既存稼働をRead-onlyで照合し、正常な既承認工程は個別再承認なしで連続実行する。萩坂さんのDNS/Turnstile手動操作は実施順序上の必須handoffであり、別の新規GCP承認を要求しない。操作可否やDNS伝播・証明書ACTIVEは実測Gateとする。
+
+**STOP：** Critical/High scan未解決、変更対象逸脱、IAM緩和、追加forwarding rule、既存サービス影響、Secret露出、SMTP外部配送、想定外DB/施策データ、不一致/未確定値、予算超過見込み、期限内の検証・cleanup不能。停止時の無断修復・権限拡大・再実行は禁止し、残Gateを報告する。
+
+**非承認：** Production公開、GENERAL有効化、Secure Guardの操作、受入済みMigration 037〜041の再実行、既存DB権限変更、既存service/DNS/IAM変更、課金Mailtrap、Cloud SQL instance/database/role削除、deletion protection解除。Cloud SQL本体の最終削除は別の明示的な経営者承認を要する。
+
 ## 18. Recovery・Migration最終承認実行結果（2026-11-08）
 
 ### 18.1 Recovery
