@@ -1120,6 +1120,19 @@ OTP imageをDocker Scout v1.24.0でコンテナ全体（OS packageと同梱npm p
 
 再開には、runtime final stageから不要なnpm/toolchainを除くこと、修正版OS packageを含むbase digestへ更新すること等の最小image hardening差分を別途確定し、OTP/PIRA両imageでCritical/High 0を再確認する必要がある。現承認は無断修復・再buildを禁止しているため、この差分は実施していない。
 
+
+### 17A.12 Runtime image hardeningの追加承認（2026-11-09）
+
+**萩坂さんが本チャットで「承認します」と明示。** 第17A.11節のコンテナ全体scan STOP（OTP image Critical 6 / High 52）を受け、以下の**Docker image最小修正とローカル再検証のみ**を追加承認する。第17A.10節のStaging配備全体の承認を取り消すものではないが、image Gate PASSが記録されるまで配備実行は再開しない。
+
+1. **対象**：`Dockerfile.secumie` の`otp-runtime`／`pira-runtime`と、両者を整合してbuildするために不可欠な専用build/production-deps stage。修正する場合も、受入済み`db-operations` targetの内容・動作・既存Migration 037〜041およびDB受入証跡を変更しない。共通stage変更がDB operationsへ波及する場合は分離またはSTOP。
+2. **ベース**：Node.js 20は2026-03-24にEOLのため継続利用を修正完了とはしない。サポート中のNode.js LTSを採用し、第一候補を`node:24-bookworm-slim`とする。必要なOS security fixesを含む候補を選定し、承認対象の実際のbase image digest・Node version・OS package versionを証跡化する。builderとruntimeのNode major/ABI整合を検証し、互換性差異があればSTOP。
+3. **実行時最小化**：runtime final stageからHTTP処理に不要なnpm/npx・開発toolchain等を除外する。アプリのproduction `node_modules`、Node実行ファイル、CA証明書等の必要物は残し、従来の`USER node`、`NODE_ENV=production`、エントリポイント、公開port、サービス機能を維持する。
+4. **Gate**：修正後のOTP/PIRA両imageをローカルbuildし、コンテナ全体のOS＋npmのscanで**Critical 0 / High 0**を実証する。`npm audit --omit=dev`のCritical/High 0、TypeScript build・関連テスト・コンテナ起動・OTP/PIRAの機能非退行、実際のrevision labelとdigest/SBOMを記録する。High/Criticalが残る、例外・ignore・検査範囲縮小を要する、互換性不明の場合はSTOP。
+5. **境界**：この追加承認ではDockerfile中心の最小code差分、ローカルbuild/scan/testとPR #46の証跡保全まで。Artifact Registry push、Cloud Run/SA/Secret/IAM、LB/DNS、SMTP/Turnstile、DB操作はimage Gateの統括確認まで実施しない。アプリ仕様、認証強化、依存ライブラリの広範囲更新、既存GCPの構成変更は含めない。差分をPR #46 Draftへcommitし、未解決Gateを明示する。
+
+**継続条件**：統括による結果照合後、Critical/High 0かつ互換性PASSなら、追加の設計変更を行わず第17A.10節の既承認Staging工程へ復帰する。Production No-Go、GENERAL無効、Secure Guard対象外、既存DB受入再実行禁止、追加費用運用上限$15（Cloud SQLの既承認$75とは別）、削除期限`2026-11-20 10:12 JST`を継続する。
+
 ## 18. Recovery・Migration最終承認実行結果（2026-11-08）
 
 ### 18.1 Recovery
