@@ -973,6 +973,24 @@ LB完成後の検証順序を次へ固定する。
 6. `RECEIVED → ANSWERING → COMPLETED`、8問、v7 report、JWT再利用拒否を確認する。
 7. `run.app` default URLは外部直接到達不可を維持する。LB受入後にdefault URL無効化を採用する場合は、serverless NEG影響をRead-only照合して別の明示差分とする。
 
+#### Cloud Run匿名ブラウザアクセスとInvoker IAM（2026-11-09統括追補）
+
+2026-11-09に共通OTP Contractへ追加した「心理的抑止・会員登録なし・無料診断の気軽さ優先」（commit `95c4eb50032025cbcaab028e858ebb2d6f860837`）を配備方針へ適用する。メールOTP（利用者体験）とCloud Run IAM（基盤到達制御）は別境界である。メールOTP、JWT/JWKS、PIRA受付、8問、同意、固定文は変更しない。
+
+**確定するアクセス要件:**
+
+- 利用者はStaging専用LB `https://pira-staging.atlib.jp` 経由でメールOTP画面をブラウザから開ける。Googleログイン、IAP、Basic認証、会員登録、会社メール限定、追加の本人確認を求めない。
+- 新規OTP/PIRA Cloud Runは `ingress=internal-and-cloud-load-balancing` を維持し、外部Internetからの `run.app` 直アクセスを拒否する。
+- 従前記載の「サービス単位の限定Invokerだけ」では、匿名ブラウザからのLB経由アクセスにCloud Run IAM認証が残り、403となり得る。**限定runtime SAへの `roles/run.invoker` 付与だけで一般公開が成立したと判定しない。**
+- 第一候補は、新規2 serviceだけCloud Run Invoker IAM checkを無効化（`--no-invoker-iam-check`）し、IngressでLB経由に到達範囲を限定する構成とする。既存serviceやproject全体のIAMは変更しない。代替のservice単位 `allUsers` Invoker付与は採用前に別途組織ポリシーと影響を確認する。
+- これはLBからの匿名リクエスト到達を許す**インフラ設定**であり、利用者向けのメールOTPを撤廃・強化する意味ではない。
+
+**実行前Read-only Gate:** `run.managed.requireInvokerIam` 等のeffective Organization Policy、`run.allowedIngress`、2 serviceだけのInvok​​er IAM check設定可否、現行projectの公開制約を確認する。禁止ポリシーや権限不足があればSTOPし、無断の組織ポリシー変更・`allUsers` 付与・Ingress `all` への緩和を行わない。
+
+**LB完成後受入Gate:** (1) LB hostからOTP画面、PIRA画面、health/JWKSが正常応答、(2) 外部から `run.app` 直アクセス拒否、(3) Host/Origin/GENERAL拒否、(4) OTP→診断開始→会社情報・同意→8問→v7レポートが既存仕様どおりで追加ログインなし、(5) 既存service IAM/trafficに差分なし。Production公開No-Goは維持する。
+
+公式一次資料: https://cloud.google.com/run/docs/securing/ingress / https://cloud.google.com/run/docs/authenticating/public
+
 #### 一括承認用の確定状態
 
 | 項目 | 状態 | 承認値・残条件 |
