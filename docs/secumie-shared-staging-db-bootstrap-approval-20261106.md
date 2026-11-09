@@ -882,7 +882,7 @@ Git ancestryとblobを照合した結果、PR #36、#43、#45は現行HEADの祖
 | JWT/JWKS | issuer `https://pira-staging.atlib.jp`、JWKS `https://pira-staging.atlib.jp/.well-known/jwks.json` |
 | LB関連 | `secumie-staging-ip`、`secumie-staging-cert`、`secumie-otp-staging-neg`、`secumie-pira-staging-neg`、対応backend、URL map、HTTPS proxy、forwarding rule |
 
-公開serviceは`internal-and-cloud-load-balancing` ingressとし、serverless NEG経由の公開に必要なinvokerだけを付与する案を正本候補とする。run.app直アクセスを検証経路にせず、LB経由だけでHost/Origin/IP判定を確認する。既存LB、Apache、既存serviceのIAMは変更しない。
+公開serviceは`internal-and-cloud-load-balancing` ingressとし、匿名ブラウザのLB経由アクセスに必要なCloud Run Invoker IAM check設定は2026-11-09追補の実行前Gateに従う。run.app直アクセスを検証経路にせず、LB経由だけでHost/Origin/IP判定を確認する。既存LB、Apache、既存serviceのIAMは変更しない。
 
 ### 17A.5 Staging一括実行計画
 
@@ -915,7 +915,7 @@ Git ancestryとblobを照合した結果、PR #36、#43、#45は現行HEADの祖
 - runtime Service Account 2件と限定IAM。
 - OTP/PIRA runtime Secret作成・version登録・Secret単位IAM（既存DB Secretは再作成しない）。
 - OTP/PIRA Artifact 2件のpush。
-- Cloud Run service 2件、Proxy sidecar、Direct VPC設定、限定invoker/ingress。
+- Cloud Run service 2件、Proxy sidecar、Direct VPC設定、2 service限定の匿名LBアクセス・ingress（実行前Gate適用）。
 - Staging専用serverless NEG 2件、backend、URL map、HTTPS proxy、専用IP、証明書、DNS record。
 - Turnstile Staging hostname/site設定と制限SMTP設定。
 - `pira-union` metadataが不存在だった場合の1件だけのINSERT。
@@ -998,7 +998,7 @@ LB完成後の検証順序を次へ固定する。
 | Staging hostname | 確定 | `pira-staging.atlib.jp`。record作成は承認待ち |
 | DNS管理主体 | 一部確定 | 権威DNSはSquarespace。実行アカウント/担当者は承認待ち |
 | LB/証明書 | 承認待ち | 新規global external Application LB、固定IPv4、2 NEG/backend、Google-managed certificate。既存LBは変更しない |
-| runtime SA/IAM | 確定・作成承認待ち | `secumie-otp-staging`、`secumie-pira-staging`。Cloud SQL Client、対応Secret Accessor、service単位Invokerだけ |
+| runtime SA/IAM | 確定・作成承認待ち | `secumie-otp-staging`、`secumie-pira-staging`。Cloud SQL Client、対応Secret Accessor。匿名LBアクセスは新規2 serviceに限定したInvoker IAM check無効化を第一候補（Organization Policy確認後に承認） |
 | SMTP | 方針確定・契約承認待ち | 外部配送しないsandboxを第一候補。provider/account/費用/inbox APIは未確定 |
 | Turnstile | 承認待ち | Staging専用site/secret、許可hostname `pira-staging.atlib.jp` |
 | JWT | 設定確定・鍵生成承認待ち | issuer `https://pira-staging.atlib.jp`、JWKS同origin、初期kid `secumie-stg-202611-01`、秘密鍵はOTPだけ |
