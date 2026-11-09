@@ -985,7 +985,7 @@ LB完成後の検証順序を次へ固定する。
 - 第一候補は、新規2 serviceだけCloud Run Invoker IAM checkを無効化（`--no-invoker-iam-check`）し、IngressでLB経由に到達範囲を限定する構成とする。既存serviceやproject全体のIAMは変更しない。代替のservice単位 `allUsers` Invoker付与は採用前に別途組織ポリシーと影響を確認する。
 - これはLBからの匿名リクエスト到達を許す**インフラ設定**であり、利用者向けのメールOTPを撤廃・強化する意味ではない。
 
-**実行前Read-only Gate:** `run.managed.requireInvokerIam` 等のeffective Organization Policy、`run.allowedIngress`、2 serviceだけのInvok​​er IAM check設定可否、現行projectの公開制約を確認する。禁止ポリシーや権限不足があればSTOPし、無断の組織ポリシー変更・`allUsers` 付与・Ingress `all` への緩和を行わない。
+**実行前Read-only Gate:** `constraints/run.managed.requireInvokerIam` 等のeffective Organization Policy、`run.allowedIngress`、2 serviceだけのInvoker IAM check設定可否、現行projectの公開制約を確認する。禁止ポリシーや権限不足があればSTOPし、無断の組織ポリシー変更・`allUsers` 付与・Ingress `all` への緩和を行わない。
 
 **LB完成後受入Gate:** (1) LB hostからOTP画面、PIRA画面、health/JWKSが正常応答、(2) 外部から `run.app` 直アクセス拒否、(3) Host/Origin/GENERAL拒否、(4) OTP→診断開始→会社情報・同意→8問→v7レポートが既存仕様どおりで追加ログインなし、(5) 既存service IAM/trafficに差分なし。Production公開No-Goは維持する。
 
