@@ -1527,6 +1527,59 @@ Production公開No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、�
 
 Production公開No-Go、GENERAL無効、Secure Guard対象外、追加費用上限15 USD、削除期限`2026-11-20 10:12 JST`を維持する。
 
+### 19.5 `pira-union` metadata文字コード修正・Gate PASS
+
+経営者追加承認・統括再開指示に従い、未実行Job `secumie-pira-metadata-staging`の日本語文字列輸送だけを最小修正した。表示名はWindows PowerShellを通過するJob定義ではASCII Unicode escapeとし、Node実行時に日本語へ復号する方式とした。DB、role、Migration、業務仕様には変更していない。
+
+実行前Gateでは、次を確認した。
+
+- 復号後表示名: `国連協 情報セキュリティ診断`
+- Unicode code point: `56fd 9023 5354 20 60c5 5831 30bb 30ad 30e5 30ea 30c6 30a3 8a3a 65ad`
+- UTF-8 hex: `e59bbde980a3e58d9420e68385e5a0b1e382bbe382ade383a5e383aae38386e382a3e8a8bae696ad`
+- INSERT対象: `pira-union` 1行だけ、`initiative_kind=UNION`、`active=true`
+- 接続先: `secumie_insight_staging`、Migration role
+- task/parallelism 1、retry 0、固定image/Proxy、Direct VPC、Secret参照: 正本一致
+- 実行前Execution: 0件、既存Cloud Run 9サービス: Ready
+
+Gate PASS後に1回だけ実行した。
+
+```text
+Job: secumie-pira-metadata-staging
+Execution: secumie-pira-metadata-staging-crslh
+Result: SUCCEEDED (1/1, retry 0)
+Action: inserted
+```
+
+実行後ログのcode pointおよびUTF-8 byte列は上記固定値と完全一致した。公開API `GET /api/public/pira/v1/intake-contract`はHTTP 404 `INITIATIVE_NOT_FOUND`からHTTP 200へ変わり、UNION施策、承認済み同意版、F01〜F07を返した。`???`、未復号escape、代替文字は保存されていない。GENERALおよび想定外のDB変更はない。
+
+### 19.6 Synthetic E2E結果
+
+metadata Gate PASS後、`https://pira-staging.atlib.jp/`でSynthetic dataだけを用いて実ブラウザE2Eを実施した。
+
+| 項目 | 結果 | 根拠 |
+|---|---|---|
+| Turnstileサーバー側検証 | PASS | OTP challenge作成がHTTP 201。クライアント表示だけではなく、サーバー検証を通過した |
+| Mailtrap Sandbox OTP | PASS | Sandbox受信メールの6桁コードで検証。外部配送・forwardingなし |
+| OTP検証 | PASS | `/v1/otp/challenges/{id}/verify` HTTP 200 |
+| JWT発行／JWKS | PASS | session token発行HTTP 200、JWKS HTTP 200、PIRA側検証を経て受付成功 |
+| PIRA受付 | PASS | `/api/public/pira/v1/submissions` HTTP 201 |
+| 状態遷移 | PASS | ANSWERING、COMPLETEDのstate APIが順にHTTP 200 |
+| 8問／v7レポート | PASS | 8問回答後に承認済みv7レポートと印刷ボタンを実ブラウザで確認 |
+| 異常Host | PASS | 不正Host headerでHTTP 404 |
+| GENERAL無効 | PASS | `/security-check/` HTTP 404、`PIRA_GENERAL_ENABLED=false`を維持 |
+| DB通信・権限境界 | PASS | OTP/PIRA双方が専用roleでDB処理を完了し、権限エラーなし。受入済みDB権限試験は再実行していない |
+| jti再利用拒否 | 未再実行 | ブラウザは操作ごとに新JWTを発行し、tokenを永続化しない。実環境で同一JWTを抽出・再送する追加経路は今回作成していない。既存実DB受入結果を維持 |
+
+最初のブラウザ状態消失後に再送したため、今回のOTP送信は2通（累計2/30）。いずれもMailtrap Sandbox内に限定され、実顧客アドレス・Production SMTPは使用していない。OTPコード、JWT、メールアドレス、SMTP/Turnstile Secretは本証跡、Git、ログへ記録していない。
+
+Cloud Run request logでは、OTP challenge作成201、OTP verify 200、token発行200、PIRA submission 201、ANSWERING/COMPLETED 200、JWKS 200を確認した。E2E時間帯のOTP/PIRA ERRORログは0件。既存7サービスと新規2サービスは全件Readyであり、既存サービスへの影響は確認されなかった。
+
+回答・結果・レポートはブラウザ内だけで処理され、サーバーへ永続保存していない。受付情報・jti・監査はContractの保持対象であり、無断DELETEは行わない。Synthetic受付は保持・cleanup対象として識別し、追記専用監査制約を維持する。
+
+追加リソースは承認済み範囲内で、費用上限15 USD超過を示す事象はない。Cleanup対象はStaging専用Cloud Run 2サービス、SA/Secret、LB/NEG/backend/IP/証明書、metadata一時Job等。Cloud SQL本体のdeletion protection解除・削除は別承認とする。削除期限`2026-11-20 10:12 JST`を維持する。
+
+残存確認は、実環境での同一JWT再利用拒否の独立試験と、サービスイン前の全体image security確認である。Production公開No-Go、GENERAL無効、Secure Guard対象外を維持する。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
