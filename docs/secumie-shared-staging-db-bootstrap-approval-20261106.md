@@ -1424,6 +1424,49 @@ result=PASS
 
 Production公開No-Goを維持する。
 
+## 19. OTP／PIRA Staging配備開始（2026-11-10）
+
+統括PASS・配備再開指示および経営者一括承認に基づき、Registry digest照合PASS後、新規Cloud Run 2サービスとStaging専用固定IPv4の作成までを実施した。既存Cloud Run、既存DB、既存DNS、Production、Secure Guardには変更していない。
+
+### 19.1 Runtime配備結果
+
+| 項目 | OTP | PIRA |
+|---|---|---|
+| Service | `secumie-otp-staging` | `secumie-pira-staging` |
+| Ready revision | `secumie-otp-staging-00001-rxg` | `secumie-pira-staging-00001-vhd` |
+| Traffic | 100%（新規サービス内） | 100%（新規サービス内） |
+| Immutable image | OCI index `sha256:3cfb4e5e07cce3810153c8ac1b7b829f042ec052c67d7c687ff9457866051322` | OCI index `sha256:4892fd38b9374da0c025cd01b5b7f6baa2abdee46fc65f81217c955227ab88b2` |
+| Runtime SA | `secumie-otp-staging@msp-zabbix.iam.gserviceaccount.com` | `secumie-pira-staging@msp-zabbix.iam.gserviceaccount.com` |
+| DB role / pool | `secumie_otp_staging` / max 2 | `secumie_pira_staging` / max 2 |
+
+両サービスで次を確認した。
+
+- `internal-and-cloud-load-balancing` ingress、Invoker IAM check無効化は新規2サービスだけに限定。
+- Direct VPC `default/default`、egress `private-ranges-only`。
+- Cloud SQL Auth Proxy v2 sidecarは固定digest `sha256:7d156a5c466e31596afd6c8ed134f19c207a297418392fdad2686524ca4e7a3c`。
+- max instances 1、DB pool max 2、main containerはProxy startup後に起動。
+- Secretはversion 1参照。Secret値はCLI出力、ログ、Gitへ記録していない。
+- `PIRA_GENERAL_ENABLED=false`を維持。
+- SMTPはMailtrap Email Sandbox、TurnstileはStaging専用Widget。SMTP認証情報は非公開設定のみとし、本証跡へ記録しない。
+- 両revisionはReady。作成直後のERRORログは0件。
+
+### 19.2 Staging専用固定IP
+
+名称競合がないことを確認後、専用HTTPS LB用の固定IPv4を新規作成した。
+
+```text
+name: secumie-staging-ip
+address: 136.69.38.50
+scope: global
+network tier: PREMIUM
+status: RESERVED
+created: 2026-11-10 10:16 JST
+```
+
+次の工程は、Squarespace DNSへ`pira-staging.atlib.jp`のAレコードを1件だけ追加する人間操作である。DNS操作完了までは、serverless NEG、backend、URL map、Google-managed証明書、HTTPS proxy、forwarding ruleの作成を停止する。本番用`pira.atlib.jp`、`www.atlib.jp`、既存DNSレコードには触れない。
+
+Staging削除期限`2026-11-20 10:12 JST`、追加費用上限15 USD、Production公開No-Goを維持する。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
