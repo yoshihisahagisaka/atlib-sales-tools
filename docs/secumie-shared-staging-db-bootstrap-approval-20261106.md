@@ -1686,7 +1686,9 @@ Snippetは固定Origin `https://pira-staging.atlib.jp`、`serviceId=pira-union`�
 安全性:
 
 - JWT、OTP、email、Turnstile／SMTP Secretをconsole、DOM、storage、cookie、file、Git、PRへ出力・保存しない。
-- 結果表示はHTTP status、公開可能な機械コード、受付件数の判定だけ。
+- 結果表示はHTTP status、公開可能な機械コード、API判定だけ。受付件数はSnippetで断定せず、実行後にWorkがRead-only DB照合する。
+- `intake-contract`／`submissions`の両fetchは`redirect: 'error'`を指定し、別Originへのredirectを拒否する。
+- `RUNNING`中は解除ボタンをdisabledとし、処理終了／STOP後だけ解除可能にする。
 - 通信先は同一Originのintake-contract／submissionsだけ。OTP challenge直呼び、認証迂回、別Origin通信はない。
 - 結果確定または例外時にtoken参照をnull化し、元adapterを自動復元する。
 - 画面の解除ボタンでadapter復元と結果panel削除が可能。タブ再読込／終了で既存OTP一時状態も破棄される。
@@ -1697,7 +1699,7 @@ Snippetは固定Origin `https://pira-staging.atlib.jp`、`serviceId=pira-union`�
 1. 通常Chromeで`https://pira-staging.atlib.jp/`を開き、Turnstileの成功表示を確認する。
 2. DevToolsのSources > Snippetsで上記ファイル全文を新規Snippetへ貼り付け、1回実行する。画面右上の`READY`表示を確認する。
 3. 承認済みSyntheticメールを正規UIへ入力してOTPを1通送信し、Mailtrap Sandboxのコードで認証する。コードをconsole／チャットへ貼らない。
-4. `診断を開始する`を押し、右上の結果が`PASS: 初回 HTTP 201、同一JWT再利用 HTTP 409 JWT_REPLAYED。受付は1件です。`と完全一致することを確認する。それ以外はSTOPし、再実行しない。
+4. `診断を開始する`を押し、右上の結果が`PASS: 初回 HTTP 201、同一JWT再利用 HTTP 409 JWT_REPLAYED。API判定PASS、受付件数はDB照合待ちです。`と完全一致することを確認する。それ以外はSTOPし、再実行しない。受付1件・二重受付なしは実行後にWorkがRead-onlyで確定する。
 5. `Snippetを解除して表示を消す`を押し、ページを再読込または閉じる。DevToolsのSnippetを右クリックしてDeleteし、Network HAR／console出力を保存・共有しない。
 
 本節は準備・レビュー資料のみであり、Snippet実行、OTP送信、JWT発行、受付、GCP／DB変更は行っていない。JWT Gateは未実施のまま、統括レビュー待ちとする。

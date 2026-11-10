@@ -58,11 +58,12 @@
       return;
     }
     used = true;
+    cleanup.disabled = true;
     show('RUNNING: 同一JWTの初回受付と再利用拒否を確認しています。');
     try {
       if (typeof value?.token !== 'string' || !value.token) throw new Error('TOKEN_MISSING');
       const apiBase = globalThis.__PIRA_E2_CONFIG__.intakeApiBase;
-      const contractResponse = await fetch(`${apiBase}/intake-contract`, { credentials: 'same-origin' });
+      const contractResponse = await fetch(`${apiBase}/intake-contract`, { credentials: 'same-origin', redirect: 'error' });
       const contract = await contractResponse.json();
       if (contractResponse.status !== 200 || contract?.initiativeCode !== 'pira-union') throw new Error('CONTRACT_MISMATCH');
 
@@ -80,6 +81,7 @@
       const submit = idempotencyKey => fetch(`${apiBase}/submissions`, {
         method: 'POST',
         credentials: 'same-origin',
+        redirect: 'error',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${value.token}` },
         body: JSON.stringify({ ...payload, idempotencyKey }),
       });
@@ -95,7 +97,7 @@
       const replayBody = await replayResponse.json();
       const replayCode = publicCode(replayBody);
       if (replayResponse.status === 409 && replayCode === 'JWT_REPLAYED') {
-        show('PASS: 初回 HTTP 201、同一JWT再利用 HTTP 409 JWT_REPLAYED。受付は1件です。', '#13795b');
+        show('PASS: 初回 HTTP 201、同一JWT再利用 HTTP 409 JWT_REPLAYED。API判定PASS、受付件数はDB照合待ちです。', '#13795b');
       } else {
         show(`FAIL: 初回 HTTP 201、再利用 HTTP ${replayResponse.status} / ${replayCode}。再試行しないでください。`, '#b42318');
       }
@@ -105,6 +107,7 @@
       value.token = null;
       value.issueToken = null;
       restore();
+      cleanup.disabled = false;
     }
   }
 
