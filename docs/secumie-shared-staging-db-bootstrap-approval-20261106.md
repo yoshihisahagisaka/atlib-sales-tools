@@ -1507,6 +1507,26 @@ TLS verification               -> PASS
 
 Production公開No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、追加費用上限15 USD、Staging削除期限`2026-11-20 10:12 JST`を維持する。
 
+### 19.4 `pira-union` metadata Gateの実行前STOP
+
+統括Gate PASS後、公開API `GET /api/public/pira/v1/intake-contract`をRead-only照会し、`INITIATIVE_NOT_FOUND`（HTTP 404）を確認した。これはMigrationが施策seedを持たない既知の「不存在」分岐である。
+
+既存HA-2承認seedの固定値を照合し、Migration主体・retry 0・task/parallelism 1・固定Proxy/Direct VPCを使う一時Job `secumie-pira-metadata-staging`を作成した。ただし実行前の`describe`照合で、承認済み表示名`国連協 情報セキュリティ診断`がJob定義上`??? ??????????`へ変換されていることを検出した。Windows PowerShellからYAMLを渡す過程の文字コード変換と判断できるが、固定metadataの不一致であるため、承認済みSTOP条件に従い実行しなかった。
+
+確認結果:
+
+- metadata Job Execution: 0件。
+- `pira-union` INSERT、GENERAL操作、その他DB書込み: 未実施。
+- 公開intake contract: HTTP 404を維持。
+- 既存Cloud Run 7サービスと新規OTP/PIRA 2サービス: 全件Ready。
+- Secret値のログ/Git出力: なし。
+- Synthetic E2E: metadata Gate未通過のため未実施。
+- 自動再試行、Job定義修復、権限変更、DB削除: 未実施。
+
+再開時は、固定表示名をASCIIのUnicode escapeとしてJob定義へ埋め込む、または既存Artifactへ固定allowlist CLIを収録するなど、実行前`describe`で文字列の完全一致を証明できる方式が必要である。既存の誤ったJobは未実行のまま残存し、削除・更新は次の統括指示まで行わない。
+
+Production公開No-Go、GENERAL無効、Secure Guard対象外、追加費用上限15 USD、削除期限`2026-11-20 10:12 JST`を維持する。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
