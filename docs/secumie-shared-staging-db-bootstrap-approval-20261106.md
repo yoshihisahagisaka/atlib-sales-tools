@@ -1706,6 +1706,32 @@ Snippetは固定Origin `https://pira-staging.atlib.jp`、`serviceId=pira-union`�
 
 Production公開No-Go、GENERAL無効、Secure Guard対象外、追加費用上限15 USD、Mailtrap上限30通、削除期限`2026-11-20 10:12 JST`を維持する。
 
+### 19.11 同一JWT再利用拒否の実測照合・Image Security残存Gate（2026-11-10）
+
+萩坂が通常Chromeでレビュー済みSnippetを1回だけ実行し、初回HTTP 201、同一JWT・異なるidempotency keyによる2回目HTTP 409 `JWT_REPLAYED`を確認した。実行後は一時adapter解除、Stagingページ終了、Snippet削除まで完了している。JWT、OTP、email、認証header等は証跡へ取得・記録していない。
+
+WorkのRead-only照合結果は次のとおりである。
+
+- Cloud Run request log: `2026-11-10T07:08:14.503357Z`に`POST /api/public/pira/v1/submissions`が201、同`07:08:14.656889Z`に同endpointが409。順序は201→409で一致した。
+- Cloud SQL log: 同`07:08:14.689Z`に`secumie_pira_staging`による`pira.pira_consumed_jti` INSERTが主キー重複で拒否された。これはAPIの`JWT_REPLAYED`と整合する。PIRA Cloud Runのseverity ERRORは当該時間帯を含む直近1日で0件であり、上記409以外の想定外アプリケーション異常は確認されなかった。
+- DB直接件数照会: 既存IAP/VPC経路のTCP到達性と`psql`は確認できたが、Secret値を表示しないstdin輸送ではDB認証が成立しなかった。認証情報、role、Secret、IAMは変更していない。したがって`pira_submission=1`および対応する`pira_consumed_jti=1`の直接COUNTは未確認であり、推測でPASSにしない。
+- OTP challenge作成API: Staging配備後の累計3回（今回1回を含む、上限30回以内）。追加送信・JWT発行・再受付試験は実施していない。
+- Cloud Run: `atlib-cashflow`、`msp-customer-portal`、PPAP 3サービス、`sales-tools`、`sales-tools-staging`、Staging OTP/PIRAの全9サービスがReady=True。
+
+以上により、ブラウザ/API/DB一意制約による再利用拒否経路はPASSしたが、統括指示が要求する受付1件・jti消費1件の直接COUNTが未確認であるため、**同一JWT Gateの最終判定は未確認／STOP**とする。無断の再試験、追加OTP送信、追加JWT発行、DB/IAM変更は行っていない。
+
+配備中imageのdigestをCloud Run定義、ローカルimage、検査対象で照合し、Docker Scout CLI v1.24.0の最新取得可能advisory dataで再検査した（2026-11-10 JST）。再build、再push、再deployは行っていない。
+
+| 対象 | 配備／検査digest | 最新追加実測 | 判定 |
+|---|---|---|---|
+| OTP runtime | `sha256:3cfb4e5e07cce3810153c8ac1b7b829f042ec052c67d7c687ff9457866051322` | Critical 0 / High 0 / Medium 6 / Low 0、373 packages | Critical/High Gate PASS |
+| PIRA runtime | `sha256:4892fd38b9374da0c025cd01b5b7f6baa2abdee46fc65f81217c955227ab88b2` | Critical 0 / High 0 / Medium 6 / Low 0、373 packages | Critical/High Gate PASS |
+| Cloud SQL Auth Proxy sidecar | `sha256:7d156a5c466e31596afd6c8ed134f19c207a297418392fdad2686524ca4e7a3c` | Critical 0 / **High 1** / Medium 1 / Low 0、88 packages。`golang.org/x/net 0.61.0`のCVE-2026-78661（fix 0.62.0）がHigh | **STOP** |
+
+第17A.13節の過去検査（2026-11-09、OTP/PIRA Critical 0 / High 0）と、本節の2026-11-10追加実測を区別する。OTP/PIRA本体はCritical/High 0を維持したが、同じRevisionで稼働する固定Proxy sidecarにHigh 1件を確認したため、既定のCritical/High STOP条件に従い**Image Security GateはSTOP**とする。無断のProxy更新、runtime再配備、IAM/DB/network変更は行わない。
+
+GCP、DB、IAM、LB、DNS、Secretへの変更は0件。ローカルには検査目的で固定Proxy digestをpullしただけで、Stagingリソースへの変更はない。追加費用上限15 USDと削除期限`2026-11-20 10:12 JST`への変更はない。Production公開No-Go、GENERAL無効、Secure Guard対象外を維持する。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
