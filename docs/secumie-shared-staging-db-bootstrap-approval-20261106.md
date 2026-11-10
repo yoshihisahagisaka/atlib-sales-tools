@@ -1580,6 +1580,37 @@ Cloud Run request logでは、OTP challenge作成201、OTP verify 200、token発
 
 残存確認は、実環境での同一JWT再利用拒否の独立試験と、サービスイン前の全体image security確認である。Production公開No-Go、GENERAL無効、Secure Guard対象外を維持する。
 
+### 19.7 同一JWT再利用拒否・OTP送信前STOP（2026-11-10）
+
+統括コメント #6759597180 の既存`publicAuthIntakeAdapter`経路を採用し、OTP送信前にソースと実ページを照合した。専用の一時Chromeセッション内だけで標準adapterを保存・差し替え、終了時に復元する方式とした。handlerは正規Turnstile／OTP／JWT経路を維持し、同一JWTをページメモリ内だけで初回受付（idempotency key A）と再利用受付（別key B）へ使用する。token、OTP、Synthetic email、Secretをconsole、標準出力、ファイル、Gitへ出さないことを事前レビューした。
+
+実ページpreflight:
+
+```text
+origin: https://pira-staging.atlib.jp (match)
+standard publicAuthIntakeAdapter: present
+serviceId: pira-union
+intakeApiBase: /api/public/pira/v1
+temporary adapter: installed in browser memory only
+```
+
+ただし、一時試験プロセスがTurnstile tokenの準備完了を明示的に待たず、送信ボタンのenabled状態だけを待ってクリックしたため、画面側はchallenge APIを呼び出さず、30秒でresponse待機がtimeoutした。Cloud Run request logをRead-only確認した結果、当該時間帯のOTP runtime requestは0件であり、OTP送信、challenge作成、JWT発行、PIRA受付、jti消費は発生していない。
+
+判定:
+
+- 同一JWT再利用拒否の独立試験: **未実施／STOP（PASS扱い禁止）**
+- OTP送信追加: 0通（累計2/30を維持）
+- DB／IAM／Cloud Run／LB／DNS／Secret変更: なし
+- Synthetic submission／jti／監査の追加副作用: なし
+- 既存9 Cloud Run: 実行前全件Ready
+- 一時プロセス／ブラウザ: 終了、一時ファイル: 削除
+
+承認済み「途中FAIL時は再試行しない」に従い、その場で再実行していない。再開する場合の最小差分は、OTP送信ボタンを押す前に`publicAuthTurnstileToken()`の**戻り値そのものを外部へ取り出さず、booleanの準備完了だけ**をページ内で待つことである。新規backend route、Turnstile bypass、恒久保存、権限追加は不要であるが、再実行は次の統括指示まで行わない。
+
+同一JWT GateがPASSしていないため、後段のサービスイン前全体image security Gateの追加実測は本工程では開始していない。既存のOTP/PIRA runtime Critical 0／High 0、digest照合PASSと、Proxy sidecar／最新advisory DBの残存Fit/Gap（統括コメント #6759374518）を維持する。
+
+Production公開No-Go、GENERAL無効、Secure Guard対象外、追加費用上限15 USD、削除期限`2026-11-20 10:12 JST`を維持する。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
