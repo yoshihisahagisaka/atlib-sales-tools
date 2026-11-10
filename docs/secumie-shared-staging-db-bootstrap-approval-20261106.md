@@ -1641,6 +1641,38 @@ JWT Gateが未PASSのため、後段のimage security追加実測は開始して
 
 Production公開No-Go、GENERAL無効、Secure Guard対象外、追加費用上限15 USD、削除期限`2026-11-20 10:12 JST`を維持する。
 
+### 19.9 Turnstile DOM応答判定による再開結果（2026-11-10）
+
+統括指示 #6760215749 に従い、Turnstile準備判定を次のDOM内booleanへ限定して再開した。response値、長さ、ハッシュ等は検証プロセスへ転送・出力・保存していない。
+
+```javascript
+Boolean(document.querySelector('#turnstile input[name="cf-turnstile-response"]')?.value)
+```
+
+最新HEAD、固定Origin、`pira-union`、標準`publicAuthIntakeAdapter`、API base、一時メモリ内handler、9サービスReadyは実行前GateでPASSした。しかしWork管理の自動化Chromeでは、DOM response booleanが120秒以内にtrueにならなかった。指示どおり待機延長や再試行をせず、送信ボタンを押す前にSTOPした。
+
+- OTP runtime request: 0件（当該10分間のCloud Run request logで確認）
+- OTP追加送信: 0通（累計2/30維持）
+- challenge／JWT／PIRA submission／jti消費: 0件
+- 同一JWT再利用拒否試験: **未実施／STOP**
+- DB／Cloud Run／IAM／LB／DNS／Secret変更: なし
+- 既存9 Cloud Run: STOP後も全件Ready
+- 一時Chrome／process／script: 終了・削除
+
+統括指示にある通常ユーザー操作ブラウザへの切替は、次の1回限りのhandoffを候補とする。
+
+1. 利用者が通常Chromeで`https://pira-staging.atlib.jp/`を開き、画面上のTurnstile成功を確認する。
+2. OTP送信前に、レビュー済みの一時snippetを当該ページのDevTools Sources > Snippetsで1回だけ実行し、標準`publicAuthIntakeAdapter`をページメモリ内だけで保存／差替えする。snippetはtoken／OTP／emailをconsole、Network共有ログ、ファイル、storageへ出さず、終了時に元adapterへ復元する。
+3. 利用者が正規UIでOTP送信、Mailtrapコード入力、「診断を開始する」を操作する。
+4. snippetが同一JWTでkey Aの初回201、別key Bの409 `JWT_REPLAYED`だけを画面へ非機密表示し、token参照を破棄する。
+5. WorkはCloud Run status／理由コード、受付1件・二重受付なしをRead-only照合する。
+
+このhandoff用snippetはまだ作成・実行していない。ユーザー操作ブラウザのTurnstile成功をWork管理Chromeへ流用せず、認証迂回やAPI直呼びも行わない。実行には統括の次の具体的指示と利用者の操作が必要である。
+
+JWT Gate未PASSのため、image security追加実測は開始していない。既存runtime Critical 0／High 0・digest照合PASS、およびProxy sidecar／最新advisory DBの残存Fit/Gapを維持する。
+
+Production公開No-Go、GENERAL無効、Secure Guard対象外、追加費用上限15 USD、削除期限`2026-11-20 10:12 JST`を維持する。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
