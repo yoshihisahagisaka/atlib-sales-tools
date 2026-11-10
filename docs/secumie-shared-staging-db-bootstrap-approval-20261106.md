@@ -1611,6 +1611,36 @@ temporary adapter: installed in browser memory only
 
 Production公開No-Go、GENERAL無効、Secure Guard対象外、追加費用上限15 USD、削除期限`2026-11-20 10:12 JST`を維持する。
 
+### 19.8 Turnstile有限待機による再開結果（2026-11-10）
+
+統括再開指示 #6759919669 に従い、前回STOP原因だけを修正した。正規JSと同じ`window.turnstile?.getResponse?.() || window.publicAuthTurnstileToken?.()`について、token値を検証プロセスへ返さず、ページ内booleanだけを最大120秒待つ一時処理とした。標準adapterの保存／復元、同一JWT・異なるidempotency key A/B、秘密値非出力等の19.7の安全境界は維持した。
+
+実行前Gateは次のとおりPASSした。
+
+```text
+HEAD: 19b589c8737e912aebedd8f2ea46bfc6db981f56
+origin: https://pira-staging.atlib.jp (match)
+standard publicAuthIntakeAdapter: present
+serviceId: pira-union
+intakeApiBase: /api/public/pira/v1
+Cloud Run: 既存7 + Staging OTP/PIRA 2、全9サービスReady
+```
+
+専用Chromeセッションでadapterをページメモリ内へ一時設定し、Turnstile booleanを120秒待機したが、準備完了は成立しなかった。承認済み条件に従い送信ボタンを押さず、OTP／JWT／受付試験へ進まずSTOPした。Cloud Run request logをRead-only確認し、当該10分間のOTP runtime requestが0件であることを確認した。
+
+- OTP追加送信: 0通（累計2/30維持）
+- challenge／session／JWT／PIRA submission／jti消費: 0件
+- 同一JWT再利用拒否試験: **未実施／STOP（PASS扱い禁止）**
+- DB／Cloud Run／IAM／LB／DNS／Secret変更: なし
+- 既存9 Cloud Run: STOP後も全件Ready
+- 一時プロセス／Chrome: 終了、一時script: 削除
+
+原因は、Work管理の自動化ChromeセッションでStaging Turnstile tokenが有限時間内に発行されなかったことである。正規認証ロジックの不具合やjti拒否の合否を示すものではない。CAPTCHA／Turnstileを迂回せず、同一実行の自動再試行も行っていない。
+
+JWT Gateが未PASSのため、後段のimage security追加実測は開始していない。既存runtime Critical 0／High 0・digest照合PASS、およびProxy sidecar／最新advisory DBの残存Fit/Gapを維持する。
+
+Production公開No-Go、GENERAL無効、Secure Guard対象外、追加費用上限15 USD、削除期限`2026-11-20 10:12 JST`を維持する。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
