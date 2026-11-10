@@ -1732,6 +1732,44 @@ WorkのRead-only照合結果は次のとおりである。
 
 GCP、DB、IAM、LB、DNS、Secretへの変更は0件。ローカルには検査目的で固定Proxy digestをpullしただけで、Stagingリソースへの変更はない。追加費用上限15 USDと削除期限`2026-11-20 10:12 JST`への変更はない。Production公開No-Go、GENERAL無効、Secure Guard対象外を維持する。
 
+### 19.12 JWT直接COUNT・Proxy公式修正状況の最終確認（2026-11-10）
+
+基準Commit `6ac6c2874d2dc314659e70a2259071e7b9d724cf`、§19.11、PR #46の記録を照合し、残存する2 Gateだけを独立して確認した。Migration、DB Acceptance、OTP、JWT発行、受付、通常E2Eは再実行していない。
+
+#### 19.12.1 JWT GateのDB直接件数照合
+
+対象はCloud SQL `secumie-sg-shared-staging-db`（Private IP `172.20.0.3`）、database `secumie_insight_staging`、Migration 041でSELECTを許可済みの既存role `secumie_admin_staging`、既存Secret `secumie-stg-db-admin-password:1`である。Secret version 1はenabled、instanceはRUNNABLEであることを値非表示で確認した。
+
+前回は`secumie_pira_staging`とSSH stdin輸送を使用し、DB認証が成立しなかった。今回は権限拡大を行わず、既存IAP経路で`msp-frontend-server`からPrivate IPへのTCP到達性を使った。ローカルの一時SSH port forwardを介し、Secret値をPowerShell環境変数からPostgreSQL 16 `psql` processへだけ渡した。値はSSH command、CLI引数、標準出力、Git、PR、ログへ出していない。終了時に環境変数を破棄し、一時tunnelを停止した。
+
+指定されたSQLを`BEGIN TRANSACTION READ ONLY`から`ROLLBACK`まで1回だけ実行し、次を実測した（2026-11-10 17:01 JSTまでに完了）。
+
+```text
+accepted_submissions = 1
+consumed_create_jti  = 1
+transaction end      = ROLLBACK
+```
+
+対象時間帯は`2026-11-10 07:08:00+00`以上`07:09:00+00`未満であり、受付は1件だけなので一意に特定できる。§19.11のCloud Run 201→409、Cloud SQLの`pira_consumed_jti`主キー重複ログと矛盾しない。データ変更、追加OTP、追加JWT、再受付、role/Secret/IAM変更は0件である。
+
+以上により、**同一JWT再利用拒否Gateは最終PASS**とする。
+
+#### 19.12.2 Cloud SQL Auth Proxy公式修正状況
+
+2026-11-10 17:01 JST時点で、Google公式GitHub release API、v2.27.0 tagの`go.mod`、main branchの`go.mod`、公式container tagをRead-only照合した。
+
+- 公式最新Release: `v2.27.0`、公開日時`2026-10-29T21:53:35Z`。Release: https://github.com/GoogleCloudPlatform/cloud-sql-proxy/releases/tag/v2.27.0
+- 公式`v2.27.0` container tagのdigest: `sha256:7d156a5c466e31596afd6c8ed134f19c207a297418392fdad2686524ca4e7a3c`。現在Stagingで稼働・検査したdigestと完全一致する。
+- v2.27.0 tagの依存関係: `golang.org/x/net v0.61.0`。Source: https://github.com/GoogleCloudPlatform/cloud-sql-proxy/blob/v2.27.0/go.mod
+- main branchも`golang.org/x/net v0.61.0`。Source: https://github.com/GoogleCloudPlatform/cloud-sql-proxy/blob/main/go.mod
+- CVE-2026-78661の修正版`golang.org/x/net v0.62.0`を取り込んだ、v2.27.0より新しい公式Release／公式修正imageは確認できない。
+
+§19.11の最新追加実測（Proxy Critical 0 / High 1 / Medium 1）を維持する。公式修正版が未提供であり、独自build、image差替え、再push、Cloud Run再配備は行っていない。したがって、**Image Security Gateは公式修正待ちのSTOP**を維持する。
+
+次の承認対象は、Google公式が`golang.org/x/net v0.62.0`以降を含むRelease/imageを公開した後の、公式digest照合・脆弱性再検査・Proxy更新差分のレビューである。本工程ではGCP、DB、IAM、Cloud Run、LB、DNS、Secret、Production、Secure Guardに変更を加えていない。
+
+Production No-Go、`PIRA_GENERAL_ENABLED=false`、OTP累計3/30、Cloud Run 9/9 Ready、OTP/PIRA追加費用上限15 USD、Cloud SQL既承認上限75 USD、cleanup期限`2026-11-20 10:12 JST`を維持する。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
