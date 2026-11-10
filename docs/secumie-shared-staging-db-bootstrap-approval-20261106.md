@@ -1673,6 +1673,37 @@ JWT Gate未PASSのため、image security追加実測は開始していない。
 
 Production公開No-Go、GENERAL無効、Secure Guard対象外、追加費用上限15 USD、削除期限`2026-11-20 10:12 JST`を維持する。
 
+### 19.10 通常Chrome handoff用Snippetレビュー資料（2026-11-10）
+
+統括コメント #6760678508 に基づき、実行せず静的レビュー用のDevTools Sources > Snippetsコードを次へ保全した。
+
+```text
+scripts/readiness/secumie-staging-jti-replay.snippet.js
+```
+
+Snippetは固定Origin `https://pira-staging.atlib.jp`、`serviceId=pira-union`、既存intake API、既存`publicAuthIntakeAdapter`だけを使用する。元adapterを保存し、一時adapterは1回だけ起動する。同一JWTをページclosure内だけで、異なるUUIDのidempotency key A/Bによる2回の受付へ使用する。期待結果は初回HTTP 201、再利用HTTP 409 `JWT_REPLAYED`である。
+
+安全性:
+
+- JWT、OTP、email、Turnstile／SMTP Secretをconsole、DOM、storage、cookie、file、Git、PRへ出力・保存しない。
+- 結果表示はHTTP status、公開可能な機械コード、受付件数の判定だけ。
+- 通信先は同一Originのintake-contract／submissionsだけ。OTP challenge直呼び、認証迂回、別Origin通信はない。
+- 結果確定または例外時にtoken参照をnull化し、元adapterを自動復元する。
+- 画面の解除ボタンでadapter復元と結果panel削除が可能。タブ再読込／終了で既存OTP一時状態も破棄される。
+- 初回失敗、期待外status、2回目受理、通信例外ではSTOP表示し、Snippet内の自動retryはない。
+
+統括レビュー後の手動操作は次の5ステップに限定する。
+
+1. 通常Chromeで`https://pira-staging.atlib.jp/`を開き、Turnstileの成功表示を確認する。
+2. DevToolsのSources > Snippetsで上記ファイル全文を新規Snippetへ貼り付け、1回実行する。画面右上の`READY`表示を確認する。
+3. 承認済みSyntheticメールを正規UIへ入力してOTPを1通送信し、Mailtrap Sandboxのコードで認証する。コードをconsole／チャットへ貼らない。
+4. `診断を開始する`を押し、右上の結果が`PASS: 初回 HTTP 201、同一JWT再利用 HTTP 409 JWT_REPLAYED。受付は1件です。`と完全一致することを確認する。それ以外はSTOPし、再実行しない。
+5. `Snippetを解除して表示を消す`を押し、ページを再読込または閉じる。DevToolsのSnippetを右クリックしてDeleteし、Network HAR／console出力を保存・共有しない。
+
+本節は準備・レビュー資料のみであり、Snippet実行、OTP送信、JWT発行、受付、GCP／DB変更は行っていない。JWT Gateは未実施のまま、統括レビュー待ちとする。
+
+Production公開No-Go、GENERAL無効、Secure Guard対象外、追加費用上限15 USD、Mailtrap上限30通、削除期限`2026-11-20 10:12 JST`を維持する。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
