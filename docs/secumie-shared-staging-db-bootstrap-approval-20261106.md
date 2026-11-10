@@ -1223,6 +1223,26 @@ Bootstrap/Migration SAの流用、runtime SAへのArtifact Writer／Secret Admin
 
 Cloud Run 2 serviceは、必須SMTP/Turnstile Secretのversion 1および公開site key/SMTP接続識別子が未確定のため作成前Gateで待機する。placeholder、無効なSecret、認証迂回でserviceを作成しない。
 
+### 17A.16 Registry manifest／config digest再照合（2026-11-10）
+
+統括指示コメント #6755482813 に従い、再build・再pushなしでローカルDocker image、Artifact RegistryのOCI index、linux/amd64 platform manifest、config objectを階層別に照合した。取得時点は2026-11-10 JSTである。
+
+| image | local Docker `.Id` / Registry OCI index | linux/amd64 manifest | local / remote config digest | 判定 |
+|---|---|---|---|---|
+| OTP | `sha256:3cfb4e5e07cce3810153c8ac1b7b829f042ec052c67d7c687ff9457866051322` | `sha256:a9ffd8f87411c4497a34aa31990cc6c3168bc28d7c849127eac8dc95354b8e83` | `sha256:60cdc085d4bcf01a48ce2f515a0c63f1f8aae017ed80dd4c674774b12f47aafe` | PASS |
+| PIRA | `sha256:4892fd38b9374da0c025cd01b5b7f6baa2abdee46fc65f81217c955227ab88b2` | `sha256:37344174b112f98f1458e235f7d8b900f31a7b2ca0b2cb677c0057e2bed89743` | `sha256:276a4a26af17d7c25bb7d8e597c10bc492bc7963151b49092612e445a0c9b9c8` | PASS |
+
+各Registry objectは`application/vnd.oci.image.index.v1+json`で、linux/amd64の実行manifestとunknown/unknownのattestation manifestを含む。ローカルDocker Desktopのcontainerd image storeにおける`.Id`はこのOCI index digestを返しており、config digestではない。`docker image save`の`manifest.json`が参照するconfig JSON digestと、Registryのlinux/amd64 manifestに含まれる`config.digest`を比較し、両imageで完全一致した。
+
+Cloud Runへ固定する不変参照はconfig digestやplatform manifestではなく、検証済みOCI indexの次の参照とする。
+
+```text
+asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/secumie-otp-runtime@sha256:3cfb4e5e07cce3810153c8ac1b7b829f042ec052c67d7c687ff9457866051322
+asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/secumie-pira-runtime@sha256:4892fd38b9374da0c025cd01b5b7f6baa2abdee46fc65f81217c955227ab88b2
+```
+
+第17A.15節の「local image IDとRegistry digest一致」は上記OCI index同士の一致を意味し、config digestの一致を意味する記載ではない。本節で階層と同一性を訂正・補完し、Registry GateをPASSとする。
+
 ## 18. Recovery・Migration最終承認実行結果（2026-11-08）
 
 ### 18.1 Recovery
