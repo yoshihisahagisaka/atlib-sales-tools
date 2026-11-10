@@ -1467,6 +1467,46 @@ created: 2026-11-10 10:16 JST
 
 Staging削除期限`2026-11-20 10:12 JST`、追加費用上限15 USD、Production公開No-Goを維持する。
 
+### 19.3 DNS反映・専用HTTPS LB・証明書
+
+CEOによるSquarespace DNS操作完了報告後、公開DNSを独立確認し、`pira-staging.atlib.jp`のAレコードが固定IP `136.69.38.50`へ解決されることを確認した。その後、承認済みの新規Staging専用リソースだけを作成した。
+
+| 種別 | リソース |
+|---|---|
+| Serverless NEG | `secumie-otp-staging-neg`、`secumie-pira-staging-neg` |
+| Global backend | `secumie-otp-staging-backend`、`secumie-pira-staging-backend` |
+| URL map | `secumie-staging-url-map` |
+| Managed certificate | `secumie-staging-cert` |
+| HTTPS proxy | `secumie-staging-https-proxy` |
+| Forwarding rule | `secumie-staging-https`（新規1件、TCP 443） |
+
+URL mapは`pira-staging.atlib.jp`に限定し、`/v1/otp/*`、`/v1/auth/*`、`/.well-known/jwks.json`をOTP backendへ、それ以外をPIRA backendへ送るsame-origin構成とした。既存LB、既存backend、既存DNSレコードには変更していない。
+
+Google-managed証明書は次のとおり発行完了した。
+
+```text
+certificate: secumie-staging-cert
+domain: pira-staging.atlib.jp
+status: ACTIVE
+domain status: ACTIVE
+active confirmed: 2026-11-10 11:43 JST
+expire time: 2027-02-08 11:36 JST
+```
+
+HTTPS経路のRead-only smoke結果:
+
+```text
+GET /healthz                    -> 200 (PIRA backend)
+GET /.well-known/jwks.json      -> 200 (OTP backend)
+GET /                           -> 200 (PIRA static UI)
+remote IP                       -> 136.69.38.50
+TLS verification               -> PASS
+```
+
+既存Cloud Run 7サービスと新規2サービスはすべてReadyであり、既存サービスへの影響は確認されなかった。DB受入済み項目、Migration、保持処理は再実行していない。次工程は`pira-union` metadata Gateと、Mailtrap Sandbox／Turnstileを用いたSynthetic E2Eおよび境界試験である。
+
+Production公開No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、追加費用上限15 USD、Staging削除期限`2026-11-20 10:12 JST`を維持する。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
