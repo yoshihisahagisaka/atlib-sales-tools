@@ -1770,6 +1770,79 @@ transaction end      = ROLLBACK
 
 Production No-Go、`PIRA_GENERAL_ENABLED=false`、OTP累計3/30、Cloud Run 9/9 Ready、OTP/PIRA追加費用上限15 USD、Cloud SQL既承認上限75 USD、cleanup期限`2026-11-20 10:12 JST`を維持する。
 
+### 19.13 Staging cleanup Read-only Preflight（2026-11-10）
+
+#### 19.13.1 調査条件と判定境界
+
+2026-11-10 17:19 JST、基準commit `689467dfc2306ca5292f32ac97ccc3f73f0916ef`、Project `msp-zabbix`、Region `asia-northeast1`を対象に、Git、PR #46、§17A.10、§19.1〜19.6、§19.11〜19.12およびGCP現物をRead-onlyで照合した。Secret payload、JWT、OTP、メールアドレス、業務レコードは取得していない。GCP、DB、IAM、Secret、DNS、外部サービスの変更件数はすべて0件である。
+
+cleanup区分は次の3区分とする。
+
+- **既承認**：§17A.10および§19.6のStaging一時runtime／公開経路cleanup範囲で、依存解除と直前GateのPASS後に削除可能。
+- **別承認必要**：共用Cloud SQL、DB初期化資産、DB Secretなど、runtime cleanupだけでは削除できないもの。
+- **対象外**：既存7サービス、Production、GENERAL、Secure Guardおよび既存共有基盤。
+
+#### 19.13.2 GCP現物とcleanup区分
+
+| Resource | 作成目的 | 現在状態・依存先 | cleanup区分 | 削除順序案／停止条件 | 費用Gate |
+| --- | --- | --- | --- | --- | --- |
+| Cloud Run `secumie-otp-staging` / `asia-northeast1` | Staging専用OTP | Ready revision `secumie-otp-staging-00001-rxg`。runtime digest `sha256:3cfb4e5e07cce3810153c8ac1b7b829f042ec052c67d7c687ff9457866051322`、Proxy digest `sha256:7d156a5c466e31596afd6c8ed134f19c207a297418392fdad2686524ca4e7a3c`。専用SA、4 runtime Secret、OTP DB Secret、Direct VPC、Cloud SQL、OTP NEGから参照。Ingressは`internal-and-cloud-load-balancing`、maxScale 1、DB pool 2。 | 既承認 | DNS停止・LB切離し後に削除。別用途のrevision／image参照、追加試験予定、既存サービス異常があればSTOP。 | min instanceなし。低トラフィックの従量課金のみ。 |
+| Cloud Run `secumie-pira-staging` / `asia-northeast1` | Staging専用PIRA | Ready revision `secumie-pira-staging-00001-vhd`。runtime digest `sha256:4892fd38b9374da0c025cd01b5b7f6baa2abdee46fc65f81217c955227ab88b2`、同じProxy digest。専用SA、PIRA DB Secret、Direct VPC、Cloud SQL、PIRA NEGから参照。`PIRA_GENERAL_ENABLED=false`、maxScale 1、DB pool 2。 | 既承認 | OTPと同じ。 | 同上。 |
+| Runtime SA `secumie-otp-staging@...`、`secumie-pira-staging@...` | Staging runtime専用 | 各SAのProject roleは`roles/cloudsql.client`のみ。各Cloud Run serviceでのみ使用。OTP SAは4 runtime SecretとOTP DB Secret、PIRA SAはPIRA DB SecretのAccessor。 | 既承認 | Cloud Run削除・利用先0確認後、Project IAMとSecret単位IAMを解除してSA削除。予期しない利用先・roleがあればSTOP。 | 固定費なし。 |
+| Runtime Secret `secumie-stg-smtp-password`、`secumie-stg-turnstile-secret`、`secumie-stg-otp-hmac-key`、`secumie-stg-otp-jwt-keys` | Staging runtime専用 | 各Version 1はENABLED。AccessorはOTP runtime SAだけ。値は未取得。 | 既承認 | OTP serviceとSA削除後に4 Secretを削除。想定外principal／利用先があればSTOP。 | active version 4件の名目最大は月額約0.24 USD（free tier適用前、日割り）。 |
+| DB Secret `secumie-stg-db-otp-password`、`secumie-stg-db-pira-password` | DB接続共有境界 | runtime SAに加えBootstrap SAも参照。DB初期化・運用資産と共有。 | 別承認必要 | runtime SAのAccessorだけ解除し、Secret本体は削除しない。 | Cloud SQL費用枠側。 |
+| Global IP `secumie-staging-ip` (`136.69.38.50`) | Staging専用LB | IN_USE。利用先は`secumie-staging-https`だけ。 | 既承認 | forwarding rule削除直後に解放。別参照があればSTOP。 | forwarding接続中はIP追加料金なし。未接続で残すと約0.01 USD/時。 |
+| Forwarding rule `secumie-staging-https` | Staging専用HTTPS入口 | TCP 443、`secumie-staging-https-proxy`だけを参照。 | 既承認 | DNS停止・TTL経過後、LBの最初に削除。 | Global forwarding ruleは約0.025 USD/時（最初の5件帯）。 |
+| Target proxy `secumie-staging-https-proxy`、certificate `secumie-staging-cert`、URL map `secumie-staging-url-map` | Staging専用TLS・routing | Proxyは専用certとURL mapだけを参照。cert/domainはACTIVE。URL mapのhostは`pira-staging.atlib.jp`のみ。OTP pathだけOTP backend、defaultはPIRA backend。 | 既承認 | forwarding切離し後、proxy、cert／URL mapの順。既存LBとの共有が見つかればSTOP。 | 上記LB費用に包含。 |
+| Backend `secumie-otp-staging-backend`、`secumie-pira-staging-backend` | Staging専用routing | 専用URL mapだけから参照し、各専用NEGだけを参照。 | 既承認 | URL map削除後に削除。別URL map参照があればSTOP。 | serverless NEG経由の処理・通信は従量。 |
+| NEG `secumie-otp-staging-neg`、`secumie-pira-staging-neg` | Staging専用Cloud Run接続 | 各Staging Cloud Run 1サービスだけを参照。 | 既承認 | Backend削除後に削除。 | 固定費なし。 |
+| Job `secumie-pira-metadata-staging` | `pira-union`の条件付き登録 | Ready。Migration SA／Secret、DB operations image、Proxyを使用。成功Execution `secumie-pira-metadata-staging-crslh`。 | 既承認 | 非機密Execution証跡保全後、active execution 0を確認して削除。SA／Secret／image本体は共有のため削除しない。 | 非実行時の固定費なし。 |
+| Jobs `secumie-db-bootstrap-staging`、`secumie-db-migrate-staging`、`secumie-db-acceptance-staging` | DB初期化・Migration・受入 | Ready。Bootstrap／Migration SA、6 DB Secret、DB operations image、Proxy、Cloud SQLに依存。成功・過去失敗Executionを保持。 | 別承認必要 | runtime cleanupに含めない。DB cleanup承認で証跡・再利用要否を確認して扱う。 | 非実行時の固定費なし。 |
+| Runtime Artifact OTP/PIRA image | Staging runtime専用artifact | 各専用image名・digestは上記2サービスに配備。`db-operations` imageとは別。 | 既承認 | Cloud Run削除後、他revision／service参照0を再確認して対象digest／versionを削除。参照不明ならSTOP。 | Artifact Registryは0.5 GiB-month free tier後に容量課金。 |
+| Cloud SQL `secumie-sg-shared-staging-db` / `secumie_insight_staging` | SECU:MIE／Secure Guard共用Staging基盤／Insight DB | RUNNABLE、PostgreSQL 16、Private IP `172.20.0.3`、Backup/PITR有効、直近automated backupはSUCCESSFUL、Deletion Protection有効。現DBは`postgres`と`secumie_insight_staging`。 | 別承認必要 | Instance／database／5 role／Deletion Protectionを変更・削除しない。Synthetic submission、jti、監査もDELETEしない。 | 既承認75 USD枠。runtime cleanup後も別承認まで課金継続。 |
+| PSA／`default` VPC／Service Networking | 共用private接続基盤 | Cloud SQL、runtime、DB jobsが使用。 | 対象外 | 削除・変更しない。 | 共用基盤。 |
+| 既存Cloud Run 7サービス | 既存業務 | 7/7 Ready。新規2サービスを含め全9サービスReady。 | 対象外 | 変更しない。1件でも異常ならcleanup操作をSTOPし影響を再確認。 | 既存費用。 |
+
+GCP LB現物の参照関係は、`IP → forwarding rule → target HTTPS proxy → URL map/certificate → 2 backend → 2 NEG → 2 Staging Cloud Run services`として専用チェーン内で閉じている。既存LBとの共有参照は検出していない。
+
+#### 19.13.3 外部設定と手動操作
+
+- Squarespace DNS：`atlib.jp`の権威DNSはSquarespaceで、`pira-staging.atlib.jp A 136.69.38.50`（TTL 3600）が公開されている。萩坂がAレコード1件だけを削除し、少なくともTTL経過後に名前解決不能を確認する。`pira.atlib.jp`、`www.atlib.jp`および他レコードは変更しない。
+- Cloudflare Turnstile：Staging専用Widgetの無効化／削除は萩坂の手動操作とする。共有アカウントやProduction Widgetは変更しない。GCPからWidgetの共有有無を証明できない場合は手動確認までUNKNOWNとしてSTOPする。
+- Mailtrap：Staging Email Sandbox／資格情報のarchiveまたは削除は萩坂の手動操作とする。外部forwardingは行わず、共有アカウントや他Sandboxは変更しない。OTP累計は3/30のまま追加送信しない。
+
+#### 19.13.4 承認済みcleanup順序案
+
+実削除は本Preflightの統括レビュー後に限る。正常時の順序は次とする。
+
+1. PR証跡を確定し、追加試験・active Job Executionがないこと、既存7サービスがReadyであること、費用上限内であることを再確認する。
+2. 萩坂がSquarespaceのStaging Aレコードだけを削除する。TTL 3600経過と公開DNSの停止を確認する。
+3. GCPの専用公開経路を外側から解除する：forwarding rule → target proxy → certificate／URL map → 2 backend → 2 NEG → global IP。forwarding削除後にIPを放置しない。
+4. Cloud Run 2サービスを削除し、revision／artifactが他から参照されていないことを再確認する。
+5. OTP/PIRA runtime artifactの専用digest／versionを削除する。`db-operations` artifactは削除しない。
+6. Runtime SAのProject IAMとSecret単位IAMを解除する。共有DB Secretからはruntime SA bindingだけを解除し、Secret本体を維持する。その後、runtime SA 2件を削除する。
+7. Runtime専用Secret 4件を削除する。
+8. metadata Jobの非機密証跡とactive execution 0を確認し、Jobだけを削除する。Migration SA、DB Secret、DB operations imageは維持する。
+9. 萩坂がTurnstile Staging WidgetとMailtrap Staging Sandbox／資格情報を手動整理する。
+10. 全対象不存在、共有資産残存、既存7サービスReady、DNS停止、想定外IAM差分0をRead-onlyで最終確認する。
+
+DB関連3 Job、Bootstrap／Migration SA、6 DB Secret、Cloud SQL instance／database／role、PSA、Syntheticデータはこの順序へ含めず、別承認へ送る。
+
+#### 19.13.5 期限・費用・STOP判定
+
+2026-11-10からcleanup期限`2026-11-20 10:12 JST`までは約10日あり、手動DNS操作とTTL待機を含めても実行可能である。Global forwarding ruleの残存固定費は最大でも概算約6 USD（0.025 USD/時×約240時間）で、低トラフィックのCloud Run／LB従量費、Secret 4 version、Artifact容量を加えても、現時点の利用形態ではOTP/PIRA追加費用上限15 USD内に収まる見込みである。ただし、Billing実績値そのものは本調査で取得していないため、実削除直前にBudget／Billingを確認し、15 USD超過見込みならSTOPする。Cloud SQLは別の75 USD枠であり、別承認まで課金が続く。
+
+料金根拠：Cloud Load Balancing pricing https://cloud.google.com/load-balancing/pricing 、External IP pricing https://cloud.google.com/vpc/network-pricing 、Cloud Run pricing https://cloud.google.com/run/pricing 、Secret Manager pricing https://cloud.google.com/security/products/secret-manager 、Artifact Registry pricing https://cloud.google.com/artifact-registry/pricing 。
+
+次の場合は削除前または途中でSTOPし、推測で継続しない。
+
+- 専用と判定したresourceに別service、revision、URL map、principal、Secret利用先またはartifact参照が存在する。
+- active Execution、追加試験予定、DNS残存、既存7サービスの非Ready、関連5xx／latency異常がある。
+- cleanup対象外のCloud SQL、DB、role、DB Job／SA／Secret、PSA、既存サービスに変更が必要になる。
+- Billing上限超過見込み、証跡欠落、外部設定の共有範囲不明、削除結果不明がある。
+
+以上により、runtime／専用公開経路／runtime SA・Secret／metadata Job／専用artifactは**統括レビュー後に既承認範囲でcleanup可能**、Cloud SQLおよびDB初期化資産は**別承認必要**と判定する。Image Security GateのSTOP、Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外を維持する。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
