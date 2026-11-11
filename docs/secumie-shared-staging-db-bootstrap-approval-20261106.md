@@ -1883,6 +1883,51 @@ API有効化、Billing IAM変更、export設定は今回の承認範囲外であ
 
 再開には、(1) `2026-11-11 13:52:58 JST`以降の権威DNS／公開DNS再照会PASS、(2) Billing Console等の既存承認済み経路で追加費用実績が15 USD枠内であることの確認、または経営者による実績取得不能時の代替Gate明示、が必要である。Image Security Gate STOP、Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、cleanup期限`2026-11-20 10:12 JST`を維持する。
 
+### 19.15 Staging一時runtime／公開経路cleanup実行結果（2026-11-11）
+
+#### 19.15.1 代替Gateと最終Preflight
+
+基準commit `9f929dfe4706444a120e807dbd9dcb7c2e0f852b`、経営者代替Gate承認コメント `#6787311917`を照合した。代替Gateに従い、Cloud Billing実績は**UNKNOWN**のまま記録し、これだけを理由にSTOPしなかった。15 USD以内の§19.13見積りは参考として維持し、Budget API有効化、Billing IAM変更、BigQuery Billing export追加、新規有料resource作成は行っていない。
+
+DNS削除報告`2026-11-11 12:52:58 JST`からTTL 3600秒以上経過した`14:03:26 JST`に、次を再照会した。
+
+- Squarespace権威DNS `nse1`〜`nse4.squarespacedns.com`：A／AAAAすべてNXDOMAIN。
+- 公開DNS `1.1.1.1`、`8.8.8.8`、`9.9.9.9`：A／AAAAすべてNXDOMAIN。
+- cleanup後の最終確認でも同じ結果を維持。
+
+削除直前に、既存7 Cloud Runサービス7/7 Ready、対象2サービスReady、Active Job Execution 0、専用LB参照チェーン、runtime SA／Secret／artifactの専用性、共有DB Secret境界を確認した。Cloud SQL `secumie-sg-shared-staging-db`はRUNNABLE、最新automated backupはSUCCESSFUL、Backup／PITR／Deletion Protection有効であった。全安全GateをPASSとした。
+
+#### 19.15.2 実行したcleanup
+
+`2026-11-11 14:05〜14:15 JST`に、§19.13.4の承認済み範囲だけを実行した。
+
+| 区分 | 削除結果 |
+| --- | --- |
+| HTTPS LB | `secumie-staging-https`、`secumie-staging-https-proxy`、`secumie-staging-cert`、`secumie-staging-url-map`、`secumie-otp-staging-backend`、`secumie-pira-staging-backend`、`secumie-otp-staging-neg`、`secumie-pira-staging-neg`、`secumie-staging-ip`を削除。最終照合で9件とも不存在。 |
+| Cloud Run | `secumie-otp-staging`、`secumie-pira-staging`を削除。対象revisionもservice一覧から消失。 |
+| Artifact Registry | 専用package `secumie-otp-runtime`、`secumie-pira-runtime`を、他revision／Job参照0確認後に削除。`db-operations` packageは維持。 |
+| Runtime IAM／SA | runtime SA 2件からProject `roles/cloudsql.client` 2 binding、runtime専用Secret 4件と共有DB Secret 2件のAccessor計6 bindingを解除。`secumie-otp-staging@...`、`secumie-pira-staging@...`を削除。共有DB SecretにはBootstrap SAだけが残存。 |
+| Runtime Secret | `secumie-stg-smtp-password`、`secumie-stg-turnstile-secret`、`secumie-stg-otp-hmac-key`、`secumie-stg-otp-jwt-keys`を削除。 |
+| Cloud Run Job | Active Execution 0を確認後、`secumie-pira-metadata-staging`だけを削除。DB関連3 Jobは維持。 |
+
+最初のLB削除処理でPIRA backendのlong-running operationが継続中に呼出し側が先に戻り、その後のRead-only照合時点ではLB 9件すべてが削除済みであった。重複確認でOTP NEGがNOT_FOUNDを返したため、その削除を再実行せず、全9件の不存在とoperation DONEを確認して次工程へ進んだ。予期しない参照、権限拡大、既存service影響はなかった。
+
+#### 19.15.3 最終Read-only検証と残存資産
+
+- 削除対象のLB 9件、Cloud Run 2件、Artifact package 2件、runtime SA 2件、runtime Secret 4件、metadata Job 1件はすべて不存在。
+- 既存Cloud Run 7サービスは7/7 Ready。
+- DB関連Job `secumie-db-bootstrap-staging`、`secumie-db-migrate-staging`、`secumie-db-acceptance-staging`はReadyで残存。Active Job Executionは0件。
+- DB Secret 6件（Bootstrap／OTP／PIRA／Admin／Migration／Maintenance）は残存。runtime SA bindingだけを除去し、Secret値／Versionは変更していない。
+- Cloud SQL `secumie-sg-shared-staging-db`はRUNNABLE、Private IPのみ、Backup／PITR／Deletion Protection有効。database `postgres`、`secumie_insight_staging`は残存。
+- Cloud SQL instance／database／5 role、Synthetic受付／jti／監査データ、PSA／VPC、Bootstrap／Migration SAには変更していない。
+- GCP削除resourceは20件（LB 9、Cloud Run 2、Artifact package 2、runtime SA 2、runtime Secret 4、metadata Job 1）。IAM binding解除は8件。DB変更は0件。
+
+Squarespace Aレコードは萩坂による手動削除と公開DNS停止まで完了した。Cloudflare Staging Turnstile WidgetとMailtrap Staging Sandbox／資格情報の手動整理は、共有アカウント／Production設定へ影響しないことを萩坂が確認して行う残件である。
+
+費用実績は経営者代替GateどおりUNKNOWNのまま。新規resourceは作成せず、OTP/PIRA runtime、専用LB／IP、runtime Secret／artifactを削除したため、これらの継続課金要因は停止した。Cloud SQLは別承認まで残存し、既承認75 USD枠の対象である。
+
+以上により、**承認済みGCP Staging一時runtime／公開経路cleanupはPASS**とする。Cloud SQLおよびDB初期化資産のcleanupは別承認、外部Turnstile／Mailtrapは手動Handoffとする。Image Security Gate STOP、Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外を維持する。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
