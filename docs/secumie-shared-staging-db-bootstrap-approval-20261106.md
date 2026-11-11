@@ -1843,6 +1843,46 @@ DB関連3 Job、Bootstrap／Migration SA、6 DB Secret、Cloud SQL instance／da
 
 以上により、runtime／専用公開経路／runtime SA・Secret／metadata Job／専用artifactは**統括レビュー後に既承認範囲でcleanup可能**、Cloud SQLおよびDB初期化資産は**別承認必要**と判定する。Image Security GateのSTOP、Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外を維持する。
 
+### 19.14 Staging cleanup実行前GateのSTOP（2026-11-11）
+
+#### 19.14.1 実行承認とDNS初回確認
+
+基準commit `8fe283d7d7710315425a038ed574e590f2a407cc`、統括cleanup承認コメント `#6786419366`、Squarespace Aレコード削除報告コメント `#6786501686`を照合した。削除報告は`2026-11-11 12:52:58 JST`に受領した。
+
+`2026-11-11 13:01:56 JST`に次をRead-only照会した。
+
+- 権威DNS：`nse1.squarespacedns.com`〜`nse4.squarespacedns.com`の4系統すべてで、`pira-staging.atlib.jp`のA／AAAAはNXDOMAIN。
+- 公開DNS：Cloudflare `1.1.1.1`、Google `8.8.8.8`、Quad9 `9.9.9.9`の3系統すべてでA／AAAAはNXDOMAIN。
+- `atlib.jp`のNS TTLは3600秒。
+
+旧IP `136.69.38.50`への解決は検出しなかった。ただし、削除時刻を独立に取得できないため、指示どおり削除報告受領時刻を保守的な起点とすると、初回照会時点ではTTL 3600秒が未経過である。したがってDNS Gateはこの時点で未確定とした。
+
+#### 19.14.2 GCP現物の削除直前確認
+
+`2026-11-11 13:01〜13:07 JST`に次をRead-only確認した。
+
+- Cloud Runは既存7サービスと対象2サービスの全9件がReady。対象revisionはOTP `secumie-otp-staging-00001-rxg`、PIRA `secumie-pira-staging-00001-vhd`。
+- Active Cloud Run Job Executionは0件。metadata Jobの既存Executionは完了済み。
+- LB参照は§19.13どおり、専用IP `136.69.38.50` → forwarding rule → HTTPS proxy → certificate／URL map → 2 backend → 2 NEG → 対象2サービスで閉じている。
+- runtime SA 2件のProject roleは各`roles/cloudsql.client`だけ。runtime専用Secret 4件のAccessorはOTP runtime SAだけ。
+- DB OTP／PIRA SecretはBootstrap SAとruntime SAの共有であり、Secret本体はcleanup対象外。runtime SA bindingだけが将来の解除対象である。
+- OTP／PIRA artifactの配備digestは§19.13記録と一致する。
+- Cloud SQL `secumie-sg-shared-staging-db`はRUNNABLE、Private IPのみ、Backup／PITR／Deletion Protection有効。既存3 Cloud SQL instanceはすべてRUNNABLE。
+
+#### 19.14.3 Billing Gate不成立とSTOP
+
+Project `msp-zabbix`はCloud Billing accountへ紐付き、billingはenabledである。一方、削除直前Gateが要求するOTP/PIRA追加費用の**実績値**は、次の理由によりRead-onlyで取得できなかった。
+
+- Cloud Billing Budget APIはProjectで無効。
+- Active accountにはBilling accountのBudget参照権限がない。
+- Project内に参照可能なBigQuery Billing export datasetは確認できない。
+
+API有効化、Billing IAM変更、export設定は今回の承認範囲外であるため実施していない。§19.13の上限見積りでは期限まで追加15 USD枠内だが、見積りを実績値の代用にはしない。
+
+以上により、DNSの保守的TTL Gateが未経過であり、かつBilling実績Gateを確認不能であるため、指示されたSTOP条件に従い**GCP cleanupは未着手のままSTOP**した。LB、Cloud Run、Artifact、IAM、SA、Secret、Jobの削除・変更は0件である。DB、Cloud SQL、DNS、外部サービスにも追加変更を加えていない。自動再試行、代替権限付与、API有効化は行っていない。
+
+再開には、(1) `2026-11-11 13:52:58 JST`以降の権威DNS／公開DNS再照会PASS、(2) Billing Console等の既存承認済み経路で追加費用実績が15 USD枠内であることの確認、または経営者による実績取得不能時の代替Gate明示、が必要である。Image Security Gate STOP、Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、cleanup期限`2026-11-20 10:12 JST`を維持する。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
