@@ -2011,6 +2011,48 @@ Squarespace Aレコードは萩坂による手動削除と公開DNS停止まで�
 
 **結論：Proxy公式v2.28.0の事前Image Security STOP解除（対象digest限定）を推奨・記録する。本番Goと配備操作は引き続き別Gate／別承認とする。**
 
+### 19.19 v2.28.0 digest固定差分レビュー・新コード検証（2026-11-12）
+
+本節では§19.18でPASSした公式Proxy候補を今後の配備対象として固定し、**履歴に残る旧image参照と、新規配備へ適用すべき値を区別**する。既存のStaging実行・Synthetic E2E・JWT再利用Gateは再実行しない。Production／GCPの操作は行わない。
+
+#### 19.19.1 固定候補と適用範囲
+
+```text
+Cloud SQL Auth Proxy candidate (official, linux/amd64)
+gcr.io/cloud-sql-connectors/cloud-sql-proxy@sha256:e0cbea7b63455c1635d354ef456696d019dd02a5db47bf1994e849823e71ae89
+source release: 2.28.0
+scan: Docker Scout 1.24.0, Critical 0 / High 0, 90 packages, 2026-11-12
+```
+
+| 配備対象 | 現行・履歴 | 次回変更差分と境界 |
+| --- | --- | --- |
+| 新規OTP/PIRA runtime sidecar | §19.15でStaging専用Cloud Run 2サービス・artifactはcleanup済み。旧runtime/Proxy image digestは§19.11／§19.15の履歴。 | 将来の専用runtime配備時は上記の**digest固定**を使い、2サービスそれぞれのRevisionで実image digest・Proxy起動・DB接続を照合する。Cloud Run作成・IAM・Secret・LB/DNSは別承認。 |
+| Staging DB関連3 Cloud Run Job | §19.15でBootstrap/Migration/Acceptance JobとDB Secretは保護・残存。§4〜5の作成コマンド契約は旧v2.27.0 digestを記載した当時の承認履歴。 | **今回変更しない**。次回Job実行・更新の前にGCP現物のsidecar image／executionをRead-onlyで照合し、旧v2.27.0が残れば個別のdigest更新・影響レビューを承認する。新しいMigrationやJob executionは不要。 |
+| 既存Cloud Run 7サービス／既存DB／Secure Guard | 今回のProxy候補・新規OTP/PIRA公開範囲とは独立。 | **変更対象外**。既存runtimeへの横展開や旧Imageの一括置換を行わない。 |
+
+§4の旧v2.27.0固定値、§17A／§19.1の旧digestは**過去実行の証跡**として書き換えない。今後の新規配備計画においては本節のv2.28.0固定候補を使用し、適用直前のRelease／digest／Critical-Highを再照合する。検査済み候補の存在は、新規runtime application imageのbuild/scanや配備後受入を自動でPASSにしない。
+
+#### 19.19.2 PR #46新コードに対する隔離ローカル検証
+
+PR #46 HEAD `14f1d1df7b78482912a0642818e0823ae25f2b9b`を独立ディレクトリへshallow cloneし、追跡ファイルの変更なしで以下を実行した。
+
+| 実行 | 結果 |
+| --- | --- |
+| `npm ci --ignore-scripts --no-audit --no-fund --prefer-offline` | **PASS**。441 packagesを追加（依存導入用local node_modulesのみ）。 |
+| `npm run build` | **PASS**。TypeScript `tsc -p tsconfig.json` exit 0。 |
+| `node -r ts-node/register --test test/piraIntake.errorClassification.test.ts` | **4 PASS / 0 FAIL**。CREATE/UPDATE × SQLSTATE `23505`/`57P01`、transaction rollback。 |
+| `git status --short` | clone後のtracked change 0。配備・DB操作・Secret読取なし。 |
+
+既に合格済みの実DB/JWT/Browser E2Eは重複実行していない。今回のテストはJTIエラー分類のin-memory stubを用いる新規回帰テストであり、実PostgreSQL接続試験を代替するものではない。Docker runtime image build/push/scanも未実施。
+
+#### 19.19.3 次の承認境界
+
+1. **Draft統合コードGate**：今回触れたTypeScript build・JTI回帰テストはPASS。依存PRのレビュー／CI履歴を独立に確認してからmerge判断する。
+2. **Proxy image候補Gate**：§19.18の`linux/amd64` digestに限り事前PASS。新規OTP/PIRA runtime imageのbuild/scan、および実Cloud Run Revisionのsidecar digest・起動確認は未実施。
+3. **環境適用Gate**：Staging公開経路・Secretはcleanup済み。Cloud Run／Job更新・DB・DNS・LB・IAM・Secret・Productionは**No-Go継続**。必要な新規配備の対象・費用・Rollback・人の操作を別途承認する。
+
+**結論：新規コードbuildと集中回帰テストはPASS。新Proxy digest固定方針と対象差分は整理済み。Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、Draft PR #46を維持する。**
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
