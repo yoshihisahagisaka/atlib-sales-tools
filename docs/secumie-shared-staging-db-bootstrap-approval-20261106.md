@@ -1995,11 +1995,11 @@ Squarespace Aレコードは萩坂による手動削除と公開DNS停止まで�
 | 公式image | `gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.28.0` |
 | platform | `linux/amd64` |
 | `docker pull` | Downloaded newer image。Digest `sha256:e0cbea7b63455c1635d354ef456696d019dd02a5db47bf1994e849823e71ae89` |
-| `docker scout cves` | Docker Scout CLI 1.24.0、90 packages indexed、image digest prefix `e0cbea7b6345`、**Critical 0 / High 0 / Medium 0 / Low 0** |
+| `docker scout cves` | Docker Scout CLI 1.24.0、90 packages indexed、image digest prefix `e0cbea7b6345`、**Critical 0 / High 0**（`--only-severity critical,high`で絞り込んだ結果。Medium/Lowは未判定） |
 | tagとdigestの照合 | pullで得たfull digestの先頭12文字とScout解析digestが一致。検査対象は同じtag・platform |
 | `docker image inspect --format '{{json .RepoDigests}}'` | Windows `cmd.exe`で`template parsing error: unclosed action`。シングルクォートのコマンド解釈に起因する書式エラー。**inspectの結果は取得できていない**が、pullのfull digestとScout解析結果が一致しており、追加のdigest不整合を示すものではない。 |
 
-`docker scout cves --platform linux/amd64 --only-severity critical,high`の表示には`No vulnerable package detected`、`0C 0H 0M 0L`が記載されている。Scout CLIに最新版1.29.0の案内が出たが、既存手順で用いた1.24.0の実スキャンが成功している。Google公式v2.28.0 tagの`go.mod`が`golang.org/x/net v0.62.0`を含むことは§19.17で独立確認済み。
+`docker scout cves --platform linux/amd64 --only-severity critical,high`の表示には`No vulnerable package detected`、表示上`0C 0H 0M 0L`が記載されている。ただしCritical/Highのみで絞り込んでいるため、Medium/Lowの不存在は未判定とする。Scout CLIに最新版1.29.0の案内が出たが、既存手順で用いた1.24.0の実スキャンが成功している。Google公式v2.28.0 tagの`go.mod`が`golang.org/x/net v0.62.0`を含むことは§19.17で独立確認済み。
 
 #### 19.18.2 Gate判断と配備境界
 
