@@ -1951,6 +1951,39 @@ Squarespace Aレコードは萩坂による手動削除と公開DNS停止まで�
 
 **結論**：承認済み範囲の機能コードに追加修正を要するFit/Gapは検出されなかった。次工程は既存Draft成果の統合レビュー、公式修正版image提供後のImage Security Gate再評価、別途承認に基づくProduction適用準備である。未検証のGitHub CIや本番動作をPASSとしない。
 
+### 19.17 Draft統合コードレビュー・Proxy公式修正版のソース照合（2026-11-12）
+
+本節は§19.16のRead-only Fit/Gap後に実施した、Draft PR #46の追加コードレビューとGoogle公式Releaseの新着照合を記録する。§19.16の「新規コード修正Gapなし」は当時のv6/v7/pool継承比較結果を示し、本節で検出したエラー分類の小修正とは区別する。Migration、既合格E2E、JWT実環境Gateは再実行しない。
+
+#### 19.17.1 PIRA JTI INSERTのエラー分類修正
+
+- レビュー基準: PR #46 commit `d82c1b33c9edbce3ec55e35a06b8eebaeb1ebd01`。対象は`src/piraIntake/piraIntakeService.ts`のCREATE/UPDATE_STATE共通の`pira_consumed_jti` INSERT。
+- 検出: INSERT失敗を`catch`で無条件に409 `JWT_REPLAYED`へ変換していた。JTI主キーの重複（SQLSTATE `23505`）だけでなくDB停止・その他DBエラーまで「JWT再利用」と誤分類する。
+- 最小修正: SQLSTATE `23505`のみ409 `JWT_REPLAYED`へ変換し、それ以外は元の例外を送出する。既存routerの汎用例外経路は500 `INTERNAL_ERROR`。transactionの`ROLLBACK`と既存の一意制約・idempotencyは変更しない。
+- 修正commit: `805fa038e0d5f85cbd00c4f846e47e5a3dc7bfea`。回帰test追加commit: `3835603650d6660a9fde9e62dfc682f15195f31e`（`test/piraIntake.errorClassification.test.ts`）。
+- 確認: GitHub HEADの両ファイルを再取得し送信内容と全文一致。Node 24のTypeScript変換・in-memory DB stubで、CREATE/UPDATE × 23505/57P01の計4ケース、rollback検証を**4 PASS / 0 FAIL**。実PostgreSQL、repo全体TypeScript build、GitHub CIはこの工程で**未実施**。既存の2026-11-10 Staging JWT再利用拒否実測PASSを再実行していない。
+
+#### 19.17.2 Google公式Cloud SQL Auth Proxy v2.28.0
+
+2026-11-12 JSTにGoogle公式Releaseとタグ固定の`go.mod`をRead-only照合した。
+
+| 比較対象 | v2.27.0（§19.12で検査済み） | v2.28.0（新規公式Release） |
+| --- | --- | --- |
+| 公式Release | 2026-10-29、従来の固定sidecar | **2026-11-11公開、Latest** |
+| `golang.org/x/net` | `v0.61.0`（CVE-2026-78661、High 1の検査済みimage） | **`v0.62.0`**（既知CVEの修正要件をソース依存関係で満たす） |
+| 変更根拠 | 固定タグの`go.mod` | Google公式PR #2718が依存関係・base imageを更新、v2.28.0へ収録 |
+| Image Security Gate | STOP | **候補確認、未判定**。公式container imageのdigest照合と実image scan未実施 |
+
+参照: https://github.com/GoogleCloudPlatform/cloud-sql-proxy/releases/tag/v2.28.0 、https://github.com/GoogleCloudPlatform/cloud-sql-proxy/blob/v2.28.0/go.mod 、https://github.com/GoogleCloudPlatform/cloud-sql-proxy/pull/2718 。`go.mod`の版数だけで配布imageの脆弱性除去を保証しない。
+
+#### 19.17.3 次工程のGo/No-Go境界
+
+1. **Read-only候補確認は前進**。v2.28.0の公式container tagを解決してmulti-arch/platform digestを確定し、公式配布物であることを照合する。
+2. **Image Security Gateは引き続きSTOP**。対象digestを既定のscanner/advisoryで実測し、Critical 0 / High 0になった場合だけGate判定を更新する。検査不能・High残存ならSTOPを維持する。
+3. **更新・配備は別承認**。Staging専用Cloud Run・LB・runtime Secret・専用artifactは§19.15でcleanup済みである。これらを無断再作成せず、Production配備・Secret/IAM/DNS/DB変更・PR merge/rebaseは行わない。必要時に改めて配備／受入計画を承認する。
+
+**判定**：PIRAエラー分類のDraft内最小修正・集中回帰テストはPASS。Proxyは「公式修正版候補あり」へ進展したが、container digest/scanが未確認のため**Image Security Gate STOP、Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、PR #46 Draft**を維持する。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
