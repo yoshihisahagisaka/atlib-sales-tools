@@ -1984,6 +1984,33 @@ Squarespace Aレコードは萩坂による手動削除と公開DNS停止まで�
 
 **判定**：PIRAエラー分類のDraft内最小修正・集中回帰テストはPASS。Proxyは「公式修正版候補あり」へ進展したが、container digest/scanが未確認のため**Image Security Gate STOP、Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、PR #46 Draft**を維持する。
 
+### 19.18 Cloud SQL Auth Proxy v2.28.0 Image Security再判定（2026-11-12）
+
+本節は§19.17.2〜19.17.3の公式修正版候補に対して、萩坂がWindows Docker Desktopで実行した **linux/amd64実image検査の提示結果**を追加記録する。§19.11〜19.17に記録した旧v2.27.0のHigh 1／STOPは当時の事実として保持し、今回の新digestに限りGateを再判定する。
+
+#### 19.18.1 実行結果とimage identity
+
+| 確認項目 | 提示された実測 |
+| --- | --- |
+| 公式image | `gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.28.0` |
+| platform | `linux/amd64` |
+| `docker pull` | Downloaded newer image。Digest `sha256:e0cbea7b63455c1635d354ef456696d019dd02a5db47bf1994e849823e71ae89` |
+| `docker scout cves` | Docker Scout CLI 1.24.0、90 packages indexed、image digest prefix `e0cbea7b6345`、**Critical 0 / High 0 / Medium 0 / Low 0** |
+| tagとdigestの照合 | pullで得たfull digestの先頭12文字とScout解析digestが一致。検査対象は同じtag・platform |
+| `docker image inspect --format '{{json .RepoDigests}}'` | Windows `cmd.exe`で`template parsing error: unclosed action`。シングルクォートのコマンド解釈に起因する書式エラー。**inspectの結果は取得できていない**が、pullのfull digestとScout解析結果が一致しており、追加のdigest不整合を示すものではない。 |
+
+`docker scout cves --platform linux/amd64 --only-severity critical,high`の表示には`No vulnerable package detected`、`0C 0H 0M 0L`が記載されている。Scout CLIに最新版1.29.0の案内が出たが、既存手順で用いた1.24.0の実スキャンが成功している。Google公式v2.28.0 tagの`go.mod`が`golang.org/x/net v0.62.0`を含むことは§19.17で独立確認済み。
+
+#### 19.18.2 Gate判断と配備境界
+
+- **Cloud SQL Auth Proxy v2.28.0（上記digest、linux/amd64）の事前Image Security Gate：PASS**。承認済みのCritical 0／High 0条件を満たす。これにより§19.12の「公式修正版imageが存在しない」という供給上のSTOP原因は、当該v2.28.0候補について解消した。
+- **Production公開：No-Go継続**。本判定は未配備imageの検査であり、配備後のCloud Run sidecar実digest／設定・権限・通信・運用の受入や本番承認を代替しない。
+- **Staging cleanup後の現状維持**。OTP/PIRA Staging runtime／LB／runtime Secret・専用artifactは既に削除済み。GCPでimage差替え、再配備、resource再作成、Secret復元、DB Migration、IAM/DNS/Production変更は行っていない。
+- 次工程は**digestを固定したv2.28.0の配備差分レビュー**、残るTypeScript build／回帰test確認、現行残存DB資産との接続・権限・リソース境界の適用前preflight、費用・公開承認。適用直前には対象imageのCritical／Highを再確認し、差異や新規Highを検知した場合はSTOPする。
+- `PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、Draft PR #46は維持する。既存の合格済みStaging Synthetic E2E／JWT Gateを無条件に再実行しない。新しいruntimeの配備後に必要な受入項目は別承認で定める。
+
+**結論：Proxy公式v2.28.0の事前Image Security STOP解除（対象digest限定）を推奨・記録する。本番Goと配備操作は引き続き別Gate／別承認とする。**
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
