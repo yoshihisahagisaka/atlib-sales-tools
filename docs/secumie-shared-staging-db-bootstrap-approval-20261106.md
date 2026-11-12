@@ -1928,6 +1928,29 @@ Squarespace Aレコードは萩坂による手動削除と公開DNS停止まで�
 
 以上により、**承認済みGCP Staging一時runtime／公開経路cleanupはPASS**とする。Cloud SQLおよびDB初期化資産のcleanupは別承認、外部Turnstile／Mailtrapは手動Handoffとする。Image Security Gate STOP、Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外を維持する。
 
+
+### 19.16 2026-11-12 統合Fit/Gap・外部手動cleanup完了照合
+
+本節は既存Canonical・Decision・PR HEADの**Read-only照合結果**を記録する。承認済み仕様の再設計、既存Migration/E2Eの再実行、Production適用、PR merge/rebase/base変更はしない。
+
+#### 19.16.1 承認済み実装の継承
+
+| 範囲 | 確認した現行状態 | 判定 |
+| --- | --- | --- |
+| v6診断 | PR #16 HEAD `60bfb8c` とPR #46 HEAD `96e6a33` の `data.js`、`diagnosis.js`、`v6-content.js`、`v6.js` を照合。Git blobの相違はCRLF/LFの改行正規化によるもので、改行正規化後の4ファイル全文は一致。 | **Fit**。8問・38回答ID・C方式を再実装しない。 |
+| v7診断資産 | PR #36 HEAD `1c32fa8` とPR #46 HEAD `96e6a33` の既存manifest対象8ファイルについて、Git blob SHAがすべて一致。 | **Fit**。固定文・報告書・印刷方式を再設計しない。 |
+| runtime・DB pool | PR #36 HEADはPR #46のGit祖先（ahead 69 / behind 0）。PR #43 HEAD `18f0787`もPR #46のGit祖先（ahead 60 / behind 0）。専用poolの `src/db/pool.ts`、`src/runtime/runtimeConfig.ts`、`src/config.ts` はPR #43とPR #46でblob一致。 | **Fit**。重複適用しない。 |
+| 履歴・レビュー | PR #16はGit履歴上PR #46とdivergedだが、前述のv6実体は保持済み。PR #16/#36/#43/#45/#46はDraftであり、対象PRのGitHub review submission／inline review thread／commit combined statusに結果なし。 | **Review未完**。Draftでの統合レビューと適用順確認は必要だが、合格したCIやmerge承認があると扱わない。 |
+
+#### 19.16.2 cleanup最終追補と残存Gate
+
+- §19.15の「外部手動整理は残件」は**同節記録時点**の状態である。その後、萩坂がCloudflare `SECU:MIE Insight Staging` Turnstile Widget（hostname `pira-staging.atlib.jp`）とMailtrap `My Project / My Sandbox` の手動削除完了を申告した。画面による対象識別と申告に基づく記録であり、削除後の独立API不存在照合は未実施。[PR #46 外部手動cleanup記録](https://github.com/yoshihisahagisaka/atlib-sales-tools/pull/46#issuecomment-6788224951)。
+- GCP削除対象20リソース、IAM binding 8件解除は§19.15の実環境PASSを維持。Cloud SQL Staging本体、Insight DB/role/DB関連3 Job/DB Secret 6件、Synthetic submission・jti・監査は承認された保護対象として残る。Cloud Billing実績は承認済み代替Gateどおり**UNKNOWN**。
+- Image Security GateはCloud SQL Auth Proxy公式v2.27.0 sidecarのCritical 0／High 1（CVE-2026-78661、`golang.org/x/net v0.61.0`）のため**STOP**。§19.12の公式修正版／digest／再スキャン条件を変更しない。
+- **Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、PR #46 Draft**を維持。Staging専用runtime／LB等は既にcleanup済みであり、再作成・公開・再E2Eは新規承認なしに実行しない。
+
+**結論**：承認済み範囲の機能コードに追加修正を要するFit/Gapは検出されなかった。次工程は既存Draft成果の統合レビュー、公式修正版image提供後のImage Security Gate再評価、別途承認に基づくProduction適用準備である。未検証のGitHub CIや本番動作をPASSとしない。
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
