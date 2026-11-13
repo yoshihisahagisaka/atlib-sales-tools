@@ -46,7 +46,7 @@ export class PiraIntakeService {
       const receiptId = randomUUID(); const submissionId = randomUUID();
       await c.query(`INSERT INTO pira.pira_submission(submission_id,receipt_id,initiative_id,initiative_kind,company_name,company_name_normalized,contact_name,verified_email,website_url,phone,union_name,address,consent_version,consented_at,sales_use_allowed,idempotency_key,payload_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`, [submissionId, receiptId, initiative.initiative_id, context.kind, normalize(form.companyName), normalize(form.companyName), normalize(form.contactName), claims.email, form.websiteUrl, form.phone ? normalize(form.phone) : null, context.kind === 'UNION' ? normalize(form.unionName!) : null, context.kind === 'UNION' ? normalize(form.address!) : null, form.consentVersion, now, false, form.idempotencyKey, hash]);
       try { await c.query('INSERT INTO pira.pira_consumed_jti(jti,submission_id,operation,expires_at) VALUES($1,$2,$3,$4)', [claims.jti, submissionId, 'CREATE_SUBMISSION', new Date(claims.exp * 1000)]); }
-      catch { throw new PiraIntakeError(409, 'JWT_REPLAYED'); }
+      catch (error) { if ((error as { code?: string } | null)?.code === '23505') throw new PiraIntakeError(409, 'JWT_REPLAYED'); throw error; }
       return { receiptId, replayed: false };
     });
   }
@@ -58,7 +58,7 @@ export class PiraIntakeService {
       const expected: Record<SubmissionState, SubmissionState | undefined> = { RECEIVED: 'ANSWERING', ANSWERING: 'COMPLETED', COMPLETED: undefined };
       if (expected[row.state] !== next) throw new PiraIntakeError(409, 'INVALID_STATE_TRANSITION');
       try { await c.query('INSERT INTO pira.pira_consumed_jti(jti,submission_id,operation,expires_at) VALUES($1,$2,$3,$4)', [claims.jti, row.submission_id, 'UPDATE_STATE', new Date(claims.exp * 1000)]); }
-      catch { throw new PiraIntakeError(409, 'JWT_REPLAYED'); }
+      catch (error) { if ((error as { code?: string } | null)?.code === '23505') throw new PiraIntakeError(409, 'JWT_REPLAYED'); throw error; }
       await c.query(`UPDATE pira.pira_submission SET state=$2::pira.submission_state,answering_at=CASE WHEN $2='ANSWERING' THEN $3 ELSE answering_at END,completed_at=CASE WHEN $2='COMPLETED' THEN $3 ELSE completed_at END WHERE submission_id=$1`, [row.submission_id, next, this.now()]);
       return { receiptId, state: next };
     });
