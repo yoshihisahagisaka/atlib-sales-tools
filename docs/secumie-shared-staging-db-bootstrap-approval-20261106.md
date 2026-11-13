@@ -2053,6 +2053,68 @@ PR #46 HEAD `14f1d1df7b78482912a0642818e0823ae25f2b9b`を独立ディレクト�
 
 **結論：新規コードbuildと集中回帰テストはPASS。新Proxy digest固定方針と対象差分は整理済み。Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、Draft PR #46を維持する。**
 
+### 19.20 実行imageローカルGate・残存GCP Read-only Preflight（2026-11-13）
+
+本節はPR #46 HEAD `33a202f3c9084098cd7eab767fe1cd164bbd38d0`を、Windows作業フォルダ`C:\atlib\worktree-secumie-shared-staging-create`へcleanなdetached HEADとして取得し、既存の合格済みDB／E2Eを再実行せず、新規runtime imageと残存DB資産だけを実測した証跡である。GCP resource、Job、Secret、IAM、DB、DNS、Productionには変更していない。
+
+#### 19.20.1 OTP／PIRA runtime image Gate
+
+Node.js v24.18.0、Docker Engine 29.7.2、Docker Scout CLI 1.24.0で、repository rootから次を実行した。
+
+```text
+node scripts/readiness/secumieRuntimeImageGate.cjs
+```
+
+既存スクリプトの変更は不要であり、exit 0で完了した。
+
+| image | platform／revision label | local identity | Docker Scout実測 | 判定 |
+| --- | --- | --- | --- | --- |
+| OTP runtime | `linux/amd64`／`33a202f3c9084098cd7eab767fe1cd164bbd38d0` | `sha256:5943c45c353d3118fb0c2f2ae5a25503b02f32cfad0d0da6cd54ea7f8fa99987` | 373 packages、Critical 0／High 0 | **PASS** |
+| PIRA runtime | `linux/amd64`／`33a202f3c9084098cd7eab767fe1cd164bbd38d0` | `sha256:431af53cd6ad4657e6ce40a09e1a909a802b2bd9956b436f9b8967d19d026cc3` | 373 packages、Critical 0／High 0 | **PASS** |
+
+Scoutは`--only-severity critical,high`で実行しているため、画面上の`0M 0L`をMedium／Low全件不在の根拠にはしない。両imageともGit revision labelとplatformは完全一致した。これらはローカルimage identityであり、immutable registry digestではない。Push、Deploy、GCP Artifact作成は0件である。
+
+#### 19.20.2 Cloud SQL Read-only Preflight
+
+Project `msp-zabbix`、Region `asia-northeast1`をRead-only照合した。
+
+| 確認項目 | 実測 |
+| --- | --- |
+| instance | `secumie-sg-shared-staging-db`、RUNNABLE、PostgreSQL 16、ZONAL `asia-northeast1-c`、`db-custom-2-7680` |
+| network | Private IP `172.20.0.3`のみ |
+| protection | Backup enabled、PITR enabled、Deletion Protection enabled |
+| latest backup | `1794506400000`、AUTOMATED、SUCCESSFUL、2026-11-13 04:25〜04:26 JST |
+| existing services | 既存Cloud Run 7サービスは7/7 Ready |
+| executions | Active Cloud Run Job Execution 0 |
+
+以上により、**Cloud SQL Read-only PreflightはPASS**。Migration 037〜041、DB Acceptance、保持preview、権限試験は再実行していない。
+
+#### 19.20.3 残存Cloud Run Job 3件のFit/Gap
+
+3 JobはいずれもReady、task 1、parallelism 1、retry 0、timeout 900秒、Direct VPC `default/default`、egress `private-ranges-only`、固定Cloud SQL接続先を維持する。Secretは参照名／Version 1だけを確認し、値は取得していない。
+
+| Job | main image／SA | Proxy sidecar現物 | 判定 |
+| --- | --- | --- | --- |
+| `secumie-db-bootstrap-staging` | `secumie-db-operations@sha256:beb7c6d22586e1f157f142fd535eedff9cf9a9aafba08731f8398a5b919eda36`／Bootstrap SA | v2.27.0 digest `sha256:7d156a5c466e31596afd6c8ed134f19c207a297418392fdad2686524ca4e7a3c` | **Gap** |
+| `secumie-db-migrate-staging` | 同じdb-operations digest／Migration SA | 同じ旧digest | **Gap** |
+| `secumie-db-acceptance-staging` | `secumie-db-operations@sha256:e516625862078a12b02d6428f9a3721a2f170d29d2ca08abefb57d21d2ddc9f2`／Bootstrap SA | 同じ旧digest | **Gap** |
+
+Canonical §19.19で今後の固定候補としたv2.28.0は`sha256:e0cbea7b63455c1635d354ef456696d019dd02a5db47bf1994e849823e71ae89`であり、残存3 Jobの現物には未適用である。これは§19.19の予告どおりのFit/Gapで、Job設定不整合や既存実行結果の無効化ではない。今回Job更新、Job実行、Migration、Secret／IAM変更は行っていない。
+
+#### 19.20.4 Gate判定と次工程
+
+| 項目 | 判定 |
+| --- | --- |
+| OTP runtime image | **PASS** |
+| PIRA runtime image | **PASS** |
+| Cloud SQL Read-only Preflight | **PASS** |
+| Cloud Run Job設定 | **Gap**：3 JobのProxy sidecarが旧v2.27.0 digest |
+| Production公開 | **No-Go** |
+
+次工程候補は、3 Jobを将来再実行する前に、main image、command／args、SA、Secret参照、VPC、task／parallelism、retry、timeoutを維持したまま、Proxy sidecar digestだけを§19.19の検査済みv2.28.0へ更新する個別差分の承認である。更新後は`describe`によるdigest／設定照合を行い、Job実行やMigration再適用は別の必要性・承認がない限り行わない。OTP／PIRA runtimeのRegistry push／再配備も別承認とする。
+
+**結論：新runtime application image 2件のローカルCritical／High GateとCloud SQL現物はPASS。残存DB Job 3件は旧Proxy digestのGapがあるため、その更新承認前は再実行しない。Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、Draft PR #46を維持する。**
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
