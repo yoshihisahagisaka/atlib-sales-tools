@@ -2154,6 +2154,40 @@ Active Job Executionは0件、既存Cloud Run 7サービスは7/7 Readyである
 
 **判定：v2.28.0 image security再検査はPASS。3 Jobのdigest更新はCLI引数検証で未実施のままSTOP。Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、Draft PR #46を維持する。**
 
+### 19.22 DB Job 3件・Proxy v2.28.0 digest限定更新（2026-11-13）
+
+§19.21のCLI引数検証STOP後、Bootstrap → Migration → Acceptanceの順で、global `--quiet`を`--container`より前へ置く修正版コマンドを使用した。各Jobは更新直前の全specを保持し、更新後specのProxy imageだけを旧値へ正規化した比較により、Proxy image以外の差分0を確認してから次へ進んだ。
+
+更新前共通image：
+
+```text
+gcr.io/cloud-sql-connectors/cloud-sql-proxy@sha256:7d156a5c466e31596afd6c8ed134f19c207a297418392fdad2686524ca4e7a3c
+```
+
+更新後共通image：
+
+```text
+gcr.io/cloud-sql-connectors/cloud-sql-proxy@sha256:e0cbea7b63455c1635d354ef456696d019dd02a5db47bf1994e849823e71ae89
+```
+
+| Job | 更新順 | Proxy以外のspec差分 | executionCount | 更新後状態 |
+| --- | ---: | ---: | ---: | --- |
+| `secumie-db-bootstrap-staging` | 1 | 0件 | 5 → 5 | Ready、generation 4 |
+| `secumie-db-migrate-staging` | 2 | 0件 | 1 → 1 | Ready、generation 2 |
+| `secumie-db-acceptance-staging` | 3 | 0件 | 2 → 2 | Ready、generation 3 |
+
+更新後のRead-only照合では次を確認した。
+
+- main containerのimage／command／argsは各Jobとも更新前と一致。
+- Service Account、Secret参照、Direct VPC、DB接続先、task 1、parallelism 1、retry 0、timeout 900秒は不変。
+- Active Job Executionは0件。Job execute、Migration再適用、DB Acceptance再実行は行っていない。
+- 既存Cloud Run 7サービスは7/7 Ready。既存service、DB、IAM、Secret、DNS、Productionへの変更は0件。
+- GCP変更対象は指定3 Jobの既存`cloud-sql-proxy` container image fieldだけ。
+
+§19.21で再検査したv2.28.0固定digestのCritical 0／High 0 Gateを維持する。これにより、残存DB Job 3件の旧Proxy digest Gapは解消した。将来Jobを実行する場合は、実行直前のimage security、Cloud SQL、Secret／IAM、Active Execution等の運用Gateを別途適用する。
+
+**判定：3 JobのProxy digest限定更新はPASS。Job Executionは未実施。Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、Draft PR #46を維持する。**
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
