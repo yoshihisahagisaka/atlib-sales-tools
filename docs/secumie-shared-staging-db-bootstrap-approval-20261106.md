@@ -2115,6 +2115,45 @@ Canonical §19.19で今後の固定候補としたv2.28.0は`sha256:e0cbea7b6345
 
 **結論：新runtime application image 2件のローカルCritical／High GateとCloud SQL現物はPASS。残存DB Job 3件は旧Proxy digestのGapがあるため、その更新承認前は再実行しない。Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、Draft PR #46を維持する。**
 
+### 19.21 DB Job Proxy digest限定更新の実行前Gate・CLI STOP（2026-11-13）
+
+経営者承認コメント`#6841315186`、PR #46 HEAD `c782bbdf5396941c4155dea7de6e471f581f9b50`、§19.19〜19.20を照合し、Project `msp-zabbix`、Region `asia-northeast1`で対象3 JobのProxy image限定更新を開始した。
+
+#### 19.21.1 実行前Gate
+
+- Active Job Executionは0件。
+- `secumie-db-bootstrap-staging`、`secumie-db-migrate-staging`、`secumie-db-acceptance-staging`はすべてReady。
+- 3 JobのProxy container名はすべて`cloud-sql-proxy`で、更新前imageはv2.27.0 digest `sha256:7d156a5c466e31596afd6c8ed134f19c207a297418392fdad2686524ca4e7a3c`。
+- main image／command／args、Service Account、Secret参照、Direct VPC、DB接続先、task 1、parallelism 1、retry 0、timeout 900秒は§19.20の記録と一致。
+- 更新候補v2.28.0 index digest `sha256:e0cbea7b63455c1635d354ef456696d019dd02a5db47bf1994e849823e71ae89`とlinux/amd64 manifest `sha256:d3e789e2d9fab9a3fdcb7c177dec9d42f76ccab97dd488e252290f3f3010a116`をRead-only照合。
+- Docker Scout CLI 1.24.0、最新取得advisory DB、linux/amd64、90 packagesでCritical 0／High 0。`--only-severity critical,high`のためMedium／Lowは未判定。
+
+実行前GateはPASSした。
+
+#### 19.21.2 CLI引数検証エラーとSTOP
+
+最初の対象`secumie-db-bootstrap-staging`に対し、既存Proxy containerのimageだけを更新する`gcloud run jobs update`を1回呼び出した。しかし、`--container=cloud-sql-proxy`より後ろに置いたglobal flag `--quiet`がcontainer固有引数として解釈され、CLIは次の引数検証エラーで終了した。
+
+```text
+ERROR: (gcloud.run.jobs.update) unrecognized arguments: --quiet
+```
+
+このエラーはGCP update API呼出し前に発生した。指示されたSTOP条件に従い、flag順序を変えた自動再試行、beta trackへの切替、残る2 Jobの更新、復旧操作は行っていない。
+
+Read-only再照合結果：
+
+| Job | Proxy digest | generation | executionCount | Ready |
+| --- | --- | ---: | ---: | --- |
+| `secumie-db-bootstrap-staging` | 旧v2.27.0 digest | 3 | 5 | True |
+| `secumie-db-migrate-staging` | 旧v2.27.0 digest | 1 | 1 | True |
+| `secumie-db-acceptance-staging` | 旧v2.27.0 digest | 2 | 2 | True |
+
+Active Job Executionは0件、既存Cloud Run 7サービスは7/7 Readyである。Job、DB、IAM、Secret、VPC、Cloud SQL、既存service、Productionに変更は発生していない。
+
+次の再開候補は、global `--quiet`を`--container`指定より前へ置く、または対話不要な承認済み実行環境で省略し、同じ3 JobにProxy imageだけを指定するコマンド差分の再確認である。再開時も1 Jobずつbefore／after specを比較し、Proxy image以外の差分、executionCount変化、非Readyを検出したらSTOPする。Job実行、Migration再適用、DB Acceptance再実行は行わない。
+
+**判定：v2.28.0 image security再検査はPASS。3 Jobのdigest更新はCLI引数検証で未実施のままSTOP。Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、Draft PR #46を維持する。**
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
