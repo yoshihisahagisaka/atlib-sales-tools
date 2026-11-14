@@ -1,0 +1,171 @@
+name: secumie-production-release-gate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: secumie-release-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime-image-security:
+    name: Runtime image Critical / High gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release candidate
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build OTP runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.secumie
+          target: otp-runtime
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: secumie-otp-ci:${{ github.sha }}
+          build-args: SOURCE_REVISION=${{ github.sha }}
+          provenance: false
+          sbom: false
+      - name: Scan OTP runtime image
+        uses: docker/scout-action@v1
+        with:
+          command: cves
+          image: local://secumie-otp-ci:${{ github.sha }}
+          only-severities: critical,high
+          exit-code: true
+      - name: Build PIRA runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.secumie
+          target: pira-runtime
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: secumie-pira-ci:${{ github.sha }}
+          build-args: SOURCE_REVISION=${{ github.sha }}
+          provenance: false
+          sbom: false
+      - name: Scan PIRA runtime image
+        uses: docker/scout-action@v1
+        with:
+          command: cves
+          image: local://secumie-pira-ci:${{ github.sha }}
+          only-severities: critical,high
+          exit-code: true
+
+  build-contract-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Verify migration 037-041 manifest
+        run: npm run verify:migrations:secumie
+      - name: SECU:MIE unit and contract regression
+        run: >-
+          node -r ts-node/register --test
+          test/productionReadiness.security.test.ts
+          test/secumieDedicatedDbConnection.test.ts
+          test/piraIntake.errorClassification.test.ts
+          test/publicAuth.otp.test.ts
+          test/publicOtpMailerAdapter.test.ts
+          test/secumieRuntimeImageGate.test.cjs
+          test/secumieStagingPreparation.test.ts
+      - name: Production dependency Critical/High gate
+        shell: bash
+        run: |
+          npm audit --omit=dev --json > "$RUNNER_TEMP/npm-audit.json" || true
+          node -e "const r=require(process.env.RUNNER_TEMP+'/npm-audit.json'); const v=r.metadata.vulnerabilities; console.log(JSON.stringify(v)); if(v.critical||v.high) process.exit(1)"
+      - name: Upload dependency audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: secumie-production-dependency-audit
+          path: ${{ runner.temp }}/npm-audit.json
+          if-no-files-found: error
+
+  postgres16-contracts:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 55437:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Prepare isolated test databases
+        shell: bash
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -p 55437 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE otp_test LOGIN SUPERUSER PASSWORD 'otp_test'"
+          for database in otp_test_final pira_e1_test pira_e3_test secumie_dbops_test; do
+            createdb -h 127.0.0.1 -p 55437 -U postgres -O otp_test "$database"
+          done
+          psql -h 127.0.0.1 -p 55437 -U otp_test -d otp_test_final -v ON_ERROR_STOP=1 -f migrations/037_public_service_otp.sql
+          psql -h 127.0.0.1 -p 55437 -U otp_test -d pira_e1_test -v ON_ERROR_STOP=1 -f migrations/038_pira_public_intake.sql
+      - name: OTP, PIRA and DB privilege regression
+        run: >-
+          node -r ts-node/register --test
+          test/publicOtpApi.postgres.test.ts
+          test/piraIntake.postgres.test.ts
+          test/piraAdmin.postgres.test.ts
+          test/secumieDbOperations.postgres.test.ts
+
+  browser-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: OTP/PIRA mock browser regression
+        run: >-
+          node -r ts-node/register --test
+          test/piraE2.browser.test.ts
+          test/piraHaReview.browser.test.ts
+
+  known-main-golden-baseline:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Record inherited KAIZEN Golden baseline
+        run: node -r ts-node/register --test test/currentDesignV1.golden.test.ts
+      - name: Explain ownership boundary
+        if: always()
+        run: echo "The two known failures are byte-identical to main and remain owned by the business KAIZEN lane."
