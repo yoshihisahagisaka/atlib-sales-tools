@@ -31,6 +31,16 @@ test('the staging artifact contains exactly migrations 037-041 with approved has
   assert.deepEqual(result.filenames, expected);
 });
 
+test('migration hashes are stable across LF and CRLF checkouts', () => {
+  const directory = isolatedMigrations();
+  for (const filename of expected) {
+    const migration = path.join(directory, filename);
+    writeFileSync(migration, readFileSync(migration, 'utf8').replace(/\r\n/g, '\n'));
+  }
+  const output = execFileSync(process.execPath, [verifier, manifest, directory, 'true'], { encoding: 'utf8' });
+  assert.equal(JSON.parse(output).count, 5);
+});
+
 test('tampering and adding migrations fail before a database connection is possible', () => {
   const tampered = isolatedMigrations();
   writeFileSync(path.join(tampered, expected[0]!), `${readFileSync(path.join(tampered, expected[0]!), 'utf8')}\n-- tampered\n`);

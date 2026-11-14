@@ -16,7 +16,7 @@ The review found no new blocking defect in the OTP/PIRA runtime, separate databa
 
 `.github/workflows/secumie-production-release-gate.yml` adds five independent jobs:
 
-1. OTP/PIRA `linux/amd64` runtime image builds and Docker Scout Critical/High gates without a Registry push.
+1. OTP/PIRA `linux/amd64` runtime image builds and Trivy Critical/High gates without a Registry push.
 2. TypeScript build, migration manifest, SECU unit/contract regression, and Critical/High dependency gate.
 3. PostgreSQL 16 OTP/PIRA/admin/role regression in isolated databases.
 4. Mock browser OTP/PIRA flow and HA-1 regression.
@@ -47,6 +47,10 @@ The local PostgreSQL endpoint was not running during Gate A. PostgreSQL-backed b
 | `gaxios -> uuid`, `google-gax -> retry-request -> teeny-request -> uuid` | Reached through Google client libraries, principally Secret Manager/configuration. Inputs are service-controlled; application code does not invoke vulnerable UUID buffer forms. | Record and monitor pending compatible upstream updates. |
 
 No dependency was changed in Gate A. Any dependency change remains a separate minimal-change review.
+
+## Initial CI portability corrections
+
+The first GitHub-hosted run exposed three CI-environment issues rather than application regressions: Docker Scout required an unavailable organization entitlement, the approved migration hashes reflected CRLF checkouts, and the isolated PostgreSQL setup retained the administrator password while reconnecting as the test role. Gate A switches the unauthenticated CI image scan to Trivy, canonicalizes migration SQL line endings to CRLF before hashing (with an LF/CRLF stability regression), and supplies the already-declared test-role password only to the two migration setup commands. No migration SQL, manifest hash, runtime behavior, or production dependency changed.
 
 ## Remaining release gaps
 

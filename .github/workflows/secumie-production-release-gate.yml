@@ -35,12 +35,13 @@ jobs:
           provenance: false
           sbom: false
       - name: Scan OTP runtime image
-        uses: docker/scout-action@v1
+        uses: aquasecurity/trivy-action@0.36.0
         with:
-          command: cves
-          image: local://secumie-otp-ci:${{ github.sha }}
-          only-severities: critical,high
-          exit-code: true
+          image-ref: secumie-otp-ci:${{ github.sha }}
+          format: table
+          exit-code: 1
+          ignore-unfixed: false
+          severity: CRITICAL,HIGH
       - name: Build PIRA runtime image
         uses: docker/build-push-action@v6
         with:
@@ -55,12 +56,13 @@ jobs:
           provenance: false
           sbom: false
       - name: Scan PIRA runtime image
-        uses: docker/scout-action@v1
+        uses: aquasecurity/trivy-action@0.36.0
         with:
-          command: cves
-          image: local://secumie-pira-ci:${{ github.sha }}
-          only-severities: critical,high
-          exit-code: true
+          image-ref: secumie-pira-ci:${{ github.sha }}
+          format: table
+          exit-code: 1
+          ignore-unfixed: false
+          severity: CRITICAL,HIGH
 
   build-contract-security:
     runs-on: ubuntu-latest
@@ -128,8 +130,8 @@ jobs:
           for database in otp_test_final pira_e1_test pira_e3_test secumie_dbops_test; do
             createdb -h 127.0.0.1 -p 55437 -U postgres -O otp_test "$database"
           done
-          psql -h 127.0.0.1 -p 55437 -U otp_test -d otp_test_final -v ON_ERROR_STOP=1 -f migrations/037_public_service_otp.sql
-          psql -h 127.0.0.1 -p 55437 -U otp_test -d pira_e1_test -v ON_ERROR_STOP=1 -f migrations/038_pira_public_intake.sql
+          PGPASSWORD=otp_test psql -h 127.0.0.1 -p 55437 -U otp_test -d otp_test_final -v ON_ERROR_STOP=1 -f migrations/037_public_service_otp.sql
+          PGPASSWORD=otp_test psql -h 127.0.0.1 -p 55437 -U otp_test -d pira_e1_test -v ON_ERROR_STOP=1 -f migrations/038_pira_public_intake.sql
       - name: OTP, PIRA and DB privilege regression
         run: >-
           node -r ts-node/register --test
