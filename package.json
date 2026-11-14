@@ -7,6 +7,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
+    "start:public-auth": "node dist/publicOtpServer.js",
+    "start:pira-public": "node dist/piraPublicServer.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "test:kaizen": "node -r ts-node/register --test test/kaizenAssessment.golden.test.ts",
     "test:diagnosis": "node -r ts-node/register --test test/itManagementDiagnosis.golden.test.ts",
@@ -25,10 +27,17 @@
     "test:report": "node -r ts-node/register --test test/diagnosisReport.golden.test.ts",
     "test:readiness": "node -r ts-node/register --test test/productionReadiness.security.test.ts",
     "test:readiness:postgres": "node -r ts-node/register --test test/productionReadiness.postgres.test.ts",
+    "test:secumie:runtime": "node -r ts-node/register --test test/secumieRuntime.postgres.browser.test.ts",
+    "test:secumie:dedicated-db": "node -r ts-node/register --test test/secumieDedicatedDbConnection.test.ts",
     "test:cleanup-contract": "node -r ts-node/register --test test/productionTestDataCleanup.contract.test.ts",
     "test:cleanup-rehearsal": "node -r ts-node/register --test test/productionTestDataCleanup.rehearsal.test.ts",
     "rehearse:cleanup": "node scripts/cleanup/rehearseProductionTestDataCleanup.cjs cleanup-manifests/production-test-data-cleanup-20261013.json",
-    "migrate:artifact": "node dist/db/migrateCli.js"
+    "migrate:artifact": "node dist/db/migrateCli.js",
+    "bootstrap:secumie:staging": "node dist/db/bootstrapSecumieInsightStagingCli.js",
+    "recover:secumie:staging": "node dist/db/recoverSecumieInsightStagingCli.js",
+    "verify:migrations:secumie": "node scripts/readiness/verifySecumieMigrationManifest.cjs migration-manifests/secumie-insight-staging-037-041.json migrations false",
+    "db:configure:secumie": "node dist/db/configureSecumieDbRolesCli.js",
+    "retention:secumie": "node dist/db/secumieRetentionCli.js"
   },
   "engines": {
     "node": ">=20"
@@ -37,15 +46,16 @@
     "@anthropic-ai/sdk": "^0.115.0",
     "@google-cloud/secret-manager": "^5.6.0",
     "cookie-parser": "^1.4.6",
+    "exceljs": "^4.4.0",
     "express": "^4.19.2",
     "google-auth-library": "^9.14.1",
     "jsonwebtoken": "^9.0.2",
-    "nodemailer": "^9.0.3",
+    "nodemailer": "^10.3.1",
     "pg": "^8.11.5",
     "pino": "^9.0.0",
     "pino-http": "^10.0.0",
     "playwright": "1.63.0",
-    "zod": "^3.23.8"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
@@ -59,5 +69,11 @@
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.4.5"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.14.7",
+    "body-parser": "1.20.9",
+    "brace-expansion@1.1.18": "1.1.21",
+    "proxy-addr": "2.0.8"
   }
 }
