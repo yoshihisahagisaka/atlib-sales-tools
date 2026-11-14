@@ -50,7 +50,7 @@ No dependency was changed in Gate A. Any dependency change remains a separate mi
 
 ## Initial CI portability corrections
 
-The first GitHub-hosted run exposed three CI-environment issues rather than application regressions: Docker Scout required an unavailable organization entitlement, the approved migration hashes reflected CRLF checkouts, and the isolated PostgreSQL setup retained the administrator password while reconnecting as the test role. Gate A switches the unauthenticated CI image scan to Trivy, canonicalizes migration SQL line endings to CRLF before hashing (with an LF/CRLF stability regression), and supplies the already-declared test-role password only to the two migration setup commands. No migration SQL, manifest hash, runtime behavior, or production dependency changed.
+The first GitHub-hosted run exposed CI-environment issues rather than application regressions: Docker Scout required an unavailable organization entitlement, the approved migration hashes reflected CRLF checkouts, the isolated PostgreSQL setup retained the administrator password while reconnecting as the test role, and the combined admin PostgreSQL test also launches Chromium. Gate A switches the unauthenticated CI image scan to the commit-pinned Trivy v0.36.0 action, canonicalizes migration SQL line endings to CRLF before hashing (with an LF/CRLF stability regression), supplies the already-declared test-role password only to the two migration setup commands, and installs Chromium in the PostgreSQL job. No migration SQL, manifest hash, runtime behavior, or production dependency changed.
 
 ## Remaining release gaps
 
