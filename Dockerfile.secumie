@@ -83,5 +83,6 @@ COPY --from=db-operations-production-verified /app/node_modules ./node_modules
 COPY --from=db-operations-production-verified /app/dist ./dist
 COPY --from=db-operations-production-verified /app/migration-manifests ./migration-manifests
 COPY --from=db-operations-production-verified /app/migrations-secumie ./migrations-secumie
+COPY --from=db-operations-production-verified /app/scripts/readiness/verifySecumieMigrationManifest.cjs ./scripts/readiness/verifySecumieMigrationManifest.cjs
 USER nonroot
 CMD ["dist/db/runSecumieProductionMigrationCli.js"]

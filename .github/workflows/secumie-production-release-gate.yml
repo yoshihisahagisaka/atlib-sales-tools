@@ -76,6 +76,25 @@ jobs:
           build-args: SOURCE_REVISION=${{ github.sha }}
           provenance: false
           sbom: false
+      - name: Verify Production DB operations final image contents
+        shell: bash
+        run: |
+          image="secumie-db-operations-production-ci:${{ github.sha }}"
+          docker run --rm --entrypoint /nodejs/bin/node "$image" \
+            scripts/readiness/verifySecumieMigrationManifest.cjs \
+            migration-manifests/secumie-insight-production-037-041.json \
+            migrations-secumie true
+          set +e
+          output=$(docker run --rm \
+            -e SECU_CLOUD_SQL_INSTANCE=msp-zabbix:asia-northeast1:secumie-sg-shared-staging-db \
+            -e SECU_PRODUCTION_MIGRATION_TARGET_CONFIRMATION=msp-zabbix:asia-northeast1:secumie-sg-shared-prod-db/secumie_insight \
+            -e DB_NAME=secumie_insight \
+            -e DB_MIGRATION_USER=secumie_migration_prod \
+            "$image" 2>&1)
+          status=$?
+          set -e
+          test "$status" -ne 0
+          grep -q 'SECU_PRODUCTION_INSTANCE_MISMATCH' <<<"$output"
       - name: Scan Production DB operations image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:

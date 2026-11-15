@@ -8,10 +8,22 @@
     "connectionName": "msp-zabbix:asia-northeast1:secumie-sg-shared-prod-db",
     "database": "secumie_insight",
     "engine": "POSTGRES_16",
+    "edition": "ENTERPRISE",
+    "machine": { "vCpu": 2, "memoryGiB": 7.5 },
     "availability": "REGIONAL",
+    "storage": {
+      "type": "SSD",
+      "initialGiB": 30,
+      "autoIncrease": true,
+      "autoIncreaseLimitGiB": 200
+    },
     "estimatedMonthlyUsd": 270,
     "backupRequired": true,
-    "pitrRequired": true
+    "pitrRequired": true,
+    "pitrRetentionDays": 7,
+    "deletionProtection": true,
+    "publicIp": false,
+    "retainedFinalBackupRequired": true
   },
   "roles": {
     "otp": { "name": "secumie_otp_prod", "connectionLimit": 6 },
@@ -46,7 +58,21 @@
     "DB_NAME": "secumie_insight",
     "PIRA_GENERAL_ENABLED": "false"
   },
-  "network": { "ingress": "internal", "vpc": "default", "egress": "private-ranges-only", "databasePublicIp": false },
+  "network": {
+    "ingress": "internal",
+    "vpc": "default",
+    "subnet": "default",
+    "subnetRegion": "asia-northeast1",
+    "egress": "private-ranges-only",
+    "databasePublicIp": false
+  },
+  "temporaryAccessCleanup": {
+    "afterBootstrapAcceptanceEvidence": true,
+    "removeBootstrapSecretAccessor": true,
+    "removeTemporaryIamBindings": true,
+    "preserveRuntimeAndMigrationSecrets": true,
+    "databaseOrRoleDeletionRequiresSeparateApproval": true
+  },
   "proxyImage": "gcr.io/cloud-sql-connectors/cloud-sql-proxy@sha256:e0cbea7b63455c1635d354ef456696d019dd02a5db47bf1994e849823e71ae89",
   "migrationManifest": "migration-manifests/secumie-insight-production-037-041.json",
   "applicationConnectionBudget": 78,
