@@ -1,8 +1,10 @@
 # SECU:MIE Insight Production Gate B-0 approval package
 
-Date: 2026-11-15 JST  
-Release branch: `release/secumie-insight-production`  
-Gate A basis: `9b1861a7915caec2362e3a5423d44c79eaafb568`  
+Date: 2026-11-15 JST
+
+Release branch: `release/secumie-insight-production`
+
+Gate A basis: `9b1861a7915caec2362e3a5423d44c79eaafb568`
 Status: **Production No-Go / approval package only**
 
 ## 1. Inherited decisions and scope
