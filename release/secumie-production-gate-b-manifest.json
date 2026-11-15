@@ -97,6 +97,12 @@
     "secretVersionsCreated": 0,
     "postgresPasswordChanged": false,
     "sqlCapacityMeasurement": "not-attempted-after-stop",
-    "stopReason": "local-gcloud-member-argument-boundary-rejected-before-first-iam-policy-write"
+    "stopReason": "iam-condition-string-literals-lost-at-powershell-gcloud-boundary-and-rejected-before-policy-write",
+    "controlledResumeEvidence": {
+      "memberArgumentValidation": "pass-single-argument",
+      "firstIamWriteApplied": false,
+      "secretsCreated": 0,
+      "existingServicesReady": 7
+    }
   }
 }

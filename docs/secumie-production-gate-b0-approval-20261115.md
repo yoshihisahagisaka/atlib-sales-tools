@@ -124,3 +124,21 @@ Read-back after STOP confirmed:
 - no Cloud SQL, database, PostgreSQL role, Staging, Secure Guard or application resource was changed.
 
 **Gate B2 result: STOP (safe partial state).** Resumption requires explicit approval to continue from the two existing Service Accounts, using a corrected single-argument `--member` invocation. The existing Service Accounts must not be recreated. B3 remains unstarted, Production remains No-Go, and `PIRA_GENERAL_ENABLED=false` remains unchanged.
+
+## 12. Gate B2 controlled resume record (2026-11-15 JST)
+
+Management authorized controlled resumption from the safe partial state in PR #47 comment `6896043513`. The two existing Service Accounts were reused. A local argv probe confirmed that each exact `--member=serviceAccount:<approved-email>` value was passed as one argument. Read-only preflight reconfirmed both SAs enabled, zero IAM bindings for them, and all six target Secrets absent.
+
+The first authorized IAM operation did not apply. Although `--member` was correct, the string literal quotes inside the IAM Condition were removed at the PowerShell-to-`gcloud.cmd` boundary. The IAM API rejected the malformed expression during condition compilation. No policy write occurred. In accordance with the explicit no-retry condition, no corrected invocation was attempted.
+
+Read-back after the failure confirmed:
+
+- both approved Production SAs remain present and enabled;
+- IAM bindings for both SAs remain zero;
+- Production DB Secrets and Secret versions remain zero;
+- the built-in `postgres` password remains unchanged;
+- database, roles, Jobs and Migration remain uncreated/unexecuted;
+- all seven protected Cloud Run services remain Ready;
+- Staging and Secure Guard remain unchanged.
+
+**Gate B2 controlled resume result: STOP (safe, no new GCP write in this attempt).** A further explicit approval is required for a condition transport method that preserves the quoted CEL string literals, such as a policy-file or properly escaped single argument. B3 remains unstarted, Production remains No-Go, and `PIRA_GENERAL_ENABLED=false` remains unchanged.
