@@ -142,3 +142,11 @@ Read-back after the failure confirmed:
 - Staging and Secure Guard remain unchanged.
 
 **Gate B2 controlled resume result: STOP (safe, no new GCP write in this attempt).** A further explicit approval is required for a condition transport method that preserves the quoted CEL string literals, such as a policy-file or properly escaped single argument. B3 remains unstarted, Production remains No-Go, and `PIRA_GENERAL_ENABLED=false` remains unchanged.
+
+## 13. Gate B2 condition-file resume record (2026-11-15 JST)
+
+PR #47 comment `6896380565` authorized reuse of the two existing SAs and required `--condition-from-file` only after an official IAM Condition lint PASS. The exact previously approved title, description and CEL expression were serialized to a local temporary JSON file. JSON parsing and exact field read-back passed; the temporary file contained no Secret and was removed after the check.
+
+The mandatory official lint could not run. The installed gcloud SDK does not include the alpha component, its installation directory under Program Files is not writable by the current execution context, and neither the installed GA nor beta track exposes `iam policies lint-condition`. No SDK component was installed, no substitute linter was treated as authoritative, and no live IAM command was issued.
+
+**Gate B2 condition-file resume result: STOP (pre-write).** GCP writes in this attempt were zero. The two existing SAs remain the only Gate B2 resources; IAM bindings, Secrets, Secret versions and password changes remain zero. Resumption requires an approved environment where the documented official linter can execute, or explicit approval of another authoritative lint mechanism. B3 remains unstarted, Production remains No-Go, and `PIRA_GENERAL_ENABLED=false` remains unchanged.

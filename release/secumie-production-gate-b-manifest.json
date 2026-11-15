@@ -97,12 +97,15 @@
     "secretVersionsCreated": 0,
     "postgresPasswordChanged": false,
     "sqlCapacityMeasurement": "not-attempted-after-stop",
-    "stopReason": "iam-condition-string-literals-lost-at-powershell-gcloud-boundary-and-rejected-before-policy-write",
+    "stopReason": "mandatory-iam-condition-linter-unavailable-without-unapproved-alpha-component-installation",
     "controlledResumeEvidence": {
       "memberArgumentValidation": "pass-single-argument",
       "firstIamWriteApplied": false,
       "secretsCreated": 0,
-      "existingServicesReady": 7
+      "existingServicesReady": 7,
+      "conditionFileParseReadBack": "pass",
+      "conditionLint": "stop-alpha-component-not-installed",
+      "gcpWritesInLatestAttempt": 0
     }
   }
 }
