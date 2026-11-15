@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "status": "approval-required",
+  "project": "msp-zabbix",
+  "region": "asia-northeast1",
+  "cloudSql": {
+    "instance": "secumie-sg-shared-prod-db",
+    "connectionName": "msp-zabbix:asia-northeast1:secumie-sg-shared-prod-db",
+    "database": "secumie_insight",
+    "engine": "POSTGRES_16",
+    "availability": "REGIONAL",
+    "estimatedMonthlyUsd": 270,
+    "backupRequired": true,
+    "pitrRequired": true
+  },
+  "roles": {
+    "otp": { "name": "secumie_otp_prod", "connectionLimit": 6 },
+    "pira": { "name": "secumie_pira_prod", "connectionLimit": 6 },
+    "admin": { "name": "secumie_admin_prod", "connectionLimit": 40 },
+    "migration": { "name": "secumie_migration_prod", "connectionLimit": 1 },
+    "maintenance": { "name": "secumie_maintenance_prod", "connectionLimit": 1 }
+  },
+  "serviceAccounts": {
+    "bootstrap": "secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com",
+    "migration": "secumie-db-migration-prod@msp-zabbix.iam.gserviceaccount.com"
+  },
+  "secrets": [
+    "secumie-prod-db-bootstrap-password",
+    "secumie-prod-db-otp-password",
+    "secumie-prod-db-pira-password",
+    "secumie-prod-db-admin-password",
+    "secumie-prod-db-migration-password",
+    "secumie-prod-db-maintenance-password"
+  ],
+  "jobs": {
+    "bootstrap": "secumie-db-bootstrap-prod",
+    "migration": "secumie-db-migrate-prod",
+    "acceptance": "secumie-db-acceptance-prod",
+    "taskCount": 1,
+    "parallelism": 1,
+    "maxRetries": 0,
+    "timeoutSeconds": 900
+  },
+  "fixedEnvironment": {
+    "SECU_CLOUD_SQL_INSTANCE": "msp-zabbix:asia-northeast1:secumie-sg-shared-prod-db",
+    "DB_NAME": "secumie_insight",
+    "PIRA_GENERAL_ENABLED": "false"
+  },
+  "network": { "ingress": "internal", "vpc": "default", "egress": "private-ranges-only", "databasePublicIp": false },
+  "proxyImage": "gcr.io/cloud-sql-connectors/cloud-sql-proxy@sha256:e0cbea7b63455c1635d354ef456696d019dd02a5db47bf1994e849823e71ae89",
+  "migrationManifest": "migration-manifests/secumie-insight-production-037-041.json",
+  "applicationConnectionBudget": 78,
+  "generalEnabled": false
+}

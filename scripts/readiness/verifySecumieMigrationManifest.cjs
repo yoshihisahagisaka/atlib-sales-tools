@@ -14,7 +14,8 @@ function canonicalMigrationBytes(content) {
 
 function verify(manifestPath, migrationsDirectory, strict = true) {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  if (manifest.schemaVersion !== 1 || manifest.database !== 'secumie_insight_staging') fail('unexpected manifest target');
+  const approvedTargets = new Set(['secumie_insight_staging', 'secumie_insight']);
+  if (manifest.schemaVersion !== 1 || !approvedTargets.has(manifest.database)) fail('unexpected manifest target');
   if (!Array.isArray(manifest.migrations) || manifest.migrations.length !== 5) fail('exactly five migrations are required');
 
   const expectedNames = [

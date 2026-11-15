@@ -35,7 +35,11 @@
     "migrate:artifact": "node dist/db/migrateCli.js",
     "bootstrap:secumie:staging": "node dist/db/bootstrapSecumieInsightStagingCli.js",
     "recover:secumie:staging": "node dist/db/recoverSecumieInsightStagingCli.js",
+    "bootstrap:secumie:production": "node dist/db/bootstrapSecumieInsightProductionCli.js",
+    "migrate:secumie:production": "node dist/db/runSecumieProductionMigrationCli.js",
+    "accept:secumie:production": "node dist/db/validateSecumieProductionCli.js",
     "verify:migrations:secumie": "node scripts/readiness/verifySecumieMigrationManifest.cjs migration-manifests/secumie-insight-staging-037-041.json migrations false",
+    "verify:migrations:secumie:production": "node scripts/readiness/verifySecumieMigrationManifest.cjs migration-manifests/secumie-insight-production-037-041.json migrations false",
     "db:configure:secumie": "node dist/db/configureSecumieDbRolesCli.js",
     "retention:secumie": "node dist/db/secumieRetentionCli.js"
   },
