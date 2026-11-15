@@ -85,3 +85,19 @@ Management approved Gate B1 at release HEAD `ec7c320713776e024a75651a47079d9d15f
 The single approved create attempt stopped in local gcloud argument validation before an API request because the GA `gcloud sql instances create` track does not recognize `--storage-auto-increase-limit`; the installed CLI reports that this flag is available only through `gcloud beta sql instances create`. In accordance with the no-retry/no-substitution condition, Work did not switch release tracks or issue another create command. Read-back returned HTTP 404 for the target instance, the Cloud SQL inventory remained the original three instances, and all seven protected Cloud Run services remained Ready. There is no partial Production Cloud SQL resource to clean up and no Production cost began.
 
 **Gate B1 result: STOP (safe, no resource created).** Resumption requires explicit management approval for one `gcloud beta sql instances create` invocation using the identical approved manifest and flags. B2 remains unstarted. Production remains No-Go and `PIRA_GENERAL_ENABLED=false` remains unchanged.
+
+## 10. Gate B1 approved resume and acceptance (2026-11-15 JST)
+
+Management approved changing only the CLI release track from `gcloud sql instances create` to `gcloud beta sql instances create`; every manifest parameter and safety condition remained unchanged. Preflight at HEAD `db7204b09eabcb94ed6403b158963fda4d5e3a11` reconfirmed that the target was absent, all required beta flags were available, PSA was `ACTIVE`, the existing three Cloud SQL instances were `RUNNABLE`, and all seven protected Cloud Run services were Ready.
+
+The single approved beta create operation completed `DONE` without error. Instance `secumie-sg-shared-prod-db` became `RUNNABLE` at connection name `msp-zabbix:asia-northeast1:secumie-sg-shared-prod-db`. Read-back matched the approved manifest:
+
+- PostgreSQL 16 Enterprise, custom 2 vCPU / 7.5 GiB, REGIONAL HA with primary `asia-northeast1-b` and available failover in `asia-northeast1-c`.
+- SSD 30 GiB; automatic increase enabled with 200 GiB limit.
+- `default` VPC Private IP only; no public IP.
+- Daily automated backup enabled with 7 retained backups; PITR and transaction log retention 7 days enabled.
+- Deletion protection, backup retention on delete, and retained final backup enabled.
+- Initial automated backup completed `SUCCESSFUL` from 2026-11-15 22:02:53 JST through 22:03:07 JST.
+- The Cloud SQL inventory changed only by this one approved instance. All seven protected Cloud Run services remained Ready. No database, PostgreSQL role/password, Secret, IAM, Job, Migration, runtime, Staging or Secure Guard resource was changed.
+
+No authenticated SQL connection exists in Gate B1, so `SHOW max_connections` and the canonical `M - R >= 78` calculation were not measured or inferred. They remain a mandatory B2/B3 pre-DDL gate. **Gate B1 result: Conditional PASS** (instance and required settings accepted; SQL capacity remains pending). B2 is unstarted, Production remains No-Go, and `PIRA_GENERAL_ENABLED=false` remains unchanged.

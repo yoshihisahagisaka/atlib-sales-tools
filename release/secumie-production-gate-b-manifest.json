@@ -76,5 +76,14 @@
   "proxyImage": "gcr.io/cloud-sql-connectors/cloud-sql-proxy@sha256:e0cbea7b63455c1635d354ef456696d019dd02a5db47bf1994e849823e71ae89",
   "migrationManifest": "migration-manifests/secumie-insight-production-037-041.json",
   "applicationConnectionBudget": 78,
-  "generalEnabled": false
+  "generalEnabled": false,
+  "gateB1Evidence": {
+    "status": "conditional-pass",
+    "createdAt": "2026-11-15T12:59:27.994Z",
+    "createOperationStatus": "DONE",
+    "instanceState": "RUNNABLE",
+    "privateIpOnly": true,
+    "initialAutomatedBackupStatus": "SUCCESSFUL",
+    "sqlCapacityMeasurement": "pending-gate-b2-authenticated-connection"
+  }
 }
