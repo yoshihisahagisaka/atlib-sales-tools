@@ -164,7 +164,8 @@ jobs:
           test/piraIntake.postgres.test.ts
           test/piraAdmin.postgres.test.ts
           test/secumieDbOperations.postgres.test.ts
-          test/secumieProductionDbOperations.postgres.test.ts
+      - name: Production DB lifecycle regression
+        run: node -r ts-node/register --test test/secumieProductionDbOperations.postgres.test.ts
 
   browser-contracts:
     runs-on: ubuntu-latest
