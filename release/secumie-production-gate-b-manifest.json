@@ -85,5 +85,18 @@
     "privateIpOnly": true,
     "initialAutomatedBackupStatus": "SUCCESSFUL",
     "sqlCapacityMeasurement": "pending-gate-b2-authenticated-connection"
+  },
+  "gateB2Evidence": {
+    "status": "stop-partial-safe",
+    "serviceAccountsCreated": [
+      "secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com",
+      "secumie-db-migration-prod@msp-zabbix.iam.gserviceaccount.com"
+    ],
+    "cloudSqlClientBindingsApplied": false,
+    "secretsCreated": 0,
+    "secretVersionsCreated": 0,
+    "postgresPasswordChanged": false,
+    "sqlCapacityMeasurement": "not-attempted-after-stop",
+    "stopReason": "local-gcloud-member-argument-boundary-rejected-before-first-iam-policy-write"
   }
 }

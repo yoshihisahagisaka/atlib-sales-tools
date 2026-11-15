@@ -101,3 +101,26 @@ The single approved beta create operation completed `DONE` without error. Instan
 - The Cloud SQL inventory changed only by this one approved instance. All seven protected Cloud Run services remained Ready. No database, PostgreSQL role/password, Secret, IAM, Job, Migration, runtime, Staging or Secure Guard resource was changed.
 
 No authenticated SQL connection exists in Gate B1, so `SHOW max_connections` and the canonical `M - R >= 78` calculation were not measured or inferred. They remain a mandatory B2/B3 pre-DDL gate. **Gate B1 result: Conditional PASS** (instance and required settings accepted; SQL capacity remains pending). B2 is unstarted, Production remains No-Go, and `PIRA_GENERAL_ENABLED=false` remains unchanged.
+
+## 11. Gate B2 execution record (2026-11-15 JST)
+
+Management approved Gate B2 at release HEAD `f098826ab95b973bcdbb65d74cc2cceb8e0bd691`. Read-only preflight passed: Git, PR #47 and the manifest matched; the Production Cloud SQL instance remained `RUNNABLE` with the accepted B1 configuration and successful initial backup; both target Service Accounts and all six target Secrets were absent; neither target principal had an existing project IAM binding; and all seven protected Cloud Run services were Ready.
+
+Execution created the two approved Service Accounts:
+
+- `secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com`
+- `secumie-db-migration-prod@msp-zabbix.iam.gserviceaccount.com`
+
+The first Cloud SQL Client binding command was then rejected by the local `gcloud` argument parser because the PowerShell-composed `--member` value crossed an argument boundary. The IAM policy write did not succeed. This was the first error, so the approved partial-construction STOP rule was applied immediately: there was no retry, repair, deletion or privilege expansion.
+
+Read-back after STOP confirmed:
+
+- the two Service Accounts exist and are enabled;
+- their project IAM bindings are empty;
+- zero Production DB Secrets were created and therefore no Secret versions or Secret-level IAM bindings exist;
+- the built-in `postgres` password was not changed;
+- no authenticated SQL connection or capacity measurement was attempted;
+- all seven protected Cloud Run services remained Ready;
+- no Cloud SQL, database, PostgreSQL role, Staging, Secure Guard or application resource was changed.
+
+**Gate B2 result: STOP (safe partial state).** Resumption requires explicit approval to continue from the two existing Service Accounts, using a corrected single-argument `--member` invocation. The existing Service Accounts must not be recreated. B3 remains unstarted, Production remains No-Go, and `PIRA_GENERAL_ENABLED=false` remains unchanged.
