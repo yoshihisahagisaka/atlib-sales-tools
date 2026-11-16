@@ -232,5 +232,66 @@
     "acceptanceRerun": false,
     "gcpChanges": 0,
     "b5Started": false
+  },
+  "gateB4AcceptanceOnlyRecoveryExecution": {
+    "status": "pass-candidate-owner-review",
+    "ownerApprovalComment": 6918480260,
+    "sourceRevision": "90be819bdf405ceaf59d3b5062c02538fd5bc58a",
+    "remoteImage": {
+      "indexDigest": "sha256:c2e2e69ed19d25e7565fa77f1223cad426606b548566d497ec9b3c66633d7741",
+      "linuxAmd64Manifest": "sha256:9cf2cc8b7ee3cc60fe4bc7b0d724eb39123d702eeb045e2569bbd383ecbe04df",
+      "nodeVersion": "24.22.3",
+      "user": "nonroot",
+      "manifestVerification": "pass-exact-037-041",
+      "stagingTargetRejection": "SECU_PRODUCTION_INSTANCE_MISMATCH-before-db",
+      "criticalFindings": 0,
+      "highFindings": 0
+    },
+    "job": {
+      "name": "secumie-db-acceptance-prod",
+      "mainContainer": "acceptance",
+      "change": "main-image-only",
+      "effectiveAdditionalDiffs": 0,
+      "taskCount": 1,
+      "parallelism": 1,
+      "maxRetries": 0,
+      "timeoutSeconds": 900
+    },
+    "execution": {
+      "name": "secumie-db-acceptance-prod-8xkzq",
+      "status": "succeeded",
+      "succeededTasks": 1,
+      "attempts": 1,
+      "exitCode": 0,
+      "ledger": [
+        "037_public_service_otp.sql",
+        "038_pira_public_intake.sql",
+        "039_pira_admin_export.sql",
+        "040_pira_export_audit_retention.sql",
+        "041_secumie_db_operations.sql"
+      ],
+      "ownership": {
+        "schemas": "3/3",
+        "tables": "10/10",
+        "functions": "7/7"
+      },
+      "capacity": {
+        "maxConnections": 400,
+        "observedConnections": 10,
+        "reserve": 80,
+        "applicationAvailable": 320,
+        "required": 78,
+        "pass": true
+      },
+      "retentionPreviewOnly": true,
+      "syntheticResidue": 0,
+      "secretLeakObserved": false
+    },
+    "protectedServicesReady": 7,
+    "migrationRerun": false,
+    "bootstrapRerun": false,
+    "dbIamSecretAclChanges": 0,
+    "b5Started": false,
+    "productionNoGo": true
   }
 }

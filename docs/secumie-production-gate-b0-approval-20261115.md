@@ -270,3 +270,32 @@ The Acceptance CLI's final synthetic-residue check no longer performs a cross-sc
 An isolated PostgreSQL 16 regression reproduced the Cloud SQL boundary: the non-SUPERUSER bootstrap database owner has no `public_auth` USAGE and both former direct residue queries fail with SQLSTATE `42501`; the role-specific OTP/Admin checks return zero and the full Acceptance lifecycle passes. Authoritative local results were TypeScript build PASS, unit/contract 24 PASS with one intentional environment skip, PostgreSQL contract regression 32/32 PASS, Production lifecycle 2/2 PASS, browser contracts 3/3 PASS, exact Production 037-041 manifest PASS, and dependency audit Critical 0 / High 0 (Moderate 7 retained). A local-only linux/amd64 Production DB Operations image for source revision `3a3a4e3b577b42faf24d651c0a688fb8786cecb7` passed in-image manifest verification and Docker Scout with Critical 0 / High 0; local image ID `sha256:08e6549884971745c02a420a7815699d45de895d16797bb0f48d61de7bee2c3f` is not a Registry digest and was not pushed. The initial combined PostgreSQL command was not the CI execution order and caused temporary shared-fixture password contention; rerunning the two workflow stages in their defined sequential order passed completely.
 
 **Code-review Gate result: PASS; execution Gate remains STOP.** Artifact Registry push, Production Job update, Acceptance execution, DB/GCP/IAM/Secret changes and B5 were not performed. A new immutable image digest, Job diff review and separate explicit Owner execution approval remain required before any Acceptance rerun. Production remains No-Go and `PIRA_GENERAL_ENABLED=false` remains unchanged.
+
+## 21. Gate B4 Acceptance-only recovery execution (2026-11-17 JST)
+
+Owner comment `6918480260` authorized one Acceptance-only recovery from fixed source HEAD `90be819bdf405ceaf59d3b5062c02538fd5bc58a`. The successful Migration execution `secumie-db-migrate-prod-wfzff`, its exact 037-041 ledger and ownership evidence were reused; Bootstrap and Migration were not rerun.
+
+Read-only preflight confirmed the fixed Git/manifest state, clean worktree, Draft PR and required CI, the existing Acceptance Job's unique main container `acceptance`, the failed single prior execution, six enabled Secret version 1 references with unchanged scoped IAM, Production Cloud SQL protections and capacity evidence, and all seven protected Cloud Run services Ready. The Job retained task/parallelism 1, retry 0, timeout 900 seconds, the approved Service Account, Direct VPC and fixed Proxy image.
+
+The unchanged `db-operations-production` target was built for `linux/amd64` with source revision `90be819bdf405ceaf59d3b5062c02538fd5bc58a`. In-image verification passed for exactly migrations 037-041, the Staging-target rejection occurred before DB connection with `SECU_PRODUCTION_INSTANCE_MISMATCH`, Node was 24.22.3, the final user was nonroot and Docker Scout returned Critical 0 / High 0. The image was pushed once under the unique recovery tag. Registry read-back identified:
+
+- index digest `sha256:c2e2e69ed19d25e7565fa77f1223cad426606b548566d497ec9b3c66633d7741`;
+- linux/amd64 manifest `sha256:9cf2cc8b7ee3cc60fe4bc7b0d724eb39123d702eeb045e2569bbd383ecbe04df`;
+- Registry source revision/provenance matched the fixed HEAD; no local image identifier was used as a Registry index substitute.
+
+Cloud Run Job `secumie-db-acceptance-prod` was updated once with only the `acceptance` container image changed to the immutable Registry index digest. Effective before/after template comparison, after normalizing that image field, was identical. Command/args, Proxy, Service Account, six Secret references, VPC, task/parallelism, retry and timeout were unchanged. No execute-now or runtime override was used.
+
+Acceptance execution `secumie-db-acceptance-prod-8xkzq` completed `SUCCEEDED`, task 1/1, retry 0 and exit code 0. Its structured `secumie_production_acceptance_completed` event recorded:
+
+- database owner `postgres`;
+- ledger exactly 037-041;
+- schema/table/function ownership 3/3, 10/10 and 7/7;
+- all role Positive/Negative ACL and audit immutability checks passed;
+- retention preview candidate counts were zero and no retention execute occurred;
+- `M=400`, observed 10, reserve 80, application available 320, required 78, capacity PASS;
+- role-scoped OTP lock and export-audit residue checks passed, with `syntheticResidue=0`;
+- no Secret value, password, OTP, JWT or personal data was observed in evidence logs.
+
+All seven protected Cloud Run services remained Ready. No DB DDL/GRANT/ACL/role change, IAM/Secret change, Bootstrap/Migration rerun, runtime service change, Secure Guard/Staging change or cleanup was performed. The GCP changes were limited to one new immutable Artifact image, one Acceptance Job main-image update and one Acceptance execution.
+
+**Gate B4 result submitted as PASS candidate for owner review.** B5, runtime deployment, GENERAL enablement and Production publication were not started. Production remains No-Go and `PIRA_GENERAL_ENABLED=false` remains unchanged.
