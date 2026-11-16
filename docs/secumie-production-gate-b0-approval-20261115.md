@@ -222,3 +222,27 @@ Local linux/amd64 verification:
 Production DB Operations again verified exactly migrations 037-041 in-image and rejected the Staging instance before a DB connection. TypeScript build and both manifests passed. Contract regression was 24 PASS / 1 environment-dependent PostgreSQL SKIP. An isolated PostgreSQL 16 run passed 32 OTP/PIRA/admin/DB-privilege tests and 2 Production lifecycle tests; the temporary container was removed.
 
 No image was pushed, no Artifact Registry tag was changed, and no GCP/DB/IAM/Secret/Job resource was accessed or modified by this remediation. Gate B3 remains stopped at code/image security review pending acceptance of the new source SHA and immutable local image evidence. B4 remains unstarted. Production remains No-Go and `PIRA_GENERAL_ENABLED=false` remains unchanged.
+
+## 18. Gate B3 Artifact and Production Bootstrap result (2026-11-16 JST)
+
+Owner comment `6907994885` explicitly authorized Gate B3 from release SHA `35b86f5d2bac676762281e9b6aff1e552a672b35`. A fresh read-only preflight confirmed PostgreSQL 16 REGIONAL HA, Private IP only, successful automated backups, PITR 7 days, deletion protection, only the default `postgres` database and built-in user, all six Secret version 1 entries enabled with the approved Secret-scoped IAM, no Production Bootstrap Job or execution, no approved-SHA Artifact tag, Direct VPC allowed, and all seven protected Cloud Run services Ready.
+
+The existing IAP/VPC route authenticated with the Bootstrap Secret without printing or persisting its value. A read-only transaction confirmed `current_user=postgres`, no `secumie_insight` database, no five application roles, and no unexpected application-role memberships. Capacity was measured as `M=400`, superuser reserved `3`, reserved `0`, observed connections `10`, canonical reserve `R=80`, and `M-R=320 >= 78`.
+
+The `db-operations-production` image was rebuilt once for `linux/amd64` from the approved SHA with Node `24.22.3`. In-image verification again passed for exactly migrations 037-041 and the Production manifest, the revision label matched the approved SHA, and a Staging instance was rejected before DB connection. Current local and remote scans both returned Critical 0 / High 0. The image was pushed once to the approved existing repository. Registry identity was read back as index digest `sha256:70b9f6aa3621db0275fabb5287137a3cd01a32866cfb5a9110af556cc4845ee0`, linux/amd64 manifest `sha256:856b0cae94a2672b465655f8be3a87571677d5689390e8e574aa986003218c3d`, and config `sha256:f011374a198a06c518e6314bc54f7d2eb7a60e86792688228f598d7921eb0928`. Registry provenance identifies the approved repository and SHA.
+
+Cloud Run Job `secumie-db-bootstrap-prod` was created with the immutable registry digest, approved Bootstrap SA, six Secret version 1 references, Direct VPC `default/default` with `private-ranges-only`, Cloud SQL Auth Proxy v2.28.0 fixed index digest, Production target confirmation, task/parallelism 1, retry 0 and timeout 900 seconds. Pre-execution read-back matched the manifest and showed zero executions. The single approved execution `secumie-db-bootstrap-prod-4gxvf` completed successfully with one succeeded task and no retry.
+
+Post-execution read-only acceptance confirmed:
+
+- database `secumie_insight`, owner `postgres`, and PUBLIC database CONNECT/TEMPORARY revoked;
+- exactly five LOGIN roles with limits OTP 6, PIRA 6, Admin 40, Migration 1 and Maintenance 1;
+- all five roles are NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOINHERIT, NOREPLICATION and NOBYPASSRLS;
+- zero memberships involving the five application roles;
+- all five roles can CONNECT, only Migration can CREATE on the database and use/create in `public`, and PUBLIC schema privileges are revoked;
+- each role authenticated through its own Secret, with non-Migration CREATE checks false;
+- capacity remained `M=400`, `R=80`, available 320, required 78, PASS;
+- structured logs contained only the capacity and completion metadata, no Secret value, password, OTP, JWT or personal data;
+- all seven protected Cloud Run services remained Ready.
+
+**Gate B3 result: PASS for Artifact and Bootstrap only.** Gate B4 Migration/Acceptance was not started. No OTP/PIRA or Sales Tools deployment, GENERAL enablement, public release, Secure Guard or Staging change was performed. Production remains No-Go and `PIRA_GENERAL_ENABLED=false` remains unchanged.
