@@ -182,3 +182,25 @@ Read-back confirmed:
 Metadata inspection cannot prove byte-for-byte equality between the built-in `postgres` password and Bootstrap Secret version 1. That equality remains owner-attested and must be demonstrated through the separately approved non-logging authentication and capacity preflight before any B3 DDL. `SHOW max_connections`, reserved connections, observed connections and `M - R >= 78` also remain mandatory B3 pre-DDL checks.
 
 **Gate B2 result: Conditional PASS (identity, Secret metadata and IAM accepted; authentication/capacity deferred to B3 pre-DDL).** B3 was not started. Production remains No-Go and `PIRA_GENERAL_ENABLED=false` remains unchanged.
+
+## 16. Gate B3 resumed preflight and image security STOP (2026-11-16 JST)
+
+PR #47 comment `6906526886` superseded the earlier blanket PostgreSQL 16 compatibility hold using the actual Staging Cloud SQL PG16 Recovery/Acceptance evidence while preserving the zero-membership contract and all original B3 gates. Gate B3 resumed from release HEAD `1dc64e2d8598fccfa3c1ed93d51b8a06c14c1bbd`.
+
+Read-only preflight confirmed the Production instance `RUNNABLE`, PostgreSQL 16 REGIONAL/Private IP, PITR/deletion protection, two successful backups, only the default `postgres` database, no Production Bootstrap Job, Direct VPC egress allowed, all six Secret version 1 entries enabled, the unique Artifact tag absent, and all seven protected Cloud Run services Ready.
+
+The `db-operations-production` target was built locally for `linux/amd64` with the approved revision label. In-image verification passed for exactly migrations 037-041 and the Production manifest. Starting the default Production Migration CLI with the Staging instance identifier was rejected before DB connection with `SECU_PRODUCTION_INSTANCE_MISMATCH`. Local image evidence was manifest `sha256:a475c80206751b22a17ee16a58c498b6b7533ca22069649c7b3706a12b84485c` and config `sha256:7815697008ffb229f1e76525cd46fbf94ee0997f55ea48bffa914dcbb4577429`.
+
+The current Docker Scout advisory database rejected the image: Critical 0, High 7. All seven High findings affect bundled Node `24.22.2`, with fixed version `24.22.3`:
+
+- `CVE-2026-123863`
+- `CVE-2026-123864`
+- `CVE-2026-123865`
+- `CVE-2026-123866`
+- `CVE-2026-123872`
+- `CVE-2026-123874`
+- `CVE-2026-126051`
+
+The approved Critical/High STOP condition was applied without an exception, exclusion or threshold change. The image was not pushed, no Bootstrap Job was created or executed, authentication/capacity/DDL was not attempted, and `secumie_insight` plus the five roles remain absent. Read-back found the Artifact tag absent, only the default `postgres` database and all seven protected services Ready.
+
+**Gate B3 result: STOP before Artifact push and DDL.** Resumption requires a separately reviewed minimal base-image update to a Node version containing the fixes, followed by rebuild and the unchanged Critical/High gate. B4 remains unstarted. Production remains No-Go and `PIRA_GENERAL_ENABLED=false` remains unchanged.
