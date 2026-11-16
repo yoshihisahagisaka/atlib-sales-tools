@@ -87,17 +87,17 @@
     "sqlCapacityMeasurement": "pending-gate-b2-authenticated-connection"
   },
   "gateB2Evidence": {
-    "status": "awaiting-human-secret-entry",
+    "status": "conditional-pass",
     "serviceAccountsCreated": [
       "secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com",
       "secumie-db-migration-prod@msp-zabbix.iam.gserviceaccount.com"
     ],
     "cloudSqlClientBindingsApplied": true,
     "secretsCreated": 6,
-    "secretVersionsCreated": 0,
-    "postgresPasswordChanged": false,
+    "secretVersionsCreated": 6,
+    "postgresPasswordChanged": "owner-attested-metadata-only",
     "sqlCapacityMeasurement": "not-attempted-after-stop",
-    "stopReason": "approved-non-logging-human-console-secret-entry-required",
+    "stopReason": null,
     "controlledResumeEvidence": {
       "memberArgumentValidation": "pass-single-argument",
       "firstIamWriteApplied": false,
@@ -108,7 +108,12 @@
       "officialRestLint": "pass-empty-lint-results",
       "conditionFileBindingsReadBack": "pass-both-service-accounts",
       "secretScopedIamReadBack": "pass",
-      "secretVersions": 0,
+      "secretVersions": 6,
+      "secretVersionContract": "exactly-version-1-enabled-per-secret",
+      "postgresUserMetadata": "present-single-user",
+      "passwordEqualityVerification": "owner-attested-pending-b3-authentication-preflight",
+      "productionDatabaseCreated": false,
+      "productionGateJobsCreated": 0,
       "protectedServicesReady": 7
     }
   }

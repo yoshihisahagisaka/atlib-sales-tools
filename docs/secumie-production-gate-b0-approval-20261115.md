@@ -162,3 +162,23 @@ Using the linted file and `--condition-from-file`, the exact conditional `roles/
 The local Condition file was deleted. The remaining Gate B2 step is the approved non-logging human Cloud Console operation: set the built-in `postgres` password and Bootstrap Secret version 1 to the same >=32-byte CSPRNG value, and add five independent >=32-byte CSPRNG values as version 1 of the OTP, PIRA, Admin, Migration and Maintenance Secrets. Values must not enter CLI arguments, shell history, logs, Git, PR comments, chat or screen sharing.
 
 **Gate B2 current result: awaiting human Secret entry.** B3 remains unstarted. Production remains No-Go and `PIRA_GENERAL_ENABLED=false` remains unchanged.
+
+## 15. Gate B2 Secret metadata acceptance (2026-11-16 JST)
+
+The owner reported completion of the approved non-logging Cloud Console password and Secret entry in PR #47 comment `6906011303`. Authenticated read-only inspection retrieved metadata only and never accessed, printed, hashed, compared or exported a Secret payload.
+
+Read-back confirmed:
+
+- all six approved Production DB Secrets retain automatic replication and the approved Production/SECU:MIE DB credential labels;
+- each Secret has exactly one version, version `1`, in `ENABLED` state;
+- Bootstrap has Secret Accessor on all six and Migration has it only on the Migration Secret, with no additional Secret-level principal;
+- both existing SAs retain exactly one approved conditional Cloud SQL Client binding restricted to `secumie-sg-shared-prod-db`;
+- the Production Cloud SQL instance remains `RUNNABLE`, PostgreSQL 16, REGIONAL, Private IP only, PITR enabled and deletion protected;
+- built-in user metadata contains exactly one `postgres` user;
+- only the default `postgres` database exists; `secumie_insight` and the five roles remain uncreated;
+- no Production Gate Job exists and all seven protected Cloud Run services remain Ready;
+- Staging, Secure Guard, existing services, database data and migrations were unchanged.
+
+Metadata inspection cannot prove byte-for-byte equality between the built-in `postgres` password and Bootstrap Secret version 1. That equality remains owner-attested and must be demonstrated through the separately approved non-logging authentication and capacity preflight before any B3 DDL. `SHOW max_connections`, reserved connections, observed connections and `M - R >= 78` also remain mandatory B3 pre-DDL checks.
+
+**Gate B2 result: Conditional PASS (identity, Secret metadata and IAM accepted; authentication/capacity deferred to B3 pre-DDL).** B3 was not started. Production remains No-Go and `PIRA_GENERAL_ENABLED=false` remains unchanged.
