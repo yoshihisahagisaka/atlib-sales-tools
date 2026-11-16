@@ -87,25 +87,29 @@
     "sqlCapacityMeasurement": "pending-gate-b2-authenticated-connection"
   },
   "gateB2Evidence": {
-    "status": "stop-partial-safe",
+    "status": "awaiting-human-secret-entry",
     "serviceAccountsCreated": [
       "secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com",
       "secumie-db-migration-prod@msp-zabbix.iam.gserviceaccount.com"
     ],
-    "cloudSqlClientBindingsApplied": false,
-    "secretsCreated": 0,
+    "cloudSqlClientBindingsApplied": true,
+    "secretsCreated": 6,
     "secretVersionsCreated": 0,
     "postgresPasswordChanged": false,
     "sqlCapacityMeasurement": "not-attempted-after-stop",
-    "stopReason": "mandatory-iam-condition-linter-unavailable-without-unapproved-alpha-component-installation",
+    "stopReason": "approved-non-logging-human-console-secret-entry-required",
     "controlledResumeEvidence": {
       "memberArgumentValidation": "pass-single-argument",
       "firstIamWriteApplied": false,
       "secretsCreated": 0,
       "existingServicesReady": 7,
       "conditionFileParseReadBack": "pass",
-      "conditionLint": "stop-alpha-component-not-installed",
-      "gcpWritesInLatestAttempt": 0
+      "conditionLint": "alpha-unavailable-superseded-by-owner-approved-official-rest-lint",
+      "officialRestLint": "pass-empty-lint-results",
+      "conditionFileBindingsReadBack": "pass-both-service-accounts",
+      "secretScopedIamReadBack": "pass",
+      "secretVersions": 0,
+      "protectedServicesReady": 7
     }
   }
 }
