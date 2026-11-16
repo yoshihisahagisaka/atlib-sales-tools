@@ -218,6 +218,15 @@
       "productionLifecycle": "2/2-pass",
       "databaseContracts": "32/32-pass"
     },
+    "localImageGate": {
+      "sourceRevision": "3a3a4e3b577b42faf24d651c0a688fb8786cecb7",
+      "platform": "linux/amd64",
+      "imageId": "sha256:08e6549884971745c02a420a7815699d45de895d16797bb0f48d61de7bee2c3f",
+      "manifestVerification": "pass-exact-037-041",
+      "criticalFindings": 0,
+      "highFindings": 0,
+      "registryDigest": null
+    },
     "artifactPushed": false,
     "productionJobUpdated": false,
     "acceptanceRerun": false,
