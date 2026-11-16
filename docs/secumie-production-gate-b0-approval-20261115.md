@@ -204,3 +204,21 @@ The current Docker Scout advisory database rejected the image: Critical 0, High 
 The approved Critical/High STOP condition was applied without an exception, exclusion or threshold change. The image was not pushed, no Bootstrap Job was created or executed, authentication/capacity/DDL was not attempted, and `secumie_insight` plus the five roles remain absent. Read-back found the Artifact tag absent, only the default `postgres` database and all seven protected services Ready.
 
 **Gate B3 result: STOP before Artifact push and DDL.** Resumption requires a separately reviewed minimal base-image update to a Node version containing the fixes, followed by rebuild and the unchanged Critical/High gate. B4 remains unstarted. Production remains No-Go and `PIRA_GENERAL_ENABLED=false` remains unchanged.
+
+## 17. Gate B3 Node 24.22.3 minimal remediation evidence (2026-11-16 JST)
+
+PR #47 comment `6906895110` authorized only the minimum immutable Node 24 base-image pin update and local/CI verification. Official image metadata resolved Node `24.22.3-bookworm-slim` to index digest `sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54` and Distroless `nodejs24-debian13` to index digest `sha256:24bc0fe0225c7518f202a822587dad74fe143b96326b81fe5cc08c1df8bed03e`. Both were executed on linux/amd64 and reported `v24.22.3` before source modification.
+
+Only six Node 24 `FROM` references in `Dockerfile.secumie` changed: three builder/dependency stage references and the unchanged distroless/nonroot final bases for OTP, PIRA and Production DB Operations. Node 20 Staging stages, packages, application code, DB logic, manifests and security thresholds were unchanged. Implementation revision is `a00b01f0f2c144e72a4240554f4b06c0e2878f1b`.
+
+Local linux/amd64 verification:
+
+| Image | Local image ID | Node | User | Critical | High |
+| --- | --- | --- | --- | --- | --- |
+| OTP | `sha256:a0fc5e44cb3a0e82bde0be11dbd8a658ee3c6784d6886d4557e693b53e68045b` | 24.22.3 | nonroot | 0 | 0 |
+| PIRA | `sha256:d7c294544b3233630d40b79eeab7345b0091ab6d80a35ec047c210d75feb20fd` | 24.22.3 | nonroot | 0 | 0 |
+| Production DB Operations | `sha256:fc794e1cf5a9f60b654c2b5fe553d04cb846cf6b718a652c30b29fae3f36b9f3` | 24.22.3 | nonroot | 0 | 0 |
+
+Production DB Operations again verified exactly migrations 037-041 in-image and rejected the Staging instance before a DB connection. TypeScript build and both manifests passed. Contract regression was 24 PASS / 1 environment-dependent PostgreSQL SKIP. An isolated PostgreSQL 16 run passed 32 OTP/PIRA/admin/DB-privilege tests and 2 Production lifecycle tests; the temporary container was removed.
+
+No image was pushed, no Artifact Registry tag was changed, and no GCP/DB/IAM/Secret/Job resource was accessed or modified by this remediation. Gate B3 remains stopped at code/image security review pending acceptance of the new source SHA and immutable local image evidence. B4 remains unstarted. Production remains No-Go and `PIRA_GENERAL_ENABLED=false` remains unchanged.

@@ -132,6 +132,20 @@
     "bootstrapJobCreated": false,
     "bootstrapExecuted": false,
     "databaseCreated": false,
-    "stopReason": "critical-high-image-gate-failed"
+    "stopReason": "awaiting-review-of-node-24.22.3-remediation",
+    "node24223Remediation": {
+      "implementationRevision": "a00b01f0f2c144e72a4240554f4b06c0e2878f1b",
+      "nodeBuilderDigest": "sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54",
+      "distrolessRuntimeDigest": "sha256:24bc0fe0225c7518f202a822587dad74fe143b96326b81fe5cc08c1df8bed03e",
+      "installedNodeVersion": "24.22.3",
+      "otpLocalImageId": "sha256:a0fc5e44cb3a0e82bde0be11dbd8a658ee3c6784d6886d4557e693b53e68045b",
+      "piraLocalImageId": "sha256:d7c294544b3233630d40b79eeab7345b0091ab6d80a35ec047c210d75feb20fd",
+      "dbOperationsLocalImageId": "sha256:fc794e1cf5a9f60b654c2b5fe553d04cb846cf6b718a652c30b29fae3f36b9f3",
+      "criticalFindings": 0,
+      "highFindings": 0,
+      "postgres16Regression": "32-pass-plus-2-production-lifecycle-pass",
+      "artifactPushed": false,
+      "gcpChanges": 0
+    }
   }
 }
