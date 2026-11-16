@@ -196,5 +196,32 @@
     "protectedServicesReady": 7,
     "automaticRetryOrRepair": false,
     "b5Started": false
+  },
+  "gateB4AcceptanceCliRecovery": {
+    "status": "code-review-pass-execution-stop",
+    "ownerApprovalComment": 6909091141,
+    "approvedHead": "5e1ec1461024a83fe02c0ee25e44159b72865dfa",
+    "evidenceShaCorrection": {
+      "incorrectPrText": "5e1ec143fa7523b624c4000f29d2b40b676b1074",
+      "authoritativeGitCommit": "5e1ec1461024a83fe02c0ee25e44159b72865dfa"
+    },
+    "residueChecks": {
+      "publicAuthRole": "secumie_otp_prod",
+      "piraAuditRole": "secumie_admin_prod",
+      "exactZeroRequired": true,
+      "failClosed": true
+    },
+    "postgres16Regression": {
+      "bootstrapNonSuperuser": true,
+      "bootstrapPublicAuthUsage": false,
+      "formerDirectSelectSqlstate": "42501",
+      "productionLifecycle": "2/2-pass",
+      "databaseContracts": "32/32-pass"
+    },
+    "artifactPushed": false,
+    "productionJobUpdated": false,
+    "acceptanceRerun": false,
+    "gcpChanges": 0,
+    "b5Started": false
   }
 }

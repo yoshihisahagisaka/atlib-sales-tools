@@ -62,10 +62,13 @@ export async function validateSecumieProduction(): Promise<void> {
     try { retention={otp:(await maintenance.query('SELECT public_auth.retention_candidates() AS value')).rows[0]?.value??{},pira:(await maintenance.query('SELECT pira.retention_candidates() AS value')).rows[0]?.value??{}}; await denied(maintenance.query('DELETE FROM pira.pira_export_audit')); } finally { await maintenance.end(); }
     const migration=new Pool(config('secumie_migration_prod',required('SECU_MIGRATION_DB_PASSWORD')));
     let ledger:string[]=[]; try { ledger=(await migration.query<{filename:string}>('SELECT filename FROM schema_migrations ORDER BY filename')).rows.map(row=>row.filename); if(JSON.stringify(ledger)!==JSON.stringify(SECU_PRODUCTION_MIGRATIONS)) throw new Error('SECU_PRODUCTION_ACCEPTANCE_LEDGER_MISMATCH'); } finally { await migration.end(); }
-    const residues=await bootstrap.query(`SELECT
-      (SELECT count(*)::int FROM public_auth.otp_send_locks WHERE email_protected='synthetic-production@example.invalid') AS otp,
-      (SELECT count(*)::int FROM pira.pira_export_audit WHERE actor_subject='synthetic-production-acceptance') AS audit`);
-    if (residues.rows[0]?.otp!==0 || residues.rows[0]?.audit!==0) throw new Error('SECU_PRODUCTION_ACCEPTANCE_SYNTHETIC_RESIDUE');
+    const residueOtp=new Pool(config('secumie_otp_prod',required('SECU_OTP_DB_PASSWORD')));
+    let otpResidue:number;
+    try { otpResidue=(await residueOtp.query<{count:number}>("SELECT count(*)::int AS count FROM public_auth.otp_send_locks WHERE email_protected='synthetic-production@example.invalid'")).rows[0]?.count??-1; } finally { await residueOtp.end(); }
+    const residueAdmin=new Pool(config('secumie_admin_prod',required('SECU_ADMIN_DB_PASSWORD')));
+    let auditResidue:number;
+    try { auditResidue=(await residueAdmin.query<{count:number}>("SELECT count(*)::int AS count FROM pira.pira_export_audit WHERE actor_subject='synthetic-production-acceptance'")).rows[0]?.count??-1; } finally { await residueAdmin.end(); }
+    if (otpResidue!==0 || auditResidue!==0) throw new Error('SECU_PRODUCTION_ACCEPTANCE_SYNTHETIC_RESIDUE');
     console.log(JSON.stringify({event:'secumie_production_acceptance_completed',database:SECU_PRODUCTION_DATABASE,owner:identity.owner,migrations:ledger,capacity,objects:owners.rows,retentionPreview:retention,syntheticResidue:0}));
   } finally { await bootstrap.end(); }
 }
