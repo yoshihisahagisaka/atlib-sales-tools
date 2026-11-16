@@ -246,3 +246,17 @@ Post-execution read-only acceptance confirmed:
 - all seven protected Cloud Run services remained Ready.
 
 **Gate B3 result: PASS for Artifact and Bootstrap only.** Gate B4 Migration/Acceptance was not started. No OTP/PIRA or Sales Tools deployment, GENERAL enablement, public release, Secure Guard or Staging change was performed. Production remains No-Go and `PIRA_GENERAL_ENABLED=false` remains unchanged.
+
+## 19. Gate B4 Migration success and Acceptance STOP (2026-11-16 JST)
+
+Owner comment `6908545953` authorized Gate B4 only from evidence HEAD `e57b0474dc32ef84f72fdefd7e111c468db99bc3`. Preflight confirmed the approved Git/manifest state, exact ordered SHA-256 manifest for migrations 037-041, B3 database owner `postgres`, five bounded roles and zero application-role memberships, Migration-only CREATE, PUBLIC revocation, an absent migration ledger, `M=400`, `R=80`, 320 available connections against 78 required, six enabled Secret version 1 entries with approved scoped IAM, immutable Artifact provenance and Critical 0 / High 0, Direct VPC, successful backups/PITR/deletion protection, absent Migration/Acceptance Jobs and all seven protected services Ready.
+
+Jobs `secumie-db-migrate-prod` and `secumie-db-acceptance-prod` were created with the approved immutable image and Proxy digests, Production target, Direct VPC `default/default` and `private-ranges-only`, correct SA/Secret boundaries, task/parallelism 1, retry 0 and timeout 900 seconds. Both showed zero executions before use.
+
+Migration execution `secumie-db-migrate-prod-wfzff` completed successfully once with no retry. Read-only verification found the ledger exactly equal to 037, 038, 039, 040 and 041 in order. All 3 target schemas, 10 tables and 7 functions were owned by `secumie_migration_prod`.
+
+Acceptance execution `secumie-db-acceptance-prod-cs6kz` was executed once and failed with exit code 1; retry remained zero. Cloud SQL error evidence identifies the final failure as `permission denied for schema public_auth` for user `postgres`. The Acceptance CLI's final synthetic-residue query uses the bootstrap owner connection, but the Cloud SQL built-in `postgres` role has no `USAGE` on the hardened `public_auth` schema. Earlier denial logs for OTP/PIRA/Admin/Maintenance are the expected negative tests, but the full Acceptance result cannot be marked PASS because the CLI did not reach its completion event.
+
+No rerun, ACL repair, GRANT, Job update or permission widening was performed. Separate read-only queries using the owning OTP and Admin runtime roles confirmed zero synthetic residue in `public_auth.otp_send_locks` and `pira.pira_export_audit`. The migration ledger and ownership remained intact, both Jobs have exactly one execution, all seven protected Cloud Run services remained Ready, and no Secret value was logged.
+
+**Gate B4 result: STOP after successful Migration and failed Acceptance.** Migration 037-041 must not be rerun. Acceptance must not be rerun or modified without a new review and explicit approval. Gate B5, runtime deployment, GENERAL enablement and Production publication were not started. Production remains No-Go and `PIRA_GENERAL_ENABLED=false` remains unchanged.

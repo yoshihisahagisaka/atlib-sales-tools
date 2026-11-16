@@ -162,5 +162,39 @@
       "artifactPushed": false,
       "gcpChanges": 0
     }
+  },
+  "gateB4Evidence": {
+    "status": "stop-after-migration-acceptance-failed",
+    "approvedHead": "e57b0474dc32ef84f72fdefd7e111c468db99bc3",
+    "imageIndexDigest": "sha256:70b9f6aa3621db0275fabb5287137a3cd01a32866cfb5a9110af556cc4845ee0",
+    "migrationJob": "secumie-db-migrate-prod",
+    "migrationExecution": "secumie-db-migrate-prod-wfzff",
+    "migrationStatus": "succeeded",
+    "migrationAttempts": 1,
+    "ledger": [
+      "037_public_service_otp.sql",
+      "038_pira_public_intake.sql",
+      "039_pira_admin_export.sql",
+      "040_pira_export_audit_retention.sql",
+      "041_secumie_db_operations.sql"
+    ],
+    "ownership": {
+      "schemas": "3/3 migration owner",
+      "tables": "10/10 migration owner",
+      "functions": "7/7 migration owner"
+    },
+    "acceptanceJob": "secumie-db-acceptance-prod",
+    "acceptanceExecution": "secumie-db-acceptance-prod-cs6kz",
+    "acceptanceStatus": "failed",
+    "acceptanceAttempts": 1,
+    "acceptanceFailure": "bootstrap postgres lacks USAGE on public_auth during final synthetic residue query",
+    "syntheticResidue": {
+      "otpSendLocks": 0,
+      "exportAudit": 0,
+      "verifiedReadOnlyWithOwningRuntimeRoles": true
+    },
+    "protectedServicesReady": 7,
+    "automaticRetryOrRepair": false,
+    "b5Started": false
   }
 }
