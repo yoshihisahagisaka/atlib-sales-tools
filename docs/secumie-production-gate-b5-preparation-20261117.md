@@ -128,3 +128,20 @@ OwnerのCloud Shellで `gcloud secrets versions list` をRead-only実行し、`s
 **証跡の限界:** この結果は各Secretの最大ENABLED Versionを示すが、既存Revisionが参照する `latest` aliasの実参照番号を直接確認したものではない。aliasの実参照は `gcloud secrets versions describe latest --secret=...` というRead-onlyメタデータ操作で別途照合する。Cloud RunのSecret環境変数はInstance起動時に解決されるため、Revision名とImage digestのみでは完全なSecret状態の固定を保証しない。
 
 **保護方針:** 既存5 Secretの値・Version状態・IAM・現在の `latest` 参照を変更しない。現行 `sales-tools-wsc-release` 100%配信を維持。将来のno-traffic candidateに限り、適切な独立Secretの番号指定と接続構成を別途レビューする。Production No-Goを維持する。
+
+
+## 9. Sales Tools既存Secretの `latest` 参照確定（2026-11-17 JST）
+
+OwnerがCloud Shellから各Secretについて `gcloud secrets versions describe latest --secret=... --project=msp-zabbix --format=json` をread-only実行し、`resolvedVersion`、`state`、`createTime` を提出した。Secret payloadのaccess、取得、表示はしていない。
+
+| Existing Secret | `latest` resolvedVersion | state | createTime (UTC) | §8最大ENABLEDと一致 |
+| --- | ---: | --- | --- | --- |
+| `sales-tools-db-password` | 2 | ENABLED | 2026-08-23T01:26:52.526704Z | YES |
+| `portal-smtp-password` | 2 | ENABLED | 2026-07-05T04:09:56.208126Z | YES |
+| `portal-anthropic-api-key` | 5 | ENABLED | 2026-10-23T03:56:12.323099Z | YES |
+| `sales-tools-google-oauth-client-secret` | 1 | ENABLED | 2026-08-25T05:20:16.298533Z | YES |
+| `sales-tools-staff-jwt-secret` | 1 | ENABLED | 2026-08-25T05:20:21.827515Z | YES |
+
+**判定:** 調査時点で5件すべての`latest`参照先がENABLEDであり、§8の最大ENABLED版と一致。Sales Tools現行100%配信Revision、image digest、SAと合わせ、既存Secretの**現時点メタデータ基準**が確定した。ただしCloud Run Secret環境変数はInstance起動時に解決されるため、既に稼働中のInstance内の実際の値や将来の`latest`参照先を本メタデータだけで保証できない。rollback実施・正常復帰の実証は未実施。
+
+**保護Gate:** 既存5 Secretのvalue・IAM・version・aliasに触れず、現行`sales-tools-wsc-release` 100% Trafficを維持する。次工程はB5-2Aの新設予定Service・Service Account・Secret・Jobの**存在照合だけ**を行う。独立承認前のリソース作成、既存Sales ToolsのCandidate作成・Traffic変更、DB変更、Production公開は行わない。
