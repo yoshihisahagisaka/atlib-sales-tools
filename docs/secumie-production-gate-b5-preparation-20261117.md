@@ -179,3 +179,46 @@ OwnerがCloud Shellの単一read-onlyバッチから、`--project=msp-zabbix`、
 **判定:** 現時点で名前の重複は確認されず、OTP/PIRAのRuntime、各SA、Retention Job、B5固有SecretはB5-2B以降の**新規作成候補**。既存の本番DB credentialはB0–B4を正本とし値の複製を行わない。ただし本検査は名前の存在のみで、Secret version/IAM、DB host・Private IP・DB role、Cloud Run全既存ServiceのReady、NEG/LB/DNS/証明書衝突、Scheduler、監視の確認ではない。これらは未完了のread-only Gateに留める。
 
 **保護条件:** `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、既存Sales Toolsの`sales-tools-wsc-release` 100% Traffic、Retention preview-onlyを継続。リソース作成、権限付与、Secret参照変更、Migration、公開は本節では実施・承認しない。
+
+
+## 11. Production Cloud SQL・6 DB Secret version/IAMのRead-only照合（2026-11-17 JST）
+
+OwnerがCloud Shellから`gcloud sql instances describe`、`gcloud sql databases list`、各Secretの`versions describe latest`と`get-iam-policy`をread-only実行した。バッチは`B5 DB READ-ONLY CHECK COMPLETE`で正常終了。Secret payload、パスワード、DBレコードは取得していない。
+
+### 11.1 Cloud SQL
+
+| Field | Live read-back | Canonical Fit |
+| --- | --- | --- |
+| Instance | `secumie-sg-shared-prod-db` / `RUNNABLE` | MATCH |
+| Region / Engine | `asia-northeast1` / `POSTGRES_16` | MATCH |
+| Tier / HA | `db-custom-2-7680` / `REGIONAL` | MATCH |
+| IP | `ipv4Enabled=false` / `ipTypes=[PRIVATE]` | MATCH |
+| Backup / PITR | `backupEnabled=true` / `pitrEnabled=true` | ENABLED; 最新バックアップSUCCESSと保持7日実績は別確認 |
+| Deletion protection | `true` | MATCH |
+| Database | `secumie_insight` / `UTF8` / `en_US.UTF8` | MATCH |
+
+B0承認package §4とProduction manifest（`release/secumie-production-gate-b-manifest.json`）に照合し、上記主要構成は一致。B4 Acceptance-only回復実行`secumie-db-acceptance-prod-8xkzq`のM400 / R80 / available320 / required78 PASSは既存証跡であり、本read-backで接続数やDB role/ledger/backup成功を**再測定したものではない**。
+
+### 11.2 Secret versionと直接IAM
+
+6件すべて`latestVersion=1` / `state=ENABLED`。Service Account名は以下の略号に対応：
+- BOOT = `secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com`
+- MIG = `secumie-db-migration-prod@msp-zabbix.iam.gserviceaccount.com`
+
+| Secret | latest | Enabled | direct `roles/secretmanager.secretAccessor` members |
+| --- | ---: | --- | --- |
+| `secumie-prod-db-admin-password` | 1 | YES | BOOT |
+| `secumie-prod-db-bootstrap-password` | 1 | YES | BOOT |
+| `secumie-prod-db-maintenance-password` | 1 | YES | BOOT |
+| `secumie-prod-db-migration-password` | 1 | YES | BOOT, MIG |
+| `secumie-prod-db-otp-password` | 1 | YES | BOOT |
+| `secumie-prod-db-pira-password` | 1 | YES | BOOT |
+
+`createTime` (UTC): admin 2026-11-16T02:52:38.838833Z、bootstrap 02:52:17.083723Z、maintenance 02:52:59.581520Z、migration 02:53:16.664688Z、otp 02:53:37.545998Z、pira 02:53:57.198213Z。
+
+**検出したIAM Gap:**
+1. B0承認package §4はBootstrap/Acceptance証跡保全後にtemporary Bootstrap SecretAccessor権限を削除する契約。B4 Acceptance回復PASS後の現時点で、BOOTのSecretAccessor直接付与が6件すべて残存。これは**承認済み事後cleanupの未了候補**であり、B5-2B前の権限レビュー対象。独立承認・Job依存関係確認前に削除しない。
+2. B5新設OTP/PIRA SAは未存在（§10）。現在OTP/PIRA DB Secretの直接AccessorはBOOTのみ。将来のRuntime作成時には`secumie-prod-db-otp-password`をOTP SAだけ、`secumie-prod-db-pira-password`をPIRA SAだけへ追加するscoped IAMの差分が必要。Admin利用のSales Tools candidateは別承認・別権限検証とし、既存Sales Tools SAへの広域アクセスを付与しない。
+3. `get-iam-policy`は各Secretの直接bindingのみを示す。Project/Folder/Organizationからの継承権限、IAM Conditions、effective permissionsの全体確認を本検査で実施したとは扱わない。
+
+**判定:** DB instance・database基本構成とSecret versionはB5要件へのFit。Runtime用ID/Secret Accessorはまだ未構築、BOOT temporary権限の残存はGap。Production No-Go、GENERAL disabled、既存サービス/DB/Secret/IAMへの書込み禁止を維持。
