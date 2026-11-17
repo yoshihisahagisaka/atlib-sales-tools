@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import {parseCsv,previewDeviceCsv,suggestMapping} from '../src/domain/assessmentDeviceImportPreview';
 
 test('CSV quoting, BOM and multiline are parsed without data loss',()=>{
- assert.deepEqual(parseCsv('\uFEFF資産番号,PC名\r\n"PC,01","営業""PC"\n予備"'),[['資産番号','PC名'],['PC,01','営業"PC"\n予備']]);
+ assert.deepEqual(parseCsv('\uFEFF資産番号,PC名\r\n"PC,01","営業""PC""\n予備"'),[['資産番号','PC名'],['PC,01','営業"PC"\n予備']]);
 });
 test('known columns mapped, user and status remain source-only, not VERIFIED',()=>{
  const p=previewDeviceCsv('資産番号,PC名,シリアル番号,利用者,状態\nPC-01,営業PC,SN1,田中,利用中');
@@ -58,11 +58,11 @@ test('duplicate target mapping blocks preview submission',()=>{
 });
 
 test('multiline quoted CSV preserves physical source row numbering',()=>{
- const p=previewDeviceCsv('資産番号,PC名\\nPC-01,"営業\\n予備"\\nPC-02,B');
+ const p=previewDeviceCsv('資産番号,PC名\nPC-01,"営業\n予備"\nPC-02,B');
  assert.deepEqual(p.rows.map(r=>r.sourceRowNumber),[2,4]);
- assert.equal(p.rows[0]!.mappedCandidate.display_name,'営業\\n予備');
+ assert.equal(p.rows[0]!.mappedCandidate.display_name,'営業\n予備');
 });
 test('CRLF quoted multiline record preserves physical source row numbering',()=>{
- const p=previewDeviceCsv('資産番号,PC名\\r\\nPC-01,"営業\\r\\n予備"\\r\\nPC-02,B');
+ const p=previewDeviceCsv('資産番号,PC名\r\nPC-01,"営業\r\n予備"\r\nPC-02,B');
  assert.deepEqual(p.rows.map(r=>r.sourceRowNumber),[2,4]);
 });
