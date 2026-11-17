@@ -59,8 +59,11 @@ export function previewDeviceCsv(input:string, humanMapping?:Mapping[]):ImportPr
   const [headers,...data]=parseCsv(input);
   const mapping=humanMapping??suggestMapping(headers);
   const issues:string[]=[];
-  const assigned=mapping.filter(m=>m.targetField!==null);
-  if(mapping.length!==headers.length||mapping.some((m,i)=>m.sourceColumnIndex!==i))issues.push('INVALID_MAPPING');
+  const validMapping=mapping.length===headers.length && mapping.every((m,i)=>m.sourceColumnIndex===i && (m.targetField===null || fields.includes(m.targetField)));
+  const assigned=validMapping?mapping.filter(m=>m.targetField!==null):[];
+  if(!validMapping)issues.push('INVALID_MAPPING');
+  const seenHeaders=new Set<string>();
+  for(const header of headers){const key=normalize(header);if(seenHeaders.has(key))issues.push('DUPLICATE_SOURCE_HEADER');seenHeaders.add(key);}
   for(const field of fields){
     if(assigned.filter(m=>m.targetField===field).length>1)issues.push('DUPLICATE_TARGET_MAPPING:'+field);
   }
@@ -68,9 +71,9 @@ export function previewDeviceCsv(input:string, humanMapping?:Mapping[]):ImportPr
     if(!assigned.some(m=>m.targetField===field))issues.push('MISSING_REQUIRED_MAPPING:'+field);
   }
   const assetCounts=new Map<string,number>();
-  const prepared=data.filter(cells=>cells.some(c=>c.trim()!=='')).map((cells,index)=>{
+  const prepared=data.map((cells,index)=>({cells,index})).filter(({cells})=>cells.some(c=>c.trim()!=='')).map(({cells,index})=>{
     const mappedCandidate:Partial<Record<DeviceField,string>>={};
-    for(const m of mapping){
+    for(const m of assigned){
       if(m.targetField&&m.sourceColumnIndex>=0&&m.sourceColumnIndex<headers.length)
         mappedCandidate[m.targetField]=(cells[m.sourceColumnIndex]??'').trim();
     }
@@ -83,7 +86,7 @@ export function previewDeviceCsv(input:string, humanMapping?:Mapping[]):ImportPr
     if(p.originalCells.length!==headers.length)errors.push('COLUMN_COUNT_MISMATCH');
     for(const field of ['asset_tag','display_name'] as const)
       if(!p.mappedCandidate[field])errors.push('MISSING_REQUIRED_VALUE:'+field);
-    if(p.mappedCandidate.asset_tag&&assetCounts.get(normalize(p.mappedCandidate.asset_tag))!>1)
+    if(p.mappedCandidate.asset_tag && (assetCounts.get(normalize(p.mappedCandidate.asset_tag)) ?? 0)>1)
       errors.push('DUPLICATE_ASSET_TAG_IN_FILE');
     return {...p,issues:errors,outcome:errors.length?'NEEDS_REVIEW':'COMPARISON_PENDING'};
   });
