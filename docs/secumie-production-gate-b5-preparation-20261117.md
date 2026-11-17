@@ -89,3 +89,26 @@ B5-2は以下の現物を **read-only** で取得して差分を確定するま�
 - Production DB Migration 037–041を逆適用・自動再実行しない。DB障害は書込み停止と復旧判断を独立したDB運用Gateに委ねる。
 - Slackには監視事象、サービス、環境、時刻、影響、対応者、証跡リンクのみ。Secret、メール本文、OTP/JWT、個人情報を含めない。
 - 本書のGit更新自体は **Production No-Go、`PIRA_GENERAL_ENABLED=false`、Production Traffic不変更、Retention preview-only** を解除しない。
+
+## 7. Sales Tools現行100% RevisionのRead-only現物照合（2026-11-17 JST）
+
+OwnerがCloud Shellから `gcloud run services describe sales-tools` と `gcloud run revisions describe sales-tools-wsc-release` を実行し、出力のうち非Secret metadataのみを提示した。本節はその提出結果を記録する。独立した再照会・配備・Traffic変更・IAM変更は実施していない。
+
+| 項目 | Live read-back |
+| --- | --- |
+| Project / region | `msp-zabbix` / `asia-northeast1` |
+| Service | `sales-tools` |
+| Service latestReadyRevision | `sales-tools-wsc-release` |
+| Traffic | `sales-tools-wsc-release` が **100%** |
+| Traffic tag | `wsc-release-850e1f0`（Revision名ではなくtag） |
+| Revision Ready | `True` |
+| Revision image and reported digest | `asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/sales-tools@sha256:e7142198b7346715167fb6e5742da6cae26a263c5f7beccf42f8c8d7a9300be7` |
+| Revision service account | `sales-tools-sa@msp-zabbix.iam.gserviceaccount.com` |
+| Existing service ingress | `all`（保護対象の現行値。B5専用runtimeへ転用しない） |
+| Existing Secret references | `DB_PASSWORD→sales-tools-db-password:latest`、`SMTP_PASSWORD→portal-smtp-password:latest`、`ANTHROPIC_API_KEY→portal-anthropic-api-key:latest`、`GOOGLE_OAUTH_CLIENT_SECRET→sales-tools-google-oauth-client-secret:latest`、`STAFF_JWT_SECRET→sales-tools-staff-jwt-secret:latest` |
+
+現行Revisionの環境変数名一覧には `PIRA_ADMIN_EMAILS` および `SECUMIE_DB_NAME`、`SECUMIE_DB_ADMIN_USER`、`SECUMIE_DB_ADMIN_PASSWORD`、`SECUMIE_DB_SOCKET_PATH` 等が存在しない。これは既存配信RevisionがB5の管理機能設定をまだ持たないという事実であり、既存サービスの欠陥とは判定しない。
+
+現行Releaseコード `src/server.ts` は起動時に独立SECU:MIE管理poolを作成し、`src/config.ts` の `loadSecumieAdminDatabaseConfig()` が `SECUMIE_DB_NAME`、`SECUMIE_DB_ADMIN_USER`、`SECUMIE_DB_ADMIN_PASSWORD` を必須とする。管理poolは `max=2`。従って将来のSales Tools no-traffic candidateには専用DB接続設定・Secret参照・private connectivityを必ず揃え、既存業務DBの `DB_*` 設定および旧Secretを置換しない。
+
+**判定:** 現行100%配信Revisionとimmutable image digestは特定済みであり、rollback先の識別子として固定できる。ただし、実際のrollback操作・正常性確認は未実施であり、rollbackの実証PASSとは扱わない。Sales Tools candidate revision作成とTraffic 0検証は引き続き独立したOwner承認を必要とする。現行100% Trafficは変更しない。
