@@ -342,3 +342,36 @@ Ownerは§13の確認結果を受け、**「承認します」**と回答。承�
 **実行条件:** Cloud Shellの1バッチで、7対象の直接Policyおよび共有条件式・Job identityをread-onlyで再取得し、完全一致しなければ書込み前にSTOPする。変更は対象bindingのBOOT member除去のみとし、`--all`、全体Policy置換、IAM privilege追加、Job再実行、DB変更をしない。各除去のエラーで即STOP（変更済み項目を自動回復・再付与しない）。最後に6 SecretとProject IAMを再照会し、BOOT残存なし、MIG memberとconditionの維持を証明する。部分実行時はOwnerに実施済み範囲を報告してSTOPする。
 
 **重要:** 上記は権限除去のOwner承認と実行契約の記録。**本Git更新時点ではCloud Shell実行結果が未提出のためIAM cleanup完了扱いにしない。** `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools現行100% Traffic、Retention preview-onlyを継続。B5 runtime構築、Sales Tools candidate作成、公開、Retention実行の承認ではない。
+
+
+## 15. B0 Bootstrap一時IAM cleanup実行結果（2026-11-18 JST）
+
+§14でOwner承認したCloud Shell `B0_IAM_CLEANUP` 1バッチの実行出力をOwnerが提出。端末への貼付エコー中に断片の乱れはあるが、バッチ本体の `1. PREFLIGHT`、`2. APPROVED CLEANUP`、`3. POST-CHECK` の全セクション、各対象操作のAPI成功メッセージと終端 `B0 IAM CLEANUP SUCCESS` が確認でき、同出力では `STOP` / エラーは報告されていない。以下のPASSは、このOwner提出実行出力を証跡とする。
+
+### 15.1 PreflightとIAM変更
+
+- Conditional Cloud SQL IAM：`[PASS]`。Project `msp-zabbix` の条件付き `roles/cloudsql.client` bindingは対象Instance `secumie-sg-shared-prod-db` に限定され、BOOT/MIG両memberと承認済みtitle/description/CELが一致。
+- 既存Job identities：`[PASS]`。Bootstrap/AcceptanceはBOOT SA、MigrationはMIG SA。
+- Production DB用Secret 6件：すべて `[PASS]`。対象Secretの直接 `roles/secretmanager.secretAccessor` のメンバーが承認済み一覧に完全一致。
+- Secret 6件について `gcloud secrets remove-iam-policy-binding` によりBOOT memberだけの除去を実行。**6件すべて `Updated IAM policy for secret [...]`** が出力された。
+- 共有conditional Cloud SQL Client bindingについて `gcloud projects remove-iam-policy-binding` によりBOOT memberだけの除去を実行。**`Updated IAM policy for project [msp-zabbix].`** が出力された。
+
+### 15.2 Post-check
+
+| Verify | Owner提出出力 | 判定 |
+| --- | --- | --- |
+| `secumie-prod-db-admin-password` | `[PASS]` | BOOT Accessor解除 |
+| `secumie-prod-db-bootstrap-password` | `[PASS]` | BOOT Accessor解除 |
+| `secumie-prod-db-maintenance-password` | `[PASS]` | BOOT Accessor解除 |
+| `secumie-prod-db-migration-password` | `[PASS]` | BOOT Accessor解除・MIG Accessor保持 |
+| `secumie-prod-db-otp-password` | `[PASS]` | BOOT Accessor解除 |
+| `secumie-prod-db-pira-password` | `[PASS]` | BOOT Accessor解除 |
+| Conditional Cloud SQL Client | `[PASS] Migration IAM retained`、`[PASS] Bootstrap Cloud SQL IAM removed` | BOOT解除、同条件のMIG保持 |
+| Existing Job identities | `[PASS] Existing Job identities unchanged` | Job identity維持 |
+| 終端 | `B0 IAM CLEANUP SUCCESS` | 完了 |
+
+**確定判定:** B0 §4で承認された**Bootstrap一時IAM cleanup（6 Secret + 1 Project conditional bindingのBOOT member削除）完了：PASS**。既存Migration専用IAMは承認範囲のread-backで維持されている。Bootstrap/Acceptance Jobは今後そのまま再実行できる状態と見なさず、必要時は別Owner承認・一時権限復旧・Preflightを要する。SA/Job/Secret/DB/roles/ledgerの削除やMigration再実行は行っていない。
+
+**証跡範囲の注意:** Policyの逐語JSON全文、Folder/Organizationの継承権限、effective permissions、実際のJob再実行はこの出力では再計測しない。上記はバッチ内部の `jq` 厳密照合とGCP更新成功メッセージに基づく完了判定であり、Production全体Goの根拠にはしない。
+
+**残Gate:** B5 OTP/PIRA専用runtime/SA/Secret作成、専用HMAC Secret名確定、runtime DB fallback fail-closed、private networkとLB/NEG/DNS/TLS衝突、Mailtrap Live・Turnstile本番設定、Sales Tools no-traffic candidate（独立承認）、Retention専用SA/previewと監視が未完了。**`Production No-Go`、`PIRA_GENERAL_ENABLED=false`、既存Sales Tools `sales-tools-wsc-release` 100% Traffic、Retention preview-onlyを維持。** B5-2Bリソース作成と公開は未承認。
