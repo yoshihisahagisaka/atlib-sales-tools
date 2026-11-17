@@ -222,3 +222,49 @@ B0承認package §4とProduction manifest（`release/secumie-production-gate-b-m
 3. `get-iam-policy`は各Secretの直接bindingのみを示す。Project/Folder/Organizationからの継承権限、IAM Conditions、effective permissionsの全体確認を本検査で実施したとは扱わない。
 
 **判定:** DB instance・database基本構成とSecret versionはB5要件へのFit。Runtime用ID/Secret Accessorはまだ未構築、BOOT temporary権限の残存はGap。Production No-Go、GENERAL disabled、既存サービス/DB/Secret/IAMへの書込み禁止を維持。
+
+
+## 12. B0一時権限cleanupとB5 runtime最小権限のコード契約Fit/Gap（2026-11-17 JST）
+
+調査基準：Draft PR #47のRelease HEAD `6125b540778dd6debe04bc66322f0e4daa29498d`。B0承認Package §3–4・§14–15、B4 Acceptance-only回復証跡、Production manifest、`src/runtime/runtimeConfig.ts`、`src/config.ts`、`src/db/secumieDbOperationsConfig.ts`、`src/db/secumieRetentionCli.ts`、`src/runtime/publicOtpRuntime.ts`、`src/runtime/piraPublicRuntime.ts`をread-only照合。既存実装とOwner選択を照合した設計レビューであり、コード・GCPへの書込みはしていない。
+
+### 12.1 B0 cleanup対象の区分
+
+| 既存IAM | Live evidence | Canonicalでの扱い | 次の操作 |
+| --- | --- | --- | --- |
+| BOOT SA → 本番DB用Secret 6件の個別`secretAccessor` | §11で6件残存 | B0 §4: Bootstrap/Acceptance証跡保全後のtemporary解除対象 | 各Secretの**BOOT memberだけ**を削除する候補。MIGや他member、Secret versionを変更しない。実行前にOwner承認 |
+| BOOT SA → Production instance限定のconditional`roles/cloudsql.client` | B2 §14–15では付与済み。今回のGCP read-backは未取得 | B0 `temporaryAccessCleanup.removeTemporaryIamBindings=true`の対象候補 | 現物のcondition式、binding、Job依存を再確認してから解除対象を確定。**現時点で削除対象と断定しない** |
+| MIG SA → Migration Secretの個別`secretAccessor` | §11で残存 | B0 §3–4のMigration専用権限。B5以降もMigration秘密情報は保持 | 保持候補。Runtime向けへ拡張しない |
+| MIG SA → conditional`roles/cloudsql.client` | B2で付与済み。今回の現物read-backは未取得 | Migration専用接続 | 保持候補。先に現物と承認仕様を再照合 |
+
+BOOTは既存のBootstrap/Acceptance Jobで利用した管理用identity。B4後の自動再実行は禁止されており、権限を削除すれば旧Jobの即時再実行能力は失われる（正常な最小権限化の結果）。万一再検証が必要になった場合も、Job仕様・実行・一時権限復旧はそれぞれ新たな承認の対象。Service Account、Job、Secret、Databaseの削除は提案しない。
+
+### 12.2 Code-confirmed runtime Secret/role matrix
+
+| Identity / phase | DB role / explicit env | 使用すべきSecret（専用Secret単位のAccessor候補） | 不要なSecret access |
+| --- | --- | --- | --- |
+| **OTP runtime SA** `secumie-otp-prod@...`（未作成） | `DB_USER=secumie_otp_prod`、`DB_NAME=secumie_insight`、`DB_PASSWORD`、`DB_POOL_MAX=2` | `secumie-prod-db-otp-password`→`DB_PASSWORD`、`secumie-prod-smtp-password`→`SMTP_PASSWORD`、`secumie-prod-turnstile-secret`→`TURNSTILE_SECRET`、`secumie-prod-otp-jwt-keys`→`OTP_JWT_KEYS_JSON`、専用HMAC Secret→`OTP_HMAC_KEY` | PIRA/Admin/Migration/Maintenance DB password、既存Sales Tools secrets |
+| **PIRA runtime SA** `secumie-pira-prod@...`（未作成） | `DB_USER=secumie_pira_prod`、`DB_NAME=secumie_insight`、`DB_PASSWORD`、`DB_POOL_MAX=2` | `secumie-prod-db-pira-password`→`DB_PASSWORD` | OTPのSMTP、Turnstile server secret、JWT private keys、HMAC key、Admin/Migration/Maintenance password、既存Sales Tools secrets |
+| **Sales Tools no-traffic candidate**（別承認） | 既存`DB_*`とは独立して`SECUMIE_DB_NAME`、`SECUMIE_DB_ADMIN_USER=secumie_admin_prod`、`SECUMIE_DB_ADMIN_PASSWORD`、専用pool max2 | `secumie-prod-db-admin-password`→`SECUMIE_DB_ADMIN_PASSWORD`のみを既存`sales-tools-sa`へ追加する候補 | OTP/PIRA/Migration/Maintenance password、OTP private JWT/SMTP/Turnstile/HMAC |
+| **Retention Job**（別承認） | `DB_MAINTENANCE_USER=secumie_maintenance_prod`、`DB_MAINTENANCE_PASSWORD`、pool max1 | `secumie-prod-db-maintenance-password`のみ | 全OTP/PIRA/Admin/Migration password、外部認証Secrets |
+
+PIRA runtimeの`TURNSTILE_SITE_KEY`は公開Widgetのsite keyでありSecretAccessorを要しない。`OTP_JWKS_URL`は公開鍵取得先でありPIRAにJWT private signing keyを渡さない。Retention専用SA名はCanonicalで未確定のため、構築承認時に明示する。各接続SAのCloud SQL ClientはProduction instance限定の条件付き権限・ネットワーク疎通・最小権限を改めて検証し、project-wide Secret Accessorは禁止する。
+
+### 12.3 新規検出：共有configのruntime DB password fallback
+
+`src/runtime/runtimeConfig.ts`の`databaseRuntime()`は`loadDatabaseConfig('runtime')`を呼び、`src/config.ts`の`loadDatabaseConfig()`は`DB_PASSWORD`環境変数が空のとき、既存Sales Tools用`sales-tools-db-password`をSecret Managerから取得しようとするfallbackを持つ。これは既存Sales Toolsの歴史的動作であるが、**新設専用OTP/PIRAに旧Sales Tools DB secretへの依存を許容する契約ではない**。
+
+B5構築Gateでは：
+1. OTP/PIRA両Serviceの`DB_PASSWORD`がそれぞれ専用Prod DB Secretの明示的なSecret環境変数参照であることをcandidate specとrevision read-backで証明する。
+2. OTP/PIRA SAが旧`sales-tools-db-password`へSecret Accessorを持たず、誤設定時はSecret取得やDB接続が失敗することを確認する。
+3. **コード側の境界強化候補:** OTP/PIRA専用entrypointでは`DB_PASSWORD`未設定を直ちにfail-closedとし、旧Sales Tools Secret fallbackへ進まないことを最小変更で実装・テストする。これは本レビューでは未実装であり、別途実装レビュー・承認が必要。
+4. 既存Sales Toolsの`loadDatabaseConfig('runtime')`のfallback挙動を無断変更しない。
+
+### 12.4 未完了の外部read-only証跡と承認Gate
+
+- BOOT/MIGの実際のconditional Cloud SQL Client IAM bindingとjob serviceAccount、SecretAccessorの継承権限、権限削除後の運用手順。
+- 現行Production Jobの完了状態と復旧/再実行依存のread-back（B4既存証跡を参照し、実行しない）。
+- 最新バックアップ成功、PITR retention、network/DNS/NEG/LB/TLS衝突、保護対象ServiceのReady状態。
+- B5新規OTP/PIRA Service/SA、Prod runtime Secret、Retention専用SA、Image digest、SMTP/Turnstile、private verification、監視閾値の承認。
+
+**結論:** DB・6 Secretの存在/versionはFit。BOOT temporary IAMの残存、Runtime用scoped IAM未作成、旧Sales Tools Secret fallback境界、Retention SA名未確定はGap。前者は正確な削除差分をOwnerに提示してから実行し、後者はB5-2B作成承認の前提条件として扱う。Production No-Go/GENERAL disabled/現行Sales Tools 100% Traffic/Retention preview-only維持。
