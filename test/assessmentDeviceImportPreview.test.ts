@@ -56,3 +56,13 @@ test('duplicate target mapping blocks preview submission',()=>{
  assert.ok(p.issues.includes('DUPLICATE_TARGET_MAPPING:asset_tag'));
  assert.equal(p.rows[0].outcome,'NEEDS_REVIEW');
 });
+
+test('multiline quoted CSV preserves physical source row numbering',()=>{
+ const p=previewDeviceCsv('資産番号,PC名\\nPC-01,"営業\\n予備"\\nPC-02,B');
+ assert.deepEqual(p.rows.map(r=>r.sourceRowNumber),[2,4]);
+ assert.equal(p.rows[0].mappedCandidate.display_name,'営業\\n予備');
+});
+test('CRLF quoted multiline record preserves physical source row numbering',()=>{
+ const p=previewDeviceCsv('資産番号,PC名\\r\\nPC-01,"営業\\r\\n予備"\\r\\nPC-02,B');
+ assert.deepEqual(p.rows.map(r=>r.sourceRowNumber),[2,4]);
+});
