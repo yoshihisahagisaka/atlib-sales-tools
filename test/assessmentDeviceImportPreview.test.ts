@@ -35,16 +35,16 @@ test('never infers create/update or deletes missing records',()=>{
 test('invalid quoted CSV fails closed',()=>assert.throws(()=>parseCsv('資産番号,PC名\n"PC-01,A'),/UNCLOSED_CSV_QUOTE/));
 
 test('blank record does not shift subsequent source row number',()=>{
- const p=previewDeviceCsv('資産番号,PC名\\nPC-01,A\\n\\nPC-02,B');
+ const p=previewDeviceCsv('資産番号,PC名\nPC-01,A\n\nPC-02,B');
  assert.deepEqual(p.rows.map(r=>r.sourceRowNumber),[2,4]);
 });
 test('duplicate source headers block preview submission',()=>{
- const p=previewDeviceCsv('資産番号,資産番号,PC名\\nPC-01,PC-02,A');
+ const p=previewDeviceCsv('資産番号,資産番号,PC名\nPC-01,PC-02,A');
  assert.ok(p.issues.includes('DUPLICATE_SOURCE_HEADER'));
  assert.equal(p.rows[0].outcome,'NEEDS_REVIEW');
 });
 test('malformed mapping is not trusted',()=>{
- const p=previewDeviceCsv('資産番号,PC名\\nPC-01,A',[
+ const p=previewDeviceCsv('資産番号,PC名\nPC-01,A',[
    {sourceColumnIndex:1,targetField:'asset_tag',origin:'HUMAN'},
    {sourceColumnIndex:0,targetField:'display_name',origin:'HUMAN'}
  ]);
@@ -52,7 +52,7 @@ test('malformed mapping is not trusted',()=>{
  assert.equal(p.rows[0].outcome,'NEEDS_REVIEW');
 });
 test('duplicate target mapping blocks preview submission',()=>{
- const p=previewDeviceCsv('資産番号,管理番号,PC名\\nPC-01,PC-02,A');
+ const p=previewDeviceCsv('資産番号,管理番号,PC名\nPC-01,PC-02,A');
  assert.ok(p.issues.includes('DUPLICATE_TARGET_MAPPING:asset_tag'));
  assert.equal(p.rows[0].outcome,'NEEDS_REVIEW');
 });
