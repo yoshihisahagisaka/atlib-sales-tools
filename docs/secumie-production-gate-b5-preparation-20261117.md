@@ -145,3 +145,37 @@ OwnerがCloud Shellから各Secretについて `gcloud secrets versions describe
 **判定:** 調査時点で5件すべての`latest`参照先がENABLEDであり、§8の最大ENABLED版と一致。Sales Tools現行100%配信Revision、image digest、SAと合わせ、既存Secretの**現時点メタデータ基準**が確定した。ただしCloud Run Secret環境変数はInstance起動時に解決されるため、既に稼働中のInstance内の実際の値や将来の`latest`参照先を本メタデータだけで保証できない。rollback実施・正常復帰の実証は未実施。
 
 **保護Gate:** 既存5 Secretのvalue・IAM・version・aliasに触れず、現行`sales-tools-wsc-release` 100% Trafficを維持する。次工程はB5-2Aの新設予定Service・Service Account・Secret・Jobの**存在照合だけ**を行う。独立承認前のリソース作成、既存Sales ToolsのCandidate作成・Traffic変更、DB変更、Production公開は行わない。
+
+
+## 10. B5-2A新設候補リソースの存在確認（2026-11-17 JST）
+
+OwnerがCloud Shellの単一read-onlyバッチから、`--project=msp-zabbix`、Cloud Runは`--region=asia-northeast1`を明示して4件のlistを取得・名称照合。途中の端末エコーに一部乱れがあるが、4セクションと最後の`B5-2A READ-ONLY CHECK COMPLETE`を含む結果が提出された。対象listコマンドは正常終了したものとして扱う。未照会の権限・状態・動作はPASSとしない。
+
+| 調査先 | 対象 / 現物結果 | 存在Fit/Gap |
+| --- | --- | --- |
+| Cloud Run Services | `secumie-otp-prod`、`secumie-pira-prod`: 該当0件 `[]` | 2 Servicesとも未作成 |
+| IAM Service Accounts | `secumie-otp-prod@msp-zabbix.iam.gserviceaccount.com`、`secumie-pira-prod@msp-zabbix.iam.gserviceaccount.com`: 該当0件 `[]` | 2 SAとも未作成 |
+| Cloud Run Jobs | `secumie-insight-retention-prod`: 該当0件 `[]` | Retention Job未作成 |
+| Secret Manager | `secumie-` prefixに一致する12件を確認（下記）。新規runtime用Secretは該当なし | DB credentialは既存流用候補、B5固有Secretは不足 |
+
+**存在確認できた本番DB用6 Secret:**
+- `secumie-prod-db-admin-password`
+- `secumie-prod-db-bootstrap-password`
+- `secumie-prod-db-maintenance-password`
+- `secumie-prod-db-migration-password`
+- `secumie-prod-db-otp-password`
+- `secumie-prod-db-pira-password`
+
+**併存するStaging用6 Secret（B5で変更・流用しない）:**
+- `secumie-stg-db-admin-password`
+- `secumie-stg-db-bootstrap-password`
+- `secumie-stg-db-maintenance-password`
+- `secumie-stg-db-migration-password`
+- `secumie-stg-db-otp-password`
+- `secumie-stg-db-pira-password`
+
+**B5固有Secretの未存在:** `secumie-prod-smtp-password`、`secumie-prod-turnstile-secret`、`secumie-prod-otp-jwt-keys` は上記一覧に現れていない。専用`OTP_HMAC_KEY`用Secretは名前未確定であり、既存prefix内に想定該当なし。新規作成候補とし、Secret名・権限・versionをB5-2B構築前に確定する。
+
+**判定:** 現時点で名前の重複は確認されず、OTP/PIRAのRuntime、各SA、Retention Job、B5固有SecretはB5-2B以降の**新規作成候補**。既存の本番DB credentialはB0–B4を正本とし値の複製を行わない。ただし本検査は名前の存在のみで、Secret version/IAM、DB host・Private IP・DB role、Cloud Run全既存ServiceのReady、NEG/LB/DNS/証明書衝突、Scheduler、監視の確認ではない。これらは未完了のread-only Gateに留める。
+
+**保護条件:** `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、既存Sales Toolsの`sales-tools-wsc-release` 100% Traffic、Retention preview-onlyを継続。リソース作成、権限付与、Secret参照変更、Migration、公開は本節では実施・承認しない。
