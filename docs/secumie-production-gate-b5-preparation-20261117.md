@@ -272,25 +272,25 @@ B5構築Gateでは：
 
 ## 13. B5 IAM条件・Job Identity・Backup保持のRead-only照合（2026-11-17 JST）
 
-OwnerがCloud Shellの単一Read-onlyバッチで、Project IAM Policy、Production DB Cloud Run JobsのserviceAccount、直近のCloud SQL Backup実績と保持設定を取得。出力には4セクションと最終 \`B5 IAM READ-ONLY CHECK COMPLETE\` が含まれ、書込み・Job実行・Secret payloadの取得はない。端末エコーの中途に乱れはあるが、結果セクションは揃っている。以下はOwner提出時点の現物証跡であり、実際のcleanup操作は未実施。
+OwnerがCloud Shellの単一Read-onlyバッチで、Project IAM Policy、Production DB Cloud Run JobsのserviceAccount、直近のCloud SQL Backup実績と保持設定を取得。出力には4セクションと最終 `B5 IAM READ-ONLY CHECK COMPLETE` が含まれ、書込み・Job実行・Secret payloadの取得はない。端末エコーの中途に乱れはあるが、結果セクションは揃っている。以下はOwner提出時点の現物証跡であり、実際のcleanup操作は未実施。
 
 ### 13.1 条件付きCloud SQL Client IAM（§12の未確認項目）
 
-Project \`msp-zabbix\` の \`gcloud projects get-iam-policy\` による、BOOT/MIGの該当bindingは1件：
+Project `msp-zabbix` の `gcloud projects get-iam-policy` による、BOOT/MIGの該当bindingは1件：
 
 | Item | Live read-back | 判定 |
 | --- | --- | --- |
-| IAM role | \`roles/cloudsql.client\` | B0/B2契約と一致 |
-| Members（同一binding） | \`secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com\`、\`secumie-db-migration-prod@msp-zabbix.iam.gserviceaccount.com\` | 両SAの接続権限を確認 |
-| Condition title | \`secumie-prod-cloudsql-instance-only\` | B2承認名と一致 |
-| Condition description | \`Restrict to SECU MIE production Cloud SQL instance\` | B2承認記録と一致 |
-| Condition CEL | \`resource.type == "sqladmin.googleapis.com/Instance" && resource.name == "projects/msp-zabbix/instances/secumie-sg-shared-prod-db"\` | 対象の本番Instanceだけに限定 |
+| IAM role | `roles/cloudsql.client` | B0/B2契約と一致 |
+| Members（同一binding） | `secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com`、`secumie-db-migration-prod@msp-zabbix.iam.gserviceaccount.com` | 両SAの接続権限を確認 |
+| Condition title | `secumie-prod-cloudsql-instance-only` | B2承認名と一致 |
+| Condition description | `Restrict to SECU MIE production Cloud SQL instance` | B2承認記録と一致 |
+| Condition CEL | `resource.type == "sqladmin.googleapis.com/Instance" && resource.name == "projects/msp-zabbix/instances/secumie-sg-shared-prod-db"` | 対象の本番Instanceだけに限定 |
 
-Project IAM出力ではBOOT/MIGに一致するbindingはこの条件付きCloud SQL Client 1件のみであり、**Project-levelの無条件\`cloudsql.client\`やProject-wide \`secretmanager.secretAccessor\`は検出されなかった**。Folder/Organization継承・effective permission全体は今回照会していないため、その不存在を証明したものではない。
+Project IAM出力ではBOOT/MIGに一致するbindingはこの条件付きCloud SQL Client 1件のみであり、**Project-levelの無条件`cloudsql.client`やProject-wide `secretmanager.secretAccessor`は検出されなかった**。Folder/Organization継承・effective permission全体は今回照会していないため、その不存在を証明したものではない。
 
 **B0一時権限cleanupの正確な差分（実行前提ではない）：**
-1. \`secumie-prod-db-admin-password\`、\`secumie-prod-db-bootstrap-password\`、\`secumie-prod-db-maintenance-password\`、\`secumie-prod-db-migration-password\`、\`secumie-prod-db-otp-password\`、\`secumie-prod-db-pira-password\`の**6 Secretそれぞれの直接\`secretAccessor\` bindingからBOOT memberだけ**を外す候補。MIG member（Migration Secret）その他のSecret設定・versionは保持。
-2. 上記の**同一conditional Cloud SQL Client bindingからBOOT memberだけ**を外す候補。\`roles/cloudsql.client\`、Condition title/description/CEL、およびMIG memberを保持する。Binding全体の削除・条件式の変更は禁止。
+1. `secumie-prod-db-admin-password`、`secumie-prod-db-bootstrap-password`、`secumie-prod-db-maintenance-password`、`secumie-prod-db-migration-password`、`secumie-prod-db-otp-password`、`secumie-prod-db-pira-password`の**6 Secretそれぞれの直接`secretAccessor` bindingからBOOT memberだけ**を外す候補。MIG member（Migration Secret）その他のSecret設定・versionは保持。
+2. 上記の**同一conditional Cloud SQL Client bindingからBOOT memberだけ**を外す候補。`roles/cloudsql.client`、Condition title/description/CEL、およびMIG memberを保持する。Binding全体の削除・条件式の変更は禁止。
 3. BOOT SA、Migration SA、既存3 Job、6 Secret、DB/role/ledgerは削除しない。反映後にIAMと既存の保護資産をread-backすることを次の承認済みcleanup作業のGateとする。
 
 ただし、これはB0 §4の一時権限を対象とした**差分の確定であり実行承認ではない**。Bootstrap/Acceptanceをそのまま再実行できなくなる影響、既存Job再実行のSTOP、将来の承認付きrecovery手順をOwnerへ明示したうえで、IAM変更について別途明示承認を得る。
@@ -299,15 +299,15 @@ Project IAM出力ではBOOT/MIGに一致するbindingはこの条件付きCloud 
 
 | Job | Live serviceAccount | B0/B4契約 |
 | --- | --- | --- |
-| \`secumie-db-acceptance-prod\` | \`secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com\` | MATCH：AcceptanceはBOOT SAを再利用 |
-| \`secumie-db-bootstrap-prod\` | \`secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com\` | MATCH |
-| \`secumie-db-migrate-prod\` | \`secumie-db-migration-prod@msp-zabbix.iam.gserviceaccount.com\` | MATCH |
+| `secumie-db-acceptance-prod` | `secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com` | MATCH：AcceptanceはBOOT SAを再利用 |
+| `secumie-db-bootstrap-prod` | `secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com` | MATCH |
+| `secumie-db-migrate-prod` | `secumie-db-migration-prod@msp-zabbix.iam.gserviceaccount.com` | MATCH |
 
-B4回復時の成功実行 \`secumie-db-acceptance-prod-8xkzq\` は既存証跡。今回確認したのはJob identityであり、Job image・環境変数・過去Execution結果を再検査していない。権限cleanup後はBootstrap/Acceptance Jobが必要Secret/DBに接続できなくなる可能性があるが、B0契約に沿う制限であり、Job削除や変更は不要。再実行は独立承認・必要な一時権限復旧が前提。
+B4回復時の成功実行 `secumie-db-acceptance-prod-8xkzq` は既存証跡。今回確認したのはJob identityであり、Job image・環境変数・過去Execution結果を再検査していない。権限cleanup後はBootstrap/Acceptance Jobが必要Secret/DBに接続できなくなる可能性があるが、B0契約に沿う制限であり、Job削除や変更は不要。再実行は独立承認・必要な一時権限復旧が前提。
 
 ### 13.3 Cloud SQL Backup/PITRの実績
 
-対象：\`secumie-sg-shared-prod-db\`、\`msp-zabbix\`。
+対象：`secumie-sg-shared-prod-db`、`msp-zabbix`。
 
 | status | type | startTime (UTC) | endTime (UTC) |
 | --- | --- | --- | --- |
@@ -315,10 +315,10 @@ B4回復時の成功実行 \`secumie-db-acceptance-prod-8xkzq\` は既存証跡�
 | SUCCESSFUL | AUTOMATED | 2026-11-15T19:13:56.775Z | 2026-11-15T19:15:27.947Z |
 | SUCCESSFUL | AUTOMATED | 2026-11-15T13:02:53.167Z | 2026-11-15T13:03:07.944Z |
 
-最も新しい成功Backupの開始は2026-11-17 05:51 JST、終了05:53 JST。3件とも\`SUCCESSFUL\`であり、§11の「Backup/PITRが有効だが実成功未確認」というGapのうち**Backup成功は確認済み**。
+最も新しい成功Backupの開始は2026-11-17 05:51 JST、終了05:53 JST。3件とも`SUCCESSFUL`であり、§11の「Backup/PITRが有効だが実成功未確認」というGapのうち**Backup成功は確認済み**。
 
-- \`transactionLogRetentionDays=7\`：PITR transaction logの設定上の保持期間は**7日**。
-- \`backupRetentionSettings={retainedBackups:7, retentionUnit:"COUNT"}\`：自動Backupの保持は**7件（COUNT）**。これを「Backupの保持が7日」と読み替えない。
+- `transactionLogRetentionDays=7`：PITR transaction logの設定上の保持期間は**7日**。
+- `backupRetentionSettings={retainedBackups:7, retentionUnit:"COUNT"}`：自動Backupの保持は**7件（COUNT）**。これを「Backupの保持が7日」と読み替えない。
 - PITR実Restore、7日分の実復旧可能な時点、Backupからの復元試験は未実施。Backup成功・設定Read-backとrestore実証PASSは区別する。
 
 ### 13.4 Fit/Gapと次工程
@@ -327,4 +327,18 @@ B4回復時の成功実行 \`secumie-db-acceptance-prod-8xkzq\` は既存証跡�
 
 **Gap / Pending:** B0 §4のBOOT直接SecretAccessor 6件とconditional Cloud SQL ClientのBOOT memberは**未cleanup**。Folder/Org inherited IAMと実効権限、Restore手順/試験、B5固有Runtime/SA/Secrets、専用HMAC Secret名、private network/NEG/LB/DNS/TLS衝突のread-only Gate、SMTP/Turnstile商用設定、監視、Codeの専用Runtime fail-closed境界が未完了。
 
-**判定:** B0 Cleanup候補を具体的なmember単位で確定できたが、独立したOwner IAM変更承認までは現状維持。B5-2B作成、Sales Tools Candidate、Phase B/C公開、Retention Execute、Production全体Go判定を許可するものではない。\`Production No-Go\`、\`PIRA_GENERAL_ENABLED=false\`、Sales Tools現行100% Traffic、Retention preview-onlyを維持する。
+**判定:** B0 Cleanup候補を具体的なmember単位で確定できたが、独立したOwner IAM変更承認までは現状維持。B5-2B作成、Sales Tools Candidate、Phase B/C公開、Retention Execute、Production全体Go判定を許可するものではない。`Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools現行100% Traffic、Retention preview-onlyを維持する。
+
+
+## 14. B0 Bootstrap一時IAM cleanup Owner承認（2026-11-18 JST、実行前）
+
+Ownerは§13の確認結果を受け、**「承認します」**と回答。承認の対象はB0 §4で規定されたTemporary Bootstrap IAM cleanupのみであり、具体的には次の**7つのmember除去**：
+
+1. Production DB用Secret 6件（§13.1に列挙）のそれぞれの直接・無条件 `roles/secretmanager.secretAccessor` bindingから、`serviceAccount:secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com` のmemberだけを除去。
+2. Project `msp-zabbix` にあるInstance限定の `roles/cloudsql.client` conditional bindingから、同じBOOT memberだけを除去。title `secumie-prod-cloudsql-instance-only`、description `Restrict to SECU MIE production Cloud SQL instance`、CEL `resource.type == "sqladmin.googleapis.com/Instance" && resource.name == "projects/msp-zabbix/instances/secumie-sg-shared-prod-db"` を変えない。
+
+**保持するもの:** `serviceAccount:secumie-db-migration-prod@msp-zabbix.iam.gserviceaccount.com` のMigration SecretへのAccessorと同conditional Cloud SQL Client member、Secret自体/values/version、SA、Cloud Run Jobs、DB/roles/ledger、全既存Traffic。StagingやSecure Guardへ変更を加えない。
+
+**実行条件:** Cloud Shellの1バッチで、7対象の直接Policyおよび共有条件式・Job identityをread-onlyで再取得し、完全一致しなければ書込み前にSTOPする。変更は対象bindingのBOOT member除去のみとし、`--all`、全体Policy置換、IAM privilege追加、Job再実行、DB変更をしない。各除去のエラーで即STOP（変更済み項目を自動回復・再付与しない）。最後に6 SecretとProject IAMを再照会し、BOOT残存なし、MIG memberとconditionの維持を証明する。部分実行時はOwnerに実施済み範囲を報告してSTOPする。
+
+**重要:** 上記は権限除去のOwner承認と実行契約の記録。**本Git更新時点ではCloud Shell実行結果が未提出のためIAM cleanup完了扱いにしない。** `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools現行100% Traffic、Retention preview-onlyを継続。B5 runtime構築、Sales Tools candidate作成、公開、Retention実行の承認ではない。
