@@ -47,7 +47,7 @@ function parseCsvRecords(input:string):CsvRecord[] {
   }
   if(quoted)throw new Error('UNCLOSED_CSV_QUOTE');
   if(cell!==''||row.length||closed){row.push(cell);rows.push({cells:row,line:recordStartLine});}
-  if(!rows.length||!rows[0].cells.length)throw new Error('EMPTY_CSV');
+  if(!rows[0]?.cells.length)throw new Error('EMPTY_CSV');
   return rows;
 }
 export function parseCsv(input:string):string[][] {return parseCsvRecords(input).map(r=>r.cells);}
@@ -55,12 +55,13 @@ export function suggestMapping(headers:readonly string[]):Mapping[]{
   return headers.map((header,index)=>{
     const normalized=normalize(header);
     const candidates=fields.filter(field=>aliases[field].some(a=>normalize(a)===normalized));
-    const targetField=candidates.length===1?candidates[0]:null;
+    const targetField:DeviceField|null=candidates.length===1?(candidates[0]??null):null;
     return {sourceColumnIndex:index,targetField,origin:targetField?(normalize(targetField)===normalized?'EXACT':'ALIAS'):'HUMAN'};
   });
 }
 export function previewDeviceCsv(input:string, humanMapping?:Mapping[]):ImportPreview{
   const [headerRecord,...data]=parseCsvRecords(input);
+  if(!headerRecord)throw new Error('EMPTY_CSV');
   const headers=headerRecord.cells;
   const mapping=humanMapping??suggestMapping(headers);
   const issues:string[]=[];
