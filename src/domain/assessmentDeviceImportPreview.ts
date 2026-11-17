@@ -10,6 +10,7 @@ export interface ImportRow {
   outcome: RowOutcome;
 }
 export interface ImportPreview { headers: string[]; mapping: Mapping[]; rows: ImportRow[]; issues: string[]; }
+interface CsvRecord { cells: string[]; line: number; }
 
 const aliases: Record<DeviceField,readonly string[]> = {
   asset_tag:['asset_tag','asset tag','資産番号','管理番号','資産管理番号'],
@@ -20,33 +21,36 @@ const normalize=(s:string)=>s.trim().normalize('NFKC').toLowerCase().replace(/\s
 const fields=Object.keys(aliases) as DeviceField[];
 
 /** RFC4180-style quoted fields, escaped quotes, CRLF/LF, and embedded newlines. */
-export function parseCsv(input:string):string[][] {
+function parseCsvRecords(input:string):CsvRecord[] {
   const text=input.replace(/^\uFEFF/,'');
   if(!text.trim())throw new Error('EMPTY_CSV');
-  const rows:string[][]=[];let row:string[]=[];let cell='';let quoted=false;let closed=false;
+  const rows:CsvRecord[]=[];let row:string[]=[];let cell='';let quoted=false;let closed=false;
+  let physicalLine=1;let recordStartLine=1;
   for(let i=0;i<text.length;i++){
     const ch=text[i];
     if(quoted){
       if(ch==='"'&&text[i+1]==='"'){cell+='"';i++;}
       else if(ch==='"'){quoted=false;closed=true;}
-      else cell+=ch;
+      else {cell+=ch;if(ch==='\n'||ch==='\r'){if(ch==='\r'&&text[i+1]==='\n'){cell+='\n';i++;}physicalLine++;}}
     }else if(ch==='"'){
       if(cell!==''||closed)throw new Error('INVALID_CSV_QUOTE');
       quoted=true;
     }else if(ch===','){row.push(cell);cell='';closed=false;}
     else if(ch==='\r'||ch==='\n'){
       if(ch==='\r'&&text[i+1]==='\n')i++;
-      row.push(cell);rows.push(row);row=[];cell='';closed=false;
+      row.push(cell);rows.push({cells:row,line:recordStartLine});row=[];cell='';closed=false;
+      physicalLine++;recordStartLine=physicalLine;
     }else{
       if(closed)throw new Error('INVALID_CSV_AFTER_QUOTE');
       cell+=ch;
     }
   }
   if(quoted)throw new Error('UNCLOSED_CSV_QUOTE');
-  if(cell!==''||row.length||closed){row.push(cell);rows.push(row);}
-  if(!rows.length||!rows[0].length)throw new Error('EMPTY_CSV');
+  if(cell!==''||row.length||closed){row.push(cell);rows.push({cells:row,line:recordStartLine});}
+  if(!rows.length||!rows[0].cells.length)throw new Error('EMPTY_CSV');
   return rows;
 }
+export function parseCsv(input:string):string[][] {return parseCsvRecords(input).map(r=>r.cells);}
 export function suggestMapping(headers:readonly string[]):Mapping[]{
   return headers.map((header,index)=>{
     const normalized=normalize(header);
@@ -56,7 +60,8 @@ export function suggestMapping(headers:readonly string[]):Mapping[]{
   });
 }
 export function previewDeviceCsv(input:string, humanMapping?:Mapping[]):ImportPreview{
-  const [headers,...data]=parseCsv(input);
+  const [headerRecord,...data]=parseCsvRecords(input);
+  const headers=headerRecord.cells;
   const mapping=humanMapping??suggestMapping(headers);
   const issues:string[]=[];
   const validMapping=mapping.length===headers.length && mapping.every((m,i)=>m.sourceColumnIndex===i && (m.targetField===null || fields.includes(m.targetField)));
@@ -71,7 +76,7 @@ export function previewDeviceCsv(input:string, humanMapping?:Mapping[]):ImportPr
     if(!assigned.some(m=>m.targetField===field))issues.push('MISSING_REQUIRED_MAPPING:'+field);
   }
   const assetCounts=new Map<string,number>();
-  const prepared=data.map((cells,index)=>({cells,index})).filter(({cells})=>cells.some(c=>c.trim()!=='')).map(({cells,index})=>{
+  const prepared=data.filter(({cells})=>cells.some(c=>c.trim()!=='')).map(({cells,line})=>{
     const mappedCandidate:Partial<Record<DeviceField,string>>={};
     for(const m of assigned){
       if(m.targetField&&m.sourceColumnIndex>=0&&m.sourceColumnIndex<headers.length)
@@ -79,7 +84,7 @@ export function previewDeviceCsv(input:string, humanMapping?:Mapping[]):ImportPr
     }
     const key=normalize(mappedCandidate.asset_tag??'');
     if(key)assetCounts.set(key,(assetCounts.get(key)??0)+1);
-    return {sourceRowNumber:index+2,originalCells:cells,mappedCandidate};
+    return {sourceRowNumber:line,originalCells:cells,mappedCandidate};
   });
   const rows:ImportRow[]=prepared.map(p=>{
     const errors=[...issues];
