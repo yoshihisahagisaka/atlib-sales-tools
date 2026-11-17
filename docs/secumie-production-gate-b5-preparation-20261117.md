@@ -112,3 +112,19 @@ OwnerがCloud Shellから `gcloud run services describe sales-tools` と `gcloud
 現行Releaseコード `src/server.ts` は起動時に独立SECU:MIE管理poolを作成し、`src/config.ts` の `loadSecumieAdminDatabaseConfig()` が `SECUMIE_DB_NAME`、`SECUMIE_DB_ADMIN_USER`、`SECUMIE_DB_ADMIN_PASSWORD` を必須とする。管理poolは `max=2`。従って将来のSales Tools no-traffic candidateには専用DB接続設定・Secret参照・private connectivityを必ず揃え、既存業務DBの `DB_*` 設定および旧Secretを置換しない。
 
 **判定:** 現行100%配信Revisionとimmutable image digestは特定済みであり、rollback先の識別子として固定できる。ただし、実際のrollback操作・正常性確認は未実施であり、rollbackの実証PASSとは扱わない。Sales Tools candidate revision作成とTraffic 0検証は引き続き独立したOwner承認を必要とする。現行100% Trafficは変更しない。
+
+## 8. Sales Tools既存Secretの有効Version調査（2026-11-17 JST）
+
+OwnerのCloud Shellで `gcloud secrets versions list` をRead-only実行し、`state=ENABLED` の最大Version番号と作成日時のみを提出。データ本体、Secret値、アクセスTokenは取得・表示していない。
+
+| Existing Secret | 最大ENABLED Version | createTime (UTC) |
+| --- | ---: | --- |
+| `sales-tools-db-password` | 2 | 2026-08-23T01:26:52.526704Z |
+| `portal-smtp-password` | 2 | 2026-07-05T04:09:56.208126Z |
+| `portal-anthropic-api-key` | 5 | 2026-10-23T03:56:12.323099Z |
+| `sales-tools-google-oauth-client-secret` | 1 | 2026-08-25T05:20:16.298533Z |
+| `sales-tools-staff-jwt-secret` | 1 | 2026-08-25T05:20:21.827515Z |
+
+**証跡の限界:** この結果は各Secretの最大ENABLED Versionを示すが、既存Revisionが参照する `latest` aliasの実参照番号を直接確認したものではない。aliasの実参照は `gcloud secrets versions describe latest --secret=...` というRead-onlyメタデータ操作で別途照合する。Cloud RunのSecret環境変数はInstance起動時に解決されるため、Revision名とImage digestのみでは完全なSecret状態の固定を保証しない。
+
+**保護方針:** 既存5 Secretの値・Version状態・IAM・現在の `latest` 参照を変更しない。現行 `sales-tools-wsc-release` 100%配信を維持。将来のno-traffic candidateに限り、適切な独立Secretの番号指定と接続構成を別途レビューする。Production No-Goを維持する。
