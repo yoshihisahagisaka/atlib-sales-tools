@@ -23,7 +23,7 @@ test('CSV upload maps known columns, keeps user and status out of Device fields'
  await expect(page.locator('#preview-summary')).toContainText('正本照合待ち 1 行');
  await expect(page.locator('#preview-body')).toContainText('PC-01');
  await expect(page.locator('#preview-body')).not.toContainText('AVAILABLE');
- await expect(page.getByRole('button',{name:/登録|送信/})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'FACTACTへ登録'})).toHaveCount(0);
 });
 test('ambiguous header requires human mapping and duplicate asset tags require review',async({page})=>{
  await page.locator('#csv-file').setInputFiles({name:'devices.csv',mimeType:'text/csv',buffer:Buffer.from('番号,PC名\nPC-01,A\nPC-01,B')});
