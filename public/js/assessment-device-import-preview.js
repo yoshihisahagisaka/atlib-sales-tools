@@ -76,8 +76,12 @@
   $('csv-file').addEventListener('change',async e=>{
     $('mapping-panel').hidden=true;$('preview-panel').hidden=true;
     const file=e.target.files?.[0];if(!file)return;
-    if(!file.name.toLowerCase().endsWith('.csv')){$('file-status').textContent='この画面はCSV専用です。Excelは後続対応です。';return;}
-    try{records=parseCsv(await file.text());$('file-status').textContent=file.name+'：'+Math.max(0,records.length-1)+' レコード';renderMapping();}
+    const name=file.name.toLowerCase();
+    if(!name.endsWith('.csv')&&!name.endsWith('.xlsx')){$('file-status').textContent='CSVまたは.xlsxを選択してください。';return;}
+    try{
+      records=name.endsWith('.xlsx')?await globalThis.AssessmentXlsxReader.read(await file.arrayBuffer()):parseCsv(await file.text());
+      $('file-status').textContent=file.name+'：'+Math.max(0,records.length-1)+' レコード';renderMapping();
+    }
     catch(err){$('file-status').textContent='読込エラー: '+err.message;}
   });
   $('refresh-preview').addEventListener('click',renderPreview);
