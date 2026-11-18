@@ -63,9 +63,11 @@ globalThis.AssessmentXlsxReader=(()=>{
        const index=colIndex(c.getAttribute('r')||'');
        if(index<0||index>199)throw Error('Excelは200列以内にしてください');
        const type=c.getAttribute('t'),v=text(c,'v');
+       if(all(c,'f').length)throw Error('数式を含むExcelには対応していません。値に変換してから取り込んでください');
        if(type==='e')throw Error('エラー値を含むExcelには対応していません');
        let value=type==='inlineStr'?text(c,'t'):type==='s'?strings[Number(v)]:v;
        if(type==='s'&&value===undefined)throw Error('Excel共有文字列が不正です');
+       if(!type&&c.getAttribute('s')!==null)throw Error('日付や表示形式が設定された数値セルは確認できません。文字列として保存してください');
        cells[index]=String(value??'');
      }
      out.push({cells:Array.from({length:cells.length},(_,i)=>cells[i]??''),line});
