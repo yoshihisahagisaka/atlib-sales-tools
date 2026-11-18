@@ -30,6 +30,9 @@ small{color:#52657a}.foot{text-align:center;margin-top:22px;font-size:12px;color
 <label for="company">企業名</label><input id="company" autocomplete="organization" maxlength="200" required placeholder="株式会社〇〇">
 <label for="address">本店所在地</label><input id="address" maxlength="500" required placeholder="東京都〇〇区">
 <label for="url">WebサイトURL</label><input id="url" type="url" maxlength="2000" required placeholder="https://example.com/">
+<label for="contact-name">ご担当者名</label><input id="contact-name" autocomplete="name" maxlength="200" required placeholder="山田 太郎">
+<label for="contact-email">メールアドレス（認証済み）</label><input id="contact-email" type="email" autocomplete="email" required readonly placeholder="メール認証後に表示">
+<label for="contact-phone">電話番号</label><input id="contact-phone" type="tel" autocomplete="tel" maxlength="50" required placeholder="03-1234-5678">
 <div class="consent"><input type="checkbox" id="consent" required><label for="consent" style="margin:0;font-weight:400">企業情報の利用・提供に関する同意（承認済み同意文の接続待ち）</label></div>
 <button type="submit">診断を申し込む</button>
 </fieldset>
