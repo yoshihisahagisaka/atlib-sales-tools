@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {previewDeviceCsv} from '../src/domain/assessmentDeviceImportPreview';
 import fs from 'node:fs';
+import {deflateRawSync} from 'node:zlib';
 import path from 'node:path';
 const root=path.resolve(__dirname,'..');
 test.beforeEach(async({page})=>{
@@ -80,4 +81,59 @@ test('browser CSV preview agrees with domain preview for duplicate and pending r
    serial:r.mappedCandidate.serial_number,
    outcome:r.outcome==='NEEDS_REVIEW'?'要確認':'正本照合待ち'
  })));
+});
+
+
+// Synthetic workbook ZIPs are constructed in test code; no customer files or remote fixtures.
+function zipEntries(entries:Record<string,string>):Buffer {
+ const locals:Buffer[]=[],centrals:Buffer[]=[];let offset=0;
+ const u16=(n:number)=>{const b=Buffer.alloc(2);b.writeUInt16LE(n);return b;};
+ const u32=(n:number)=>{const b=Buffer.alloc(4);b.writeUInt32LE(n>>>0);return b;};
+ const crc=(data:Buffer)=>{let v=0xffffffff;for(const byte of data){v^=byte;for(let i=0;i<8;i++)v=(v>>>1)^((v&1)?0xedb88320:0);}return (v^0xffffffff)>>>0;};
+ for(const [name,content] of Object.entries(entries)){
+  const data=Buffer.from(content),packed=deflateRawSync(data),filename=Buffer.from(name),hash=crc(data);
+  const local=Buffer.concat([u32(0x04034b50),u16(20),u16(0),u16(8),u16(0),u16(0),u32(hash),u32(packed.length),u32(data.length),u16(filename.length),u16(0),filename,packed]);
+  locals.push(local);
+  centrals.push(Buffer.concat([u32(0x02014b50),u16(20),u16(20),u16(0),u16(8),u16(0),u16(0),u32(hash),u32(packed.length),u32(data.length),u16(filename.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset),filename]));
+  offset+=local.length;
+ }
+ const central=Buffer.concat(centrals);
+ const eocd=Buffer.concat([u32(0x06054b50),u16(0),u16(0),u16(centrals.length),u16(centrals.length),u32(central.length),u32(offset),u16(0)]);
+ return Buffer.concat([...locals,central,eocd]);
+}
+function workbook(sheetXml:string,options?:{twoSheets?:boolean}):Buffer {
+ const workbookXml='<workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Assets" sheetId="1" r:id="rId1"/>'+
+ (options?.twoSheets?'<sheet name="Other" sheetId="2" r:id="rId2"/>':'')+'</sheets></workbook>';
+ const rels='<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/>'+
+ (options?.twoSheets?'<Relationship Id="rId2" Target="worksheets/sheet2.xml"/>':'')+'</Relationships>';
+ return zipEntries({'xl/workbook.xml':workbookXml,'xl/_rels/workbook.xml.rels':rels,'xl/worksheets/sheet1.xml':sheetXml,...(options?.twoSheets?{'xl/worksheets/sheet2.xml':'<worksheet><sheetData/></worksheet>'}:{})});
+}
+const header='<row r="1"><c r="A1" t="inlineStr"><is><t>資産番号</t></is></c><c r="B1" t="inlineStr"><is><t>PC名</t></is></c></row>';
+const sheet=(rows:string)=>'<worksheet><sheetData>'+header+rows+'</sheetData></worksheet>';
+async function uploadWorkbook(page:any,buffer:Buffer){
+ await page.locator('#csv-file').setInputFiles({name:'synthetic.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer});
+}
+test('XLSX sparse physical rows and leading-zero asset IDs survive preview',async({page})=>{
+ const xml=sheet('<row r="2"><c r="A2" t="inlineStr"><is><t>000123</t></is></c><c r="B2" t="inlineStr"><is><t>営業PC</t></is></c></row>'+
+ '<row r="4"><c r="A4" t="inlineStr"><is><t>000124</t></is></c><c r="B4" t="inlineStr"><is><t>予備PC</t></is></c></row>');
+ await uploadWorkbook(page,workbook(xml));
+ await page.locator('#refresh-preview').click();
+ await expect(page.locator('#preview-body tr')).toHaveCount(2);
+ await expect(page.locator('#preview-body tr').nth(0).locator('td').nth(1)).toHaveText('000123');
+ await expect(page.locator('#preview-body tr').nth(1).locator('td').first()).toHaveText('4');
+});
+test('XLSX multiple worksheets fail closed without guessing which sheet',async({page})=>{
+ await uploadWorkbook(page,workbook(sheet(''),{twoSheets:true}));
+ await expect(page.locator('#file-status')).toContainText('ワークシートが1枚');
+ await expect(page.locator('#mapping-panel')).toBeHidden();
+});
+test('XLSX styled numeric asset identifier fails closed',async({page})=>{
+ await uploadWorkbook(page,workbook(sheet('<row r="2"><c r="A2" s="1"><v>123</v></c><c r="B2" t="inlineStr"><is><t>営業PC</t></is></c></row>')));
+ await expect(page.locator('#file-status')).toContainText('文字列として保存');
+ await expect(page.locator('#mapping-panel')).toBeHidden();
+});
+test('XLSX malformed ZIP fails closed',async({page})=>{
+ await uploadWorkbook(page,Buffer.from('not-a-zip'));
+ await expect(page.locator('#file-status')).toContainText('ZIP構造');
+ await expect(page.locator('#mapping-panel')).toBeHidden();
 });
