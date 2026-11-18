@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>SECU:MIE Web｜Webセキュリティ診断受付</title>
+<style>
+:root{font-family:"Noto Sans JP",system-ui,sans-serif;color:#17283e;background:#f5f7f9}
+*{box-sizing:border-box}body{margin:0}.shell{max-width:680px;margin:0 auto;padding:28px 18px 64px}
+header{text-align:center;margin:18px 0 30px}.brand{font-size:30px;letter-spacing:.045em;font-weight:800;color:#16385d}
+.subtitle{font-size:16px;margin-top:8px}.card{background:white;border:1px solid #dbe3eb;border-radius:16px;padding:28px;box-shadow:0 6px 24px #152d4810}
+h1{font-size:22px;margin:0 0 12px}p{line-height:1.8;color:#40536a}label{display:block;font-weight:650;margin:18px 0 7px}
+input,select{display:block;width:100%;border:1px solid #b8c7d6;border-radius:9px;padding:13px;font:inherit;background:white}
+fieldset{border:0;padding:0;margin:0}.consent{display:flex;align-items:flex-start;gap:10px;margin:22px 0}.consent input{width:auto;margin:5px 0}
+button{width:100%;border:0;border-radius:10px;background:#193e65;color:white;padding:15px;font:inherit;font-weight:700}
+button:disabled{opacity:.5;cursor:not-allowed}.notice{border-left:3px solid #d88333;background:#fff7ed;padding:12px 14px;font-size:13px;line-height:1.6}
+small{color:#52657a}.foot{text-align:center;margin-top:22px;font-size:12px;color:#697a8c}
+</style>
+</head>
+<body><main class="shell">
+<header><div class="brand">SECU:MIE Web</div><div class="subtitle">Webセキュリティ診断</div></header>
+<section class="card" aria-labelledby="heading">
+<h1 id="heading">診断のお申し込み</h1>
+<p>所属組合と企業情報をご入力ください。診断結果はこの画面には表示されません。</p>
+<div class="notice" role="status">画面確認用の試作版です。現在は送信できません。実際の企業情報・個人情報は入力しないでください。</div>
+<form>
+<fieldset disabled>
+<label for="union">所属組合</label><select id="union" required><option value="">所属組合を選択してください</option></select>
+<label for="company">企業名</label><input id="company" autocomplete="organization" maxlength="200" required placeholder="株式会社〇〇">
+<label for="address">本店所在地</label><input id="address" maxlength="500" required placeholder="東京都〇〇区">
+<label for="url">WebサイトURL</label><input id="url" type="url" maxlength="2000" required placeholder="https://example.com/">
+<div class="consent"><input type="checkbox" id="consent" required><label for="consent" style="margin:0;font-weight:400">企業情報の利用・提供に関する同意（承認済み同意文の接続待ち）</label></div>
+<button type="submit">診断を申し込む</button>
+</fieldset>
+</form>
+</section><div class="foot">SECU:MIE Web</div></main></body></html>
