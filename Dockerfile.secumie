@@ -31,6 +31,7 @@ COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY public/public-service-auth.js ./public/public-service-auth.js
 COPY prototypes/pira-union-diagnosis-v2 ./prototypes/pira-union-diagnosis-v2
+COPY prototypes/secumie-web-assembly ./prototypes/secumie-web-assembly
 USER node
 EXPOSE 8080
 CMD ["node", "dist/piraPublicServer.js"]
