@@ -49,6 +49,15 @@ export function createPiraPublicRuntime(options: PiraPublicRuntimeOptions): Expr
   const verifier = new PiraJwtVerifier(new HttpJwksProvider(options.jwksUrl), options.issuer);
   const intake = createPublicPiraIntakeRouter(new PiraIntakeService(options.pool, options.generalEnabled), verifier, createUrlPiraContextResolver(routes));
   app.get('/healthz', (_req, res) => res.status(200).json({ status: 'ok', service: 'pira-public' }));
+  // Opt-in visual review only. This is not a production intake endpoint.
+  // No user input is accepted or persisted by the preview.
+  if (process.env.SECUMIE_WEB_PREVIEW_ENABLED === 'true') {
+    app.get('/secu-web/preview', (_req, res) => {
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      res.sendFile(path.resolve(__dirname, '../../prototypes/secumie-web-assembly/intake.html'));
+    });
+  }
   app.use('/api/public/pira/v1', intake);
   if (options.generalEnabled) app.use('/security-check/api/public/pira/v1', intake);
 
