@@ -51,22 +51,22 @@ export class AssemblyIntakeService {
   private async createInTransaction(client: PoolClient, claims: PiraJwtClaims, input: AssemblyIntakeInput, unionName: string) {
     const hash = digest(input);
     await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [input.idempotencyKey]);
-    const existing = await client.query<{ intake_id: string; payload_hash: string }>(
-      'SELECT intake_id,payload_hash FROM secumie_web.assembly_intake WHERE idempotency_key=$1 FOR UPDATE',
+    const existing = await client.query<{ intake_id: string; payload_hash: string; auth_session_id: string }>(
+      'SELECT intake_id,payload_hash,auth_session_id FROM secumie_web.assembly_intake WHERE idempotency_key=$1 FOR UPDATE',
       [input.idempotencyKey],
     );
     if (existing.rows[0]) {
-      if (existing.rows[0].payload_hash !== hash) throw new AssemblyIntakeError(409, 'IDEMPOTENCY_CONFLICT');
+      if (existing.rows[0].payload_hash !== hash || existing.rows[0].auth_session_id !== claims.sub) throw new AssemblyIntakeError(409, 'IDEMPOTENCY_CONFLICT');
       return { receiptId: existing.rows[0].intake_id, replayed: true };
     }
     const intakeId = randomUUID();
     await client.query(
       `INSERT INTO secumie_web.assembly_intake
        (intake_id,reception_code,organizer_name,union_id,union_name_snapshot,company_name,registered_address,website_url,
-        consent_version,consented_at,idempotency_key,payload_hash)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),$10,$11)`,
+        consent_version,consented_at,idempotency_key,payload_hash,auth_session_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),$10,$11,$12)`,
       [intakeId,this.reception.code,this.reception.organizerName,input.unionId,unionName,input.companyName.trim(),
-       input.registeredAddress.trim(),input.websiteUrl.trim(),input.consentVersion,input.idempotencyKey,hash],
+       input.registeredAddress.trim(),input.websiteUrl.trim(),input.consentVersion,input.idempotencyKey,hash,claims.sub],
     );
     try {
       await client.query(
