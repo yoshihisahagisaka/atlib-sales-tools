@@ -7,6 +7,9 @@ test.beforeEach(async({page})=>{
    await route.fulfill({status:200,contentType:'text/html',body:fs.readFileSync(path.join(root,'public/admin/assessment-device-import-preview.html'),'utf8')});
  });
  await page.route('http://assessment.local/css/style.css',async route=>route.fulfill({status:200,contentType:'text/css',body:''}));
+ await page.route('http://assessment.local/js/assessment-xlsx-reader.js',async route=>{
+   await route.fulfill({status:200,contentType:'text/javascript',body:fs.readFileSync(path.join(root,'public/js/assessment-xlsx-reader.js'),'utf8')});
+ });
  await page.route('http://assessment.local/js/assessment-device-import-preview.js',async route=>{
    await route.fulfill({status:200,contentType:'text/javascript',body:fs.readFileSync(path.join(root,'public/js/assessment-device-import-preview.js'),'utf8')});
  });
@@ -43,4 +46,13 @@ test('invalid CSV reports error and does not show preview',async({page})=>{
  await page.locator('#csv-file').setInputFiles({name:'invalid.csv',mimeType:'text/csv',buffer:Buffer.from('資産番号,PC名\n"PC-01,A')});
  await expect(page.locator('#file-status')).toContainText('読込エラー');
  await expect(page.locator('#preview-panel')).toBeHidden();
+});
+
+test('XLSX compressed workbook is read locally and mapped through same preview',async({page})=>{
+ await page.locator('#csv-file').setInputFiles({name:'devices.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from('UEsDBBQAAAAIAGUdcl3e4HGbegAAAJcAAAAPAAAAeGwvd29ya2Jvb2sueG1sNY4xDsMgEAS/YvGAnJMiBQIqN3kGwUdANhy6w0meH4q4Wq1mR1rzId6eRNv0LXsVzVal3psGkJCweLlQwzpYJC6+j8ovoBhzwIXCUbB2uM3zHRh33zNVSbmJckYSYpd/TtUXtGrB9/BETazzahU/1qsCZ+DcwnnG/QBQSwMEFAAAAAgAZR1yXdTErVk/AAAAVwAAABoAAAB4bC9fcmVscy93b3JrYm9vay54bWwucmVsc7MJSs1JLMnMzyvOyCwotrNB5ip4ptgqFXmmGCophCQWpaeW2CqV5xdlF2ekppYU64MpQ72K3BwlfTsbfVRzAFBLAwQUAAAACABlHXJdrNP8Sj4AAABpAAAAFAAAAHhsL3NoYXJlZFN0cmluZ3MueG1ssykuLrGzKc60symxe7G5/fmUxc+nrnrav91GHyisDxKHyAU4P53Qiymoa2CILvh02rZnS9cGOCPE9UF2AABQSwMEFAAAAAgAZR1yXb6eN9hZAAAAwAAAABgAAAB4bC93b3Jrc2hlZXRzL3NoZWV0MS54bWyzKc8vyi7OSE0tsbMBUy6JJYl2NkX55QpFtkqGSnY2ySCGo6GSQomtUjGQX2ZnYKNfZmejnwyVc0KWM4TL6QPNgBtkBDfICEmxEZpByHLGaAbpI7lOH+FoAFBLAQIUAxQAAAAIAGUdcl3e4HGbegAAAJcAAAAPAAAAAAAAAAAAAACAAQAAAAB4bC93b3JrYm9vay54bWxQSwECFAMUAAAACABlHXJd1MStWT8AAABXAAAAGgAAAAAAAAAAAAAAgAGnAAAAeGwvX3JlbHMvd29ya2Jvb2sueG1sLnJlbHNQSwECFAMUAAAACABlHXJdrNP8Sj4AAABpAAAAFAAAAAAAAAAAAAAAgAEeAQAAeGwvc2hhcmVkU3RyaW5ncy54bWxQSwECFAMUAAAACABlHXJdvp432FkAAADAAAAAGAAAAAAAAAAAAAAAgAGOAQAAeGwvd29ya3NoZWV0cy9zaGVldDEueG1sUEsFBgAAAAAEAAQADQEAAB0CAAAAAA==','base64')});
+ await expect(page.locator('#mapping-panel')).toBeVisible();
+ await page.locator('#refresh-preview').click();
+ await expect(page.locator('#preview-body')).toContainText('PC-01');
+ await expect(page.locator('#preview-body')).toContainText('営業PC');
+ await expect(page.locator('#preview-summary')).toContainText('正本照合待ち 1 行');
 });
