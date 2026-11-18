@@ -439,3 +439,31 @@ Google Cloud の公式ドキュメントは、Global External Application Load B
 ### 17.3 不変の Gate
 
 `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools 現行100% Traffic、Retention preview-only、既存 IAP/PPAP/Zabbix/cashflow/SG/Staging 保護を継続。B5-2B Runtime、Phase B LB/DNS/cert、Production 公開への承認とは扱わない。
+
+## 18. B5-2A OTP/PIRA runtime DB password fail-closed 最小修正とローカル検証（2026-11-18）
+
+### 18.1 修正範囲
+
+§12.3で特定した専用OTP/PIRAのSales Tools DB Secret fallbackリスクに対し、`src/runtime/runtimeConfig.ts`の`databaseRuntime()`で`DB_PASSWORD`を明示必須とするチェックを`loadDatabaseConfig('runtime')`より前に追加した。パスワードが欠落・空白の場合は例外で起動を中断し、共有`src/config.ts`にある旧`sales-tools-db-password`のSecret Manager fallback経路へ進ませない。
+
+既存Sales Toolsの`src/config.ts`、既存Sales Tools DB認証、Migration DB認証、`src/db/pool.ts`は変更しない。OTP/PIRAの正常系ではB5承認値に従い各専用SecretをCloud Runの`DB_PASSWORD`へ環境変数注入する必要がある。コード上のチェックは**どのSecretが参照されているかを保証しない**ため、§12.2のSA/Secret別IAMとDeployment spec/read-backは未完了のGateとして維持する。
+
+### 18.2 ローカル検証
+
+Syntheticのみ・GCP/Cloud SQLへの接続なし。PostgreSQL統合テストはテストURL未指定のためSKIP。
+
+| 検証 | 結果 |
+| --- | --- |
+| `npm ci --ignore-scripts --no-audit --no-fund --prefer-offline` | SUCCESS（依存追加441件、lockfile変更なし） |
+| `npm run build` | PASS（TypeScript） |
+| `npm run test:secumie:dedicated-db` | 3 PASS / 0 FAIL / 1 SKIP |
+| `npm run test:readiness` | 5 PASS / 0 FAIL / 0 SKIP |
+| `git diff --check` | PASS |
+
+追加回帰試験は`DB_PASSWORD`未設定・空白の両ケースで`Missing required runtime configuration: DB_PASSWORD`を確認。既存Sales Toolsの構成確認テストもPASSした。テスト範囲はローカルのみであり、実GCP・PostgreSQL 16接続・Cloud Run起動の受入を意味しない。
+
+### 18.3 Gate / 次工程
+
+**完了:** §12.3のコード側未設定Secret fallback防止（最小変更）、ローカル型検査・指定回帰試験。Draft PR #47でレビュー対象とする。**未完了:** OTP/PIRA各SAとSecret参照、DB接続ネットワーク、Production SMTP/Turnstile/JWT、Protected Services Ready、LB/DNS、runtime構築、実環境受入。実装の本番適用や公開承認は別途必要。
+
+`Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools現行100% Traffic、Retention preview-onlyを維持。GCP、DNS、IAM、Secrets、Cloud Run、Cloud SQL、Job実行等への操作は行っていない。

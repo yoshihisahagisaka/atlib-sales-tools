@@ -23,6 +23,8 @@ function json<T>(name: string): T { try { return JSON.parse(required(name)) as T
 function strong(name: string, minimum = 32): string { const value = required(name); if (value.length < minimum) throw new Error(`${name} is too short`); return value; }
 
 export async function databaseRuntime() {
+  // Dedicated OTP/PIRA runtimes must never fall back to the Sales Tools DB secret.
+  required('DB_PASSWORD');
   const db = await loadDatabaseConfig('runtime');
   const config = { db } as Config;
   const max = Number(process.env.DB_POOL_MAX ?? 2);

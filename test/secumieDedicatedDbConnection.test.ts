@@ -42,6 +42,20 @@ test('OTP and PIRA runtime pools default to two and reject a larger budget', asy
   }
 });
 
+test('dedicated OTP/PIRA runtime rejects missing DB_PASSWORD before the Sales Tools secret fallback', async () => {
+  const before={...process.env};
+  try {
+    Object.assign(process.env,{DB_NAME:'secumie_insight',DB_USER:'secumie_otp_prod',DB_HOST:'127.0.0.1',DB_PORT:'1'});
+    delete process.env.DB_PASSWORD;
+    await assert.rejects(databaseRuntime(), /Missing required runtime configuration: DB_PASSWORD/);
+    process.env.DB_PASSWORD='   ';
+    await assert.rejects(databaseRuntime(), /Missing required runtime configuration: DB_PASSWORD/);
+  } finally {
+    for(const name of Object.keys(process.env))if(!(name in before))delete process.env[name];
+    Object.assign(process.env,before);
+  }
+});
+
 integration('PostgreSQL 16 keeps the business and SECU pools isolated, lazy and bounded', { timeout:30_000 }, async () => {
   const suffix = randomBytes(5).toString('hex');
   const businessDb = `secumie_business_${suffix}`;
