@@ -11,26 +11,53 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-FROM node:20-bookworm-slim AS otp-runtime
+FROM node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS runtime-build
 WORKDIR /app
-ARG SOURCE_REVISION
-LABEL org.opencontainers.image.revision=$SOURCE_REVISION
-ENV NODE_ENV=production
-COPY --from=production-deps /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-USER node
-EXPOSE 8080
-CMD ["node", "dist/publicOtpServer.js"]
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
 
-FROM node:20-bookworm-slim AS pira-runtime
+FROM node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS runtime-production-deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+FROM gcr.io/distroless/nodejs24-debian13@sha256:088a01637f22908632ba09018be2e0b516f2fa6f7869c191d29491139db43c78 AS otp-runtime
 WORKDIR /app
 ARG SOURCE_REVISION
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 ENV NODE_ENV=production
-COPY --from=production-deps /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
+COPY --from=runtime-production-deps /app/node_modules ./node_modules
+COPY --from=runtime-build /app/dist ./dist
+USER nonroot
+EXPOSE 8080
+CMD ["dist/publicOtpServer.js"]
+
+FROM gcr.io/distroless/nodejs24-debian13@sha256:088a01637f22908632ba09018be2e0b516f2fa6f7869c191d29491139db43c78 AS pira-runtime
+WORKDIR /app
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+ENV NODE_ENV=production
+COPY --from=runtime-production-deps /app/node_modules ./node_modules
+COPY --from=runtime-build /app/dist ./dist
 COPY public/public-service-auth.js ./public/public-service-auth.js
 COPY prototypes/pira-union-diagnosis-v2 ./prototypes/pira-union-diagnosis-v2
-USER node
+USER nonroot
 EXPOSE 8080
-CMD ["node", "dist/piraPublicServer.js"]
+CMD ["dist/piraPublicServer.js"]
+
+FROM node:20-bookworm-slim AS db-operations
+WORKDIR /app
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+ENV NODE_ENV=production
+COPY --from=production-deps /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY migration-manifests/secumie-insight-staging-037-041.json ./migration-manifests/secumie-insight-staging-037-041.json
+COPY scripts/readiness/verifySecumieMigrationManifest.cjs ./scripts/readiness/verifySecumieMigrationManifest.cjs
+COPY migrations/037_public_service_otp.sql migrations/038_pira_public_intake.sql migrations/039_pira_admin_export.sql migrations/040_pira_export_audit_retention.sql migrations/041_secumie_db_operations.sql ./migrations-secumie/
+RUN node scripts/readiness/verifySecumieMigrationManifest.cjs migration-manifests/secumie-insight-staging-037-041.json migrations-secumie true
+USER node
+CMD ["node", "dist/db/runSecumieStagingMigrationCli.js"]

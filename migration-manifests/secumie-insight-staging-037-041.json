@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "database": "secumie_insight_staging",
+  "sourceCommit": "2a2f8a9f78e69cfe15b08e34f6747ac4ee3015e4",
+  "migrations": [
+    { "filename": "037_public_service_otp.sql", "sha256": "a2b15297d894dde5c732cf9a6e74596dd17d223b09a37974ff1c490949a6d69b" },
+    { "filename": "038_pira_public_intake.sql", "sha256": "c97e12560894dd76e04ae2c58d3d703e5931b9903eb261b05af1a0c26d90e677" },
+    { "filename": "039_pira_admin_export.sql", "sha256": "082bbd8506110b671ac2ff7cc3750d8a4abb95701c8dc75273cca19da1606490" },
+    { "filename": "040_pira_export_audit_retention.sql", "sha256": "6708892a7228925fcb1d08a19c6b0cfeb4469bcae2ed7a1e7b503d449e8fe104" },
+    { "filename": "041_secumie_db_operations.sql", "sha256": "b004b4bc69b1c379bbc75993b13d3209fa3ddb803ed564cbf53d4bb4d21c09a7" }
+  ]
+}
