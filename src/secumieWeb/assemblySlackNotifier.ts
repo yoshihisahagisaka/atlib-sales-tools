@@ -8,7 +8,7 @@ export type OutboxDeliveryResult = 'EMPTY' | 'SENT' | 'FAILED';
  * Each claim is leased atomically; stale SENDING rows require explicit recovery.
  */
 export class AssemblySlackNotifier {
-  constructor(private readonly pool: Pool, private readonly send: SlackSender, private readonly adminUrl?: string) {}
+  constructor(private readonly pool: Pool, private readonly send: SlackSender, private readonly adminUrl: string) {}
 
   async sendOne(): Promise<OutboxDeliveryResult> {
     const client = await this.pool.connect();
@@ -35,12 +35,11 @@ export class AssemblySlackNotifier {
     } finally { client.release(); }
     if (!row) return 'EMPTY';
     const safe = (value: string) => value.replace(/[<>&]/g, value => ({ '<':'＜', '>':'＞', '&':'＆' })[value] ?? value).slice(0,200);
+    if (!/^https:\/\/[^\s]+$/.test(this.adminUrl)) throw new Error('ADMIN_URL_NOT_CONFIGURED');
     const message = [
       'SECU:MIE Web 新規診断受付',
-      `受付ID: ${row.intake_id}`,
-      `所属組合: ${safe(row.union_name_snapshot)}`,
-      `企業名: ${safe(row.company_name)}`,
-      ...(this.adminUrl ? [`管理表: ${this.adminUrl}`] : []),
+      `申込み企業名: ${safe(row.company_name)}`,
+      `管理表URL: ${this.adminUrl}`,
     ].join('\n');
     try {
       await this.send({ text: message });
