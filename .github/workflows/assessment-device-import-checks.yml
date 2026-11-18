@@ -8,6 +8,7 @@ on:
       - 'src/domain/assessmentDeviceImportPreview.ts'
       - 'test/assessmentDeviceImportPreview.test.ts'
       - 'public/js/assessment-device-import-preview.js'
+      - 'public/js/assessment-xlsx-reader.js'
       - 'public/admin/assessment-device-import-preview.html'
       - 'test/assessmentDeviceImport.browser.test.ts'
       - 'test/assessmentDeviceImport.playwright.config.ts'
@@ -29,7 +30,9 @@ jobs:
       - name: TypeScript build
         run: npm run build
       - name: Browser preview script syntax
-        run: node --check public/js/assessment-device-import-preview.js
+        run: |
+          node --check public/js/assessment-device-import-preview.js
+          node --check public/js/assessment-xlsx-reader.js
       - name: Device CSV preview tests
         run: node -r ts-node/register --test test/assessmentDeviceImportPreview.test.ts
       - name: Install Playwright Chromium
