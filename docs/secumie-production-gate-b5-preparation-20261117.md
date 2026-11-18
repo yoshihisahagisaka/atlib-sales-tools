@@ -411,3 +411,31 @@ OwnerがCloud Shell `B5_NETWORK_READONLY` の出力を提出。§1〜7はそれ�
 **未完了:** Certificate Manager certificates/mapsの結果・失敗理由、DNS権威側の設定、B5専用static IP/LB/NEG/証明書作成とprivate verification、Protected services最新Ready、B5固有Secret/SAの構築、runtime fallback fail-closed、SMTP/Turnstile本番Gateなど。
 
 **判定:** **Network Read-only GateはPARTIAL / §8確認待ち。** B5-2BやPhase B作成を承認するものではない。`Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools現行100% Traffic、Retention preview-onlyを継続する。
+
+
+## 17. B5 Certificate Manager read-only 診断（2026-11-18）
+
+### 17.1 実行と観測
+
+Owner が Cloud Shell で `B5_CERT_DIAG` を実行し、`msp-zabbix` の Certificate Manager グローバル `certificates list` と `maps list` の失敗理由を read-only で確認した。両操作とも `exit=1` で、応答の `google.rpc.ErrorInfo` は `reason: SERVICE_DISABLED`、`service: certificatemanager.googleapis.com`、`consumer: projects/msp-zabbix`。対話プロンプトには有効化確認が現れたが、API 有効化・再実行は行っていない。
+
+| 検証 | 実測 | 判定 |
+| --- | --- | --- |
+| `gcloud certificate-manager certificates list --location=global` | `PERMISSION_DENIED` / `SERVICE_DISABLED` | `UNAVAILABLE`（理由特定） |
+| `gcloud certificate-manager maps list --location=global` | `PERMISSION_DENIED` / `SERVICE_DISABLED` | `UNAVAILABLE`（理由特定） |
+| Certificate Manager API | `certificatemanager.googleapis.com` disabled in `msp-zabbix` | API 自動有効化なし |
+| 既存 Compute SSL Certificates | §16の `MANAGED / ACTIVE` 3件を確認済み | 変更なし |
+
+この結果は**Certificate Manager の certificate/map が存在しないことを証明しない**。API が disabled のため、同 API による一覧取得・不存在確認はできない。「Certificate Manager が使える／必要」という前提も置かない。
+
+### 17.2 既存方式との Fit/Gap
+
+Google Cloud の公式ドキュメントは、Global External Application Load Balancer の Google-managed 証明書について、`gcloud compute ssl-certificates create` による **Compute Engine SSL certificate resource** の作成経路を案内している。既存の `msp-zabbix` Global LB でも §16 の Compute SSL Certificates 3件が `ACTIVE` で利用されており、**Insight 専用 LB も同経路を採る案なら Certificate Manager API を新たに有効化する必要はない**。これは構成検討上の Fit であり、新しい Insight 証明書が発行済み／検証済みという意味ではない。
+
+参考: https://docs.cloud.google.com/load-balancing/docs/ssl-certificates/google-managed-certs
+
+**Gate更新:** §16 の Certificate Manager 取得失敗「原因不明」は解消。Certificate Manager 上の inventory は取得不能のままだが、B5-2A の preflight に API 有効化を追加しない。Phase B で Compute SSL Certificate を採用する場合、専用 LB/HTTPS proxy、ドメイン認証・発行状態、DNS 切替とロールバックを別途実測・レビューする。実際の設定作成、Certificate Manager API 有効化、DNS変更、公開・トラフィック変更はいずれも未承認・未実施。
+
+### 17.3 不変の Gate
+
+`Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools 現行100% Traffic、Retention preview-only、既存 IAP/PPAP/Zabbix/cashflow/SG/Staging 保護を継続。B5-2B Runtime、Phase B LB/DNS/cert、Production 公開への承認とは扱わない。
