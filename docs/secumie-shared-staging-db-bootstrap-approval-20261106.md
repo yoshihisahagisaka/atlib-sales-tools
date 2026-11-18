@@ -2188,6 +2188,29 @@ gcr.io/cloud-sql-connectors/cloud-sql-proxy@sha256:e0cbea7b63455c1635d354ef45669
 
 **判定：3 JobのProxy digest限定更新はPASS。Job Executionは未実施。Production No-Go、`PIRA_GENERAL_ENABLED=false`、Secure Guard対象外、Draft PR #46を維持する。**
 
+### 19.23 共用Staging Cloud SQL保全期間の延長（2026-11-18 経営者承認）
+
+2026-11-18の経営者承認により、§17A、§19等に記録された**当初の2026-11-20 10:12:12 JSTのcleanup期限**を、共用Cloud SQL本体と承認済み残存DB資産の保全に限り、**2026-12-04 10:12:12 JST**へ14日間延長する。旧期限は当時の判断・実施履歴として維持し、今後の期限管理には本節を適用する。
+
+| 項目 | 承認した境界 |
+| --- | --- |
+| 対象 | Project `msp-zabbix`、Region `asia-northeast1`、instance `secumie-sg-shared-staging-db`、既存のInsight／Secure Guard専用database・role・DB関連Job／Secret等の承認済み保全資産 |
+| 期限 | **2026-12-04 10:12:12 JST**。自動削除は行わず、再延長・削除・deletion protection解除は別途経営者承認 |
+| 追加費用 | **新たに75 USDを追加運用上限**とする。当初14日間のCloud SQL 75 USD枠とは別枠。実績・予測が上限を超過する見込みなら経営者へエスカレーションし再判断する。費用枠は費用実績または請求額の確定を意味しない |
+| 主担当 | 共用Cloud SQL instanceの管理主体であるSECU:MIE Insight側。Secure Guard側は自己のdatabase・Migration／Security Gateの管理を継続 |
+| GCP操作 | **今回実施なし**。Cloud SQL、database、role、Cloud Run Job、Secret、IAM、DNS、ネットワーク、Productionは変更しない |
+| Gate | Insight Production No-Go、`PIRA_GENERAL_ENABLED=false`維持。Secure Guard Gate S3 STOP、Migration 005未適用、Gate S4／Synthetic E2E／Production No-Go、Portal Draft PR #6維持 |
+
+**延長根拠（経営者提示の2026-11-18 Read-only Cloud Shell結果）**
+
+- Instanceは`RUNNABLE`、PostgreSQL 16、tier `db-custom-2-7680`、disk 20 GB、activation policy `ALWAYS`、deletion protection／Backup／PITRがすべて有効。
+- 直近automated backup 3件はすべて`SUCCESSFUL`。最新は2026-11-17 20:43:14 UTC（2026-11-18 05:43:14 JST）。
+- Cloud SQL Admin APIのdatabaseは`postgres`、`secumie_insight_staging`、`secure_guard_staging`の3件。
+- これらはinstance保全状態のRead-only証跡であり、Migration 005、DB ACL、Job再実行、アプリE2E、Security GateのPASSを追加認定するものではない。
+- **Cloud Billingの当該instance実費は今回未取得（UNKNOWN）**。当初75 USD枠と追加75 USD枠を混同せず、請求実績の取得可能性と見込費用を継続確認する。課金上限は自動停止・自動削除機能ではない。
+
+**結論：共用Staging DBの保全期限と追加費用運用上限のみ経営者承認済み。GCP変更・Migration・新規配備・Production公開は承認していない。**
+
 ## Appendix A. 初回Staging Recovery preflightのSTOP記録（2026-11-08）
 
 ### A.1 ArtifactとJob更新
