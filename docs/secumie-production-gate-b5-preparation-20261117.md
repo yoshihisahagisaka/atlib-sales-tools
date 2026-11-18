@@ -375,3 +375,39 @@ Ownerは§13の確認結果を受け、**「承認します」**と回答。承�
 **証跡範囲の注意:** Policyの逐語JSON全文、Folder/Organizationの継承権限、effective permissions、実際のJob再実行はこの出力では再計測しない。上記はバッチ内部の `jq` 厳密照合とGCP更新成功メッセージに基づく完了判定であり、Production全体Goの根拠にはしない。
 
 **残Gate:** B5 OTP/PIRA専用runtime/SA/Secret作成、専用HMAC Secret名確定、runtime DB fallback fail-closed、private networkとLB/NEG/DNS/TLS衝突、Mailtrap Live・Turnstile本番設定、Sales Tools no-traffic candidate（独立承認）、Retention専用SA/previewと監視が未完了。**`Production No-Go`、`PIRA_GENERAL_ENABLED=false`、既存Sales Tools `sales-tools-wsc-release` 100% Traffic、Retention preview-onlyを維持。** B5-2Bリソース作成と公開は未承認。
+
+
+## 16. B5ネットワーク衝突確認（2026-11-18 JST、Read-only部分実行）
+
+OwnerがCloud Shell `B5_NETWORK_READONLY` の出力を提出。§1〜7はそれぞれJSON/DNS回答が取得でき、GCP resource listsは`--project=msp-zabbix`、Globalまたは`asia-northeast1`で照会された。§8 Certificate Managerは最初のcertificates取得が`[UNAVAILABLE]`、mapsの結果と本来の終端 `B5 NETWORK READ-ONLY COMPLETE` は提出出力にない。端末貼付エコーにも断片の乱れがあるため、**バッチ全体PASSとはせず、§1〜7のRead-only現物と§8未完了を分けて評価**する。全て照会・参照のみであり、本出力からGCP設定変更は認められない。
+
+### 16.1 DNS / Global IP / Forwarding
+
+- `insight.atlib.jp` の公開DNS `A`、`AAAA`、`CNAME` はそれぞれ `(none)`。照会時点で本番hostを指す公開レコードは確認できない（Phase Bの独立DNS作成前なので当然の可能性あり）。権威DNS設定そのものを参照した結果ではない。
+- Global Address `msp-iap-lb-ip`：`136.68.254.85`、`IN_USE`、`msp-iap-http-fr`と`msp-iap-https-fr`が使用中。80/443が既存`msp-iap-http-proxy`と`msp-iap-https-proxy`に紐付く。**B5でこのIP・Forwarding Rulesを変更・流用しない**。
+- `google-managed-services-default`：`172.20.0.0`、`RESERVED`、usersなし。外部公開のB5専用Global LB IPとして利用しない。
+
+### 16.2 URL Map / Backend / NEG
+
+| 種別 | Live read-back | B5判定 |
+| --- | --- | --- |
+| Global URL Maps | `msp-iap-redirect`（hostsなし）、`msp-iap-urlmap`（`topology.zabbix.atlib.jp`、`zabbix-admin.atlib.jp`、`cashflow.atlib.jp`、`ppap-upload.atlib.jp`） | `insight.atlib.jp` host衝突なし。既存URL mapsは保護 |
+| `msp-iap-urlmap` default | `msp-frontend-bes` | 既存経路の不変更 |
+| Global Backend Services | `atlib-cashflow-bes`、`msp-frontend-bes`、`ppap-audit-bes`、`ppap-upload-bes`、`zabbix-admin-bes` | `insight`専用名なし。既存Backendを使い回さない |
+| Regional Serverless NEGs | `atlib-cashflow-neg` → `atlib-cashflow`、`ppap-upload-neg` → `ppap-upload-service` | 2件とも既存利用中。Insight専用NEGなし |
+
+対象範囲内で `insight` / `pira` / `secumie` のGlobal URL Map、Backend、Regional NEGは現れておらず、専用B5 Phase B構築候補と衝突する既存名は確認されなかった。ただし、Global/このRegion以外のリソース、将来の作成競合、別GCP Projectでの資産は本結果では判定しない。
+
+### 16.3 Compute SSL証明書 / Certificate Manager
+
+- Compute Global SSL Certificates：`atlib-cashflow-cert`（`cashflow.atlib.jp`）、`msp-iap-cert-v2`（`topology.zabbix.atlib.jp`・`zabbix-admin.atlib.jp`）、`ppap-upload-cert`（`ppap-upload.atlib.jp`）の3件、すべて `MANAGED / ACTIVE`。この一覧に `insight.atlib.jp` は含まれない。
+- Certificate Manager `certificates list` は `[UNAVAILABLE]`。元スクリプトはstderrを抑止しており、**API無効・IAM不足・コマンド引数/接続のどれかは不明**。`maps list` の実行結果も未提出。Certificate Managerが未使用／証明書が不存在であるとは判定できない。
+- したがって `insight.atlib.jp` のCompute SSL証明書は非存在だが、Certificate Managerを含む証明書経路全体の重複なし証明は**未完了**。GCP設定変更は不要で、まず該当2つのlist操作のread-only stderrと結果を再取得する。
+
+### 16.4 Gate判定
+
+**確認済みFit（今回の範囲）：** 新Production hostのA/AAAA/CNAMEなし、現在のmsp-zabbix Global LB/Forwarding/URL Map/Backend/Regional NEG/Compute Global SSL Certificate一覧にInsight専用リソースなし、既存IAP/PPAP/cashflow/Zabbix資産が識別できた。B5専用LBは既存共有LBを変更しない方針に合致。
+
+**未完了:** Certificate Manager certificates/mapsの結果・失敗理由、DNS権威側の設定、B5専用static IP/LB/NEG/証明書作成とprivate verification、Protected services最新Ready、B5固有Secret/SAの構築、runtime fallback fail-closed、SMTP/Turnstile本番Gateなど。
+
+**判定:** **Network Read-only GateはPARTIAL / §8確認待ち。** B5-2BやPhase B作成を承認するものではない。`Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools現行100% Traffic、Retention preview-onlyを継続する。
