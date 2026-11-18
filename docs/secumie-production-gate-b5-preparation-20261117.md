@@ -467,3 +467,26 @@ Syntheticのみ・GCP/Cloud SQLへの接続なし。PostgreSQL統合テストは
 **完了:** §12.3のコード側未設定Secret fallback防止（最小変更）、ローカル型検査・指定回帰試験。Draft PR #47でレビュー対象とする。**未完了:** OTP/PIRA各SAとSecret参照、DB接続ネットワーク、Production SMTP/Turnstile/JWT、Protected Services Ready、LB/DNS、runtime構築、実環境受入。実装の本番適用や公開承認は別途必要。
 
 `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools現行100% Traffic、Retention preview-onlyを維持。GCP、DNS、IAM、Secrets、Cloud Run、Cloud SQL、Job実行等への操作は行っていない。
+
+
+## 19. B5 Protected Cloud Run Services Read-only Gate（2026-11-18 JST）
+
+OwnerがCloud Shellで`B5_PROTECTED_READONLY`を実行し、`msp-zabbix` / `asia-northeast1` のCloud Run Services一覧をJSON取得。7 Serviceすべて`Ready=True`、最終`B5 PROTECTED READ-ONLY COMPLETE`を確認。端末入力エコーには一部乱れがあるが、結果JSON・終端マーカーは揃っている。サービス変更・トラフィック変更・Job実行はない。
+
+| Service | Ready | latestReadyRevision | 配信Traffic |
+| --- | --- | --- | --- |
+| `atlib-cashflow` | True | `atlib-cashflow-00040-wtk` | 同revision 100% |
+| `msp-customer-portal` | True | `msp-customer-portal-00072-rup` | `msp-customer-portal-00068-6v2` 100%、`00072-rup` 0% |
+| `ppap-download-service` | True | `ppap-download-service-00008-f96` | 同revision 100% |
+| `ppap-upload-service` | True | `ppap-upload-service-sender-template-fix` | 同revision 100% |
+| `ppap-virus-scan` | True | `ppap-virus-scan-recipient-note-fix2` | 同revision 100% |
+| `sales-tools` | True | `sales-tools-wsc-release` | `sales-tools-wsc-release` 100%、列挙された他revisionはすべて0% |
+| `sales-tools-staging` | True | `sales-tools-staging-p228` | `sales-tools-staging-p228` 100%、`sales-tools-staging-00023-8md` 0% |
+
+**Fit:** 既存Sales ToolsのProduction 100% trafficは§7/§18の保護条件を維持。PPAP関連3サービス・cashflow・customer portal・Sales Tools Stagingを含め、列挙された全既存Serviceの`Ready`条件は`True`。今回の同リージョン一覧に新設候補`secumie-otp-prod`・`secumie-pira-prod`は存在しない。
+
+**解釈上の留保:** `msp-customer-portal`の最新Ready Revisionが0%で旧Revisionが100%であること自体は異常とは判定しない。サービス`Ready=True`は個別機能E2E・監視アラート・実トラフィック変化なしの長期保証ではない。今回の証跡は照会時点のRead-only snapshotであり、外部変更の不存在や継承IAM全体を証明しない。
+
+**Gate更新:** §3.1の`Protected Cloud Run Services Ready/Traffic` snapshotは**PASS（今回の照会範囲）**。B5-2B Runtime候補については§12.2のSA/Secret最小権限、専用DBの実接続権限と接続予算、`DB_PASSWORD` Secret注入、Prod SMTP/Turnstile/JWT/HMAC、private verification、監視とrollback、Phase BのLB/DNS/cert、Owner明示承認が引き続き未完了。
+
+`Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools現行100% traffic、Retention preview-only、既存Service不変更を維持。
