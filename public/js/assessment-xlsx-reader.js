@@ -27,9 +27,9 @@ globalThis.AssessmentXlsxReader=(()=>{
    let eocd=-1;
    for(let i=b.length-22;i>=Math.max(0,b.length-65557);i--)if(u32(b,i)===0x06054b50){eocd=i;break;}
    if(eocd<0)throw Error('ExcelファイルのZIP構造を確認できません');
-   if(u16(b,eocd+4)!==0||u16(b,eocd+6)!==0||u16(b,eocd+8)!==u16(b,eocd+10))throw Error('分割ZIPには対応していません');
    const count=u16(b,eocd+10),offset=u32(b,eocd+16);
-   if(count===0xffff||offset===0xffffffff||u32(b,eocd+12)===0xffffffff)throw Error('ZIP64には対応していません');
+   if(count===0xffff||u16(b,eocd+8)===0xffff||offset===0xffffffff||u32(b,eocd+12)===0xffffffff)throw Error('ZIP64には対応していません');
+   if(u16(b,eocd+4)!==0||u16(b,eocd+6)!==0||u16(b,eocd+8)!==count)throw Error('分割ZIPには対応していません');
    if(count>500)throw Error('Excel内のファイル数が上限を超えています');
    let p=offset,total=0;const files=new Map();
    for(let i=0;i<count;i++){
