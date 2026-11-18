@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {previewDeviceCsv} from '../src/domain/assessmentDeviceImportPreview';
 import fs from 'node:fs';
 import path from 'node:path';
 const root=path.resolve(__dirname,'..');
@@ -61,4 +62,22 @@ test('formula XLSX is rejected instead of trusting cached formula result',async(
  await page.locator('#csv-file').setInputFiles({name:'formula.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from('UEsDBBQAAAAIAGdAcl15CEmGfwAAAKIAAAAPAAAAeGwvd29ya2Jvb2sueG1sNY7BDsIgEER/peED3NaDBwKcvPTsFyBdhLSwzS5GP1809jRvZjLJmBfxeidah3fZqmi2KrW2awAJCYuXE+1YexeJi2/d8gMoxhzwSuFZsDY4j+MFGDffMlVJeRfljCTEJn8dqi9o1e3Lkxp+2bxY1Zl17sDzMilwBo4ZHL/cB1BLAwQUAAAACABnQHJd1MStWT8AAABXAAAAGgAAAHhsL19yZWxzL3dvcmtib29rLnhtbC5yZWxzswlKzUksyczPK87ILCi2s0HmKnim2CoVeaYYKimEJBalp5bYKpXnF2UXZ6SmlhTrgylDvYrcHCV9Oxt9VHMAUEsDBBQAAAAIAGdAcl30hQ7YiQAAAAoBAAAYAAAAeGwvd29ya3NoZWV0cy9zaGVldDEueG1ssynPL8ouzkhNLbGzAVMuiSWJdjZF+eUKRbZKhkp2NskghqOhkkKJrVJmXk5mXmpwSRFQPLPYzqbE7sXm9udTFj+fuupp/3YbfaAh+iBx/WSoPidc+gKcn07oRdWgD7QUbrMR3GYjnCboGhhisxKkNc3OUBsomWZnU2ZnZKNfhmyDPpI/9RHeBwBQSwECFAMUAAAACABnQHJdeQhJhn8AAACiAAAADwAAAAAAAAAAAAAAgAEAAAAAeGwvd29ya2Jvb2sueG1sUEsBAhQDFAAAAAgAZ0ByXdTErVk/AAAAVwAAABoAAAAAAAAAAAAAAIABrAAAAHhsL19yZWxzL3dvcmtib29rLnhtbC5yZWxzUEsBAhQDFAAAAAgAZ0ByXfSFDtiJAAAACgEAABgAAAAAAAAAAAAAAIABIwEAAHhsL3dvcmtzaGVldHMvc2hlZXQxLnhtbFBLBQYAAAAAAwADAMsAAADiAQAAAAA=','base64')});
  await expect(page.locator('#file-status')).toContainText('数式を含むExcel');
  await expect(page.locator('#mapping-panel')).toBeHidden();
+});
+
+test('browser CSV preview agrees with domain preview for duplicate and pending rows',async({page})=>{
+ const csv='資産番号,PC名,シリアル番号\nPC-001,A,S1\nPC-001,B,S2\nPC-002,C,S3';
+ const expected=previewDeviceCsv(csv);
+ await page.locator('#csv-file').setInputFiles({name:'parity.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});
+ await page.locator('#refresh-preview').click();
+ const browser=await page.locator('#preview-body tr').evaluateAll(rows=>rows.map(row=>{
+   const cells=[...row.querySelectorAll('td')].map(cell=>cell.textContent||'');
+   return {sourceRowNumber:Number(cells[0]),assetTag:cells[1],displayName:cells[2],serial:cells[3],outcome:cells[4]};
+ }));
+ expect(browser).toEqual(expected.rows.map(r=>({
+   sourceRowNumber:r.sourceRowNumber,
+   assetTag:r.mappedCandidate.asset_tag,
+   displayName:r.mappedCandidate.display_name,
+   serial:r.mappedCandidate.serial_number,
+   outcome:r.outcome==='NEEDS_REVIEW'?'要確認':'正本照合待ち'
+ })));
 });
