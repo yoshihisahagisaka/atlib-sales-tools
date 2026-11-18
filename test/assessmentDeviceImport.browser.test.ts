@@ -137,3 +137,31 @@ test('XLSX malformed ZIP fails closed',async({page})=>{
  await expect(page.locator('#file-status')).toContainText('ZIP構造');
  await expect(page.locator('#mapping-panel')).toBeHidden();
 });
+
+test('XLSX ZIP64 sentinel fails closed',async({page})=>{
+ const b=workbook(sheet(''));
+ const eocd=b.length-22;
+ b.writeUInt16LE(0xffff,eocd+10);
+ await uploadWorkbook(page,b);
+ await expect(page.locator('#file-status')).toContainText('ZIP64');
+ await expect(page.locator('#mapping-panel')).toBeHidden();
+});
+test('XLSX duplicate ZIP entry fails closed',async({page})=>{
+ const xml=sheet('');
+ const b=zipEntries({'xl/workbook.xml':'<workbook/>','xl/_rels/workbook.xml.rels':'<Relationships/>','xl/worksheets/sheet1.xml':xml});
+ // Duplicate central-directory filename with different local entries is rejected by the reader.
+ // Here the second ZIP index points to the same local entry, without modifying payload.
+ const end=b.length-22,centralOffset=b.readUInt32LE(end+16);
+ const firstNameLength=b.readUInt16LE(centralOffset+28);
+ const firstEntryLength=46+firstNameLength;
+ const first=b.subarray(centralOffset,centralOffset+firstEntryLength);
+ const centralSize=b.readUInt32LE(end+12);
+ const rebuilt=Buffer.concat([b.subarray(0,end),first,b.subarray(end)]);
+ const newEnd=rebuilt.length-22;
+ rebuilt.writeUInt16LE(4,newEnd+8);
+ rebuilt.writeUInt16LE(4,newEnd+10);
+ rebuilt.writeUInt32LE(centralSize+first.length,newEnd+12);
+ await uploadWorkbook(page,rebuilt);
+ await expect(page.locator('#file-status')).toContainText('重複ファイル');
+ await expect(page.locator('#mapping-panel')).toBeHidden();
+});
