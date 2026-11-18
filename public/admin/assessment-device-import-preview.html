@@ -10,8 +10,8 @@ select{max-width:100%}.muted{color:#526272}.warn{color:#8a4b00}.scroll{overflow-
 <h1>Device初期情報の取込プレビュー</h1>
 <p class="muted">設計Assessment用のローカル確認画面です。FACTACTへの登録・送信は行いません。</p>
 <section class="panel"><h2>1. 資料を選ぶ</h2>
-<label for="csv-file">CSVファイル（UTF-8）</label>
-<input id="csv-file" type="file" accept=".csv,text/csv">
+<label for="csv-file">CSV（UTF-8）またはExcel（.xlsx）</label>
+<input id="csv-file" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
 <p id="file-status" role="status" class="muted">ファイルはブラウザ内で読み取ります。</p></section>
 <section class="panel" id="mapping-panel" hidden><h2>2. 項目を確認する</h2>
 <p class="muted">自動対応付けを確認してください。未対応列は登録候補に含めません。</p>
@@ -21,4 +21,4 @@ select{max-width:100%}.muted{color:#526272}.warn{color:#8a4b00}.scroll{overflow-
 <p id="preview-summary" role="status"></p>
 <div class="scroll"><table><thead><tr><th>元行</th><th>資産番号</th><th>PC名</th><th>シリアル番号</th><th>状態</th><th>確認事項</th></tr></thead><tbody id="preview-body"></tbody></table></div>
 <p class="warn">既存FACTACTとの照合前のため、新規・更新・差分なしは判定していません。登録ボタンはありません。</p></section>
-</main><script src="/js/assessment-device-import-preview.js" defer></script></body></html>
+</main><script src="/js/assessment-xlsx-reader.js" defer></script><script src="/js/assessment-device-import-preview.js" defer></script></body></html>
