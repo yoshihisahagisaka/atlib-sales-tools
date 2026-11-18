@@ -25,6 +25,7 @@ CREATE TABLE secumie_web.assembly_intake (
   updated_at timestamptz NOT NULL DEFAULT now(),
   idempotency_key uuid NOT NULL UNIQUE,
   payload_hash text NOT NULL,
+  auth_session_id text NOT NULL,
   CONSTRAINT assembly_required_strings CHECK (
     length(trim(reception_code)) > 0
     AND length(trim(organizer_name)) > 0
