@@ -13,6 +13,9 @@ CREATE TABLE secumie_web.assembly_intake (
   company_name text NOT NULL,
   registered_address text NOT NULL,
   website_url text NOT NULL,
+  contact_name text NOT NULL,
+  contact_email text NOT NULL,
+  contact_phone text NOT NULL,
   consent_version text NOT NULL,
   consented_at timestamptz NOT NULL,
   result_delivery_mode text NOT NULL DEFAULT 'MANUAL'
@@ -34,6 +37,9 @@ CREATE TABLE secumie_web.assembly_intake (
     AND length(trim(company_name)) > 0
     AND length(trim(registered_address)) > 0
     AND length(trim(website_url)) > 0
+    AND length(trim(contact_name)) > 0
+    AND length(trim(contact_email)) > 0
+    AND length(trim(contact_phone)) > 0
     AND length(trim(consent_version)) > 0
   )
 );
@@ -50,3 +56,19 @@ CREATE INDEX assembly_intake_received_idx
   ON secumie_web.assembly_intake(received_at DESC);
 CREATE INDEX assembly_consumed_jti_expiry_idx
   ON secumie_web.assembly_consumed_jti(expires_at);
+
+-- Durable notification outbox: insert in the same transaction as the intake.
+-- A separate authenticated worker sends to Slack and marks delivery.
+CREATE TABLE secumie_web.assembly_notification_outbox (
+  notification_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  intake_id uuid NOT NULL UNIQUE REFERENCES secumie_web.assembly_intake(intake_id),
+  channel text NOT NULL DEFAULT 'SLACK' CHECK (channel = 'SLACK'),
+  state text NOT NULL DEFAULT 'PENDING' CHECK (state IN ('PENDING','SENDING','SENT','FAILED')),
+  attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  next_attempt_at timestamptz NOT NULL DEFAULT now(),
+  last_error_code text,
+  sent_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX assembly_outbox_pending_idx ON secumie_web.assembly_notification_outbox(next_attempt_at)
+ WHERE state IN ('PENDING','FAILED');
