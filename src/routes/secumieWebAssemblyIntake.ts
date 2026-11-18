@@ -8,6 +8,8 @@ const schema = z.object({
   companyName: z.string().trim().min(1).max(200),
   registeredAddress: z.string().trim().min(1).max(500),
   websiteUrl: z.string().trim().min(1).max(2000),
+  contactName: z.string().trim().min(1).max(200),
+  contactPhone: z.string().trim().min(6).max(50),
   consentVersion: z.string().min(1).max(100),
   accepted: z.literal(true),
   idempotencyKey: z.string().uuid(),
