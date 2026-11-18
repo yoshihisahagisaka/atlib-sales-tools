@@ -7,6 +7,8 @@ export type AssemblyIntakeInput = {
   companyName: string;
   registeredAddress: string;
   websiteUrl: string;
+  contactName: string;
+  contactPhone: string;
   consentVersion: string;
   accepted: true;
   idempotencyKey: string;
@@ -30,12 +32,16 @@ export class AssemblyIntakeService {
     if (!unionName) throw new AssemblyIntakeError(422, 'UNION_NOT_FOUND');
     if (!input.accepted || input.consentVersion !== this.reception.consentVersion ||
         !input.companyName.trim() || !input.registeredAddress.trim() ||
+        !input.contactName.trim() || !input.contactPhone.trim() ||
+        input.contactName.length > 200 || input.contactPhone.length > 50 ||
+        !/^[+0-9()\-\s]{6,50}$/.test(input.contactPhone.trim()) ||
         input.companyName.length > 200 || input.registeredAddress.length > 500 ||
         input.websiteUrl.length > 2000) throw new AssemblyIntakeError(422, 'INVALID_REQUEST');
     let url: URL;
     try { url = new URL(input.websiteUrl); } catch { throw new AssemblyIntakeError(422, 'INVALID_URL'); }
     if (url.protocol !== 'https:' || !url.hostname) throw new AssemblyIntakeError(422, 'INVALID_URL');
 
+    if (!/^\\S+@\\S+\\.\\S+$/.test(claims.email)) throw new AssemblyIntakeError(401, 'JWT_INVALID');
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -63,10 +69,11 @@ export class AssemblyIntakeService {
     await client.query(
       `INSERT INTO secumie_web.assembly_intake
        (intake_id,reception_code,organizer_name,union_id,union_name_snapshot,company_name,registered_address,website_url,
-        consent_version,consented_at,idempotency_key,payload_hash,auth_session_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),$10,$11,$12)`,
+        contact_name,contact_email,contact_phone,consent_version,consented_at,idempotency_key,payload_hash,auth_session_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now(),$13,$14,$15)`,
       [intakeId,this.reception.code,this.reception.organizerName,input.unionId,unionName,input.companyName.trim(),
-       input.registeredAddress.trim(),input.websiteUrl.trim(),input.consentVersion,input.idempotencyKey,hash,claims.sub],
+       input.registeredAddress.trim(),input.websiteUrl.trim(),input.contactName.trim(),claims.email,input.contactPhone.trim(),
+       input.consentVersion,input.idempotencyKey,hash,claims.sub],
     );
     try {
       await client.query(
@@ -76,6 +83,7 @@ export class AssemblyIntakeService {
     } catch {
       throw new AssemblyIntakeError(409, 'JWT_REPLAYED');
     }
+    await client.query('INSERT INTO secumie_web.assembly_notification_outbox(intake_id) VALUES($1)', [intakeId]);
     return { receiptId: intakeId, replayed: false };
   }
 }
