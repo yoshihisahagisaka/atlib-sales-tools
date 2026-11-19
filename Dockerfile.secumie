@@ -48,6 +48,19 @@ USER nonroot
 EXPOSE 8080
 CMD ["dist/piraPublicServer.js"]
 
+FROM gcr.io/distroless/nodejs24-debian13@sha256:24bc0fe0225c7518f202a822587dad74fe143b96326b81fe5cc08c1df8bed03e AS web-runtime
+WORKDIR /app
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+ENV NODE_ENV=production
+COPY --from=runtime-production-deps /app/node_modules ./node_modules
+COPY --from=runtime-build /app/dist ./dist
+COPY public/public-service-auth.js ./public/public-service-auth.js
+COPY prototypes/secumie-web-assembly ./prototypes/secumie-web-assembly
+USER nonroot
+EXPOSE 8080
+CMD ["dist/secumieWebPublicServer.js"]
+
 FROM node:20-bookworm-slim AS db-operations
 WORKDIR /app
 ARG SOURCE_REVISION

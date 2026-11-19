@@ -17,6 +17,8 @@
 !scripts/readiness/verifySecumieMigrationManifest.cjs
 !prototypes/pira-union-diagnosis-v2/
 !prototypes/pira-union-diagnosis-v2/**
+!prototypes/secumie-web-assembly/
+!prototypes/secumie-web-assembly/**
 **/.env*
 **/*.pem
 **/*.key
