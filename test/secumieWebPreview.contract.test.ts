@@ -19,7 +19,7 @@ const options = {
   prototypeDir: path.resolve(__dirname, '../prototypes/pira-union-diagnosis-v2'),
 };
 
-test('SECU:MIE Web preview is opt-in and never accepts submissions', async () => {
+test('Legacy SECU:MIE Web preview is not exposed by the PIRA public runtime', async () => {
   const prior = process.env.SECUMIE_WEB_PREVIEW_ENABLED;
   try {
     for (const enabled of [false, true]) {
@@ -31,18 +31,9 @@ test('SECU:MIE Web preview is opt-in and never accepts submissions', async () =>
         const address = server.address() as AddressInfo;
         const base = `http://127.0.0.1:${address.port}`;
         const response = await fetch(`${base}/secu-web/preview`);
-        assert.equal(response.status, enabled ? 200 : 404);
-        if (enabled) {
-          const html = await response.text();
-          assert.match(html, /SECU:MIE Web/);
-          assert.match(html, /所属組合/);
-          assert.match(html, /<fieldset disabled>/);
-          assert.match(html, /送信できません/);
-          assert.equal(response.headers.get('cache-control'), 'no-store');
-          assert.equal(response.headers.get('x-robots-tag'), 'noindex, nofollow');
-          const post = await fetch(`${base}/secu-web/preview`, { method: 'POST' });
-          assert.equal(post.status, 404);
-        }
+        assert.equal(response.status, 404);
+        const post = await fetch(`${base}/secu-web/preview`, { method: 'POST' });
+        assert.equal(post.status, 404);
       } finally {
         await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
       }
