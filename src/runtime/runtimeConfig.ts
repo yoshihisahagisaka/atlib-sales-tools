@@ -77,7 +77,7 @@ export async function secumieWebRuntimeConfiguration() {
   return {
     pool: await databaseRuntime(), issuer: httpsUrl('OTP_JWT_ISSUER'), jwksUrl: httpsUrl('OTP_JWKS_URL'),
     host: host('SECUMIE_WEB_HOST'), origin: httpsUrl('SECUMIE_WEB_ORIGIN'),
-    turnstileSiteKey: required('TURNSTILE_SITE_KEY'), consentVersion: required('SECUMIE_WEB_CONSENT_VERSION'),
+    turnstileSiteKey: required('TURNSTILE_SITE_KEY'), consentVersion: required('SECUMIE_WEB_CONSENT_VERSION'), consentText: required('SECUMIE_WEB_CONSENT_TEXT'),
     receptionCode: required('SECUMIE_WEB_RECEPTION_CODE'), organizerName: '国際連携推進協会',
     publicAuthScriptPath: process.env.PUBLIC_AUTH_SCRIPT_PATH ?? path.join(root, 'public/public-service-auth.js'),
     assetDir: process.env.SECUMIE_WEB_ASSET_DIR ?? path.join(root, 'prototypes/secumie-web-assembly'),
