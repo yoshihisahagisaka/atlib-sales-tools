@@ -490,3 +490,56 @@ OwnerがCloud Shellで`B5_PROTECTED_READONLY`を実行し、`msp-zabbix` / `asia
 **Gate更新:** §3.1の`Protected Cloud Run Services Ready/Traffic` snapshotは**PASS（今回の照会範囲）**。B5-2B Runtime候補については§12.2のSA/Secret最小権限、専用DBの実接続権限と接続予算、`DB_PASSWORD` Secret注入、Prod SMTP/Turnstile/JWT/HMAC、private verification、監視とrollback、Phase BのLB/DNS/cert、Owner明示承認が引き続き未完了。
 
 `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools現行100% traffic、Retention preview-only、既存Service不変更を維持。
+
+
+## 20. B5 Identity / Secret IAM Read-only Gate（2026-11-19 JST）
+
+OwnerがCloud Shellで`B5_IDENTITY_READONLY`を実行し、Project `msp-zabbix` のService Account一覧、`secumie-prod-` prefixのSecret一覧、OTP/PIRA DB用Secret 2件の**リソース単位の直接IAM Policy**を照会した。標準出力には終端 `B5 IDENTITY READ-ONLY COMPLETE` があり、作成・削除・IAM付与・Secret値取得は行っていない。端末貼付エコーの乱れはJSON結果そのものとは区別する。
+
+### 20.1 現物inventory
+
+**既存Service Account（`secumie-` prefix一致）:** 4件とも `disabled=false`。
+
+- `secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com`
+- `secumie-db-migration-prod@msp-zabbix.iam.gserviceaccount.com`
+- `secumie-db-bootstrap-stg@msp-zabbix.iam.gserviceaccount.com`
+- `secumie-db-migration-stg@msp-zabbix.iam.gserviceaccount.com`
+
+**B5新規Runtime専用SA:** `secumie-otp-prod@msp-zabbix.iam.gserviceaccount.com`、`secumie-pira-prod@msp-zabbix.iam.gserviceaccount.com` は、今回の一覧には**存在しない**。§2の命名案に対するprefix範囲内の衝突は未検出。新規作成はB5-2Bの独立Owner承認待ち。
+
+**既存Production DB Secret（`secumie-prod-` prefix一致）:** 以下6件の存在を確認。B0–B4の既存資産であり、再作成・値複製・version変更の対象ではない。
+
+1. `secumie-prod-db-admin-password`
+2. `secumie-prod-db-bootstrap-password`
+3. `secumie-prod-db-maintenance-password`
+4. `secumie-prod-db-migration-password`
+5. `secumie-prod-db-otp-password`
+6. `secumie-prod-db-pira-password`
+
+**新規B5固有Secret候補:** `secumie-prod-smtp-password`、`secumie-prod-turnstile-secret`、`secumie-prod-otp-jwt-keys` は上記一覧に存在しない。OTP専用HMAC Secretも未存在で、**候補名**を `secumie-prod-otp-hmac-key` としてB5-2B承認差分に提示する（この候補名は今回の照会ではOwnerによる確定承認ではない）。
+
+**OTP/PIRA DB Secretの直接IAM:**
+
+| Secret | `gcloud secrets get-iam-policy` 結果 | 解釈 |
+| --- | --- | --- |
+| `secumie-prod-db-otp-password` | `{"bindings":[]}` | 直接bindingなし。新OTP runtime SA用Accessorは未付与 |
+| `secumie-prod-db-pira-password` | `{"bindings":[]}` | 直接bindingなし。新PIRA runtime SA用Accessorは未付与 |
+
+`bindings: []` は**当該Secretへの直接IAM Policy**だけの証跡。Project/Folder/Organizationからの継承IAM、Effective Permissions、全Secret version、実行時の認証可否は今回の照会で確認していない。直接bindingがないことを「誰にもSecret accessがない」と解釈しない。
+
+### 20.2 Fit/GapとB5-2B限定のIAM/Secret作成候補
+
+| 境界 | Fit（確認できたこと） | Gap / B5-2B承認候補 |
+| --- | --- | --- |
+| Runtime identity | BOOT/MIGの既存SAは4件ともEnabled。新OTP/PIRA SAとの名前衝突なし | `secumie-otp-prod`、`secumie-pira-prod` SAを**新規作成候補**。既存BOOT/MIGは変更しない |
+| DB runtime password | OTP/PIRA専用DB Secret各1件が存在 | 各新SAに**対応する1 Secretだけ** `roles/secretmanager.secretAccessor` を直接付与し、Cloud Run `DB_PASSWORD` Secret環境変数に一致することを作成後read-back |
+| OTP追加Secret | SMTP/Turnstile/JWT Secret名の既存衝突なし | 専用3 SecretとOTP HMAC Secret（候補名）を新設する場合、OTP SAのみに個別Accessor付与。秘密値はGit/PR/ログ/CLI引数へ記録しない |
+| PIRA境界 | PIRA runtimeが必要とするDB Secretは1件とコード契約で確認済み（§12.2） | PIRA SAへSMTP password / Turnstile server secret / JWT private key / HMAC keyのAccessorを付与しない。公開`TURNSTILE_SITE_KEY`はSecretAccessor不要 |
+| Cloud SQL接続 | 専用Production DBとB0–B4 DB Roleが別途確認済み | 既存承認済みProduction instance限定のconditional Cloud SQL Client契約に照らし、**新2 SAの条件付きIAM追加差分を事前レビュー**。private IP/Proxy・接続予算・DB実権限は独立read-back |
+| 継承権限 | 2 Secretの直接Policyのみ可視化 | Project/Folder/Organization継承SecretAccessorと有効権限、全6 Secret version / 割当のread-backは未完了。project-wide SecretAccessorは禁止 |
+
+**B5-2Bの次の承認packageに必要な最小限の範囲:** 新2 Runtime SA、既存OTP/PIRA DB Secretへのそれぞれ1対1のAccessor、OTP専用追加Secret 4候補と各個別Accessor、専用Production Cloud SQL Client条件付きbinding、Runtime設定・画像digest・非公開認証付き検証・停止/rollback手順。Mailtrap Live Sendingの送信元認証/プラン、Turnstile本番Widget、JWT鍵生成管理、HMAC Secret命名、継承IAM、監視閾値、費用見積について**値・証跡・承認が未完了**。不足をもって現時点でRuntime構築を許可しない。
+
+**Gate判定:** Identity/Secret **存在照会はPASS（照会範囲内）**。直接IAMの未付与はB5-2B準備時点での**想定どおりのGap**であり障害とは扱わない。新SA、Secret、権限は**未作成・未付与**。B5-2B実行のOwner明示承認は別途必要。
+
+`Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools `sales-tools-wsc-release` 100% Traffic、Retention preview-only、既存7 Cloud Run Services・既存DB/Secret/BOOT/MIGの不変更を維持。
