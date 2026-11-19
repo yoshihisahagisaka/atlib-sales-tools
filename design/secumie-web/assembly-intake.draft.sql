@@ -4,8 +4,20 @@
 -- No OTP tables or PDF storage are created here.
 CREATE SCHEMA IF NOT EXISTS secumie_web;
 
+-- Source is the organizer-approved formal union list. It is maintained by an
+-- authorized import process; public callers can only read active entries.
+CREATE TABLE secumie_web.assembly_union_master (
+  union_id text PRIMARY KEY,
+  official_name text NOT NULL,
+  active boolean NOT NULL DEFAULT true,
+  source_version text NOT NULL,
+  imported_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (length(trim(union_id)) > 0 AND length(trim(official_name)) > 0)
+);
+
 CREATE TABLE secumie_web.assembly_intake (
   intake_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  receipt_number text NOT NULL UNIQUE,
   reception_code text NOT NULL,
   organizer_name text NOT NULL,
   union_id text NOT NULL,
@@ -23,7 +35,7 @@ CREATE TABLE secumie_web.assembly_intake (
   information_sharing_enabled boolean NOT NULL DEFAULT true
     CHECK (information_sharing_enabled),
   request_status text NOT NULL DEFAULT 'RECEIVED'
-    CHECK (request_status IN ('RECEIVED','IN_PROGRESS','DELIVERED','CANCELLED')),
+    CHECK (request_status IN ('RECEIVED','IN_PROGRESS','SUBMITTED','CANCELLED')),
   received_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   idempotency_key uuid NOT NULL UNIQUE,
@@ -42,6 +54,15 @@ CREATE TABLE secumie_web.assembly_intake (
     AND length(trim(contact_phone)) > 0
     AND length(trim(consent_version)) > 0
   )
+);
+
+CREATE TABLE secumie_web.assembly_status_history (
+  status_history_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  intake_id uuid NOT NULL REFERENCES secumie_web.assembly_intake(intake_id) ON DELETE CASCADE,
+  from_status text,
+  to_status text NOT NULL CHECK (to_status IN ('RECEIVED','IN_PROGRESS','SUBMITTED','CANCELLED')),
+  changed_by text NOT NULL,
+  changed_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- JWT jti is scoped to Web intake, not shared with Insight.
@@ -68,6 +89,7 @@ CREATE TABLE secumie_web.assembly_notification_outbox (
   next_attempt_at timestamptz NOT NULL DEFAULT now(),
   last_error_code text,
   sent_at timestamptz,
+  locked_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX assembly_outbox_pending_idx ON secumie_web.assembly_notification_outbox(next_attempt_at)

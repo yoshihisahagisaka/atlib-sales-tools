@@ -23,9 +23,15 @@ function json<T>(name: string): T { try { return JSON.parse(required(name)) as T
 function strong(name: string, minimum = 32): string { const value = required(name); if (value.length < minimum) throw new Error(`${name} is too short`); return value; }
 
 export async function databaseRuntime() {
+  // Dedicated OTP/PIRA runtimes must never fall back to the Sales Tools DB secret.
+  required('DB_PASSWORD');
   const db = await loadDatabaseConfig('runtime');
   const config = { db } as Config;
-  return createPool(config);
+  const max = Number(process.env.DB_POOL_MAX ?? 2);
+  const idleTimeoutMillis = Number(process.env.DB_POOL_IDLE_TIMEOUT_MS ?? 10_000);
+  if (!Number.isInteger(max) || max < 1 || max > 2) throw new Error('DB_POOL_MAX must be an integer from 1 to 2');
+  if (!Number.isInteger(idleTimeoutMillis) || idleTimeoutMillis < 1) throw new Error('DB_POOL_IDLE_TIMEOUT_MS must be a positive integer');
+  return createPool(config, { max, idleTimeoutMillis });
 }
 
 export async function otpRuntimeConfiguration() {
@@ -47,6 +53,10 @@ export async function otpRuntimeConfiguration() {
     const generalOrigin = httpsUrl('PIRA_GENERAL_ORIGIN');
     brands.set('pira-general', { id: 'pira-general', name: 'SECU:MIE Insight', origins: [generalOrigin] });
   }
+  if (process.env.SECUMIE_WEB_ENABLED === 'true') {
+    const origin = httpsUrl('SECUMIE_WEB_ORIGIN');
+    brands.set('secumie-web-assembly', { id: 'secumie-web-assembly', name: 'SECU:MIE Web', origins: [origin] });
+  }
   return { pool, mailer: new Mailer(smtp), turnstileSecret: strong('TURNSTILE_SECRET'), hmacKey: strong('OTP_HMAC_KEY'), jwt, brands };
 }
 
@@ -59,6 +69,18 @@ export async function piraRuntimeConfiguration() {
     generalEnabled: process.env.PIRA_GENERAL_ENABLED === 'true', turnstileSiteKey: required('TURNSTILE_SITE_KEY'),
     publicAuthScriptPath: process.env.PUBLIC_AUTH_SCRIPT_PATH ?? path.join(root, 'public/public-service-auth.js'),
     prototypeDir: process.env.PIRA_ASSET_DIR ?? path.join(root, 'prototypes/pira-union-diagnosis-v2'),
+  };
+}
+
+export async function secumieWebRuntimeConfiguration() {
+  const root = path.resolve(__dirname, '../..');
+  return {
+    pool: await databaseRuntime(), issuer: httpsUrl('OTP_JWT_ISSUER'), jwksUrl: httpsUrl('OTP_JWKS_URL'),
+    host: host('SECUMIE_WEB_HOST'), origin: httpsUrl('SECUMIE_WEB_ORIGIN'),
+    turnstileSiteKey: required('TURNSTILE_SITE_KEY'), consentVersion: required('SECUMIE_WEB_CONSENT_VERSION'),
+    receptionCode: required('SECUMIE_WEB_RECEPTION_CODE'), organizerName: '国際連携推進協会',
+    publicAuthScriptPath: process.env.PUBLIC_AUTH_SCRIPT_PATH ?? path.join(root, 'public/public-service-auth.js'),
+    assetDir: process.env.SECUMIE_WEB_ASSET_DIR ?? path.join(root, 'prototypes/secumie-web-assembly'),
   };
 }
 
