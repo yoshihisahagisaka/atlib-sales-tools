@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "start:public-auth": "node dist/publicOtpServer.js",
     "start:pira-public": "node dist/piraPublicServer.js",
+    "start:secumie-web-public": "node dist/secumieWebPublicServer.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "test:kaizen": "node -r ts-node/register --test test/kaizenAssessment.golden.test.ts",
     "test:diagnosis": "node -r ts-node/register --test test/itManagementDiagnosis.golden.test.ts",
@@ -28,10 +29,20 @@
     "test:readiness": "node -r ts-node/register --test test/productionReadiness.security.test.ts",
     "test:readiness:postgres": "node -r ts-node/register --test test/productionReadiness.postgres.test.ts",
     "test:secumie:runtime": "node -r ts-node/register --test test/secumieRuntime.postgres.browser.test.ts",
+    "test:secumie:dedicated-db": "node -r ts-node/register --test test/secumieDedicatedDbConnection.test.ts",
     "test:cleanup-contract": "node -r ts-node/register --test test/productionTestDataCleanup.contract.test.ts",
     "test:cleanup-rehearsal": "node -r ts-node/register --test test/productionTestDataCleanup.rehearsal.test.ts",
     "rehearse:cleanup": "node scripts/cleanup/rehearseProductionTestDataCleanup.cjs cleanup-manifests/production-test-data-cleanup-20261013.json",
-    "migrate:artifact": "node dist/db/migrateCli.js"
+    "migrate:artifact": "node dist/db/migrateCli.js",
+    "bootstrap:secumie:staging": "node dist/db/bootstrapSecumieInsightStagingCli.js",
+    "recover:secumie:staging": "node dist/db/recoverSecumieInsightStagingCli.js",
+    "bootstrap:secumie:production": "node dist/db/bootstrapSecumieInsightProductionCli.js",
+    "migrate:secumie:production": "node dist/db/runSecumieProductionMigrationCli.js",
+    "accept:secumie:production": "node dist/db/validateSecumieProductionCli.js",
+    "verify:migrations:secumie": "node scripts/readiness/verifySecumieMigrationManifest.cjs migration-manifests/secumie-insight-staging-037-041.json migrations false",
+    "verify:migrations:secumie:production": "node scripts/readiness/verifySecumieMigrationManifest.cjs migration-manifests/secumie-insight-production-037-041.json migrations false",
+    "db:configure:secumie": "node dist/db/configureSecumieDbRolesCli.js",
+    "retention:secumie": "node dist/db/secumieRetentionCli.js"
   },
   "engines": {
     "node": ">=20"

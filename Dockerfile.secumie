@@ -11,26 +11,91 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-FROM node:20-bookworm-slim AS otp-runtime
+FROM node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS runtime-build
 WORKDIR /app
-ARG SOURCE_REVISION
-LABEL org.opencontainers.image.revision=$SOURCE_REVISION
-ENV NODE_ENV=production
-COPY --from=production-deps /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-USER node
-EXPOSE 8080
-CMD ["node", "dist/publicOtpServer.js"]
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
 
-FROM node:20-bookworm-slim AS pira-runtime
+FROM node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS runtime-production-deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+FROM gcr.io/distroless/nodejs24-debian13@sha256:24bc0fe0225c7518f202a822587dad74fe143b96326b81fe5cc08c1df8bed03e AS otp-runtime
 WORKDIR /app
 ARG SOURCE_REVISION
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 ENV NODE_ENV=production
-COPY --from=production-deps /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
+COPY --from=runtime-production-deps /app/node_modules ./node_modules
+COPY --from=runtime-build /app/dist ./dist
+USER nonroot
+EXPOSE 8080
+CMD ["dist/publicOtpServer.js"]
+
+FROM gcr.io/distroless/nodejs24-debian13@sha256:24bc0fe0225c7518f202a822587dad74fe143b96326b81fe5cc08c1df8bed03e AS pira-runtime
+WORKDIR /app
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+ENV NODE_ENV=production
+COPY --from=runtime-production-deps /app/node_modules ./node_modules
+COPY --from=runtime-build /app/dist ./dist
 COPY public/public-service-auth.js ./public/public-service-auth.js
 COPY prototypes/pira-union-diagnosis-v2 ./prototypes/pira-union-diagnosis-v2
-USER node
+USER nonroot
 EXPOSE 8080
-CMD ["node", "dist/piraPublicServer.js"]
+CMD ["dist/piraPublicServer.js"]
+
+FROM gcr.io/distroless/nodejs24-debian13@sha256:24bc0fe0225c7518f202a822587dad74fe143b96326b81fe5cc08c1df8bed03e AS web-runtime
+WORKDIR /app
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+ENV NODE_ENV=production
+COPY --from=runtime-production-deps /app/node_modules ./node_modules
+COPY --from=runtime-build /app/dist ./dist
+COPY public/public-service-auth.js ./public/public-service-auth.js
+COPY prototypes/secumie-web-assembly ./prototypes/secumie-web-assembly
+USER nonroot
+EXPOSE 8080
+CMD ["dist/secumieWebPublicServer.js"]
+
+FROM node:20-bookworm-slim AS db-operations
+WORKDIR /app
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+ENV NODE_ENV=production
+COPY --from=production-deps /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY migration-manifests/secumie-insight-staging-037-041.json ./migration-manifests/secumie-insight-staging-037-041.json
+COPY scripts/readiness/verifySecumieMigrationManifest.cjs ./scripts/readiness/verifySecumieMigrationManifest.cjs
+COPY migrations/037_public_service_otp.sql migrations/038_pira_public_intake.sql migrations/039_pira_admin_export.sql migrations/040_pira_export_audit_retention.sql migrations/041_secumie_db_operations.sql ./migrations-secumie/
+RUN node scripts/readiness/verifySecumieMigrationManifest.cjs migration-manifests/secumie-insight-staging-037-041.json migrations-secumie true
+USER node
+CMD ["node", "dist/db/runSecumieStagingMigrationCli.js"]
+
+FROM node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS db-operations-production-verified
+WORKDIR /app
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+ENV NODE_ENV=production
+COPY --from=runtime-production-deps /app/node_modules ./node_modules
+COPY --from=runtime-build /app/dist ./dist
+COPY migration-manifests/secumie-insight-production-037-041.json ./migration-manifests/secumie-insight-production-037-041.json
+COPY scripts/readiness/verifySecumieMigrationManifest.cjs ./scripts/readiness/verifySecumieMigrationManifest.cjs
+COPY migrations/037_public_service_otp.sql migrations/038_pira_public_intake.sql migrations/039_pira_admin_export.sql migrations/040_pira_export_audit_retention.sql migrations/041_secumie_db_operations.sql ./migrations-secumie/
+RUN node scripts/readiness/verifySecumieMigrationManifest.cjs migration-manifests/secumie-insight-production-037-041.json migrations-secumie true
+
+FROM gcr.io/distroless/nodejs24-debian13@sha256:24bc0fe0225c7518f202a822587dad74fe143b96326b81fe5cc08c1df8bed03e AS db-operations-production
+WORKDIR /app
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+ENV NODE_ENV=production
+COPY --from=db-operations-production-verified /app/node_modules ./node_modules
+COPY --from=db-operations-production-verified /app/dist ./dist
+COPY --from=db-operations-production-verified /app/migration-manifests ./migration-manifests
+COPY --from=db-operations-production-verified /app/migrations-secumie ./migrations-secumie
+COPY --from=db-operations-production-verified /app/scripts/readiness/verifySecumieMigrationManifest.cjs ./scripts/readiness/verifySecumieMigrationManifest.cjs
+USER nonroot
+CMD ["dist/db/runSecumieProductionMigrationCli.js"]
