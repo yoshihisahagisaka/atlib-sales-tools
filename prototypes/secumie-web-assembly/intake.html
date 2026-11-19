@@ -108,7 +108,7 @@ footer{text-align:center;margin-top:24px;font-size:12px;color:#65778b}#turnstile
   const union = byId('union');
   const form = byId('intake-form');
   const state = { issueToken: null, email: null, idempotencyKey: null, ready: false };
-  if (!config || !config.consentVersion || !config.consentText || !config.turnstileSiteKey) {
+  if (!window.crypto?.randomUUID || !window.fetch || !config || !config.consentVersion || !config.consentText || !config.turnstileSiteKey) {
     byId('error').textContent = '現在お申し込みを受け付けられません。';
     byId('send').disabled = true;
     return;

@@ -46,6 +46,13 @@ export function createSecumieWebPublicRuntime(options: SecumieWebPublicRuntimeOp
     code: options.receptionCode, organizerName: options.organizerName, consentVersion: options.consentVersion,
   });
   app.get('/healthz', (_req, res) => res.json({ status: 'ok', service: 'secumie-web' }));
+  // The public runtime is bound to one approved hostname; keep healthz available for probes.
+  app.use((req, res, next) => {
+    if (req.hostname.toLowerCase() !== options.host.toLowerCase()) {
+      return res.sendStatus(404);
+    }
+    next();
+  });
   app.get('/api/public/secumie-web/v1/unions', async (_req, res) => {
     try {
       const result = await options.pool.query(
