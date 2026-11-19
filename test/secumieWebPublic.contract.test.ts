@@ -31,6 +31,12 @@ test('Web runtime rejects unapproved host while keeping healthz available', asyn
   });
   const server = app.listen(0, '127.0.0.1');
   try {
+    // Listening is asynchronous: wait before reading the assigned ephemeral port.
+    await new Promise<void>((resolve, reject) => {
+      if (server.listening) return resolve();
+      server.once('listening', resolve);
+      server.once('error', reject);
+    });
     const address = server.address();
     if (!address || typeof address === 'string') throw new Error('No test listener');
     const base = 'http://127.0.0.1:' + address.port;
@@ -45,6 +51,8 @@ test('Web runtime rejects unapproved host while keeping healthz available', asyn
     assert.match(body, /approved-v1/);
     assert.match(body, /Synthetic consent for contract test only/);
   } finally {
-    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    if (server.listening) {
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    }
   }
 });
