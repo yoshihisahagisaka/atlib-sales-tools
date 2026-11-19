@@ -107,7 +107,7 @@
   const renderRequest = item => {
     const row = document.createElement('tr');
     const time = item.receivedAt ? new Date(item.receivedAt) : null;
-    const received = time && !Number.isNaN(time.getTime()) ? time.toLocaleString('ja-JP') : '日時不明';
+    const received = time && !Number.isNaN(time.getTime()) ? `${time.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })} JST` : '日時不明';
     cell(row, `${received}\n${safeText(item.receiptId)}`);
     cell(row, `${safeText(item.companyName)}\n${safeText(item.unionName)}`);
     cell(row, item.websiteUrl);
