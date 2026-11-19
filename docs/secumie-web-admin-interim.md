@@ -38,9 +38,12 @@ PDF生成は申込の完了、メール送付、提出済みへの自動変更�
 ```bash
 node --check public/admin/secumie-web.js
 node --test test/secumieWebAdmin.contract.test.cjs
+node --test test/secumieWebAdmin.browser.test.cjs
 npm ci --no-audit --no-fund
 npm run build
 node -r ts-node/register --test test/wscSalesService.test.ts
 ```
+
+Browser suite はローカルの静的ファイルサーバーとAPIモックを使用する。実Cloud Run・本番DB・外部URLには通信しない。Chromium起動がOSに拒否される環境では4件を **SKIP** として明示し、PASSに算入しない。スタッフ認証と本物のPDF出力については別途Staging受入試験が必要。
 
 Webhooksやメール本文、連絡先、PDFをブラウザの localStorage / sessionStorage / IndexedDB、ログ、Slackに保存しない。Slack通知については既存の秘匿済み設定のみ利用し、本画面から新規送信しない。
