@@ -33,6 +33,16 @@ PDF生成は申込の完了、メール送付、提出済みへの自動変更�
 3. 作成PDFの恒久保管・監査証跡・自動メール送付・エラー再実行管理は未実装。個人情報とレポートの保存先、アクセス制御、保管期限を決めてから追加する。
 4. 現時点ではこのPRをマージ・デプロイしていない。実運用URLとして案内する前に、既存Sales Toolsの認証・ビルド・診断PDF実行テストを通し、独立したデプロイ承認を得る。
 
+## Staging着手前の現行確認
+
+Cloud Shell（対象GCPプロジェクトを閲覧できる環境）から以下を実行する。
+
+```bash
+bash scripts/secumie-web-admin-preflight.sh
+```
+
+`sales-tools` と `sales-tools-staging` の現行100%トラフィック、実行SA、Ingress、Git main/候補HEADを読み取り、**何も変更しない**。チェック結果をもとに、正規の `main` と候補SHAを確認して独立したStaging検証計画を作成する。既存Stagingの100%トラフィックを無断で入れ替えない。
+
 ## 検証
 
 ```bash
