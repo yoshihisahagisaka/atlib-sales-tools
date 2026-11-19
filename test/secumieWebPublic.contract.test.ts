@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { get as httpGet } from 'node:http';
 import path from 'node:path';
 import { test } from 'node:test';
 import type { Pool } from 'pg';
@@ -7,6 +8,21 @@ import { createSecumieWebPublicRuntime } from '../src/runtime/secumieWebPublicRu
 
 const root = path.resolve(__dirname, '..');
 const html = readFileSync(path.join(root, 'prototypes/secumie-web-assembly/intake.html'), 'utf8');
+
+// Node.js fetch may ignore an explicit Host header. Use the HTTP client to
+// exercise the real hostname allowlist rather than the loopback listener name.
+function getWithHost(url: string, host: string): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const request = httpGet(url, { headers: { Host: host } }, response => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk: string) => { body += chunk; });
+      response.once('error', reject);
+      response.once('end', () => resolve({ status: response.statusCode ?? 0, body }));
+    });
+    request.once('error', reject);
+  });
+}
 
 test('Web public intake template has enabled OTP, union selection and receipt UI', () => {
   for (const id of ['email-form', 'code-form', 'success-screen', 'intake-form', 'union',
@@ -40,13 +56,13 @@ test('Web runtime rejects unapproved host while keeping healthz available', asyn
     const address = server.address();
     if (!address || typeof address === 'string') throw new Error('No test listener');
     const base = 'http://127.0.0.1:' + address.port;
-    const bad = await fetch(base + '/', { headers: { Host: 'unexpected.example' } });
+    const bad = await getWithHost(base + '/', 'unexpected.example');
     assert.equal(bad.status, 404);
     const health = await fetch(base + '/healthz');
     assert.equal(health.status, 200);
-    const page = await fetch(base + '/', { headers: { Host: 'web.example.com' } });
+    const page = await getWithHost(base + '/', 'web.example.com');
     assert.equal(page.status, 200);
-    const body = await page.text();
+    const body = page.body;
     assert.match(body, /window\.__PUBLIC_AUTH_CONFIG__/);
     assert.match(body, /approved-v1/);
     assert.match(body, /Synthetic consent for contract test only/);
