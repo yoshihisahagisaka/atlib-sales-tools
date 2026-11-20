@@ -254,3 +254,34 @@ Ownerが承認済みのCloud Shell `B5_JWT_HMAC_V1` バッチの実行ログを�
 **次工程:** 残る `secumie-prod-smtp-password` と `secumie-prod-turnstile-secret` は依然として空Version0であり、Mailtrap `notify.atlib.jp` の送信ドメインVerified / live SMTP Credential とCloudflare `insight.atlib.jp` の本番Widget hostname/secretの証跡を先に得る。秘密値をチャットへ提出させず、承認後に2 SecretのVersion1のみ登録。OTP SAへの個別SecretAccessor、PIRA SAへの専用DB SecretAccessor、Production instance限定Cloud SQL Clientの追加は**別の実行承認**とし、本段階では付与しない。
 
 **不変:** `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、既存Sales Tools `sales-tools-wsc-release` 100% Traffic、Retention preview-only、WEB PR #50/#51・Secure Guard/Send・既存7 Cloud Run Services不変更。
+
+
+## 14. B5-2B/2 SMTP・Turnstile方針：既存SECU:MIE WEB構成の再利用（2026-11-20 JST）
+
+### 14.1 Owner指示と現行Fit/Gap
+
+OwnerはStagingでのMailtrap Sandbox再構築を行わず、**SECU:MIE WEBの既存構成を流用してInsight本番環境で確認する**方針を明示。これを受け、B5 §2の「Mailtrap Live Sending / `notify.atlib.jp`」は**本番送信基盤の採用未確定候補として保留**し、既存コーポレートサイトのSMTPリレーの利用可否を先にread-onlyで評価する。**MailtrapのStart Sending/API Token/新規DNS認証の作業をここで進めない。** 既存Canonicalの歴史的判断・Secret名を遡及変更しない。
+
+現行Gitの証拠：
+- `yoshihisahagisaka/atlib-corporate-site` Draft PR #66：暫定SECU:MIE WEBは `www.atlib.jp/secumie-web/` → 既存 `/api/contact` → **コーポレート既存SMTP通知**（`contact@atlib.jp`）とCloudflare Turnstileを使用。**メールOTPはない。**
+- 同repo PR #64：コーポレート既存SMTP構成はGoogle Workspace `smtp-relay.gmail.com:587`、SMTP認証・TLS必須、IP指定制限なし（当時の設定照合）。実際の**現在100%配信Revisionの環境変数・認証情報の有効性・送信元アドレスを今回再測定したものではない**。
+- `src/services/mailer.ts`（コーポレート）と `atlib-sales-tools/src/services/mailer.ts`（Insight OTP）はともにNodeMailer `createTransport({host,port,secure:false,auth:{user,pass}})`、587/STARTTLS契約。**既存Insightコードを改修せずに既存Workspace SMTPリレー方式を使用できる見込み**。ただし送信者許可・同GCPプロジェクト外からの認証/疎通と実配送は別の本番Synthetic検証対象。
+- コーポレートのTurnstileは `SITE_CONTACT_TURNSTILE_HOSTNAMES` を検証し、Siteverify応答の `action=contact` とhostnameをサーバ側で照合。Insight OTPの既存 `CloudflareTurnstileVerifier` は `success=true` を確認し、同じhostname/actionの検証をしていない。従って**コーポレートのsitekey/secretを無条件にInsightへコピーしてはいけない**。Cloudflareの**同じ既存サービス**上で `insight.atlib.jp`だけを許可する専用本番Widgetを再利用/作成し、その専用secretを既設の空 `secumie-prod-turnstile-secret` へ登録する案を優先。新しいTurnstile検証コード・独自基盤は作らない。
+- 正式SECU:MIE WEBのDraft PR #50（OTP・Web専用受付）は本番未構築の別レーン。Insightの本番構築のためにWEB PR #50/#51のコードを同時マージ・デプロイしない。
+
+### 14.2 これから採取するread-only証跡
+
+1. GCP project `atlib-corporate-site`, region `asia-northeast1` の現在の `corporate-site` **100%トラフィックRevision**を確認（最新Ready Revisionとは別の場合がある）。
+2. そのRevisionの `SMTP_HOST`/ `SMTP_PORT` / `SMTP_FROM` の**非秘密設定値**、`SMTP_USER`の有無、`SMTP_PASSWORD`の**Secret参照名とVersionのみ**、`SITE_CONTACT_TURNSTILE_SITE_KEY` / `SITE_CONTACT_TURNSTILE_SECRET` の**有無・Secret参照有無のみ**、`SITE_CONTACT_TURNSTILE_HOSTNAMES` をread-onlyで収集。**パスワード、token、Turnstile site secretは絶対出力しない**。
+3. 既存設定がGWS認証付きリレーであることを確認し、利用する `SMTP_FROM` がGoogle WorkspaceのAllowed Senders規則に一致しているかをConsole設定と本番Synthetic配送で確かめる。`notify.atlib.jp` での差出人送信は**許可が確認できるまで推測しない**。暫定的な送信元を変更する場合もOwnerと確定する。
+4. Insightの `secumie-prod-smtp-password` は既設の**空Secretを再利用**。既存コーポレート側のSecret値/IAMに触らず、新OTP SAへの広域/cross-project Secret Accessorを増設しない。必要な認証情報はOwnerが別途承認した非ログ経路からInsight専用Secret Version 1へ登録する。
+5. Turnstileは既存サービスを使うがホスト `insight.atlib.jp` 限定のWidget/secretの実設定を確認し、最小の新規設定だけを行う。WEBのwww設定を変更しない。
+6. 個別SecretのVersion1登録とIAM付与は**別承認**。非公開本番OTP Runtimeが構築され、認証つき/private検証経路が確立するまで公開ユーザー向けOTP送信やフォーム送信を実施しない。
+
+### 14.3 方針とSTOP
+
+- **再利用するもの:** Google Workspace SMTPリレーの既存の配送方式、NodeMailer既存コード、Cloudflare Turnstileの仕組み。**再利用しないもの:** コーポレートの問い合わせAPIをOTP代わりに呼び出す経路、WEB暫定受付のデータ、旧Staging Sandbox、無条件のTurnstile秘密鍵共有。
+- **まだ未確定:** Productionの正確なSMTP接続先/From、Workspace送信者ポリシー適合、コーポレート実配送状況、TurnstileのInsight hostname専用Widget、Secret Version1、Runtime実動作。
+- **今回のGit記録でのGCP変更はゼロ**。既存コーポレート・WEBのCloud Run、Sales Tools、Secure Guard/Send、Secrets、DNS、IAMには触れない。
+
+**不変:** `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools `sales-tools-wsc-release` 100% Traffic、Retention preview-onlyを維持。
