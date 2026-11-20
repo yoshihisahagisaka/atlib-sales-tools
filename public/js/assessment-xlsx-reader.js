@@ -72,12 +72,16 @@ globalThis.AssessmentXlsxReader=(()=>{
  function readSheet(doc,strings){
    const out=[];const rows=all(doc,'row');
    if(rows.length>10001)throw Error('Excelの行数が上限を超えています');
+   let previousLine=0;
    for(const row of rows){
      const line=Number(row.getAttribute('r'));
-     if(!Number.isInteger(line)||line<1||line>100000)throw Error('Excelの行番号が不正です');
-     const cells=[];for(const c of all(row,'c')){
+     if(!Number.isInteger(line)||line<1||line>100000||line<=previousLine)throw Error('Excelの行番号が不正です');
+     previousLine=line;
+     const cells=[],seenColumns=new Set();for(const c of all(row,'c')){
        const index=colIndex(c.getAttribute('r')||'');
        if(index<0||index>199)throw Error('Excelは200列以内にしてください');
+       if(seenColumns.has(index))throw Error('Excel内に重複セルがあります');
+       seenColumns.add(index);
        const type=c.getAttribute('t'),v=text(c,'v');
        if(all(c,'f').length)throw Error('数式を含むExcelには対応していません。値に変換してから取り込んでください');
        if(type==='e')throw Error('エラー値を含むExcelには対応していません');
@@ -105,7 +109,7 @@ globalThis.AssessmentXlsxReader=(()=>{
    const shared=files.get('xl/sharedStrings.xml');
    const strings=shared?all(xml(shared),'si').map(si=>text(si,'t')):[];
    const records=readSheet(xml(files.get(sheetPath)),strings);
-   if(!records.length||!records[0].cells.length)throw Error('Excelに見出し行がありません');
+   if(!records.length||records[0].line!==1||!records[0].cells.some(x=>x.trim()))throw Error('Excelの1行目に見出しを入力してください');
    return records;
  }
  return {read};
