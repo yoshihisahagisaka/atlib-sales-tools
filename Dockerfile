@@ -36,11 +36,13 @@ LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 ENV NODE_ENV=production
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 COPY --from=production-deps /app/node_modules ./node_modules
+# The WSC and existing reports use chromium.launch({ headless: true }) without a channel.
+# Install only Playwright's headless shell; preserve Japanese PDF fonts.
 RUN mkdir -p /ms-playwright \
     && apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends fonts-noto-cjk fontconfig \
-    && node ./node_modules/playwright/cli.js install --with-deps chromium \
+    && node ./node_modules/playwright/cli.js install --with-deps --only-shell chromium \
     && fc-cache -f \
     && chmod -R a+rX /ms-playwright \
     && rm -rf /usr/local/lib/node_modules/npm \
