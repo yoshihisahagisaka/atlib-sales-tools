@@ -202,3 +202,22 @@ test('invalid second file clears prior preview and cannot reuse previous candida
  await expect(page.locator('#preview-panel')).toBeHidden();
  await expect(page.locator('#preview-summary')).not.toBeVisible();
 });
+
+test('XLSX rejects missing first-row header rather than treating data as header',async({page})=>{
+ const xml='<worksheet><sheetData><row r="2"><c r="A2" t="inlineStr"><is><t>PC-01</t></is></c></row></sheetData></worksheet>';
+ await uploadWorkbook(page,workbook(xml));
+ await expect(page.locator('#file-status')).toContainText('1行目に見出し');
+ await expect(page.locator('#mapping-panel')).toBeHidden();
+});
+test('XLSX rejects duplicate cell coordinates',async({page})=>{
+ const xml=sheet('<row r="2"><c r="A2" t="inlineStr"><is><t>PC-01</t></is></c><c r="A2" t="inlineStr"><is><t>PC-02</t></is></c></row>');
+ await uploadWorkbook(page,workbook(xml));
+ await expect(page.locator('#file-status')).toContainText('重複セル');
+ await expect(page.locator('#mapping-panel')).toBeHidden();
+});
+test('XLSX rejects out-of-order row coordinates',async({page})=>{
+ const xml=sheet('<row r="4"><c r="A4" t="inlineStr"><is><t>PC-01</t></is></c></row><row r="2"><c r="A2" t="inlineStr"><is><t>PC-02</t></is></c></row>');
+ await uploadWorkbook(page,workbook(xml));
+ await expect(page.locator('#file-status')).toContainText('行番号が不正');
+ await expect(page.locator('#mapping-panel')).toBeHidden();
+});
