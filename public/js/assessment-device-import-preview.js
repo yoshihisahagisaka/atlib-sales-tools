@@ -2,40 +2,8 @@
 (() => {
   const $=id=>document.getElementById(id);
   const fields=[['','対応しない'],['asset_tag','資産番号'],['display_name','PC名・管理名称'],['serial_number','シリアル番号']];
-  const aliases={
-    asset_tag:['asset_tag','asset tag','資産番号','管理番号','資産管理番号'],
-    display_name:['display_name','機器名','pc名','pc名称','名称','管理上の名称'],
-    serial_number:['serial_number','serial number','シリアル番号','製造番号','sn']
-  };
-  const norm=s=>s.trim().normalize('NFKC').toLowerCase().replace(/\s+/g,' ');
+  const core=globalThis.AssessmentDevicePreview;
   let records=[];
-  function parseCsv(text){
-    text=text.replace(/^\uFEFF/,'');
-    if(!text.trim())throw Error('空のCSVです');
-    if(text.length>5*1024*1024)throw Error('CSVファイルが大きすぎます（5MBまで）');
-    const out=[];let cells=[],cell='',quoted=false,closed=false,line=1,start=1;
-    for(let i=0;i<text.length;i++){
-      const ch=text[i];
-      if(quoted){
-        if(ch==='"'&&text[i+1]==='"'){cell+='"';i++;}
-        else if(ch==='"'){quoted=false;closed=true;}
-        else{cell+=ch;if(ch==='\r'||ch==='\n'){if(ch==='\r'&&text[i+1]==='\n'){cell+='\n';i++;}line++;}}
-      }else if(ch==='"'){
-        if(cell||closed)throw Error('引用符の形式が不正です');
-        quoted=true;
-      }else if(ch===','){cells.push(cell);cell='';closed=false;}
-      else if(ch==='\r'||ch==='\n'){
-        if(ch==='\r'&&text[i+1]==='\n')i++;
-        cells.push(cell);out.push({cells,line:start});cells=[];cell='';closed=false;line++;start=line;
-      }else{if(closed)throw Error('引用符の後の文字が不正です');cell+=ch;}
-    }
-    if(quoted)throw Error('引用符が閉じられていません');
-    if(cell||cells.length||closed){cells.push(cell);out.push({cells,line:start});}
-    if(!out.length||!out[0].cells.length)throw Error('ヘッダーがありません');
-    if(out.length>10001)throw Error('CSVは見出しを含め10,001行までです');
-    if(out.some(r=>r.cells.length>200))throw Error('CSVは200列以内にしてください');
-    return out;
-  }
   const td=(tr,value)=>{const cell=document.createElement('td');cell.textContent=String(value??'');tr.append(cell);return cell;};
   function renderMapping(){
     $('mapping-body').replaceChildren();
@@ -45,8 +13,7 @@
       const cell=document.createElement('td'),sel=document.createElement('select');
       sel.dataset.index=String(i);sel.setAttribute('aria-label',name+' の登録先');
       for(const [value,label] of fields){const o=document.createElement('option');o.value=value;o.textContent=label;sel.append(o);}
-      const matched=Object.entries(aliases).filter(([,a])=>a.some(x=>norm(x)===norm(name)));
-      sel.value=matched.length===1?matched[0][0]:'';
+      sel.value=core.suggestMapping(header)[i].targetField??'';
       cell.append(sel);tr.append(cell);$('mapping-body').append(tr);
     });
     $('mapping-panel').hidden=false;$('preview-panel').hidden=true;
@@ -54,26 +21,26 @@
   function renderPreview(){
     const header=records[0].cells;
     const mapping=[...$('mapping-body').querySelectorAll('select')].map(s=>s.value);
-    const errors=[];
-    for(const f of ['asset_tag','display_name'])if(!mapping.includes(f))errors.push('必須項目の対応付け不足: '+f);
-    for(const f of fields.slice(1).map(x=>x[0]))if(mapping.filter(x=>x===f).length>1)errors.push('登録先が重複: '+f);
-    if(new Set(header.map(norm)).size!==header.length)errors.push('元の列名が重複しています');
-    const rows=records.slice(1).filter(r=>r.cells.some(x=>x.trim()));
-    const counts=new Map();
-    for(const r of rows){const i=mapping.indexOf('asset_tag');const key=i<0?'':norm(r.cells[i]??'');if(key)counts.set(key,(counts.get(key)||0)+1);}
-    let blocked=0;$('preview-body').replaceChildren();
-    for(const r of rows){
-      const obj={};mapping.forEach((f,i)=>{if(f)obj[f]=(r.cells[i]??'').trim();});
-      const issues=[...errors];
-      if(r.cells.length!==header.length)issues.push('列数が一致しません');
-      for(const f of ['asset_tag','display_name'])if(!obj[f])issues.push('必須値がありません: '+f);
-      if(obj.asset_tag&&(counts.get(norm(obj.asset_tag))||0)>1)issues.push('ファイル内で資産番号が重複');
-      if(issues.length)blocked++;
+    const decisions=mapping.map((targetField,i)=>({sourceColumnIndex:i,targetField:targetField||null,origin:'HUMAN'}));
+    const preview=core.previewRecords(records,decisions);
+    $('preview-body').replaceChildren();
+    for(const r of preview.rows){
       const tr=document.createElement('tr');
-      td(tr,r.line);td(tr,obj.asset_tag);td(tr,obj.display_name);td(tr,obj.serial_number);
-      td(tr,issues.length?'要確認':'正本照合待ち');td(tr,issues.join(' / '));$('preview-body').append(tr);
+      td(tr,r.sourceRowNumber);td(tr,r.mappedCandidate.asset_tag);td(tr,r.mappedCandidate.display_name);td(tr,r.mappedCandidate.serial_number);
+      td(tr,r.outcome==='NEEDS_REVIEW'?'要確認':'正本照合待ち');
+      td(tr,r.issues.map(issue=>{
+        if(issue==='DUPLICATE_ASSET_TAG_IN_FILE')return 'ファイル内で資産番号が重複';
+        if(issue==='COLUMN_COUNT_MISMATCH')return '列数が一致しません';
+        if(issue.startsWith('MISSING_REQUIRED_VALUE:'))return '必須値がありません: '+issue.split(':')[1];
+        if(issue.startsWith('MISSING_REQUIRED_MAPPING:'))return '必須項目の対応付け不足: '+issue.split(':')[1];
+        if(issue.startsWith('DUPLICATE_TARGET_MAPPING:'))return '登録先が重複: '+issue.split(':')[1];
+        if(issue==='DUPLICATE_SOURCE_HEADER')return '元の列名が重複しています';
+        return issue;
+      }).join(' / '));
+      $('preview-body').append(tr);
     }
-    $('preview-summary').textContent='対象 '+rows.length+' 行 / 要確認 '+blocked+' 行 / 正本照合待ち '+(rows.length-blocked)+' 行';
+    const blocked=preview.rows.filter(r=>r.outcome==='NEEDS_REVIEW').length;
+    $('preview-summary').textContent='対象 '+preview.rows.length+' 行 / 要確認 '+blocked+' 行 / 正本照合待ち '+(preview.rows.length-blocked)+' 行';
     $('preview-panel').hidden=false;
   }
   $('csv-file').addEventListener('change',async e=>{
@@ -83,10 +50,12 @@
     if(!name.endsWith('.csv')&&!name.endsWith('.xlsx')){$('file-status').textContent='CSVまたは.xlsxを選択してください。';return;}
     try{
       if(file.size>10*1024*1024)throw Error('ファイルが大きすぎます（10MBまで）');
-      records=name.endsWith('.xlsx')?await globalThis.AssessmentXlsxReader.read(await file.arrayBuffer()):parseCsv(await file.text());
+      records=name.endsWith('.xlsx')?await globalThis.AssessmentXlsxReader.read(await file.arrayBuffer()):core.parseCsvRecords(await file.text());
       $('file-status').textContent=file.name+'：'+Math.max(0,records.length-1)+' レコード';renderMapping();
     }
-    catch(err){$('file-status').textContent='読込エラー: '+err.message;}
+    catch(err){const messages={EMPTY_CSV:'ヘッダーがありません',CSV_TOO_LARGE:'CSVファイルが大きすぎます（5MBまで）',TOO_MANY_ROWS:'CSVは見出しを含め10,001行までです',TOO_MANY_COLUMNS:'CSVは200列以内にしてください'};
+      $('file-status').textContent='読込エラー: '+(messages[err.message]??err.message);
+    }
   });
   $('refresh-preview').addEventListener('click',renderPreview);
 })();
