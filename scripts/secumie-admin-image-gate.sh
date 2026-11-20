@@ -42,7 +42,7 @@ docker pull "$IMMUTABLE"
 LOCAL="secumie-admin-pr51-$(printf '%s' "$SOURCE_SHA" | cut -c1-10):scan"
 docker tag "$IMMUTABLE" "$LOCAL"
 
-echo '=== 2. Synthetic Japanese PDF smoke in final container (offline) ==='
+echo '=== 3. Synthetic Japanese PDF smoke in final container (offline) ==='
 docker run --rm --network none --shm-size=512m \
   --entrypoint node "$IMMUTABLE" -e '
 const { chromium } = require("playwright");
@@ -63,7 +63,7 @@ const { chromium } = require("playwright");
 '
 echo 'PDF_SMOKE_PASS' >> "$RESULT"
 
-echo '=== 3. Scan immutable image ==='
+echo '=== 4. Scan immutable image ==='
 SCAN="$(gcloud artifacts docker images scan "$LOCAL" \
   --project="$PROJECT" --location=asia --format=json |
   jq -er '.response.scan')"
