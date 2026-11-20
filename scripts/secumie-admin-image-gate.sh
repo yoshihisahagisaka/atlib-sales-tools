@@ -36,11 +36,34 @@ IMMUTABLE="$(gcloud artifacts docker images describe "$IMAGE" \
 echo "IMAGE=$IMMUTABLE"
 printf 'BUILD_PASS\nGIT=%s\nIMAGE=%s\n' "$SOURCE_SHA" "$IMMUTABLE" > "$RESULT"
 
-echo '=== 2. Scan immutable image ==='
+echo '=== 2. Pull immutable image ==='
 gcloud auth configure-docker asia-northeast1-docker.pkg.dev --quiet >/dev/null 2>&1
 docker pull "$IMMUTABLE"
 LOCAL="secumie-admin-pr51-$(printf '%s' "$SOURCE_SHA" | cut -c1-10):scan"
 docker tag "$IMMUTABLE" "$LOCAL"
+
+echo '=== 2. Synthetic Japanese PDF smoke in final container (offline) ==='
+docker run --rm --network none --shm-size=512m \
+  --entrypoint node "$IMMUTABLE" -e '
+const { chromium } = require("playwright");
+(async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.setContent("<!doctype html><html lang=\"ja\"><meta charset=\"utf-8\"><body><h1>セキュリティ診断</h1><p>合成データのPDF検証です。</p></body></html>");
+    const pdf = await page.pdf({ format: "A4", printBackground: true });
+    if (pdf.length < 1024 || pdf.subarray(0, 5).toString() !== "%PDF-") {
+      throw new Error("Generated PDF was invalid");
+    }
+    console.log("PDF_SMOKE_PASS bytes=" + pdf.length);
+  } finally {
+    await browser.close();
+  }
+})().catch(error => { console.error(error); process.exit(1); });
+'
+echo 'PDF_SMOKE_PASS' >> "$RESULT"
+
+echo '=== 3. Scan immutable image ==='
 SCAN="$(gcloud artifacts docker images scan "$LOCAL" \
   --project="$PROJECT" --location=asia --format=json |
   jq -er '.response.scan')"
