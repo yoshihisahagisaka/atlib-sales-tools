@@ -77,3 +77,17 @@
 - **B5-2BのGCP実環境変更承認。** 本ドキュメントとGitHubコメントは承認ではない。
 
 参照: [B5準備正本](./secumie-production-gate-b5-preparation-20261117.md)、[Google Cloud Run multi-container](https://docs.cloud.google.com/run/docs/configuring/services/containers)、[Cloud Run pricing](https://cloud.google.com/run/pricing)。
+
+
+## 8. Owner承認：B5-2B/1の空リソース準備（2026-11-20 JST）
+
+Ownerから「承認します」と回答があった。直前に提示した次のGCP書込み工程を**B5-2B/1**として明確に分離し、以下の6つの新規リソースの**作成のみ**を許可する。
+
+- Runtime専用Service Account **2件**：`secumie-otp-prod@msp-zabbix.iam.gserviceaccount.com`、`secumie-pira-prod@msp-zabbix.iam.gserviceaccount.com`。
+- Secret Manager空Secret **4件**：`secumie-prod-smtp-password`、`secumie-prod-turnstile-secret`、`secumie-prod-otp-jwt-keys`、`secumie-prod-otp-hmac-key`。最後のHMAC Secret名は今回の作成対象名として明示する。既存B0–B4のProd DB Secretと同じautomatic replicationを用いる。
+
+**この承認に含まれない:** Secret Version／実値登録、`roles/secretmanager.secretAccessor`付与、`roles/cloudsql.client`付与、Cloud Run・Artifact build/push/deploy、既存Secret・SA・DB・Jobs・7 Servicesへの変更、`PIRA_GENERAL_ENABLED`変更、WEB PR #50/#51の実行、SMTP/Turnstile設定、DNS/LB/TLS、公開、Retention。次の各Gateで個別に承認する。
+
+**実行条件:** GCP Project `msp-zabbix`、有効なOwnerアカウント、既存7 Cloud Run ServiceがReadyでSales Tools `sales-tools-wsc-release` 100%配信中、新6件が全て不存在、既存Prod DB Secret 6件が維持されていることを**書込み前read-onlyで完全確認**。不一致はSTOP。SA2件→空Secret4件の順に作成し、部分失敗時は無断再試行／削除／回復をしない。作成後はService Account有効、Secretメタデータ存在、各Secret **Version0件・直接IAM Binding0件**、Sales Tools100%配信・既存7Service Readyをread-backする。CLIログへ秘密情報は一切入力しない。作成を実行するCloud Shell出力が提出されるまでは**未実行**と扱う。
+
+**現在の状態:** 本記録時点ではGitHub文書の更新のみ。GCP書込み0件。Production No-Go・GENERAL disabled、既存Sales Tools100%・Retention preview-onlyを継続。
