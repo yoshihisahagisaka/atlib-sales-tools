@@ -229,3 +229,28 @@ Ownerは Cloud Shell `B5_2B_PHASE2_PREFLIGHT` の実行ログを提出した。�
 - WEBは既存OTP利用案を保持し、WEB PR #50/#51を本Gateに混入させない。
 
 `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools現行100%、Retention preview-onlyを維持。
+
+
+## 13. B5-2B/2a1 JWT/HMAC Secret Version 1実行結果（2026-11-20 JST）
+
+Ownerが承認済みのCloud Shell `B5_JWT_HMAC_V1` バッチの実行ログを提出。貼り付け時のコマンドエコーには一部乱れがあるが、`1. PREFLIGHT`、`2. JWT SECRET VERSION 1`、`3. HMAC SECRET VERSION 1`、`4. POST-CHECK` の全セクション、および終端 `B5 JWT HMAC V1 SUCCESS` が確認できる。以下は**Owner提出ログに基づく証跡**であり、GitHub更新時に直接GCPを再照会した結果ではない。
+
+| 検証 | Owner出力 | 判定 |
+| --- | --- | --- |
+| JWT Secretの作成前状態 | `[PASS] Empty Secret: secumie-prod-otp-jwt-keys` | PASS |
+| HMAC Secretの作成前状態 | `[PASS] Empty Secret: secumie-prod-otp-hmac-key` | PASS |
+| 保護対象Cloud Run事前照合 | `[PASS] Protected Services` | PASS |
+| `secumie-prod-otp-jwt-keys` Version 1登録 | `Created version [1]` | PASS |
+| `secumie-prod-otp-hmac-key` Version 1登録 | `Created version [1]` | PASS |
+| JWT登録後メタデータ | `Version 1 ENABLED / IAM 0` | PASS |
+| HMAC登録後メタデータ | `Version 1 ENABLED / IAM 0` | PASS |
+| 保護対象Cloud Run事後照合 | `[PASS] Protected Cloud Run unchanged` | PASS |
+| 最終結果 | `B5 JWT HMAC V1 SUCCESS` | PASS |
+
+**確定判定:** B5-2B/2a1の**JWT/HMAC各SecretへのVersion 1登録完了：PASS**。配備前のJWT署名鍵JSONはNode.jsでRSA 2048ビットの鍵ペアを生成し、プロセス内でRSA-SHA256署名検証を行ったうえで `gcloud secrets versions add --data-file=-` にパイプ送信。HMACは独立した48-byte CSPRNG乱数をbase64url化して同様に登録。秘密情報の本体・値・ハッシュ・鍵ファイルは本チャット、GitHub、出力ログには含まれず、値の読戻しも実施していない。
+
+**証跡の限界:** `Version 1 ENABLED` と作成メッセージは登録成功とメタデータの整合を示すが、登録されたpayloadの内容をGCPから再読出し・比較したことを意味しない。署名鍵が公開JWT/JWKS/E2E経路で正常に動くことはRuntime配備後の別Gate。Secretに対する直接IAMは現時点で0件であり、OTP/PIRA SAのアクセス権限は未付与。Project/Folder/Org継承権限の不存在は未証明。
+
+**次工程:** 残る `secumie-prod-smtp-password` と `secumie-prod-turnstile-secret` は依然として空Version0であり、Mailtrap `notify.atlib.jp` の送信ドメインVerified / live SMTP Credential とCloudflare `insight.atlib.jp` の本番Widget hostname/secretの証跡を先に得る。秘密値をチャットへ提出させず、承認後に2 SecretのVersion1のみ登録。OTP SAへの個別SecretAccessor、PIRA SAへの専用DB SecretAccessor、Production instance限定Cloud SQL Clientの追加は**別の実行承認**とし、本段階では付与しない。
+
+**不変:** `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、既存Sales Tools `sales-tools-wsc-release` 100% Traffic、Retention preview-only、WEB PR #50/#51・Secure Guard/Send・既存7 Cloud Run Services不変更。
