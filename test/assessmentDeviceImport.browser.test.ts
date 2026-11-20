@@ -181,3 +181,13 @@ test('CSV with too many columns is rejected before rendering mapping',async({pag
  await expect(page.locator('#file-status')).toContainText('200列以内');
  await expect(page.locator('#mapping-panel')).toBeHidden();
 });
+
+test('offline preview does not submit Device data to an API',async({page})=>{
+ const apiCalls:string[]=[];
+ page.on('request',request=>{if(request.url().includes('/api/'))apiCalls.push(request.url());});
+ await page.locator('#csv-file').setInputFiles({name:'local.csv',mimeType:'text/csv',buffer:Buffer.from('資産番号,PC名\nPC-01,営業PC')});
+ await page.locator('#refresh-preview').click();
+ await expect(page.locator('#preview-summary')).toContainText('正本照合待ち 1 行');
+ expect(apiCalls).toEqual([]);
+ await expect(page.locator('a[href="/admin/kaizen-assessment.html"]')).toBeVisible();
+});
