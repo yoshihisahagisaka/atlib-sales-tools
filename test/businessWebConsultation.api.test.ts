@@ -10,3 +10,22 @@ test('Slack failure is best effort and does not roll back the lead',async()=>{sl
 test('internal and applicant mail are each invoked for a saved lead',async()=>{internalCalls=0;applicantCalls=0;const response=await post(pay({companyName:'MailInvocation'}));assert.equal(response.status,201);assert.equal(internalCalls,1);assert.equal(applicantCalls,1)});
 test('internal mail failure is best effort and does not roll back the lead',async()=>{internalCalls=0;failInternal=true;try{const response=await post(pay({companyName:'InternalFailure'})),body:any=await response.json();assert.equal(response.status,201);assert.ok(body.leadId);assert.equal(internalCalls,1);assert.equal((await fetch(base+'/api/admin/business-web-consultation-leads/'+body.leadId,{headers:{Cookie:cookie}})).status,200)}finally{failInternal=false}});
 test('applicant mail failure is best effort and does not roll back the lead',async()=>{applicantCalls=0;failApplicant=true;try{const response=await post(pay({companyName:'ApplicantFailure'})),body:any=await response.json();assert.equal(response.status,201);assert.ok(body.leadId);assert.equal(applicantCalls,1);assert.equal((await fetch(base+'/api/admin/business-web-consultation-leads/'+body.leadId,{headers:{Cookie:cookie}})).status,200)}finally{failApplicant=false}});
+
+
+test('business-web CORS accepts only the existing and new approved LP origins', async () => {
+  const url = base + '/api/business-web-consultation-leads';
+  for (const allowed of ['https://www.atlib.jp', 'https://service.atlib.jp']) {
+    const preflight = await fetch(url, { method:'OPTIONS', headers:{ Origin:allowed, 'Access-Control-Request-Method':'POST', 'Access-Control-Request-Headers':'content-type' } });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get('access-control-allow-origin'), allowed);
+    assert.match(preflight.headers.get('vary') ?? '', /Origin/);
+  }
+  for (const rejected of ['https://evil.example', 'https://service.atlib.jp.evil.example', 'null']) {
+    const preflight = await fetch(url, { method:'OPTIONS', headers:{ Origin:rejected, 'Access-Control-Request-Method':'POST' } });
+    assert.equal(preflight.status,204);
+    assert.equal(preflight.headers.get('access-control-allow-origin'),null);
+  }
+  const accepted = await post(pay(), 'https://service.atlib.jp');
+  assert.equal(accepted.status,201);
+  assert.equal(accepted.headers.get('access-control-allow-origin'),'https://service.atlib.jp');
+});
