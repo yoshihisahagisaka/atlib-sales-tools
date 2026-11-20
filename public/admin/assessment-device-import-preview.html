@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>設計Assessment | Device初期情報プレビュー</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+main{max-width:1100px;margin:2rem auto;padding:0 1rem}.panel{background:#fff;border:1px solid #d6dee7;border-radius:12px;padding:1.2rem;margin:1rem 0}
+table{width:100%;border-collapse:collapse}th,td{padding:.6rem;border-bottom:1px solid #dfe5ea;text-align:left}
+select{max-width:100%}.muted{color:#526272}.warn{color:#8a4b00}.scroll{overflow-x:auto}
+</style></head><body><main>
+<p><a href="/admin/kaizen-assessment.html">← Assessment一覧へ戻る</a></p>
+<h1>Device初期情報の取込プレビュー</h1>
+<p class="muted">設計Assessment用のローカル確認画面です。FACTACTへの登録・送信は行いません。</p>
+<section class="panel"><h2>1. 資料を選ぶ</h2>
+<label for="csv-file">CSV（UTF-8）またはExcel（.xlsx）</label>
+<input id="csv-file" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+<p id="file-status" role="status" class="muted">ファイルはブラウザ内で読み取ります。</p></section>
+<section class="panel" id="mapping-panel" hidden><h2>2. 項目を確認する</h2>
+<p class="muted">自動対応付けを確認してください。未対応列は登録候補に含めません。</p>
+<div class="scroll"><table><thead><tr><th>元の列</th><th>サンプル</th><th>対応する項目</th></tr></thead><tbody id="mapping-body"></tbody></table></div>
+<button id="refresh-preview" type="button">登録候補を確認</button></section>
+<section class="panel" id="preview-panel" hidden><h2>3. 登録候補を確認する</h2>
+<p id="preview-summary" role="status"></p>
+<div class="scroll"><table><thead><tr><th>元行</th><th>資産番号</th><th>PC名</th><th>シリアル番号</th><th>状態</th><th>確認事項</th></tr></thead><tbody id="preview-body"></tbody></table></div>
+<p class="warn">既存FACTACTとの照合前のため、新規・更新・差分なしは判定していません。登録ボタンはありません。</p></section>
+</main><script src="/js/assessment-device-preview-core.js" defer></script><script src="/js/assessment-xlsx-reader.js" defer></script><script src="/js/assessment-device-import-preview.js" defer></script></body></html>

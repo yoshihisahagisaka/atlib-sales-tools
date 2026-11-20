@@ -1,0 +1,43 @@
+name: Assessment Device Import Local Checks
+on:
+  push:
+    branches:
+      - feat/assessment-device-import-local-preview-20261117
+  pull_request:
+    paths:
+      - 'src/domain/assessmentDeviceImportPreview.ts'
+      - 'test/assessmentDeviceImportPreview.test.ts'
+      - 'public/js/assessment-device-import-preview.js'
+      - 'public/js/assessment-xlsx-reader.js'
+      - 'public/js/assessment-device-preview-core.js'
+      - 'public/admin/assessment-device-import-preview.html'
+      - 'test/assessmentDeviceImport.browser.test.ts'
+      - 'test/assessmentDeviceImport.playwright.config.ts'
+      - '.github/workflows/assessment-device-import-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: TypeScript build
+        run: npm run build
+      - name: Browser preview script syntax
+        run: |
+          node --check public/js/assessment-device-import-preview.js
+          node --check public/js/assessment-xlsx-reader.js
+          node --check public/js/assessment-device-preview-core.js
+      - name: Device CSV preview tests
+        run: node -r ts-node/register --test test/assessmentDeviceImportPreview.test.ts
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser preview tests
+        run: npx playwright test --config=test/assessmentDeviceImport.playwright.config.ts
