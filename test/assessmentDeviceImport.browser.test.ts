@@ -191,3 +191,14 @@ test('offline preview does not submit Device data to an API',async({page})=>{
  expect(apiCalls).toEqual([]);
  await expect(page.locator('a[href="/admin/kaizen-assessment.html"]')).toBeVisible();
 });
+
+test('invalid second file clears prior preview and cannot reuse previous candidate',async({page})=>{
+ await page.locator('#csv-file').setInputFiles({name:'first.csv',mimeType:'text/csv',buffer:Buffer.from('資産番号,PC名\nPC-01,営業PC')});
+ await page.locator('#refresh-preview').click();
+ await expect(page.locator('#preview-body tr')).toHaveCount(1);
+ await page.locator('#csv-file').setInputFiles({name:'broken.csv',mimeType:'text/csv',buffer:Buffer.from('資産番号,PC名\n"unfinished')});
+ await expect(page.locator('#file-status')).toContainText('読込エラー');
+ await expect(page.locator('#mapping-panel')).toBeHidden();
+ await expect(page.locator('#preview-panel')).toBeHidden();
+ await expect(page.locator('#preview-summary')).not.toBeVisible();
+});
