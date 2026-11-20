@@ -46,6 +46,10 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
   r.post('/sales-activities/:salesActivityId/cases', (req, res) => handle(res, async () => {
     const activity = await launcher.getSalesActivity(req.params.salesActivityId);
     if (!activity) { res.status(404).json({ error: 'SALES_ACTIVITY_NOT_FOUND' }); return; }
+    if (activity.selectedService !== 'IT_KAIZEN') {
+      res.status(409).json({ error: 'SERVICE_MISMATCH' });
+      return;
+    }
     const kase = await cases.createCase(activity.companyId, activity.primaryContactId, activity.id, staffEmail(req));
     res.status(201).json(kase);
   }));
