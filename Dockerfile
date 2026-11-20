@@ -1,12 +1,10 @@
-﻿FROM node:20-bookworm-slim AS build
+FROM node:24-trixie-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
-# WSC is vendored unchanged from its completed main branch.  It remains an
-# ES module because the approved engine is shared verbatim; only the Sales
-# Tools adapter is TypeScript.
+# The approved WSC engine is retained as an ES module, unchanged.
 RUN npm run build \
     && mkdir -p dist/wsc/vendor/tools \
     && cp -R src/wsc/vendor/tools/wsc-vs1 dist/wsc/vendor/tools/ \
@@ -14,13 +12,13 @@ RUN npm run build \
     && cp -R src/wsc/vendor/tools/wsc-phase2b dist/wsc/vendor/tools/ \
     && cp -R src/wsc/vendor/tools/wsc-phase2c dist/wsc/vendor/tools/
 
-FROM node:20-bookworm-slim AS production-deps
+FROM node:24-trixie-slim AS production-deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-# Dedicated deploy job/CI step; never run migrations at service startup.
-FROM node:20-bookworm-slim AS migration
+# Migrations are a separate, manually approved job; never run at startup.
+FROM node:24-trixie-slim AS migration
 WORKDIR /app
 ARG SOURCE_REVISION
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
@@ -31,7 +29,7 @@ COPY migrations/*.sql ./migrations/
 USER node
 CMD ["node", "dist/db/migrateCli.js"]
 
-FROM node:20-bookworm-slim AS runtime
+FROM node:24-trixie-slim AS runtime
 WORKDIR /app
 ARG SOURCE_REVISION
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
@@ -40,11 +38,14 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 COPY --from=production-deps /app/node_modules ./node_modules
 RUN mkdir -p /ms-playwright \
     && apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends fonts-noto-cjk fontconfig \
-    && rm -rf /var/lib/apt/lists/* \
     && node ./node_modules/playwright/cli.js install --with-deps chromium \
     && fc-cache -f \
-    && chmod -R a+rX /ms-playwright
+    && chmod -R a+rX /ms-playwright \
+    && rm -rf /usr/local/lib/node_modules/npm \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/dist ./dist
 COPY public ./public
 USER node
