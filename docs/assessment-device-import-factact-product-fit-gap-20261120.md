@@ -41,3 +41,25 @@ Assessment Draft PR: #48 (head before this document: 24403e635d250418701ec78ba05
 - Draft PR #48 remains unmerged; no GCP/DB/production changes.
 - Prior npm install reported 17 dependency findings (1 critical, 10 high, 6 moderate); independent security review before release.
 - Hosted staff auth, tenant isolation and Product Command E2E remain unverified.
+
+## 2026-11-20 Product PR #69 direct source verification (supersedes earlier UNKNOWN statements)
+
+FACTACT repository: `yoshihisahagisaka/git_KAIZEN`, Draft PR #69, branch `feat/factact-device-work-fact-contract-20261117`, inspected head `9d606590a678a002c18b3f625b65b0a076aee5c0`.
+
+**Implementation status:** pure, executable policy/transition kernel, **not** a hosted read/write API or persistence adapter. Do not mistake the following functions for callable HTTP endpoints.
+
+| Concern | Product evidence | Assessment implication |
+|---|---|---|
+| Scope/authority | `packages/domain/src/device-information.ts` defines `DeviceAuthorizedContext` and `DeviceScopedGrant`; `packages/application/src/device-information-contract.ts` `requireDeviceRegistryGrant` checks actor/tenant/service/contract/recipient and active REGISTRY operation grant. | Never trust browser-supplied tenant/organization/grants; server must resolve live context |
+| Customer identity | `deviceAssetKey(tenantId, organizationId, assetTag)` keeps conservative asset tag case/Unicode; no implicit cross-customer equality. | Assessment case/company id cannot be used as Product organization id without authorized mapping |
+| Candidate matching | `classifyDeviceRow` returns NEW/UPDATE/UNCHANGED/REVIEW **only when given a complete, authorized customer-scoped existing Device set**. | Current UI must continue showing COMPARISON_PENDING; no guessed NEW/UPDATE |
+| Initial create | `proposeDeviceInitialInformation` requires CREATE grant and `CUSTOMER_REGISTER` source with `evidenceId`, `locator`, `observedAt`; fields: assetTag, displayName, optional serialNumber. | Our three mapped fields align semantically; actual evidence identity/locator generation and permission remain unimplemented |
+| Correction | `proposeDeviceInformationCorrection` requires UPDATE grant, exact Device id/current revision; permits displayName/serialNumber, **not** assetTag/Organization migration. | No generic overwrite or blind upsert |
+| Verification | `proposeDeviceFieldVerification` requires non-CUSTOMER_REGISTER reality evidence; field-level verification is distinct from initial data. | No auto-verified FACT or automatic operational status |
+| Human lifecycle | `verifyDeviceInformationChange` requires REVIEW and separate actor; `commitDeviceInformationChange` requires APPROVE, verified proposal, expected revision. | UI cannot silently perform Change→Verify→Commit as a single privileged action |
+| Initial status | `commitDeviceInformationChange` creates `operationalStatus: UNKNOWN` and `verification: null`. | Do not map customer sheet `利用中` to AVAILABLE |
+| Runtime readiness | Product file header explicitly says pure kernel, no DB write, no HTTP mutation endpoint; Product PR remains Draft. | **STOP** actual registration until Product publishes authenticated scoped-read, persistence/Command adapter and accepted contract |
+
+Source review resolves the *semantic shape* of the Device contract, but not operational Organization mapping, server-side grant resolution, read API, durable idempotency, transaction/locking, or deployment. No new Core object or Assessment-owned Device DB is needed.
+
+Next Product-lane response should focus only on (a) approved Assessment→Organization/ServiceRecipient mapping, (b) authenticated scoped Device read, (c) transactional propose/verify/commit endpoints and evidence reference creation, and (d) whether an Assessment import batch is supported or must be individual Commands. Keep the current offline three-step UI until these are verified.
