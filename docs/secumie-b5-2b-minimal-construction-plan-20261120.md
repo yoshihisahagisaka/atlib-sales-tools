@@ -285,3 +285,31 @@ OwnerはStagingでのMailtrap Sandbox再構築を行わず、**SECU:MIE WEBの�
 - **今回のGit記録でのGCP変更はゼロ**。既存コーポレート・WEBのCloud Run、Sales Tools、Secure Guard/Send、Secrets、DNS、IAMには触れない。
 
 **不変:** `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools `sales-tools-wsc-release` 100% Traffic、Retention preview-onlyを維持。
+
+
+## 15. Corporate Site live SMTP and Turnstile read-back（2026-11-20 JST）
+
+OwnerはCloud Shellで `SECUMIE_REUSE_CHECK`（**read-only**）を実行し、GCP project `atlib-corporate-site`、region `asia-northeast1` の `corporate-site` Serviceと、現在100%配信Revisionの**非Secret設定**を確認した。コマンド入力エコーには乱れがあるが、`1. Production Service`、`2. Active Revision Configuration` のJSON出力と終端 `SECU:MIE REUSE READ-ONLY COMPLETE` が揃っている。直接GCPを再照会せず、Owner提出ログを証跡とする。
+
+| 項目 | Owner live read-back | 確認と限界 |
+| --- | --- | --- |
+| Service / Ready | `corporate-site`、Ready=`True` | 現在のService Ready PASS（OTP送信E2Eではない） |
+| 配信100% Revision | `corporate-site-00030-vow` | 以前の候補Revisionではなく現在の配信先を特定 |
+| `SMTP_HOST` | `smtp.gmail.com` | **`smtp-relay.gmail.com`ではない**。認証付きGmail SMTP submissionを採用中 |
+| `SMTP_PORT` | `587` | 現行NodeMailer STARTTLS構成にFit |
+| `SMTP_FROM` | `system@atlib.jp` | Insightで別Fromを推測しない。送信者・認証アカウントの一致は未確認 |
+| `SMTP_USER` | 設定あり（値は未取得） | 実アカウントIDとCredential種別・利用許諾は未確認 |
+| `SMTP_PASSWORD` | Secret環境変数→`corporate-site-smtp-password` Version `2` | Secret値取得なし、変更なし。別Projectで直接共有する設計にはしない |
+| Turnstile hostname allowlist | `www.atlib.jp` | `insight.atlib.jp`を含まず、既存www用WidgetをそのままInsightへ流用不可 |
+| Turnstile site key | 設定あり（値は未取得） | 既存wwwの公開site keyをInsightに無条件共有しない |
+| Turnstile server Secret | Secret環境変数→`corporate-site-prod-turnstile-secret` Version `1` | 値取得なし、変更なし。Insight専用WidgetとSecret対応を確認する |
+
+**B5 §2のSMTP候補との差分:** 当初候補はMailtrap Live Sending、`notify.atlib.jp`、`live.smtp.mailtrap.io:587`。Owner指示により、現時点では**Mailtrap新規構築をSTOPし、実稼働しているCorporateの `smtp.gmail.com:587` 方式を先行候補**とする。ただしコーポレートの`SMTP_USER`と送信元の一致、Google Workspaceの認証・送信ポリシー、異なるGCP Project/SAからの疎通、`system@atlib.jp`をInsight送信元として採用するかは未確定。**現物を確認する前に`notify.atlib.jp`を`system@atlib.jp`へ正式変更した扱いにしない。**
+
+**最小再利用方針:** Insightの既存NodeMailer `sendPublicServiceOtp` と、コーポレートで実使用されるGmail SMTP設定方式を再利用する。新SMTPサービス・メールAPI・共有認証基盤を作らない。Insightの空Secret `secumie-prod-smtp-password` を保持し、今後Owner承認後に**Insight専用の認証情報**を安全にVersion 1登録することを第一候補とする（コーポレートのSecret値/IAMに触れず、利用アカウントの条件を確認）。Secretへの直接Cross-project Accessorは付与しない。
+
+**Turnstile境界:** Cloudflareという提供基盤は再利用するが、`www.atlib.jp`限定のWidgetを共有しない。Cloudflareの既存アカウントで`insight.atlib.jp`に限定したWidgetの有無を確認し、未存在なら別Owner承認で追加。既に作成済みの空Secret `secumie-prod-turnstile-secret` へ当該専用Widgetのserver Secretを登録する候補とし、コーポレート側を変更しない。
+
+**次のRead-only:** `corporate-site-00030-vow`の`SMTP_USER`（値はGWSアカウント識別子でありSecret本体ではないことを確認する）、Cloud Run SA、関連Secretのmetadataのみを検証。メール送信試験、Secret payload取得、Secret Version作成、IAM、Cloud Run配備はここで実施しない。送信元ポリシー・認証方式はWorkspace Consoleまたは担当者の設定確認が必要。
+
+**現在のGate:** Insight `secumie-prod-otp-jwt-keys:1` / `secumie-prod-otp-hmac-key:1` は登録済み、Insight SMTP・Turnstile SecretはVersion0のまま。B5-2B/2b IAM・B5-2B/3 Runtimeは未承認・未実施。`Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools100%、Retention preview-only、WEB/Corporate/SG/Send無変更を維持。
