@@ -199,3 +199,33 @@ Ownerは Cloud Shell `B5_2B_PHASE2_PREFLIGHT` の実行ログを提出した。�
 新規アプリ・汎用Secret管理基盤は作らない。Mailtrap/Cloudflare Dashboardの**設定状態だけ**をOwnerが確認し、秘密値はチャット/Git/CLI引数/ログへ貼らない。外部サービスの準備が整った段階で、B5-2B/2aの**既存4 SecretへのVersion1だけ**をCloud Consoleで追加する実行手順を提示して独立承認を得る。Version登録前に期待値と送信元認証の根拠を確認。DB SecretのVersionを触らない。B5-2B/2bのSecret単位IAMとCloud SQL Client条件付与は2aと混在させず別の承認・実行バッチで扱う。
 
 **結論:** B5-2B/2 GCP read-only preflightは**PASS（対象範囲に限定）**。Secret Version／IAM／Cloud Run／DNS／Trafficへの書込みはゼロ。引き続き `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools現行100%、Retention preview-only、既存SECU:MIE WEB非変更を維持。
+
+
+## 12. B5-2B/2a1 JWT/HMAC登録の独立した最小手順（2026-11-20 JST、実行前）
+
+**範囲限定:** B5-2B/2aをさらに分割し、外部サービスの認証情報に依存しない**OTP JWT鍵とOTP HMAC鍵の2 Secretだけ**について、Version1登録の安全な実行契約を定義する。対象は既に作成済みの `secumie-prod-otp-jwt-keys` と `secumie-prod-otp-hmac-key`。既存DBパスワード・SMTP/Turnstileは触れず、SA/IAM、Artifact、Cloud Run、DB/Jobs、WEB PR #50/#51、DNS/LB/TLS、Traffic、Retentionへの操作禁止を維持。
+
+### 12.1 現行コードへのFit
+
+- `src/publicAuth/publicOtpApiService.ts`：`JwtKey={kid:string,privateKey:string,publicKey:string}`、署名 `RS256`、JWKSは`publicKey`由来。
+- `src/runtime/runtimeConfig.ts`：`OTP_JWT_KEYS_JSON`は上記オブジェクトの**配列JSON**、`OTP_JWT_ACTIVE_KID=insight-prod-202611-v1`と一致する要素を要求。HMACは`OTP_HMAC_KEY` 32文字以上。
+- 鍵は本番専用に暗号学的安全乱数で生成する。RSA 2048 bits以上、PEM private PKCS8 / public SPKI。文字列配列と署名検証に関するSynthetic Node.js試験で PASS（公開鍵／秘密鍵・Secretは一切出力していない）。これは実GCP登録試験ではない。
+
+### 12.2 実行方式と安全境界
+
+- Cloud Shellで、Secretの**存在・Version0・直接IAM空**、OTP/PIRA SA enabled、既存Sales Tools `sales-tools-wsc-release`100%と保護対象のReadyを事前read-only照合する。不一致は書込み前STOP。
+- `node:crypto.generateKeyPairSync`（RSA2048）で `{kid,privateKey,publicKey}[]` を生成し、RS256署名/検証をメモリ内だけでPASSした後、**標準出力パイプを`gcloud secrets versions add secumie-prod-otp-jwt-keys --data-file=-`へ直接接続**する。公開端末やShell変数・履歴・一時ファイルに鍵を展開しない。
+- `node:crypto.randomBytes(48).toString('base64url')`で独立したHMAC鍵を生成し、同様に `secumie-prod-otp-hmac-key` へ標準入力から直接渡す。DB password、JWT鍵とは独立生成。
+- `set -euo pipefail`、初回失敗でSTOP。途中で1件だけ登録された場合も**スクリプト全体を再実行しない**。Secret Payloadの読み戻し、ハッシュ出力、`--data-file`に書いた一時ディスクファイルの利用を禁止。
+- 登録後、各Secret Version1の`state=ENABLED`、Version数1、直接IAM bindings0、Sales Tools既存配信不変を**メタデータのみ**確認。Secret本体のbyte照合ではないことを明示する。
+- この2件を登録してもSMTP/Turnstile未準備、個別IAM未付与、Runtime未作成のためProduction No-Goを維持。メール送信やユーザー受付はできない。
+
+**実行承認境界:** 本節は実施可能な最小手順と影響範囲の提示であり、ここでGCPへの書込みはしていない。Ownerが限定スクリプトを明示的に実行した結果を受領するまではVersion登録を実行済みと記録しない。Mailtrap/TurnstileのVersion登録とIAM付与は別工程として停止。
+
+### 12.3 登録後の残Gate
+
+- Mailtrapの`notify.atlib.jp` Verified / 本番Transactional SMTP Credential、Cloudflare Production Turnstile Widget `insight.atlib.jp`（Managed・Pre-clearance OFF）のConsole確認、各SecretへのVersion1登録（Owner個別承認）。
+- OTP SAへOTP DB/SMTP/Turnstile/JWT/HMAC各Secretの個別Accessor、PIRA SAへPIRA DB SecretだけのAccessor。本番Cloud SQL instance限定の条件付きCloud SQL Client。別承認のRead-back。
+- WEBは既存OTP利用案を保持し、WEB PR #50/#51を本Gateに混入させない。
+
+`Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools現行100%、Retention preview-onlyを維持。
