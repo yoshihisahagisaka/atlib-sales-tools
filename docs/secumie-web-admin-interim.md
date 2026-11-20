@@ -2,6 +2,25 @@
 
 2026-11-19 時点の公開受付と、スタッフの診断・レポート作成業務を接続するための実装仕様。
 
+## 2026-11-20 管理画面の暫定運用／コンテナ安全性判定
+
+**業務継続のための即時運用（新イメージの公開を待たない）**
+
+- 既存のスタッフ認証付き WSC 管理画面 `/admin/web-security-check.html` を利用する。公開中 `sales-tools` の100% revision は検証時点で `sales-tools-wsc-release`。すでにある機能で対象企業名・HTTPS URLからPDFを生成できる（実顧客データのUAT完了とは区別）。
+- 現行 `www.atlib.jp/secumie-web/` の受付メールを原本として担当者が企業名・URLを入力し、PDFを点検した後に送信する。**メール→申込一覧の自動転記、PDFの自動送信、対応履歴の自動記録はまだ存在しない**。
+- 新UI `/admin/secumie-web.html` はDraft PR #51の実装であり、現在の本番サービスに存在するとは案内しない。PR #50の専用DBやMigrationもNo-Goのまま。
+
+**コンテナ検証結果の記録**
+
+- PR #51候補: Git `cf722c0e22b736c5147128ddadadccfd435be284`、Artifact Registry `sha256:8515c9eb747effb1e988cde5c4b1c43defd0f86de5746ad616351ff4eb801466`。
+- TypeScript・回帰テスト・npm audit HIGH/CRITICALは合格。npmのMODERATE 6件は未解消として継続管理。
+- コンテナオンデマンドスキャン：CRITICAL 0 / HIGH 17 / UNKNOWN 16（重要度その他230）。33件すべて`fixedVersion`が未提供。対象は `krb5`, `glibc`, `openssl`, `expat`, `cups`, `xorg-server`, `acl` 等のOSライブラリ／ブラウザ依存。
+- `fixedVersion`未提供は「無害」も「修正不要」も意味しない。全重要度を混ぜてパッケージごとの件数を数えた過去の一覧は、HIGH件数の根拠として使わない。
+- **判定：新イメージの本番昇格No-Go**。脆弱性が解消したと宣言しない。本番・StagingのCloud Runトラフィック、専用DB、公開受付サイトはこの作業で変更なし。
+- 次の技術検証候補は、PDF描画に使う `chromium.launch({headless:true})` を維持したまま Playwright の `--only-shell` で不要なフルChromiumを省く最小構成。ただしOS依存すべてが消えるとは限らない。画像再ビルド前に依存差分を確認し、実PDF/UATとスキャン双方で判断する。
+
+**重要な切り分け**：既存WSCによる暫定の申込処理と、PR #51の新UIリリース／基盤脆弱性是正は別工程として管理する。後者を理由に前者を止めない。
+
 ## 役割と設置先
 
 - スタッフ側: Sales Tools の `/admin/secumie-web.html`。既存 `requireStaffAuth` とIPレート制限の内側にある `/admin` static 配信を再利用する。新しい公開APIや認証方式は追加しない。
