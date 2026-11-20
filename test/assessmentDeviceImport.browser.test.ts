@@ -165,3 +165,16 @@ test('XLSX duplicate ZIP entry fails closed',async({page})=>{
  await expect(page.locator('#file-status')).toContainText('重複ファイル');
  await expect(page.locator('#mapping-panel')).toBeHidden();
 });
+
+test('oversized CSV is rejected before rendering mapping',async({page})=>{
+ const oversized='資産番号,PC名\n'+('A'.repeat(5*1024*1024))+',B';
+ await page.locator('#csv-file').setInputFiles({name:'large.csv',mimeType:'text/csv',buffer:Buffer.from(oversized)});
+ await expect(page.locator('#file-status')).toContainText('大きすぎます');
+ await expect(page.locator('#mapping-panel')).toBeHidden();
+});
+test('CSV with too many columns is rejected before rendering mapping',async({page})=>{
+ const header=Array.from({length:201},(_,i)=>'col'+i).join(',');
+ await page.locator('#csv-file').setInputFiles({name:'wide.csv',mimeType:'text/csv',buffer:Buffer.from(header+'\n')});
+ await expect(page.locator('#file-status')).toContainText('200列以内');
+ await expect(page.locator('#mapping-panel')).toBeHidden();
+});
