@@ -28,7 +28,7 @@
     for(const r of preview.rows){
       const tr=document.createElement('tr');
       td(tr,r.sourceRowNumber);td(tr,r.mappedCandidate.asset_tag);td(tr,r.mappedCandidate.display_name);td(tr,r.mappedCandidate.serial_number);
-      td(tr,r.outcome==='NEEDS_REVIEW'?'要確認':'正本照合待ち');
+      td(tr,r.outcome==='NEEDS_REVIEW'?'要確認':'正本照合待ち（未登録）');
       td(tr,r.issues.map(issue=>{
         if(issue==='DUPLICATE_ASSET_TAG_IN_FILE')return 'ファイル内で資産番号が重複';
         if(issue==='COLUMN_COUNT_MISMATCH')return '列数が一致しません';
@@ -41,7 +41,7 @@
       $('preview-body').append(tr);
     }
     const blocked=preview.rows.filter(r=>r.outcome==='NEEDS_REVIEW').length;
-    $('preview-summary').textContent='対象 '+preview.rows.length+' 行 / 要確認 '+blocked+' 行 / 正本照合待ち '+(preview.rows.length-blocked)+' 行';
+    $('preview-summary').textContent='対象 '+preview.rows.length+' 行 / 要確認 '+blocked+' 行 / 正本照合待ち '+(preview.rows.length-blocked)+' 行（登録・更新は行われません）';
     $('preview-panel').hidden=false;
   }
   $('csv-file').addEventListener('change',async e=>{
