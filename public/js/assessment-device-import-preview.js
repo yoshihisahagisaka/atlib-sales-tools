@@ -12,6 +12,7 @@
   function parseCsv(text){
     text=text.replace(/^\uFEFF/,'');
     if(!text.trim())throw Error('空のCSVです');
+    if(text.length>5*1024*1024)throw Error('CSVファイルが大きすぎます（5MBまで）');
     const out=[];let cells=[],cell='',quoted=false,closed=false,line=1,start=1;
     for(let i=0;i<text.length;i++){
       const ch=text[i];
@@ -31,6 +32,8 @@
     if(quoted)throw Error('引用符が閉じられていません');
     if(cell||cells.length||closed){cells.push(cell);out.push({cells,line:start});}
     if(!out.length||!out[0].cells.length)throw Error('ヘッダーがありません');
+    if(out.length>10001)throw Error('CSVは見出しを含め10,001行までです');
+    if(out.some(r=>r.cells.length>200))throw Error('CSVは200列以内にしてください');
     return out;
   }
   const td=(tr,value)=>{const cell=document.createElement('td');cell.textContent=String(value??'');tr.append(cell);return cell;};
@@ -79,6 +82,7 @@
     const name=file.name.toLowerCase();
     if(!name.endsWith('.csv')&&!name.endsWith('.xlsx')){$('file-status').textContent='CSVまたは.xlsxを選択してください。';return;}
     try{
+      if(file.size>10*1024*1024)throw Error('ファイルが大きすぎます（10MBまで）');
       records=name.endsWith('.xlsx')?await globalThis.AssessmentXlsxReader.read(await file.arrayBuffer()):parseCsv(await file.text());
       $('file-status').textContent=file.name+'：'+Math.max(0,records.length-1)+' レコード';renderMapping();
     }
