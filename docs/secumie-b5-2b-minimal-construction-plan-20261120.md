@@ -164,3 +164,38 @@ Mailtrap / CloudflareのDashboardの真の状態はこのGitのread-onlyレビ�
 **Gate:** 2b/2aのいずれも未承認・未実施。Production No-Go、`PIRA_GENERAL_ENABLED=false`、Sales Tools100%、Retention preview-onlyを維持。
 
 参考： [Secret Version追加（Google Cloud）](https://docs.cloud.google.com/secret-manager/docs/add-secret-version)、[Mailtrap SMTP連携](https://docs.mailtrap.io/email-api-smtp/setup/smtp-integration)、[Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/get-started/)。
+
+
+## 11. B5-2B/2 GCP Read-only Gate実行結果（2026-11-20 JST）
+
+Ownerは Cloud Shell `B5_2B_PHASE2_PREFLIGHT` の実行ログを提出した。貼付時のコマンドエコーに一部乱れがあるが、5セクションすべて、各PASS、`B5-2B PHASE2 PREFLIGHT COMPLETE`の終端を確認できる。今回のGit記録はOwner提出ログの評価であり、別セッションでのGCP再計測ではない。
+
+### 11.1 確認できた事実
+
+| 対象 | 実測 | 判定 |
+| --- | --- | --- |
+| `secumie-otp-prod@...` | SA存在・Enabled | PASS |
+| `secumie-pira-prod@...` | SA存在・Enabled | PASS |
+| `secumie-prod-smtp-password` | automatic replication、Version0、直接IAM0 | PASS |
+| `secumie-prod-turnstile-secret` | automatic replication、Version0、直接IAM0 | PASS |
+| `secumie-prod-otp-jwt-keys` | automatic replication、Version0、直接IAM0 | PASS |
+| `secumie-prod-otp-hmac-key` | automatic replication、Version0、直接IAM0 | PASS |
+| `secumie-prod-db-otp-password` | Version1 ENABLED、直接IAM `[]` | PASS |
+| `secumie-prod-db-pira-password` | Version1 ENABLED、直接IAM `[]` | PASS |
+| Project IAM（新2 SA member） | 条件付き／無条件を含む直接Project policy該当 `[]` | PASS（Project直下のみ） |
+| 既存Cloud Run 7サービス | 全Ready True、前回と同一のactive 100%配信先 | PASS |
+| Sales Tools | `sales-tools-wsc-release` 100% | PASS |
+
+**IAM解釈上の留保:** Secretレベルの直接 `bindings: []`、Project IAM該当 `[]` は、上位Folder/Organization権限やeffective permissionsまで不存在と証明するものではない。Secret payload・Versionデータを表示・取得した実績はない。
+
+### 11.2 次のFit/Gap
+
+- **PASS:** B5-2B/1で作成済みの新SA2件・空Secret4件と既存DB Secret2件のpreflightは想定一致。GCP側で追加作成・IAM付与を再実行する必要なし。
+- **未確認:** Mailtrap `notify.atlib.jp` のTransactional Sending Domain Verified / live SMTP Credential、Cloudflare `insight.atlib.jp` のProduction Widget Managed / secret key、JWT RS256の独立鍵ペアと秘密JSON配列、OTP HMACの独立鍵、Org/Folder IAM継承、非公開E2E経路。
+- **未実施／別Owner承認:** B5-2B/2a Secret Version1登録、B5-2B/2b IAM追加、B5-2B/3 Image build/pushとCloud Run作成、Phase B/C公開、WEB PR #50/#51への実装・デプロイ。
+
+### 11.3 次操作の最小化
+
+新規アプリ・汎用Secret管理基盤は作らない。Mailtrap/Cloudflare Dashboardの**設定状態だけ**をOwnerが確認し、秘密値はチャット/Git/CLI引数/ログへ貼らない。外部サービスの準備が整った段階で、B5-2B/2aの**既存4 SecretへのVersion1だけ**をCloud Consoleで追加する実行手順を提示して独立承認を得る。Version登録前に期待値と送信元認証の根拠を確認。DB SecretのVersionを触らない。B5-2B/2bのSecret単位IAMとCloud SQL Client条件付与は2aと混在させず別の承認・実行バッチで扱う。
+
+**結論:** B5-2B/2 GCP read-only preflightは**PASS（対象範囲に限定）**。Secret Version／IAM／Cloud Run／DNS／Trafficへの書込みはゼロ。引き続き `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools現行100%、Retention preview-only、既存SECU:MIE WEB非変更を維持。
