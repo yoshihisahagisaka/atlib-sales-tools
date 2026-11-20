@@ -313,3 +313,27 @@ OwnerはCloud Shellで `SECUMIE_REUSE_CHECK`（**read-only**）を実行し、GC
 **次のRead-only:** `corporate-site-00030-vow`の`SMTP_USER`（値はGWSアカウント識別子でありSecret本体ではないことを確認する）、Cloud Run SA、関連Secretのmetadataのみを検証。メール送信試験、Secret payload取得、Secret Version作成、IAM、Cloud Run配備はここで実施しない。送信元ポリシー・認証方式はWorkspace Consoleまたは担当者の設定確認が必要。
 
 **現在のGate:** Insight `secumie-prod-otp-jwt-keys:1` / `secumie-prod-otp-hmac-key:1` は登録済み、Insight SMTP・Turnstile SecretはVersion0のまま。B5-2B/2b IAM・B5-2B/3 Runtimeは未承認・未実施。`Production No-Go`、`PIRA_GENERAL_ENABLED=false`、Sales Tools100%、Retention preview-only、WEB/Corporate/SG/Send無変更を維持。
+
+
+## 16. SMTP authenticated identity read-back（2026-11-20 JST）
+
+OwnerはCloud Shellで `SECUMIE_SMTP_IDENTITY_CHECK` を read-only実行し、コーポレートサイト `atlib-corporate-site` の現在100%配信中とされたRevision `corporate-site-00030-vow` の、SMTP認証アカウント識別子・送信元・Secret参照・Service Accountを確認した。終端 `SECUMIE_SMTP_IDENTITY_CHECK` を含むJSON出力があり、Secret値へのアクセスやIAM変更は行っていない。
+
+| 設定 | Owner提出した現行Revisionの非秘密値 |
+| --- | --- |
+| Revision | `corporate-site-00030-vow` |
+| Runtime SA | `corporate-site-production@atlib-corporate-site.iam.gserviceaccount.com` |
+| SMTP host/port | `smtp.gmail.com:587`（portは前節§15の実測） |
+| SMTP auth username | `yoshihisa.hagisaka@atlib.jp` |
+| SMTP From | `system@atlib.jp` |
+| SMTP password | `corporate-site-smtp-password:2`（参照メタデータのみ） |
+
+**判断:** 現行のSMTP認証ユーザーとFromは**異なるアドレス**。Google Workspace/Gmailの「別のアドレスから送信」（Send mail as）のエイリアス許可、及び `system@atlib.jp` が送信元として期待どおり維持されることは、このCloud Run環境変数read-backだけでは未証明。コーポレートサービスの実配送済み証跡を新たに取得したわけでもない。**Insightにこの組み合わせを採用する候補**とし、既存からそのままコピーして動くと断定しない。
+
+**最小の次工程:** 現在のGoogle Workspaceアカウントで `system@atlib.jp` が実際にSend mail as許可されていることをGmail設定または管理コンソールで確認（アドレスだけを確認し、認証Secretを見せない）。許可済みなら、Insight `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_USER=yoshihisa.hagisaka@atlib.jp`, `SMTP_FROM=system@atlib.jp` を**構築候補**とし、Insight専用 `secumie-prod-smtp-password` のVersion1を独立承認された安全な方法で準備する。既存コーポレートのSecret `corporate-site-smtp-password:2` を読み出したり、Cross-project IAMを広げたりしない。既存個人アカウント利用の継続的な保守・認証失効リスクは公開判断前に確認する。
+
+Turnstileについては前節§15の通り `www.atlib.jp` のWidgetを秘密鍵ごと共用せず、`insight.atlib.jp` に適合する専用Widgetの有無を先に確認する。
+
+**書込みはGitHubの証跡のみ。** GCPのSecret Version/IAM/Cloud Run、Google Workspaceのアカウント/エイリアス、CloudflareのWidget、DNS、メール配送・テストはこの判定では実行しない。 `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、既存Sales Tools100%、Retention preview-onlyを維持。
+
+参考: https://support.google.com/mail/answer/22370
