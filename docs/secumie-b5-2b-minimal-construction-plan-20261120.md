@@ -91,3 +91,36 @@ Ownerから「承認します」と回答があった。直前に提示した次
 **実行条件:** GCP Project `msp-zabbix`、有効なOwnerアカウント、既存7 Cloud Run ServiceがReadyでSales Tools `sales-tools-wsc-release` 100%配信中、新6件が全て不存在、既存Prod DB Secret 6件が維持されていることを**書込み前read-onlyで完全確認**。不一致はSTOP。SA2件→空Secret4件の順に作成し、部分失敗時は無断再試行／削除／回復をしない。作成後はService Account有効、Secretメタデータ存在、各Secret **Version0件・直接IAM Binding0件**、Sales Tools100%配信・既存7Service Readyをread-backする。CLIログへ秘密情報は一切入力しない。作成を実行するCloud Shell出力が提出されるまでは**未実行**と扱う。
 
 **現在の状態:** 本記録時点ではGitHub文書の更新のみ。GCP書込み0件。Production No-Go・GENERAL disabled、既存Sales Tools100%・Retention preview-onlyを継続。
+
+
+## 9. B5-2B/1 実環境実行結果（2026-11-20 JST）
+
+Ownerが承認済みCloud Shellバッチ `B5_2B_PHASE1` の実行出力を提出。端末へ貼り付けた文字列のエコーに一部乱れがあるが、**PREFLIGHT、APPROVED CREATE、POST-CHECKの全セクション、6件のCreate成功出力、各Post-check PASS、終端`B5-2B PHASE1 SUCCESS`** を確認できた。GCPの実環境への直接再照会は本記録作成時には実施しておらず、以下はOwner提出ログに基づく証跡である。
+
+### 9.1 Preflight
+
+- `[PASS] Existing inventory and protected traffic`：作成前の既存Identity/Secretの名称、7 Cloud Run ServiceのReady/Traffic、Sales Tools `sales-tools-wsc-release` 100%をバッチ内で照合。
+- 名称競合の事前検出なし。既存DB Secret 6件、既存Service Account 4件の構成に変更指示なし。
+
+### 9.2 新規作成の実績（承認された6件のみ）
+
+| Resource | GCP実行結果 | 事後照合 |
+| --- | --- | --- |
+| `secumie-otp-prod@msp-zabbix.iam.gserviceaccount.com` | `Created service account [secumie-otp-prod]` | `[PASS] SA active` |
+| `secumie-pira-prod@msp-zabbix.iam.gserviceaccount.com` | `Created service account [secumie-pira-prod]` | `[PASS] SA active` |
+| `secumie-prod-smtp-password` | `Created secret` | `[PASS] Empty Secret / 0 versions / 0 IAM` |
+| `secumie-prod-turnstile-secret` | `Created secret` | 同上 |
+| `secumie-prod-otp-jwt-keys` | `Created secret` | 同上 |
+| `secumie-prod-otp-hmac-key` | `Created secret` | 同上 |
+
+- 新規Secret4件は自動複製設定を検証。各SecretのVersionは0、Secret単位の直接IAM bindingsは0。**値/Versionの作成と権限付与は未実行**。
+- `[PASS] Protected Cloud Run snapshot unchanged`：既存7 Cloud Run ServicesのReady/Trafficの書込み前後スナップショット一致を確認。個別サービスの機能E2Eや上位階層のIAMまで検証したものではない。
+- `B5-2B PHASE1 SUCCESS` を確認。STOP/失敗はOwner提出出力に見当たらない。
+
+### 9.3 確定判定と次Gate
+
+**B5-2B/1（専用SA2件 + 空Secret4件の作成）はPASS / 完了。** B5-2B全体、Production Go、公開を意味しない。Cloud Run新サービス、IAM、Secret Version/値、DB接続設定、SMTP/Turnstile/JWT本番実設定、アプリ画像build/push、LB、DNS、Retention、WEB PR #50/#51の変更・実行はいずれも本バッチに含まれない。
+
+**次は独立したB5-2B/2承認Gate:** Mailtrap Live送信ドメインと本番Credential、Cloudflare Turnstile Production widget/secret、JWT秘密鍵の安全な作成・登録方式、OTP HMACの安全な生成・登録方式、Secret4件Version1登録と既存DB Secret2件の個別IAM、2 SAへのProduction instance限定Cloud SQL Client付与、Cloud Run非公開検証経路・料金影響・rollbackの具体化。秘密値をチャット／GitHub／CLI引数・ログへ書かない。サービス公開前の`PIRA_GENERAL_ENABLED=false`および既存Sales Tools100% Trafficを保持する。
+
+**現在維持:** `Production No-Go`、GENERAL無効、Retention preview-only、Sales Tools `sales-tools-wsc-release` 100%、Secure Guard/Send/WEB・他既存サービスへの無変更。
