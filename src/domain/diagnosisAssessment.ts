@@ -1,4 +1,4 @@
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {insightFieldsSchema} from './diagnosisReview';
 export const ASSESSMENT_STATUSES=['NOT_PROPOSED','PROPOSED','PENDING','ACCEPTED','DECLINED'] as const;
 export const assessmentCommandSchema=z.object({expectedVersion:z.number().int().positive(),reason:z.string().max(2000).default('')}).strict();

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { DiagnosisError } from '../domain/itManagementDiagnosis';
 import { assessmentInputSchema,reasonSchema,editReviewSchema,convertUnknownSchema,completeReviewSchema } from '../domain/diagnosisReview';
 import type { DiagnosisReviewRepo } from '../services/diagnosisReviewRepo';

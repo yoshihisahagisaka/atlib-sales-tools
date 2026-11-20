@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { DiagnosisError } from './itManagementDiagnosis';
 export const REVIEW_PROMPT_VERSION='post-diagnosis-structurer-v1';
 export const REVIEW_POLICY_VERSION='free-diagnosis-review-v1';

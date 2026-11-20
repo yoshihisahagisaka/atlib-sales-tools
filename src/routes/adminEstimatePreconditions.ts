@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { EstimatePreconditionRepo } from '../services/estimatePreconditionRepo';
 
 const categorySchema = z.enum(['network', 'server', 'kitting', 'dev', 'other']);

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 /**
  * 情シスKAIZEN診断（corporate-site の LP `/joshisu-kaizen/` 向け診断ツール）の

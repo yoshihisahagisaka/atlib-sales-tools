@@ -1,5 +1,5 @@
 import { createHash,randomUUID } from 'node:crypto';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { DiagnosisError } from './itManagementDiagnosis';
 import type { InsightInput } from './diagnosisReview';
 export const REPORT_PROMPT_VERSION='report-draft-generator-v1';

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { DiagnosisError } from '../domain/itManagementDiagnosis';
 import { humanThemeSchema, humanPlanSchema, orderSchema, confirmSchema } from '../domain/diagnosisPreparation';
 import type { DiagnosisPreparationRepo } from '../services/diagnosisPreparationRepo';

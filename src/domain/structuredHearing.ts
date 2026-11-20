@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { ManagementFocus, RespondentRole, ResponseState } from './freeDiagnosisRuleBasedV1';
 
 export const HEARING_SCHEMA_VERSION = 1 as const;

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { DiagnosisError } from './itManagementDiagnosis';
 
 export const INTERVIEW_PROMPT_VERSION = 'interview-assistant-v1';
