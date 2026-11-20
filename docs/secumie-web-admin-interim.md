@@ -21,6 +21,14 @@
 
 **重要な切り分け**：既存WSCによる暫定の申込処理と、PR #51の新UIリリース／基盤脆弱性是正は別工程として管理する。後者を理由に前者を止めない。
 
+## 2026-11-20 ヘッドレス専用ブラウザの縮小候補（Draft）
+
+- WSC `src/services/wscSalesService.ts` と既存レポート `src/services/freeDiagnosisDesignV2ReportPdf.ts` は、いずれも `chromium.launch({headless:true})` を使用し、`channel` を指定していない。この利用方法はPlaywrightのChromium headless shellと整合する。
+- `Dockerfile` のRuntimeで、`playwright install --with-deps chromium` を **`playwright install --with-deps --only-shell chromium`** に限定した。Node／DB／アプリAPI／WSC評価ロジックは変更しない。
+- `scripts/secumie-admin-image-gate.sh` は確定Git SHAからイメージをビルドし、最終Runtimeイメージをネットワークなし・非rootのまま起動して合成日本語HTMLからPDF（`%PDF-`）が生成できることをテストする。その後、同じ不変digestに対してオンデマンドの脆弱性スキャンを行う。
+- **HEADLESS最小化だけでOS CVEが0になるとは保証しない。** HIGH/CRITICAL/UNKNOWN残存時は引き続き`SECURITY_NO_GO`。ブラウザ実機テスト、実サービスのスタッフ認証／既存WSC PDF UAT、および本番リリース判定は別Gate。
+- 既存の `sales-tools` Production 100%、`sales-tools-staging` Staging 100%、SECU:MIE Webの専用DB／Migrationに変更を与えない。管理画面はDraft PR #51のまま。
+
 ## 役割と設置先
 
 - スタッフ側: Sales Tools の `/admin/secumie-web.html`。既存 `requireStaffAuth` とIPレート制限の内側にある `/admin` static 配信を再利用する。新しい公開APIや認証方式は追加しない。
