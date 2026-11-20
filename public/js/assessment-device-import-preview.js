@@ -4,6 +4,7 @@
   const fields=[['','対応しない'],['asset_tag','資産番号'],['display_name','PC名・管理名称'],['serial_number','シリアル番号']];
   const core=globalThis.AssessmentDevicePreview;
   let records=[];
+  let selectionVersion=0;
   const td=(tr,value)=>{const cell=document.createElement('td');cell.textContent=String(value??'');tr.append(cell);return cell;};
   function renderMapping(){
     $('mapping-body').replaceChildren();
@@ -44,16 +45,22 @@
     $('preview-panel').hidden=false;
   }
   $('csv-file').addEventListener('change',async e=>{
+    const version=++selectionVersion;
+    records=[];
     $('mapping-panel').hidden=true;$('preview-panel').hidden=true;
-    const file=e.target.files?.[0];if(!file)return;
+    $('file-status').textContent='ファイルを確認しています…';
+    const file=e.target.files?.[0];if(!file){$('file-status').textContent='ファイルを選択してください。';return;}
     const name=file.name.toLowerCase();
     if(!name.endsWith('.csv')&&!name.endsWith('.xlsx')){$('file-status').textContent='CSVまたは.xlsxを選択してください。';return;}
     try{
       if(file.size>10*1024*1024)throw Error('ファイルが大きすぎます（10MBまで）');
-      records=name.endsWith('.xlsx')?await globalThis.AssessmentXlsxReader.read(await file.arrayBuffer()):core.parseCsvRecords(await file.text());
+      const parsed=name.endsWith('.xlsx')?await globalThis.AssessmentXlsxReader.read(await file.arrayBuffer()):core.parseCsvRecords(await file.text());
+      if(version!==selectionVersion)return;
+      records=parsed;
       $('file-status').textContent=file.name+'：'+Math.max(0,records.length-1)+' レコード';renderMapping();
     }
-    catch(err){const messages={EMPTY_CSV:'ヘッダーがありません',CSV_TOO_LARGE:'CSVファイルが大きすぎます（5MBまで）',TOO_MANY_ROWS:'CSVは見出しを含め10,001行までです',TOO_MANY_COLUMNS:'CSVは200列以内にしてください'};
+    catch(err){if(version!==selectionVersion)return;
+      const messages={EMPTY_CSV:'ヘッダーがありません',CSV_TOO_LARGE:'CSVファイルが大きすぎます（5MBまで）',TOO_MANY_ROWS:'CSVは見出しを含め10,001行までです',TOO_MANY_COLUMNS:'CSVは200列以内にしてください'};
       $('file-status').textContent='読込エラー: '+(messages[err.message]??err.message);
     }
   });
