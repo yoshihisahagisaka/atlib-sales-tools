@@ -9,6 +9,9 @@ test.beforeEach(async({page})=>{
    await route.fulfill({status:200,contentType:'text/html',body:fs.readFileSync(path.join(root,'public/admin/assessment-device-import-preview.html'),'utf8')});
  });
  await page.route('http://assessment.local/css/style.css',async route=>route.fulfill({status:200,contentType:'text/css',body:''}));
+ await page.route('http://assessment.local/js/assessment-device-preview-core.js',async route=>{
+   await route.fulfill({status:200,contentType:'text/javascript',body:fs.readFileSync(path.join(root,'public/js/assessment-device-preview-core.js'),'utf8')});
+ });
  await page.route('http://assessment.local/js/assessment-xlsx-reader.js',async route=>{
    await route.fulfill({status:200,contentType:'text/javascript',body:fs.readFileSync(path.join(root,'public/js/assessment-xlsx-reader.js'),'utf8')});
  });
