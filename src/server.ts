@@ -61,6 +61,8 @@ import { BusinessWebConsultationLeadRepo } from './services/businessWebConsultat
 import { createBusinessWebConsultationLeadRouter } from './routes/businessWebConsultationLead';
 import { createAdminBusinessWebConsultationLeadRouter } from './routes/adminBusinessWebConsultationLead';
 import { FreeDiagnosisSalesLauncherRepo } from './services/freeDiagnosisSalesLauncherRepo';
+import { SalesCustomerRepo } from './services/salesCustomerRepo';
+import { createAdminSalesCustomersRouter } from './routes/adminSalesCustomers';
 import { FreeDiagnosisRuleBasedCaseRepo } from './services/freeDiagnosisRuleBasedCaseRepo';
 import { Vs1ReviewReportFeedbackRepo } from './services/vs1ReviewReportFeedbackRepo';
 import { createAdminFreeDiagnosisRuleBasedV1Router } from './routes/adminFreeDiagnosisRuleBasedV1';
@@ -92,6 +94,7 @@ async function main(): Promise<void> {
   const webDevelopmentPartnerLeadRepo = new WebDevelopmentPartnerLeadRepo(pool);
   const businessWebConsultationLeadRepo = new BusinessWebConsultationLeadRepo(pool);
   const freeDiagnosisSalesLauncherRepo = new FreeDiagnosisSalesLauncherRepo(pool);
+  const salesCustomerRepo = new SalesCustomerRepo(pool);
   const marketingInitiativeRepo = new MarketingInitiativeRepo(pool);
   const testCaseManagementRepo = new TestCaseManagementRepo(pool);
   const freeDiagnosisRuleBasedCaseRepo = new FreeDiagnosisRuleBasedCaseRepo(pool);
@@ -252,6 +255,8 @@ async function main(): Promise<void> {
   );
   app.use('/api/admin/marketing-initiatives', ...adminAuthGate,
     createAdminMarketingInitiativeRouter(marketingInitiativeRepo, freeDiagnosisSalesLauncherRepo));
+  app.use('/api/admin/sales-customers', ...adminAuthGate,
+    createAdminSalesCustomersRouter(salesCustomerRepo));
   app.use(
     '/api/admin/free-diagnosis-v1',
     ...adminAuthGate,
