@@ -36,11 +36,12 @@ const requestLinkSchema = z.object({
 
 // corporate-site の LP（www.atlib.jp）から呼ばれるので、このエンドポイントだけ個別にCORSを許可する。
 // リポジトリ全体に cors パッケージを追加するほどの規模ではないため、ヘッダを手動セットする。
-const LP_ORIGIN = 'https://www.atlib.jp';
+const LP_ORIGINS = new Set(['https://www.atlib.jp', 'https://service.atlib.jp']);
 
 function withLpCors(router: Router): void {
   router.use('/request-link', (req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', LP_ORIGIN);
+    const origin = req.get('Origin');
+    if (origin && LP_ORIGINS.has(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
