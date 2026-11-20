@@ -124,3 +124,43 @@ Ownerが承認済みCloud Shellバッチ `B5_2B_PHASE1` の実行出力を提出
 **次は独立したB5-2B/2承認Gate:** Mailtrap Live送信ドメインと本番Credential、Cloudflare Turnstile Production widget/secret、JWT秘密鍵の安全な作成・登録方式、OTP HMACの安全な生成・登録方式、Secret4件Version1登録と既存DB Secret2件の個別IAM、2 SAへのProduction instance限定Cloud SQL Client付与、Cloud Run非公開検証経路・料金影響・rollbackの具体化。秘密値をチャット／GitHub／CLI引数・ログへ書かない。サービス公開前の`PIRA_GENERAL_ENABLED=false`および既存Sales Tools100% Trafficを保持する。
 
 **現在維持:** `Production No-Go`、GENERAL無効、Retention preview-only、Sales Tools `sales-tools-wsc-release` 100%、Secure Guard/Send/WEB・他既存サービスへの無変更。
+
+
+## 10. B5-2B/2 設定事前確認・Secret登録前Gate（2026-11-20 JST）
+
+### 10.1 現在の対象範囲
+
+B5-2B/1で作成済みの2 SAと空Secret4件を**再作成しない**。既存DB Secret `secumie-prod-db-otp-password:1` / `secumie-prod-db-pira-password:1` の値やVersionは変更しない。WEB PR #50/#51、既存Sales Tools、Secure Guard/Send、Production DBのMigrationには触れない。
+
+既存コード契約を再照合した結果、専用OTP/PIRA Runtimeの追加コード変更は現段階で不要。特に `src/publicAuth/publicOtpApiService.ts` の `JwtKey` は `{kid:string,privateKey:string,publicKey:string}`、`src/runtime/runtimeConfig.ts` の `OTP_JWT_KEYS_JSON` はその**配列**、`OTP_JWT_ACTIVE_KID` は配列中の既存 `kid` を参照する。署名はRS256、JWKSは `publicKey` から生成。鍵の中身をGitHubやチャットで扱わない。
+
+### 10.2 本番外部サービスの準備状況
+
+| 対象 | 合意済み設定 / コード要件 | 実証状態 | 実行前のチェック |
+| --- | --- | --- | --- |
+| Mailtrap | `notify.atlib.jp` のTransactional SMTP、`live.smtp.mailtrap.io:587`、user `api`、From `SECU:MIE <no-reply@notify.atlib.jp>` | ドメイン検証・Compliance・SMTP Credential未確認 | Mailtrap Sending Domainsで**Verified/送信可能**・Transactional Integrationを管理画面で確認。SMTP Password/tokenは返信・ログへ出さずOTP SecretにだけVersion1を登録 |
+| Turnstile | hostname `insight.atlib.jp`だけ、Managed、Pre-clearance無効 | Production Widget/sitekey/secret未確認 | Cloudflareで許可hostnameとsitekey/secretの対応を確認。公開sitekeyはPIRA Runtimeの非秘密設定、server secretはOTP SecretにだけVersion1 |
+| JWT | RS256、RSA 2048 bits以上、`kid=insight-prod-202611-v1`、issuer `https://insight.atlib.jp` | 本番鍵未確認 | 既存コード契約の配列JSONを使用。新規秘密鍵の生成・JSON整合・公開鍵検証は秘密情報を出力しない手順で別途実施。OTPのみ秘密鍵参照 |
+| OTP HMAC | 独立した32文字以上の暗号学的乱数、`secumie-prod-otp-hmac-key` | Secretの空リソースだけ作成済み | JWT鍵ともDB passwordとも独立した値を非ログ生成しVersion1登録。PIRA SAへ配らない |
+
+Mailtrap / CloudflareのDashboardの真の状態はこのGitのread-onlyレビューから判断できない。DNSレコードがあってもMailtrap Verified/Compliance PASSを代替しない。
+
+### 10.3 GCP Read-only Gate（B5-2B/2書込み前）
+
+次のCloud Shellで**参照だけ**を実施し、資格情報・Secret payloadを表示しないこと。
+
+1. OTP/PIRA SAは作成済みでenabled、追加Secret4件はVersion0・直接IAM0、既存OTP/PIRA DB SecretはVersion1 ENABLED。違えばSTOP。
+2. Project IAMでOTP/PIRA SAの `roles/cloudsql.client` / project-wide `secretmanager.secretAccessor` 等の現在のbindingsを取得。現時点の**直接Project Policy**であり、Folder/Organization継承・実効権限の不存在証明ではない。
+3. 既存7 Cloud Run ServicesのReadyと配信先を再照合し、Sales Tools `sales-tools-wsc-release` 100%を保護。
+4. `notify.atlib.jp` の公開DNSを参考情報として照会。ただしMailtrap認証ステータスと混同しない。
+5. 全照会結果をB5 CanonicalへOwner提出証跡として記録。**ここで書込み・IAM付与を行わない。**
+
+### 10.4 未承認の次の変更単位
+
+- **B5-2B/2a: Secret Version登録**（SMTP/Turnstile/JWT/HMACの4件、各Version1のみ）。Google Cloud Consoleの「新しいバージョンを追加」等の非ログ操作。外部サービスの本番値準備とOwner明示承認が条件。秘密値をチャット・Git・CLI引数・ログへ貼らない。DB password2件は触れない。
+- **B5-2B/2b: 最小IAM**（既存OTP/PIRA DB Secretを各SA1対1に、追加4 SecretをOTP SAにのみ）。`roles/cloudsql.client`は既存Production Instance限定の条件付きbindingで**新2 SAだけ**を追加、既存Migration member/条件式を保持。Project-wide SecretAccessor禁止。実行前に差分・条件を検証し、Owner別承認。設定後、SecretごとにIAM/Version状態とProject条件をread-back。
+- **B5-2B/3: Image・Cloud Run** はさらに別承認。Source SHA固定、各Image Critical/High0、immutable digest、Private IP Proxy、非公開・認証付きprobeの経路が成立することが前提。**新しいWEB受付/OTP基盤は作らない。**
+
+**Gate:** 2b/2aのいずれも未承認・未実施。Production No-Go、`PIRA_GENERAL_ENABLED=false`、Sales Tools100%、Retention preview-onlyを維持。
+
+参考： [Secret Version追加（Google Cloud）](https://docs.cloud.google.com/secret-manager/docs/add-secret-version)、[Mailtrap SMTP連携](https://docs.mailtrap.io/email-api-smtp/setup/smtp-integration)、[Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/get-started/)。
