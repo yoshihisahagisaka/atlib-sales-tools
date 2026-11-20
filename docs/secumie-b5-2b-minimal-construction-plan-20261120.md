@@ -337,3 +337,18 @@ Turnstileについては前節§15の通り `www.atlib.jp` のWidgetを秘密鍵
 **書込みはGitHubの証跡のみ。** GCPのSecret Version/IAM/Cloud Run、Google Workspaceのアカウント/エイリアス、CloudflareのWidget、DNS、メール配送・テストはこの判定では実行しない。 `Production No-Go`、`PIRA_GENERAL_ENABLED=false`、既存Sales Tools100%、Retention preview-onlyを維持。
 
 参考: https://support.google.com/mail/answer/22370
+
+
+## 17. SMTP alias Owner確認・WEB本番稼働を採用（2026-11-20 JST）
+
+Ownerは `system@atlib.jp` の送信元登録が既に完了していること、ならびに**SECU:MIE WEBが現に本番稼働中**であることを明示した。前節§16の「Gmail送信元登録の有無」を**Owner確認済み**としてクローズし、同じ確認を繰り返さない。
+
+確定したInsight専用OTP SMTPの**構築採用案**：既存コーポレートと同じ `SMTP_HOST=smtp.gmail.com`、`SMTP_PORT=587`、`SMTP_USER=yoshihisa.hagisaka@atlib.jp`、`SMTP_FROM=system@atlib.jp`。既存NodeMailerのSMTP送信経路を流用し、Mailtrap Live Sending/新ドメイン`notify.atlib.jp`の導入を**当面行わない**。過去のMailtrap方針は履歴として残すが、このOwner確認を受けたSMTPの実装候補は本節を優先する。
+
+**確定と未実施を分離:** Owner確認によってWEBの現用SMTP構成と送信元登録は再確認不要。一方、Insightの専用Runtimeは別GCP Projectの別SAであり、SMTP資格情報を使える状態にする**独立Secret `secumie-prod-smtp-password` のVersion1**、必要なIAM、非公開実メールOTP E2Eは未実施。コーポレートの既存 `corporate-site-smtp-password:2` は変更・取得・越境IAM付与しない。既存個人Google Workspaceアカウントの認証方式／パスワード利用許諾は、Secret登録時の有効性で扱い、再度送信元エイリアス設定からやり直さない。
+
+Turnstileは既存WEBの機能を再利用するが、現在の`www.atlib.jp`用Widget/許可hostnameでは`insight.atlib.jp`が対象外。既存Cloudflareアカウント内で `insight.atlib.jp` 専用Widgetが既に存在するかを確認し、なければ最小限追加する。新しいTurnstile検証基盤は不要。
+
+**次工程:** (1) Insight SMTP用の認証情報の安全な手配と専用SecretへのVersion1登録（別承認）、(2) Insight hostnameに対応するTurnstile Widgetと専用SecretへのVersion1登録（別承認）、(3) 既存2 SAへの最小IAM付与とCloud Run非公開E2E（別承認）。新規メールシステム・コーポレートフォームAPIの転用・新OTP開発はしない。
+
+本記録はGitHubのみ更新。GCP、Workspace、Cloudflare、既存WEB、Corporate、Sales Tools、Secure Guard/Sendの変更は実施しない。**Production No-Go**、`PIRA_GENERAL_ENABLED=false`、Sales Tools100%、Retention preview-only維持。
