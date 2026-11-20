@@ -8,7 +8,7 @@ import type { InterviewProvider } from '../services/interviewAssistantProvider';
 import type { InterviewAssistantWorker } from '../services/interviewAssistantWorker';
 import { caseId,diagnosisHandler,staffActor } from './itManagementDiagnosis';
 export interface WorkspaceServices {repo:DiagnosisWorkspaceRepo;provider:InterviewProvider;worker:InterviewAssistantWorker}
-function parse<T>(schema:z.ZodType<T,any,any>,raw:unknown):T {const p=schema.safeParse(raw);if(!p.success)throw new DiagnosisError(422,'入力内容を確認してください。');return p.data;}
+function parse<S extends z.ZodType>(schema:S,raw:unknown):z.output<S> {const p=schema.safeParse(raw);if(!p.success)throw new DiagnosisError(422,'入力内容を確認してください。');return p.data as z.output<S>;}
 export function createDiagnosisWorkspaceRouter({repo,provider,worker}:WorkspaceServices) {
  const router=Router();const base='/cases/:id';
  router.get(base+'/workspace',diagnosisHandler(async(req,res)=>{res.json(await repo.read(caseId(req),staffActor(req)));}));

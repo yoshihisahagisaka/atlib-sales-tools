@@ -10,6 +10,7 @@ import type { NextFunction, Request, Response } from 'express';
 export function createIpRateLimiter(opts: {
   windowMs: number;
   maxRequests: number;
+  onLimit?: (req: Request, res: Response) => void;
 }): (req: Request, res: Response, next: NextFunction) => void {
   const hits = new Map<string, { count: number; windowStart: number }>();
 
@@ -25,6 +26,7 @@ export function createIpRateLimiter(opts: {
     }
 
     if (record.count >= opts.maxRequests) {
+      if (opts.onLimit) { opts.onLimit(req, res); return; }
       res.status(429).json({ error: 'Too many requests. Try again later.' });
       return;
     }
