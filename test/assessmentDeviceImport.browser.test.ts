@@ -82,7 +82,7 @@ test('browser CSV preview agrees with domain preview for duplicate and pending r
    assetTag:r.mappedCandidate.asset_tag,
    displayName:r.mappedCandidate.display_name,
    serial:r.mappedCandidate.serial_number,
-   outcome:r.outcome==='NEEDS_REVIEW'?'要確認':'正本照合待ち'
+   outcome:r.outcome==='NEEDS_REVIEW'?'要確認':'正本照合待ち（未登録）'
  })));
 });
 
@@ -220,4 +220,11 @@ test('XLSX rejects out-of-order row coordinates',async({page})=>{
  await uploadWorkbook(page,workbook(xml));
  await expect(page.locator('#file-status')).toContainText('行番号が不正');
  await expect(page.locator('#mapping-panel')).toBeHidden();
+});
+
+test('preview clearly states candidate rows are not registered',async({page})=>{
+ await page.locator('#csv-file').setInputFiles({name:'sample.csv',mimeType:'text/csv',buffer:Buffer.from('資産番号,PC名\nPC-01,営業PC')});
+ await page.locator('#refresh-preview').click();
+ await expect(page.locator('#preview-body')).toContainText('正本照合待ち（未登録）');
+ await expect(page.locator('#preview-summary')).toContainText('登録・更新は行われません');
 });
