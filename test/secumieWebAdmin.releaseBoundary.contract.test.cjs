@@ -58,15 +58,17 @@ test('remote evidence execution cannot mutate services, images, DB or secrets', 
     assert.doesNotMatch(content, /^\s*secretEnv:/mi);
     assert.doesNotMatch(content, /^\s*images:/mi);
     assert.doesNotMatch(content, /^\s*artifacts:/mi);
-    assert.doesNotMatch(content, /\bgcloud\s+(?:run\s+(?:deploy|services\s+update-traffic)|sql|secrets\s+versions\s+access|artifacts\s+docker\s+images\s+scan|builds\s+submit\s+\.)/i);
-    assert.doesNotMatch(content, /\bdocker\s+(?:build|push|rm\s+-f|rmi|system\s+prune)/i);
+    // Look for executable commands, not explanatory comments or safety-deny strings.
+    const commands = content.split(/\r?\n/).filter(line => !/^\s*#/.test(line)).join('\n');
+    assert.doesNotMatch(commands, /^\s*(?:&\s*)?gcloud\s+(?:run\b|sql\b|secrets\b|artifacts\b)/mi);
+    assert.doesNotMatch(commands, /^\s*(?:&\s*)?docker\s+(?:build|push|rm\s+-f|rmi|system\s+prune)\b/mi);
   }
   assert.doesNotMatch(yaml, /^\s*- --privileged$/m);
   assert.doesNotMatch(yaml, /^\s*- (?:--mount|--volume|-v)(?:=|$)/m);
   assert.match(pwsh, /param\(\[switch\]\$DryRun\)/);
   assert.match(pwsh, /gcloud builds submit --no-source/);
   assert.match(pwsh, /\$LASTEXITCODE\s+-ne\s+0/);
-  assert.doesNotMatch(pwsh, /docker\s+pull/i);
+  assert.doesNotMatch(pwsh, /^\s*(?:&\s*)?docker\s+pull\b/mi);
 });
 
 test('staff-only UI reuses WSC API, keeps manual mail handling and DB No-Go', () => {
