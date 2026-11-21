@@ -47,13 +47,21 @@
 4. 実行前テスト：`node --test test/secumieWebAdmin.releaseBoundary.contract.test.cjs`。変更時はこのテストを追加・修正し、実装契約との不一致を検出する。
 5. 結果が出ても公開Gateは変えない。Cloud Buildの一般的な実行料金が発生する場合がある。
 
+## 2026-11-22 読み取り専用GCP実体調査：SUCCESS
+
+- Windows PowerShellからのCloud Buildジョブ `eb944607-e2df-408a-a4b1-01d56b37d006`、既存候補イメージdigest一致、実行25秒、**SUCCESS**。
+- 実行証拠：`security/secumie-web-admin-runtime-evidence-20261122.json`、CVE正本 `security/secumie-web-admin-cve-ledger-20261121.json` の `runtimeEvidenceRef` から参照。
+- 非root uid1000、Xvfb/`cupsd`/Kerberosサーバーバイナリなし、Perl `Archive::Tar` IMPORT不可。Chromiumヘッドレスシェルが`libexpat.so.1`をリンクしていることを確認。
+- **CVEの非該当承認ではない。** OpenSSL/Expat/Kerberos等の利用経路・悪用条件はCVEごとの評価が必要。HIGH16／UNKNOWN14、例外0、`SECURITY_NO_GO`変わらず。
+- 変更時は本証拠と台帳のdigest・スキャン概要・非承認状態を契約テストで照合する。
+
 ## 5. リリースGate
 
 | Gate | 判定 |
 |---|---|
 | A：Web管理画面・診断経路のオフライン受入 | **PASS**（ブラウザ4/4、HTTP6/6、日本語PDF Smoke） |
 | B：Xvfb削減・スキャン | 機能PASS／**SECURITY_NO_GO**（HIGH16、UNKNOWN14） |
-| C：30件CVEの実利用／成立条件／修正版／必要な緩和策・例外承認 | **未完了**。自動免除なし |
+| C：30件CVEの実利用／成立条件／修正版／必要な緩和策・例外承認 | **実体調査PASS／個別CVE評価は未完了**。自動免除なし |
 | D：実Google Workspace認証・実WSC診断のStaging受入 | **未実施**。C完了前の公開Staging導入はしない |
 | E：Production release、PR #50 DB migration、受付切替 | **別承認**。このPRで扱わない |
 
@@ -64,4 +72,4 @@
 - **停止条件**：HEADが想定と異なる、worktreeが汚れている、CVE IDや件数の不一致、テスト失敗、GCP認証不足、image digest違い、公開・書込操作が要求される、実行結果を確認できない。
 - **報告形式**：固定HEAD、変更ファイル、Commit SHA、テスト名と実測PASS/FAIL/SKIP、未完了事項、Cloud Run／DB変更の有無。**未実行の検証をPASSと記載しない**。
 
-次工程はCloud Buildのread-only証拠の取得と、30件の個別トリアージの更新に限定。新たな製品機能、DB接続方式、認証機能の変更には進まない。
+次工程は**取得済みCloud Build read-only証拠に基づく30件の個別トリアージ**に限定。新たな製品機能、DB接続方式、認証機能の変更には進まない。
