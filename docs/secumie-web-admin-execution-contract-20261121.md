@@ -9,6 +9,14 @@
 3. **判断責任**：仕様・リスク受容・マイグレーション・公開判断はこのスレッドで明示的に確定する。Codexは確定した変更の実装・テスト・Commit/Push/Draft PR記録を行う実行役であり、独自の仕様追加・CVEsの一括承認はしない。
 4. **コード契約**：`node --test test/secumieWebAdmin.releaseBoundary.contract.test.cjs` が本工程の最短変更Gate。既存のブラウザ4/4、HTTP6/6、PDF Smoke PASSは証跡保持。変更がなければ高コストの再実行を要求しない。
 
+## 2026-11-21 実行証跡：GitHub Actionsコード契約Gate
+
+- ワークフロー：`.github/workflows/secumie-web-admin-contract.yml`。GitHub Actions Run ID `44909019875`、Job ID `136860645903`。
+- 対象はPR #51 merge ref（GitHub上でcheckout）、Node.js 24。**`node --test test/secumieWebAdmin.releaseBoundary.contract.test.cjs`：6 PASS / 0 FAIL / 0 SKIP**（ログ取得確認）。
+- 新たなCloud Shell・Cloud Build実行、イメージ作成、脆弱性再スキャン、実サービスへのデプロイは行っていない。
+- 当該ワークフローは**コードと設定の静的契約**のみ。実Google OAuth、実ネットワーク診断、既存コンテナの重大脆弱性の免除、Production公開の許可にはならない。
+- 新しいCVEの実体証拠は依然未取得。CVE台帳30件はすべて未解決、`SECURITY_NO_GO` 維持。
+
 ## 2. システム境界と不変条件
 
 | 対象 | 現行実装の基点 | 変更禁止／受入条件 |
