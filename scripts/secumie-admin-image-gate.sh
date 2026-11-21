@@ -31,20 +31,19 @@ PURGE_PLAN="$(docker run --rm --network none --read-only --user 0 \
   --entrypoint /usr/bin/apt-get "$PRIOR_IMAGE" \
   -s purge --auto-remove xvfb xserver-common)"
 REMOVALS="$(printf '%s\n' "$PURGE_PLAN" | awk '$1 == "Remv" {print $2}')"
-echo 'Packages that APT would remove:'
+echo 'APT simulated removal packages:'
 printf '%s\n' "$REMOVALS"
 for target in xvfb xserver-common; do
-  printf '%s\n' "$REMOVALS" | grep -Eq "^$target(:[a-z0-9]+)?$" || {
-    echo "[STOP] APT plan did not remove expected package: $target"; exit 1;
-  }
+  if ! printf '%s\n' "$REMOVALS" | grep -Eq "^$target(:[a-z0-9]+)?$"; then
+    echo "[STOP] APT plan did not remove expected package: $target"; exit 1
+  fi
 done
 for protected in libc6 nodejs libnss3 libssl3t64 libexpat1 fontconfig fonts-noto-cjk libgbm1 libglib2.0-0t64 libasound2t64 libcups2t64 ca-certificates libx11-6 libxcomposite1 libxdamage1 libxrandr2; do
   if printf '%s\n' "$REMOVALS" | grep -Eq "^$protected(:[a-z0-9]+)?$"; then
-    echo "[STOP] APT would remove Chromium/runtime dependency: $protected"
-    exit 1
+    echo "[STOP] APT would remove a required runtime dependency: $protected"; exit 1
   fi
 done
-echo 'Xvfb purge simulation PASS; main application dependencies protected.'
+echo 'APT simulation PASS (read-only).'
 
 echo '=== 1. Build candidate image ==='
 IMAGE="$IMAGE_BASE:smw-admin-$(printf '%s' "$SOURCE_SHA" | cut -c1-10)-$(date -u +%Y%m%d%H%M%S)"
@@ -88,305 +87,27 @@ const { chromium } = require("playwright");
 '
 echo 'PDF_SMOKE_PASS' >> "$RESULT"
 
-echo '=== 4. Browser UI acceptance (4 tests, no skips) ==='
+echo '=== 4. Browser UI acceptance (4/4 required) ==='
 BROWSER_OUTPUT="$(docker run --rm --network none --shm-size=512m \
   --mount "type=bind,source=$PWD/test,target=/app/test,readonly" \
   -e REQUIRE_BROWSER=1 \
   --entrypoint node "$IMMUTABLE" \
   --test --test-reporter=tap /app/test/secumieWebAdmin.browser.test.cjs)"
 printf '%s\n' "$BROWSER_OUTPUT"
-printf '%s\n' "$BROWSER_OUTPUT" | grep -Eq '^# tests 4
-SCAN="$(gcloud artifacts docker images scan "$LOCAL" \
-  --project="$PROJECT" --location=asia --format=json |
-  jq -er '.response.scan')"
-FINDINGS="$(gcloud artifacts docker images list-vulnerabilities \
-  "$SCAN" --project="$PROJECT" --format=json)"
-printf '%s\n' "$FINDINGS" > "$HOME/secumie-admin-image-vulnerabilities.json"
-printf 'SCAN=%s\n' "$SCAN" >> "$RESULT"
-SUMMARY="$(printf '%s' "$FINDINGS" | jq -e '
-  if type != "array" then error("Invalid scan result")
-  else
-    [.[].vulnerability | (.effectiveSeverity // .severity // "UNKNOWN")] |
-    {
-      CRITICAL: (map(select(. == "CRITICAL")) | length),
-      HIGH: (map(select(. == "HIGH")) | length),
-      UNKNOWN: (map(select(. == "UNKNOWN" or . == "SEVERITY_UNSPECIFIED" or . == "UNSPECIFIED")) | length),
-      OTHER: (map(select(. != "CRITICAL" and . != "HIGH" and . != "UNKNOWN" and . != "SEVERITY_UNSPECIFIED" and . != "UNSPECIFIED")) | length)
-    }
-  end
-')"
-echo "$SUMMARY"
-printf '%s\n' "$SUMMARY" >> "$RESULT"
-
-BLOCKERS="$(printf '%s' "$SUMMARY" | jq '.CRITICAL + .HIGH + .UNKNOWN')"
-if [[ "$BLOCKERS" != '0' ]]; then
-  printf '%s' "$FINDINGS" | jq '[
-    .[] | . as $v
-    | ($v.vulnerability.effectiveSeverity // $v.vulnerability.severity // "UNKNOWN") as $sev
-    | select($sev == "CRITICAL" or $sev == "HIGH" or $sev == "UNKNOWN"
-      or $sev == "SEVERITY_UNSPECIFIED" or $sev == "UNSPECIFIED")
-    | .vulnerability.packageIssue[]?
-    | {package: (.affectedPackage // "unknown"),
-       severity: $sev,
-       fixed: (.fixedVersion.fullName // "not available")}
-  ] | group_by(.package)
-    | map({package: .[0].package, blockers: length, severities: ([.[].severity] | unique),
-           fixed: ([.[].fixed] | unique)})
-    | sort_by(-.blockers)'
-  printf 'SECURITY_NO_GO\n' >> "$RESULT"
-  echo '[STOP] Scanner reported security blockers; no Cloud Run changes'
-  exit 1
-fi
-
-printf 'FINAL_PASS\n' >> "$RESULT"
-echo '=== FINAL PASS ==='
-echo "GIT=$SOURCE_SHA"
-echo "IMAGE=$IMMUTABLE"
-echo 'Cloud Run and DB unchanged.'
- || { echo '[STOP] Browser count != 4'; exit 1; }
-printf '%s\n' "$BROWSER_OUTPUT" | grep -Eq '^# pass 4
-SCAN="$(gcloud artifacts docker images scan "$LOCAL" \
-  --project="$PROJECT" --location=asia --format=json |
-  jq -er '.response.scan')"
-FINDINGS="$(gcloud artifacts docker images list-vulnerabilities \
-  "$SCAN" --project="$PROJECT" --format=json)"
-SUMMARY="$(printf '%s' "$FINDINGS" | jq -e '
-  if type != "array" then error("Invalid scan result")
-  else
-    [.[].vulnerability | (.effectiveSeverity // .severity // "UNKNOWN")] |
-    {
-      CRITICAL: (map(select(. == "CRITICAL")) | length),
-      HIGH: (map(select(. == "HIGH")) | length),
-      UNKNOWN: (map(select(. == "UNKNOWN" or . == "SEVERITY_UNSPECIFIED" or . == "UNSPECIFIED")) | length),
-      OTHER: (map(select(. != "CRITICAL" and . != "HIGH" and . != "UNKNOWN" and . != "SEVERITY_UNSPECIFIED" and . != "UNSPECIFIED")) | length)
-    }
-  end
-')"
-echo "$SUMMARY"
-printf '%s\n' "$SUMMARY" >> "$RESULT"
-
-BLOCKERS="$(printf '%s' "$SUMMARY" | jq '.CRITICAL + .HIGH + .UNKNOWN')"
-if [[ "$BLOCKERS" != '0' ]]; then
-  printf '%s' "$FINDINGS" | jq '[
-    .[] | . as $v
-    | ($v.vulnerability.effectiveSeverity // $v.vulnerability.severity // "UNKNOWN") as $sev
-    | select($sev == "CRITICAL" or $sev == "HIGH" or $sev == "UNKNOWN"
-      or $sev == "SEVERITY_UNSPECIFIED" or $sev == "UNSPECIFIED")
-    | .vulnerability.packageIssue[]?
-    | {package: (.affectedPackage // "unknown"),
-       severity: $sev,
-       fixed: (.fixedVersion.fullName // "not available")}
-  ] | group_by(.package)
-    | map({package: .[0].package, blockers: length, severities: ([.[].severity] | unique),
-           fixed: ([.[].fixed] | unique)})
-    | sort_by(-.blockers)'
-  printf 'SECURITY_NO_GO\n' >> "$RESULT"
-  echo '[STOP] Scanner reported security blockers; no Cloud Run changes'
-  exit 1
-fi
-
-printf 'FINAL_PASS\n' >> "$RESULT"
-echo '=== FINAL PASS ==='
-echo "GIT=$SOURCE_SHA"
-echo "IMAGE=$IMMUTABLE"
-echo 'Cloud Run and DB unchanged.'
- || { echo '[STOP] Browser acceptance failed'; exit 1; }
-printf '%s\n' "$BROWSER_OUTPUT" | grep -Eq '^# (skipped|skip) 0
-SCAN="$(gcloud artifacts docker images scan "$LOCAL" \
-  --project="$PROJECT" --location=asia --format=json |
-  jq -er '.response.scan')"
-FINDINGS="$(gcloud artifacts docker images list-vulnerabilities \
-  "$SCAN" --project="$PROJECT" --format=json)"
-SUMMARY="$(printf '%s' "$FINDINGS" | jq -e '
-  if type != "array" then error("Invalid scan result")
-  else
-    [.[].vulnerability | (.effectiveSeverity // .severity // "UNKNOWN")] |
-    {
-      CRITICAL: (map(select(. == "CRITICAL")) | length),
-      HIGH: (map(select(. == "HIGH")) | length),
-      UNKNOWN: (map(select(. == "UNKNOWN" or . == "SEVERITY_UNSPECIFIED" or . == "UNSPECIFIED")) | length),
-      OTHER: (map(select(. != "CRITICAL" and . != "HIGH" and . != "UNKNOWN" and . != "SEVERITY_UNSPECIFIED" and . != "UNSPECIFIED")) | length)
-    }
-  end
-')"
-echo "$SUMMARY"
-printf '%s\n' "$SUMMARY" >> "$RESULT"
-
-BLOCKERS="$(printf '%s' "$SUMMARY" | jq '.CRITICAL + .HIGH + .UNKNOWN')"
-if [[ "$BLOCKERS" != '0' ]]; then
-  printf '%s' "$FINDINGS" | jq '[
-    .[] | . as $v
-    | ($v.vulnerability.effectiveSeverity // $v.vulnerability.severity // "UNKNOWN") as $sev
-    | select($sev == "CRITICAL" or $sev == "HIGH" or $sev == "UNKNOWN"
-      or $sev == "SEVERITY_UNSPECIFIED" or $sev == "UNSPECIFIED")
-    | .vulnerability.packageIssue[]?
-    | {package: (.affectedPackage // "unknown"),
-       severity: $sev,
-       fixed: (.fixedVersion.fullName // "not available")}
-  ] | group_by(.package)
-    | map({package: .[0].package, blockers: length, severities: ([.[].severity] | unique),
-           fixed: ([.[].fixed] | unique)})
-    | sort_by(-.blockers)'
-  printf 'SECURITY_NO_GO\n' >> "$RESULT"
-  echo '[STOP] Scanner reported security blockers; no Cloud Run changes'
-  exit 1
-fi
-
-printf 'FINAL_PASS\n' >> "$RESULT"
-echo '=== FINAL PASS ==='
-echo "GIT=$SOURCE_SHA"
-echo "IMAGE=$IMMUTABLE"
-echo 'Cloud Run and DB unchanged.'
- || { echo '[STOP] Browser SKIP not allowed'; exit 1; }
+printf '%s\n' "$BROWSER_OUTPUT" | grep -Eq '^# tests 4$' || { echo '[STOP] Browser count != 4'; exit 1; }
+printf '%s\n' "$BROWSER_OUTPUT" | grep -Eq '^# pass 4$' || { echo '[STOP] Browser acceptance failed'; exit 1; }
+printf '%s\n' "$BROWSER_OUTPUT" | grep -Eq '^# (skipped|skip) 0$' || { echo '[STOP] Browser SKIP not allowed'; exit 1; }
 printf 'BROWSER_PASS=4/4\n' >> "$RESULT"
 
-echo '=== 5. Offline HTTP+WSC PDF acceptance (6 tests, no skips) ==='
+echo '=== 5. Offline HTTP WSC PDF acceptance (6/6 required) ==='
 HTTP_OUTPUT="$(docker run --rm --network none --shm-size=512m \
   --mount "type=bind,source=$PWD/test,target=/app/test,readonly" \
   --entrypoint node "$IMMUTABLE" \
   --test --test-reporter=tap /app/test/secumieWebAdmin.http.acceptance.cjs)"
 printf '%s\n' "$HTTP_OUTPUT"
-printf '%s\n' "$HTTP_OUTPUT" | grep -Eq '^# tests 6
-SCAN="$(gcloud artifacts docker images scan "$LOCAL" \
-  --project="$PROJECT" --location=asia --format=json |
-  jq -er '.response.scan')"
-FINDINGS="$(gcloud artifacts docker images list-vulnerabilities \
-  "$SCAN" --project="$PROJECT" --format=json)"
-SUMMARY="$(printf '%s' "$FINDINGS" | jq -e '
-  if type != "array" then error("Invalid scan result")
-  else
-    [.[].vulnerability | (.effectiveSeverity // .severity // "UNKNOWN")] |
-    {
-      CRITICAL: (map(select(. == "CRITICAL")) | length),
-      HIGH: (map(select(. == "HIGH")) | length),
-      UNKNOWN: (map(select(. == "UNKNOWN" or . == "SEVERITY_UNSPECIFIED" or . == "UNSPECIFIED")) | length),
-      OTHER: (map(select(. != "CRITICAL" and . != "HIGH" and . != "UNKNOWN" and . != "SEVERITY_UNSPECIFIED" and . != "UNSPECIFIED")) | length)
-    }
-  end
-')"
-echo "$SUMMARY"
-printf '%s\n' "$SUMMARY" >> "$RESULT"
-
-BLOCKERS="$(printf '%s' "$SUMMARY" | jq '.CRITICAL + .HIGH + .UNKNOWN')"
-if [[ "$BLOCKERS" != '0' ]]; then
-  printf '%s' "$FINDINGS" | jq '[
-    .[] | . as $v
-    | ($v.vulnerability.effectiveSeverity // $v.vulnerability.severity // "UNKNOWN") as $sev
-    | select($sev == "CRITICAL" or $sev == "HIGH" or $sev == "UNKNOWN"
-      or $sev == "SEVERITY_UNSPECIFIED" or $sev == "UNSPECIFIED")
-    | .vulnerability.packageIssue[]?
-    | {package: (.affectedPackage // "unknown"),
-       severity: $sev,
-       fixed: (.fixedVersion.fullName // "not available")}
-  ] | group_by(.package)
-    | map({package: .[0].package, blockers: length, severities: ([.[].severity] | unique),
-           fixed: ([.[].fixed] | unique)})
-    | sort_by(-.blockers)'
-  printf 'SECURITY_NO_GO\n' >> "$RESULT"
-  echo '[STOP] Scanner reported security blockers; no Cloud Run changes'
-  exit 1
-fi
-
-printf 'FINAL_PASS\n' >> "$RESULT"
-echo '=== FINAL PASS ==='
-echo "GIT=$SOURCE_SHA"
-echo "IMAGE=$IMMUTABLE"
-echo 'Cloud Run and DB unchanged.'
- || { echo '[STOP] HTTP test count != 6'; exit 1; }
-printf '%s\n' "$HTTP_OUTPUT" | grep -Eq '^# pass 6
-SCAN="$(gcloud artifacts docker images scan "$LOCAL" \
-  --project="$PROJECT" --location=asia --format=json |
-  jq -er '.response.scan')"
-FINDINGS="$(gcloud artifacts docker images list-vulnerabilities \
-  "$SCAN" --project="$PROJECT" --format=json)"
-SUMMARY="$(printf '%s' "$FINDINGS" | jq -e '
-  if type != "array" then error("Invalid scan result")
-  else
-    [.[].vulnerability | (.effectiveSeverity // .severity // "UNKNOWN")] |
-    {
-      CRITICAL: (map(select(. == "CRITICAL")) | length),
-      HIGH: (map(select(. == "HIGH")) | length),
-      UNKNOWN: (map(select(. == "UNKNOWN" or . == "SEVERITY_UNSPECIFIED" or . == "UNSPECIFIED")) | length),
-      OTHER: (map(select(. != "CRITICAL" and . != "HIGH" and . != "UNKNOWN" and . != "SEVERITY_UNSPECIFIED" and . != "UNSPECIFIED")) | length)
-    }
-  end
-')"
-echo "$SUMMARY"
-printf '%s\n' "$SUMMARY" >> "$RESULT"
-
-BLOCKERS="$(printf '%s' "$SUMMARY" | jq '.CRITICAL + .HIGH + .UNKNOWN')"
-if [[ "$BLOCKERS" != '0' ]]; then
-  printf '%s' "$FINDINGS" | jq '[
-    .[] | . as $v
-    | ($v.vulnerability.effectiveSeverity // $v.vulnerability.severity // "UNKNOWN") as $sev
-    | select($sev == "CRITICAL" or $sev == "HIGH" or $sev == "UNKNOWN"
-      or $sev == "SEVERITY_UNSPECIFIED" or $sev == "UNSPECIFIED")
-    | .vulnerability.packageIssue[]?
-    | {package: (.affectedPackage // "unknown"),
-       severity: $sev,
-       fixed: (.fixedVersion.fullName // "not available")}
-  ] | group_by(.package)
-    | map({package: .[0].package, blockers: length, severities: ([.[].severity] | unique),
-           fixed: ([.[].fixed] | unique)})
-    | sort_by(-.blockers)'
-  printf 'SECURITY_NO_GO\n' >> "$RESULT"
-  echo '[STOP] Scanner reported security blockers; no Cloud Run changes'
-  exit 1
-fi
-
-printf 'FINAL_PASS\n' >> "$RESULT"
-echo '=== FINAL PASS ==='
-echo "GIT=$SOURCE_SHA"
-echo "IMAGE=$IMMUTABLE"
-echo 'Cloud Run and DB unchanged.'
- || { echo '[STOP] HTTP acceptance failed'; exit 1; }
-printf '%s\n' "$HTTP_OUTPUT" | grep -Eq '^# (skipped|skip) 0
-SCAN="$(gcloud artifacts docker images scan "$LOCAL" \
-  --project="$PROJECT" --location=asia --format=json |
-  jq -er '.response.scan')"
-FINDINGS="$(gcloud artifacts docker images list-vulnerabilities \
-  "$SCAN" --project="$PROJECT" --format=json)"
-SUMMARY="$(printf '%s' "$FINDINGS" | jq -e '
-  if type != "array" then error("Invalid scan result")
-  else
-    [.[].vulnerability | (.effectiveSeverity // .severity // "UNKNOWN")] |
-    {
-      CRITICAL: (map(select(. == "CRITICAL")) | length),
-      HIGH: (map(select(. == "HIGH")) | length),
-      UNKNOWN: (map(select(. == "UNKNOWN" or . == "SEVERITY_UNSPECIFIED" or . == "UNSPECIFIED")) | length),
-      OTHER: (map(select(. != "CRITICAL" and . != "HIGH" and . != "UNKNOWN" and . != "SEVERITY_UNSPECIFIED" and . != "UNSPECIFIED")) | length)
-    }
-  end
-')"
-echo "$SUMMARY"
-printf '%s\n' "$SUMMARY" >> "$RESULT"
-
-BLOCKERS="$(printf '%s' "$SUMMARY" | jq '.CRITICAL + .HIGH + .UNKNOWN')"
-if [[ "$BLOCKERS" != '0' ]]; then
-  printf '%s' "$FINDINGS" | jq '[
-    .[] | . as $v
-    | ($v.vulnerability.effectiveSeverity // $v.vulnerability.severity // "UNKNOWN") as $sev
-    | select($sev == "CRITICAL" or $sev == "HIGH" or $sev == "UNKNOWN"
-      or $sev == "SEVERITY_UNSPECIFIED" or $sev == "UNSPECIFIED")
-    | .vulnerability.packageIssue[]?
-    | {package: (.affectedPackage // "unknown"),
-       severity: $sev,
-       fixed: (.fixedVersion.fullName // "not available")}
-  ] | group_by(.package)
-    | map({package: .[0].package, blockers: length, severities: ([.[].severity] | unique),
-           fixed: ([.[].fixed] | unique)})
-    | sort_by(-.blockers)'
-  printf 'SECURITY_NO_GO\n' >> "$RESULT"
-  echo '[STOP] Scanner reported security blockers; no Cloud Run changes'
-  exit 1
-fi
-
-printf 'FINAL_PASS\n' >> "$RESULT"
-echo '=== FINAL PASS ==='
-echo "GIT=$SOURCE_SHA"
-echo "IMAGE=$IMMUTABLE"
-echo 'Cloud Run and DB unchanged.'
- || { echo '[STOP] HTTP SKIP not allowed'; exit 1; }
+printf '%s\n' "$HTTP_OUTPUT" | grep -Eq '^# tests 6$' || { echo '[STOP] HTTP test count != 6'; exit 1; }
+printf '%s\n' "$HTTP_OUTPUT" | grep -Eq '^# pass 6$' || { echo '[STOP] HTTP acceptance failed'; exit 1; }
+printf '%s\n' "$HTTP_OUTPUT" | grep -Eq '^# (skipped|skip) 0$' || { echo '[STOP] HTTP SKIP not allowed'; exit 1; }
 printf 'HTTP_PASS=6/6\n' >> "$RESULT"
 
 echo '=== 6. Scan immutable image (once) ==='
@@ -395,6 +116,8 @@ SCAN="$(gcloud artifacts docker images scan "$LOCAL" \
   jq -er '.response.scan')"
 FINDINGS="$(gcloud artifacts docker images list-vulnerabilities \
   "$SCAN" --project="$PROJECT" --format=json)"
+printf '%s\n' "$FINDINGS" > "$HOME/secumie-admin-image-vulnerabilities.json"
+printf 'SCAN=%s\n' "$SCAN" >> "$RESULT"
 SUMMARY="$(printf '%s' "$FINDINGS" | jq -e '
   if type != "array" then error("Invalid scan result")
   else
