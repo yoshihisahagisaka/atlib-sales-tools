@@ -29,6 +29,15 @@
 - **HEADLESS最小化だけでOS CVEが0になるとは保証しない。** HIGH/CRITICAL/UNKNOWN残存時は引き続き`SECURITY_NO_GO`。ブラウザ実機テスト、実サービスのスタッフ認証／既存WSC PDF UAT、および本番リリース判定は別Gate。
 - 既存の `sales-tools` Production 100%、`sales-tools-staging` Staging 100%、SECU:MIE Webの専用DB／Migrationに変更を与えない。管理画面はDraft PR #51のまま。
 
+## 2026-11-21 イメージ削減結果とブラウザ受入ゲート
+
+- ヘッドレス専用候補イメージ：`sha256:810d3ddcf97cd009cdf73de77dfff008cd281d234ff49f9ae39a4dfdf86a384e`、Git `808e99e275b73fbd25fb795b26115df144c78e1e`。
+- Cloud Build **PASS**、ネットワークなし・非rootコンテナでの合成日本語PDF生成 **`PDF_SMOKE_PASS`**。
+- オンデマンドスキャン：CRITICAL 0、HIGH 17、UNKNOWN 16、OTHER 230。旧候補とHIGH/UNKNOWN件数は**変化なし**。本番リリースは **SECURITY_NO_GO**。
+- PlaywrightのブラウザテストにあったフルChromiumの`executablePath()`強制指定を削除。ヘッドレスシェルの通常自動選択を利用。`REQUIRE_BROWSER=1`ではブラウザ起動失敗をSKIPせず失敗として扱う。
+- 再ビルドせず、既存イメージに最新のテストファイルだけを読み取り専用でマウントして`bash scripts/secumie-admin-browser-acceptance.sh`を実行できるようにした。対象：デスクトップPDFダウンロード、モバイル表示、仮API一覧・操作、未送付時の提出確定防止。APIはすべてローカルモック、顧客PII・外部通信・DBなし。
+- このブラウザテストがPASSしても、スタッフ認証と実WSC PDF出力のStaging E2E、脆弱性No-Goは解除されない。既存のWSC運用による手作業のPDF提出は継続可能。
+
 ## 役割と設置先
 
 - スタッフ側: Sales Tools の `/admin/secumie-web.html`。既存 `requireStaffAuth` とIPレート制限の内側にある `/admin` static 配信を再利用する。新しい公開APIや認証方式は追加しない。
