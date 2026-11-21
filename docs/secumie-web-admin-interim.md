@@ -39,6 +39,15 @@
 - **2026-11-21 受入証跡：`bash scripts/secumie-admin-browser-acceptance.sh` 実施結果 `tests 4 / pass 4 / fail 0 / skipped 0`**。イメージ `sha256:810d3ddcf97cd009cdf73de77dfff008cd281d234ff49f9ae39a4dfdf86a384e` の非ネットワークコンテナに、最新のブラウザテストのみ読み取り専用マウント。デスクトップPDFダウンロード・モバイル表示・モック受付一覧/状態更新・提出済み取消確認の4件PASS。**ブラウザUI受入のみPASS**、本物の認証・実WSC診断API・DB接続のE2Eとは区別する。
 - このブラウザテストがPASSしても、スタッフ認証と実WSC PDF出力のStaging E2E、脆弱性No-Goは解除されない。既存のWSC運用による手作業のPDF提出は継続可能。
 
+## 2026-11-21 本番へ出さずに実HTTPとPDFを検証する追加Gate
+
+- UIについては、実Chromium + モックAPIのブラウザ受入4件PASS／SKIP 0を確認済み。
+- **次Gate（未実行）**：`test/secumieWebAdmin.http.acceptance.cjs`。既存の確定イメージ`sha256:810d3ddcf97cd009cdf73de77dfff008cd281d234ff49f9ae39a4dfdf86a384e`を使用し、別途ビルド・脆弱性スキャン・Cloud Runデプロイを行わない。`bash scripts/secumie-admin-offline-http-acceptance.sh`で実行。
+- 6つの結合検証：無認証管理HTML/JSのリダイレクト、無認証WSC APIの401、合成スタッフJWTによる保護画面の取得、実WSC評価エンジンとChromiumによる実PDFのHTTP応答、HTTP対象URLの拒否、不正入力の拒否。
+- 実PDFテストは外部ネットワークを切断し、合成済みのWeb/DNS証拠とテスト用DNS・ネットワークトランスポートのみを使用する。秘密情報・顧客PII・実DB・実SMTP・実Googleログインにはアクセスしない。
+- これは**認証ミドルウェアおよびWSC HTTP経路のオフライン結合検証**であって、Google Workspace OAuthの本番ログイン試験ではない。公開Stagingへのデプロイや新コンテナの本番昇格を許可するものでもない。
+- CRITICAL 0／HIGH 17／UNKNOWN 16の新イメージは引き続き **SECURITY_NO_GO**。既存WSC運用は継続する。
+
 ## 役割と設置先
 
 - スタッフ側: Sales Tools の `/admin/secumie-web.html`。既存 `requireStaffAuth` とIPレート制限の内側にある `/admin` static 配信を再利用する。新しい公開APIや認証方式は追加しない。
