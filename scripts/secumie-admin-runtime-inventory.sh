@@ -16,8 +16,9 @@ echo "=== Runtime identity ==="
 id
 echo "=== Relevant installed Debian packages ==="
 for p in xvfb xserver-common libxfont2 libfontenc1 cups cups-daemon libcups2t64 krb5-kdc krb5-admin-server libkrb5-3 perl perl-base libexpat1 libssl3t64 libacl1 acl libattr1 attr; do
-  if dpkg-query -W -f="\${binary:Package} \${Version} \${Status}\n" "$p" 2>/dev/null; then
-    :
+  state="$(dpkg-query -W -f="\${Status}" "$p" 2>/dev/null || true)"
+  if [ "$state" = "install ok installed" ]; then
+    dpkg-query -W -f="\${binary:Package} \${Version} \${Status}\n" "$p"
   else
     printf "%s: not installed\n" "$p"
   fi
@@ -31,6 +32,6 @@ for bin in /usr/bin/Xvfb /usr/sbin/cupsd /usr/sbin/kadmind /usr/sbin/krb5kdc /us
   fi
 done
 echo "=== Headless shell installed ==="
-find /ms-playwright -maxdepth 4 -type f -name headless_shell -print
+find /ms-playwright -maxdepth 7 -type f \( -name headless_shell -o -name chrome-headless-shell \) -print
 '
 echo '=== READ-ONLY INVENTORY COMPLETE ==='
