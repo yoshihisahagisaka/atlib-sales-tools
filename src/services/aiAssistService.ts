@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { MarketRateRepo } from './marketRateRepo';
 import type { EstimatePreconditionRepo } from './estimatePreconditionRepo';
 import type { EstimateCategory } from '../domain/costEstimation';

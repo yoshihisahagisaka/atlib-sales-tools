@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>SECU:MIE Web 受付・診断管理 | atLIB Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .admin-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; align-items: baseline; }
+    .admin-heading a { font-size: .9rem; }
+    .notice { padding: .85rem 1rem; margin: 1rem 0; background: #fff8e6; border: 1px solid #e7d69f; border-radius: 8px; line-height: 1.7; }
+    .help { font-size: .9rem; color: #526071; line-height: 1.7; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+    .form-grid input, .filter-grid input { box-sizing: border-box; width: 100%; padding: .55rem; border: 1px solid #b8c4ce; border-radius: 5px; }
+    .filter-grid { display: grid; grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) minmax(9rem, 12rem); gap: .75rem; }
+    .filter-grid select { box-sizing: border-box; }
+    .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; margin-top: .7rem; }
+    .table-scroll { width: 100%; overflow-x: auto; }
+    .table-scroll table { min-width: 920px; }
+    .table-scroll td { vertical-align: top; word-break: break-word; white-space: pre-line; }
+    .table-scroll td .btn { white-space: nowrap; }
+    .status-control { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+    .status-control select { max-width: 9rem; }
+    .status-note { font-size: .85rem; color: #526071; }
+    #list-state, #diagnosis-state { margin-top: 1rem; white-space: pre-wrap; }
+    #list-state[data-kind="error"], #diagnosis-state[data-kind="error"] { color: #a52626; }
+    #list-state[data-kind="success"], #diagnosis-state[data-kind="success"] { color: #08713f; }
+    @media (max-width: 700px) { .form-grid, .filter-grid { grid-template-columns: minmax(0, 1fr); } .page { padding: 0 1rem; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="admin-heading">
+      <h1>SECU:MIE Web｜受付・診断管理</h1>
+      <a href="/admin/web-security-check.html">従来のWSC管理画面</a>
+    </header>
+    <p class="help">atLIBスタッフ専用。公開受付サイトと顧客に表示する診断結果は変更しません。</p>
+
+    <div class="notice" role="note">
+      <strong>現在は暫定メール受付です。</strong>
+      受信した受付メールを原本として確認してください。専用DBへの移行が完了するまでは、メール受付分は下の一覧に自動登録されません。
+      この画面ではPDFを作成・保存できますが、顧客への送付と対応履歴の記録は自動実行されません。
+    </div>
+
+    <section class="card" aria-labelledby="diagnosis-title">
+      <h2 id="diagnosis-title">診断レポートを作成する</h2>
+      <p class="help">受付メールから「会社名・団体名」と「診断対象URL」を転記してください。診断は公開情報のみを対象とします。</p>
+      <form id="diagnosis-form">
+        <div class="form-grid">
+          <div class="form-row">
+            <label for="company">会社名・団体名（必須）</label>
+            <input id="company" name="company" type="text" maxlength="500" required autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label for="target-url">診断対象URL（HTTPS・必須）</label>
+            <input id="target-url" name="target-url" type="url" maxlength="2000" required placeholder="https://example.jp/" autocomplete="off" inputmode="url">
+          </div>
+        </div>
+        <div class="actions">
+          <button id="diagnose-button" class="btn" type="submit">診断を実行してPDFを保存</button>
+          <button id="clear-button" class="btn btn-secondary" type="button">入力をクリア</button>
+        </div>
+      </form>
+      <p class="help">生成したPDFはこの端末へダウンロードします。個人情報・診断結果をブラウザに永続保存しません。送付先メールアドレスは受付メール原本で確認してください。</p>
+      <p id="diagnosis-state" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card" aria-labelledby="requests-title">
+      <h2 id="requests-title">正式受付一覧（専用DB接続後）</h2>
+      <p class="help">専用受付APIが本番稼働すると、申込内容をここで検索・確認し、診断対象を反映して対応状況を更新できます。現在のメール受付分は自動同期されません。</p>
+      <form id="filter-form">
+        <div class="filter-grid">
+          <div><label for="filter-company">会社名</label><input id="filter-company" type="text" maxlength="200"></div>
+          <div><label for="filter-union">所属組合名</label><input id="filter-union" type="text" maxlength="200"></div>
+          <div><label for="filter-status">対応状況</label>
+            <select id="filter-status">
+              <option value="">すべて</option>
+              <option value="RECEIVED">受付済み</option>
+              <option value="IN_PROGRESS">対応中</option>
+              <option value="SUBMITTED">提出済み</option>
+              <option value="CANCELLED">取消</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions"><button class="btn btn-secondary" type="submit">一覧を読み込む・検索</button></div>
+      </form>
+      <p id="list-state" role="status" aria-live="polite">一覧を読み込んでいません。</p>
+      <div id="request-results" hidden>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th scope="col">受付日時・番号</th><th scope="col">会社名・所属組合</th><th scope="col">対象URL</th><th scope="col">連絡先</th><th scope="col">診断</th><th scope="col">対応状況</th></tr></thead>
+            <tbody id="request-rows"></tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button id="previous-button" class="btn btn-secondary" type="button" disabled>前の50件</button>
+          <span id="page-label" class="status-note"></span>
+          <button id="next-button" class="btn btn-secondary" type="button" disabled>次の50件</button>
+        </div>
+        <p class="status-note">「提出済み」は、PDFを実際に送付したことを確認した後だけ選択してください。PDFをダウンロードしただけでは提出済みになりません。</p>
+      </div>
+    </section>
+  </main>
+  <script src="/admin/secumie-web.js" defer></script>
+</body>
+</html>

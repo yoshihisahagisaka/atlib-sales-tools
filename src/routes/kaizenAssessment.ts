@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import {
   CATALOG_VERSION,
   PRE_SURVEY_QUESTIONS,

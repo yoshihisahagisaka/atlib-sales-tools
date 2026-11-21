@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import {
   BUSINESS_OPERATING_FIELDS,
   CATALOG_VERSION,

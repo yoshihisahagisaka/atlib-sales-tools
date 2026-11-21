@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { FreeDiagnosisSalesLauncherRepo } from '../services/freeDiagnosisSalesLauncherRepo';
 import type { FreeDiagnosisRuleBasedCaseRepo } from '../services/freeDiagnosisRuleBasedCaseRepo';
 import type { Vs1ReviewReportFeedbackRepo } from '../services/vs1ReviewReportFeedbackRepo';

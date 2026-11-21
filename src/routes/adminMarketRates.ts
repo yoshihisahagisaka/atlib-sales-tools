@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { MarketRateRepo } from '../services/marketRateRepo';
 
 const categorySchema = z.enum(['network', 'server', 'kitting', 'dev', 'other']);

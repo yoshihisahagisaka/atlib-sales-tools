@@ -1,5 +1,5 @@
 import {Router} from 'express';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import type {WebDevelopmentPartnerLeadRepo} from '../services/webDevelopmentPartnerLeadRepo';
 import {createIpRateLimiter} from '../middleware/rateLimit';
 import type {Mailer} from '../services/mailer';

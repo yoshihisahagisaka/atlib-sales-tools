@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { BusinessWebConsultationLeadRepo } from '../services/businessWebConsultationLeadRepo';
 const statuses=['new','contacted','scheduled','completed','closed'] as const;
 const status=z.enum(statuses);

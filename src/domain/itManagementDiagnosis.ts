@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 export const PROVIDER_NAME = 'atLIB株式会社';
 export const SURVEY_VERSION = 2;
