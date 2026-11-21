@@ -18,6 +18,7 @@ async function request(path: string, method = 'GET', body?: unknown, authorized 
 
 test('shared customer APIs require staff authentication', async () => {
   assert.equal((await request('/api/admin/sales-customers/companies?q=ABC', 'GET', undefined, false)).status, 401);
+  assert.equal((await request(`/api/admin/sales-customers/activities/${randomUUID()}`, 'GET', undefined, false)).status, 401);
   assert.equal((await request('/api/admin/sales-customers/activities', 'POST', {}, false)).status, 401);
 });
 
@@ -54,6 +55,16 @@ test('one company and contact can create independent IT and Business activities'
   }
   assert.deepEqual(activities.map(item => item.selectedService), ['IT_KAIZEN', 'BUSINESS_WEB']);
   assert.notEqual(activities[0]!.salesActivityId, activities[1]!.salesActivityId);
+
+  const activityDetail = await request(`/api/admin/sales-customers/activities/${activities[0]!.salesActivityId}`);
+  assert.equal(activityDetail.status, 200);
+  const detail = await activityDetail.json() as Record<string, unknown>;
+  assert.deepEqual({ ...detail, createdAt: undefined }, {
+    id: activities[0]!.salesActivityId, companyId: company.id, companyName: name,
+    contactId: contact.id, contactName: 'Shared Contact', contactEmail: 'person@example.jp',
+    selectedService: 'IT_KAIZEN', createdAt: undefined,
+  });
+  assert.equal(typeof detail.createdAt, 'string');
 
   const counts = await h.pool.query<{ companies: string; contacts: string; activities: string }>(
     `SELECT (SELECT count(*) FROM company WHERE id=$1)::text AS companies,

@@ -56,6 +56,26 @@ export class SalesCustomerRepo {
     return rows;
   }
 
+  async getActivity(salesActivityId: string) {
+    const { rows } = await this.pool.query(
+      `SELECT s.id,s.company_id AS "companyId",c.name AS "companyName",
+              s.primary_contact_id AS "contactId",ct.name AS "contactName",
+              ct.email AS "contactEmail",s.selected_service AS "selectedService",
+              s.created_at AS "createdAt"
+         FROM sales_activity s
+         JOIN company c ON c.id=s.company_id
+         LEFT JOIN contact ct ON ct.id=s.primary_contact_id
+        WHERE s.id=$1`,
+      [salesActivityId],
+    );
+    const activity = rows[0];
+    if (!activity) throw new SalesCustomerError(404, 'SALES_ACTIVITY_NOT_FOUND');
+    if (!activity.contactId || !activity.contactName) throw new SalesCustomerError(409, 'CONTACT_COMPANY_MISMATCH');
+    const membership = await this.pool.query('SELECT id FROM contact WHERE id=$1 AND company_id=$2', [activity.contactId, activity.companyId]);
+    if (!membership.rows[0]) throw new SalesCustomerError(409, 'CONTACT_COMPANY_MISMATCH');
+    return activity;
+  }
+
   async createCompany(input: NewCustomerInput, actor: string) {
     const { rows } = await this.pool.query(
       `INSERT INTO company (id,name,corporate_number,created_by_user_id,owner_user_id)

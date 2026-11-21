@@ -24,6 +24,19 @@ describe('E4-C Staff Proxy to Design v2', () => {
   before(async () => { h = await hPromise; }); after(async () => { await h.close(); });
 
   const post = (body: unknown, authenticated = true) => fetch(h.url + '/api/admin/free-diagnosis-v1/design-v2/staff-proxy-submissions', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authenticated ? { Cookie: h.staffCookie } : {}) }, body: JSON.stringify(body) });
+  const crm = async (path: string, body: unknown) => {
+    const response = await fetch(h.url + '/api/admin/sales-customers' + path, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: h.staffCookie }, body: JSON.stringify(body) });
+    assert.equal(response.status, 201); return response.json() as Promise<any>;
+  };
+  const existingActivity = async (selectedService: 'IT_KAIZEN' | 'BUSINESS_WEB' = 'IT_KAIZEN') => {
+    const company = await crm('/companies', { name: `Existing ${randomUUID()}` });
+    const contact = await crm(`/companies/${company.id}/contacts`, { name: 'Existing Contact', email: 'existing@example.test' });
+    const activity = await crm('/activities', { companyId: company.id, contactId: contact.id, selectedService });
+    return { company, contact, activity };
+  };
+  const existingInput = (salesActivityId: string, idempotencyKey = randomUUID()): StaffProxyDesignV2SubmissionInput => ({
+    idempotencyKey, salesActivityId, respondentRole: 'MANAGEMENT', survey: structuredClone(survey), consentConfirmed: true,
+  });
 
   test('requires Staff authentication', async () => { assert.equal((await post(input('Unauthorized'), false)).status, 401); });
 
@@ -49,6 +62,58 @@ describe('E4-C Staff Proxy to Design v2', () => {
     const ar = await a.json() as { caseId:string }; const br = await b.json() as { caseId:string }; assert.equal(ar.caseId, br.caseId);
     assert.equal((await h.pool.query("SELECT id FROM company WHERE name='E4-C再送株式会社'")).rowCount, 1);
     assert.equal((await post({ ...body, activity: { ...body.activity, name: '別内容株式会社' } })).status, 409);
+  });
+
+  test('existing Activity creates only one IT Case and Design v2 Original without duplicating CRM records', async () => {
+    const existing = await existingActivity();
+    const before = (await h.pool.query<any>('SELECT (SELECT count(*) FROM company)::int companies,(SELECT count(*) FROM contact)::int contacts,(SELECT count(*) FROM sales_activity)::int activities')).rows[0];
+    const response = await post(existingInput(existing.activity.salesActivityId));
+    assert.equal(response.status, 201);
+    const result = await response.json() as { caseId: string };
+    const after = (await h.pool.query<any>('SELECT (SELECT count(*) FROM company)::int companies,(SELECT count(*) FROM contact)::int contacts,(SELECT count(*) FROM sales_activity)::int activities')).rows[0];
+    assert.deepEqual(after, before);
+    const kase = (await h.pool.query<any>('SELECT company_id,contact_id,sales_activity_id,status FROM it_management_diagnosis_case_v2 WHERE id=$1', [result.caseId])).rows[0];
+    assert.deepEqual(kase, { company_id: existing.company.id, contact_id: existing.contact.id, sales_activity_id: existing.activity.salesActivityId, status: 'INTAKE_COMPLETED' });
+    assert.equal((await h.pool.query('SELECT id FROM it_management_diagnosis_original_survey_snapshot_v2 WHERE case_id=$1', [result.caseId])).rowCount, 1);
+  });
+
+  test('existing Activity rejects Business service and cross-company Contact membership', async () => {
+    const business = await existingActivity('BUSINESS_WEB');
+    assert.equal((await post(existingInput(business.activity.salesActivityId))).status, 409);
+    const mismatched = await existingActivity();
+    const other = await existingActivity();
+    await h.pool.query('UPDATE sales_activity SET primary_contact_id=$1 WHERE id=$2', [other.contact.id, mismatched.activity.salesActivityId]);
+    assert.equal((await post(existingInput(mismatched.activity.salesActivityId))).status, 409);
+    assert.equal((await h.pool.query('SELECT id FROM it_management_diagnosis_case_v2 WHERE sales_activity_id=ANY($1::uuid[])', [[business.activity.salesActivityId, mismatched.activity.salesActivityId]])).rowCount, 0);
+  });
+
+  test('existing Activity preserves idempotency and rejects a reused key with changed payload', async () => {
+    const existing = await existingActivity(); const key = randomUUID(); const body = existingInput(existing.activity.salesActivityId, key);
+    const first = await post(body); assert.equal(first.status, 201); const firstResult = await first.json() as { caseId: string };
+    const replay = await post(body); assert.equal(replay.status, 200); assert.equal((await replay.json() as { caseId: string }).caseId, firstResult.caseId);
+    const changed = { ...body, survey: { ...body.survey, q4CurrentInterest: 'SECURITY_AND_CONTINUITY' as const } };
+    assert.equal((await post(changed)).status, 409);
+  });
+
+  test('different keys racing for one existing Activity create one Case and reject the other', async () => {
+    const existing = await existingActivity();
+    const [a, b] = await Promise.all([post(existingInput(existing.activity.salesActivityId)), post(existingInput(existing.activity.salesActivityId))]);
+    assert.deepEqual([a.status, b.status].sort(), [201, 409]);
+    assert.equal((await h.pool.query('SELECT id FROM it_management_diagnosis_case_v2 WHERE sales_activity_id=$1', [existing.activity.salesActivityId])).rowCount, 1);
+  });
+
+  test('existing Activity requires consent and analyzer failure rolls back new domain records only', async () => {
+    const noConsent = await existingActivity(); const missing: any = existingInput(noConsent.activity.salesActivityId); delete missing.consentConfirmed;
+    assert.equal((await post(missing)).status, 400);
+    assert.equal((await h.pool.query('SELECT id FROM it_management_diagnosis_case_v2 WHERE sales_activity_id=$1', [noConsent.activity.salesActivityId])).rowCount, 0);
+
+    const existing = await existingActivity();
+    const failing = new FreeDiagnosisDesignV2PersistenceRepo(h.pool, () => { throw new Error('injected existing activity analyzer failure'); });
+    const service = new StaffProxyDesignV2SubmissionService(h.pool, new FreeDiagnosisDesignV2EntryAdapter(failing));
+    await assert.rejects(service.submit(existingInput(existing.activity.salesActivityId), 'operator@atlib.jp'), /injected existing activity analyzer failure/);
+    assert.equal((await h.pool.query('SELECT id FROM sales_activity WHERE id=$1', [existing.activity.salesActivityId])).rowCount, 1);
+    assert.equal((await h.pool.query('SELECT id FROM it_management_diagnosis_case_v2 WHERE sales_activity_id=$1', [existing.activity.salesActivityId])).rowCount, 0);
+    assert.equal((await h.pool.query("SELECT id FROM it_management_diagnosis_case_v2_audit WHERE detail_json->>'sales_activity_id'=$1", [existing.activity.salesActivityId])).rowCount, 0);
   });
 
   test('canonical validation rejects invalid answers without partial records', async () => {
