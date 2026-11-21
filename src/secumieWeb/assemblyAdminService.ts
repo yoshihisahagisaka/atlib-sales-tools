@@ -29,7 +29,7 @@ export class AssemblyAdminService {
     try {
       await client.query('BEGIN');
       const row = await client.query<{ request_status: AssemblyStatus }>('SELECT request_status FROM secumie_web.assembly_intake WHERE intake_id=$1 FOR UPDATE', [intakeId]);
-      if (!row.rows[0]) return undefined;
+      if (!row.rows[0]) { await client.query('ROLLBACK'); return undefined; }
       const current = row.rows[0].request_status;
       if (current === next) { await client.query('COMMIT'); return { status: current, unchanged: true }; }
       await client.query('UPDATE secumie_web.assembly_intake SET request_status=$2,updated_at=now() WHERE intake_id=$1', [intakeId, next]);
