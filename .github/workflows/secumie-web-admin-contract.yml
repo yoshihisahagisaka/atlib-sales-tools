@@ -5,6 +5,10 @@ on:
     paths:
       - '.github/workflows/secumie-web-admin-contract.yml'
       - 'security/secumie-web-admin-cve-ledger-20261121.json'
+      - 'security/secumie-web-admin-cve-triage-20261122.json'
+      - 'security/secumie-web-admin-runtime-evidence-20261122.json'
+      - 'docs/secumie-web-admin-cve-review-20261121.md'
+      - 'docs/secumie-web-admin-execution-contract-20261121.md'
       - 'cloudbuild/secumie-admin-readonly-cve-evidence.yaml'
       - 'scripts/secumie-admin-cve-remote-readonly.ps1'
       - 'src/server.ts'
