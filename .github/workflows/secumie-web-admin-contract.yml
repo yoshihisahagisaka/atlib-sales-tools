@@ -1,0 +1,34 @@
+name: SECU MIE Web release boundary contract
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/secumie-web-admin-contract.yml'
+      - 'security/secumie-web-admin-cve-ledger-20261121.json'
+      - 'cloudbuild/secumie-admin-readonly-cve-evidence.yaml'
+      - 'scripts/secumie-admin-cve-remote-readonly.ps1'
+      - 'src/server.ts'
+      - 'src/routes/adminWebSecurityCheck.ts'
+      - 'src/services/wscSalesService.ts'
+      - 'public/admin/secumie-web.html'
+      - 'public/admin/secumie-web.js'
+      - 'test/secumieWebAdmin.releaseBoundary.contract.test.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-boundary:
+    name: Static release boundary — no credentials or external probes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout PR HEAD
+        uses: actions/checkout@v4
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify frozen WSC, auth, DB and CVE contracts
+        run: node --test test/secumieWebAdmin.releaseBoundary.contract.test.cjs
