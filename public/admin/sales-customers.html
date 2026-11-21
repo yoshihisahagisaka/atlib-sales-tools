@@ -111,15 +111,23 @@
       if (sequence !== state.contactSequence || state.company?.id !== company.id) return;
       byId('contact-guidance').textContent = items.length ? 'Contactを選択してください。' : '登録済みContactはありません。新規登録できます。';
       const list = byId('contact-results'); list.replaceChildren();
-      for (const contact of items) list.append(button(`${text(contact.name)}${contact.email ? ` / ${text(contact.email)}` : ''}`, false, () => selectContact(contact)));
+      for (const contact of items) {
+        const choice = button(`${text(contact.name)}${contact.email ? ` / ${text(contact.email)}` : ''}`, state.contact?.id === contact.id, () => selectContact(contact));
+        choice.dataset.contactId = contact.id;
+        list.append(choice);
+      }
       byId('contact-create-details').hidden = false;
     } catch (_) { if (sequence === state.contactSequence) byId('contact-guidance').textContent = 'Contactを読み込めませんでした。自動再試行はしていません。'; }
   }
   function selectContact(contact) {
     state.contact = contact; renderSelectedContact(); updateActivityEligibility();
-    for (const choice of byId('contact-results').querySelectorAll('.choice')) choice.setAttribute('aria-pressed', String(choice.textContent.startsWith(contact.name)));
+    for (const choice of byId('contact-results').querySelectorAll('.choice')) choice.setAttribute('aria-pressed', String(choice.dataset.contactId === contact.id));
   }
-  byId('company-query').addEventListener('input', () => { state.lastCompanyQuery = ''; byId('company-name').value = trimmed('company-query'); updateCompanyCreateEligibility(); });
+  byId('company-query').addEventListener('input', () => {
+    state.companySearchSequence += 1; state.lastCompanyQuery = '';
+    byId('company-results').replaceChildren(); setStatus('company-search-status', '');
+    byId('company-name').value = trimmed('company-query'); updateCompanyCreateEligibility();
+  });
   byId('company-name').addEventListener('input', updateCompanyCreateEligibility);
   byId('company-search-form').addEventListener('submit', async event => {
     event.preventDefault(); const query = trimmed('company-query'); if (query.length < 2) return;
@@ -145,12 +153,15 @@
   });
   byId('contact-create-form').addEventListener('submit', async event => {
     event.preventDefault(); if (!state.company) return; const submit = byId('contact-create'); submit.disabled = true;
+    const companyId = state.company.id; const contactSequence = state.contactSequence;
     setStatus('contact-create-status', '登録しています。'); const optional = id => trimmed(id) || undefined;
     try {
-      const contact = await request(`/companies/${encodeURIComponent(state.company.id)}/contacts`, { method: 'POST', body: JSON.stringify({ name: trimmed('contact-name'), email: optional('contact-email'), phone: optional('contact-phone'), jobTitle: optional('contact-job-title') }) });
+      const contact = await request(`/companies/${encodeURIComponent(companyId)}/contacts`, { method: 'POST', body: JSON.stringify({ name: trimmed('contact-name'), email: optional('contact-email'), phone: optional('contact-phone'), jobTitle: optional('contact-job-title') }) });
+      if (state.company?.id !== companyId || state.contactSequence !== contactSequence) return;
       setStatus('contact-create-status', 'Contactを登録しました。', 'success'); selectContact(contact);
-    } catch (_) { setStatus('contact-create-status', '通信結果を確認できません。自動再送はしていません。Contact一覧を確認してください。', 'error'); }
-    submit.disabled = false;
+    } catch (_) {
+      if (state.company?.id === companyId && state.contactSequence === contactSequence) setStatus('contact-create-status', '通信結果を確認できません。自動再送はしていません。Contact一覧を確認してください。', 'error');
+    } finally { submit.disabled = false; }
   });
   byId('activity-form').addEventListener('submit', async event => {
     event.preventDefault(); if (!state.company || !state.contact || state.activityPending) return;

@@ -27,6 +27,13 @@ test('staff-only common customer workflow is safe, responsive, and submits once'
     await expect(page.locator('#company-results')).toContainText('New Search');
     await page.waitForTimeout(300);
     await expect(page.locator('#company-results')).not.toContainText('Old Search');
+
+    await page.locator('#company-query').fill('Old Search');
+    await page.locator('#company-search').click();
+    await page.locator('#company-query').fill('Changed Without Submit');
+    await page.waitForTimeout(300);
+    await expect(page.locator('#company-results')).not.toContainText('Old Search');
+    await expect(page.locator('#company-create')).toBeDisabled();
     await page.unroute('**/api/admin/sales-customers/companies?*');
 
     const unsafeName = `<img src=x onerror=alert(1)> ${randomUUID()}`;
@@ -47,18 +54,45 @@ test('staff-only common customer workflow is safe, responsive, and submits once'
     await expect(page.locator('#selected-contact')).toContainText('Primary Contact');
 
     const secondCompanyName = `Second Company ${randomUUID()}`;
+    await page.evaluate(async name => {
+      const response = await fetch('/api/admin/sales-customers/companies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+      if (!response.ok) throw new Error(`company setup failed: ${response.status}`);
+    }, secondCompanyName);
+
+    await page.route('**/api/admin/sales-customers/companies/*/contacts', async route => {
+      if (route.request().method() !== 'POST') { await route.continue(); return; }
+      await new Promise(resolve => setTimeout(resolve, 250));
+      await route.continue();
+    });
+    await page.locator('#contact-name').fill('Stale Contact');
+    await page.locator('#contact-email').fill('stale@example.test');
+    await page.locator('#contact-create').click();
     await page.locator('#company-query').fill(secondCompanyName);
     await page.locator('#company-search').click();
-    await expect(page.locator('#company-search-status')).toContainText('0件');
-    await page.locator('#company-create').click();
+    await page.locator('#company-results .choice').filter({ hasText: secondCompanyName }).click();
+    await page.waitForTimeout(350);
     await expect(page.locator('#selected-contact')).toBeHidden();
-    await expect(page.locator('#contact-results')).not.toContainText('Primary Contact');
+    await expect(page.locator('#selected-contact')).not.toContainText('Stale Contact');
+    await page.unroute('**/api/admin/sales-customers/companies/*/contacts');
 
     await page.locator('#company-query').fill(unsafeName);
     await page.locator('#company-search').click();
     await page.locator('#company-results .choice').filter({ hasText: unsafeName }).click();
     await expect(page.locator('#contact-results')).toContainText('Primary Contact');
-    await page.locator('#contact-results .choice').filter({ hasText: 'Primary Contact' }).click();
+    const duplicateContacts = await page.evaluate(async () => {
+      const companyId = document.querySelector('#selected-company')!.textContent!.match(/\(([0-9a-f-]{36})\)$/)![1];
+      const create = async (email: string) => {
+        const response = await fetch(`/api/admin/sales-customers/companies/${companyId}/contacts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Same Name', email }) });
+        if (!response.ok) throw new Error(`contact setup failed: ${response.status}`);
+        return response.json();
+      };
+      return Promise.all([create('same-one@example.test'), create('same-two@example.test')]);
+    }) as Array<{ id: string }>;
+    await page.locator('#company-results .choice').filter({ hasText: unsafeName }).click();
+    await expect(page.locator('#contact-results')).toContainText('same-two@example.test');
+    await page.locator('#contact-results .choice').filter({ hasText: 'same-two@example.test' }).click();
+    await expect(page.locator('#contact-results .choice[aria-pressed="true"]')).toHaveCount(1);
+    await expect(page.locator(`#contact-results .choice[data-contact-id="${duplicateContacts[1]!.id}"]`)).toHaveAttribute('aria-pressed', 'true');
 
     await page.locator('input[name="service"][value="BUSINESS_WEB"]').check();
     let activityPosts = 0;
