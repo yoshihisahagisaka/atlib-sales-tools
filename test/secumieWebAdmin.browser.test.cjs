@@ -42,11 +42,14 @@ test.before(async () => {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   pageUrl = `http://127.0.0.1:${server.address().port}/admin/secumie-web.html`;
   try {
-    const executablePath = process.env.CHROMIUM_PATH || (fs.existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : chromium.executablePath());
-    browser = await chromium.launch({ headless: true, executablePath, args: ['--no-sandbox'] });
+    // Let Playwright select chromium-headless-shell when only-shell was installed.
+    // Forcing chromium.executablePath() would incorrectly select the absent full browser.
+    const launchOptions = { headless: true, args: ['--no-sandbox'] };
+    if (process.env.CHROMIUM_PATH) launchOptions.executablePath = process.env.CHROMIUM_PATH;
+    browser = await chromium.launch(launchOptions);
   } catch (error) {
-    // CI runners without a launchable Chromium can still run the contract tests.
-    // These browser cases remain explicit SKIPs, never represented as passes.
+    // CI without a browser may SKIP, but the container acceptance gate must fail closed.
+    if (process.env.REQUIRE_BROWSER === '1') throw error;
     browserUnavailable = error instanceof Error ? error.message.split('\n')[0] : 'launch failed';
   }
 });
