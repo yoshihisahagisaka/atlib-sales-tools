@@ -16,7 +16,7 @@ echo "=== Runtime identity ==="
 id
 echo "=== Relevant installed Debian packages ==="
 for p in xvfb xserver-common libxfont2 libfontenc1 cups cups-daemon libcups2t64 krb5-kdc krb5-admin-server libkrb5-3 perl perl-base libexpat1 libssl3t64 libacl1 acl libattr1 attr; do
-  if dpkg-query -W -f="${binary:Package} ${Version} ${Status}\n" "$p" 2>/dev/null; then
+  if dpkg-query -W -f="\${binary:Package} \${Version} \${Status}\n" "$p" 2>/dev/null; then
     :
   else
     printf "%s: not installed\n" "$p"
