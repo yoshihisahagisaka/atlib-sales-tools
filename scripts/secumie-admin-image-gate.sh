@@ -87,13 +87,18 @@ printf '%s\n' "$SUMMARY" >> "$RESULT"
 BLOCKERS="$(printf '%s' "$SUMMARY" | jq '.CRITICAL + .HIGH + .UNKNOWN')"
 if [[ "$BLOCKERS" != '0' ]]; then
   printf '%s' "$FINDINGS" | jq '[
-    .[] | . as $v | .vulnerability.packageIssue[]? |
-    {package: (.affectedPackage // "unknown"),
-     severity: ($v.vulnerability.effectiveSeverity // $v.vulnerability.severity // "UNKNOWN"),
-     fixed: (.fixedVersion.fullName // "not available")}
+    .[] | . as $v
+    | ($v.vulnerability.effectiveSeverity // $v.vulnerability.severity // "UNKNOWN") as $sev
+    | select($sev == "CRITICAL" or $sev == "HIGH" or $sev == "UNKNOWN"
+      or $sev == "SEVERITY_UNSPECIFIED" or $sev == "UNSPECIFIED")
+    | .vulnerability.packageIssue[]?
+    | {package: (.affectedPackage // "unknown"),
+       severity: $sev,
+       fixed: (.fixedVersion.fullName // "not available")}
   ] | group_by(.package)
-    | map({package: .[0].package, findings: length, fixed: ([.[].fixed] | unique)})
-    | sort_by(-.findings) | .[:15]'
+    | map({package: .[0].package, blockers: length, severities: ([.[].severity] | unique),
+           fixed: ([.[].fixed] | unique)})
+    | sort_by(-.blockers)'
   printf 'SECURITY_NO_GO\n' >> "$RESULT"
   echo '[STOP] Scanner reported security blockers; no Cloud Run changes'
   exit 1
