@@ -108,9 +108,23 @@ test('staff-only common customer workflow is safe, responsive, and submits once'
     const activities = await harness.pool.query<{ selected_service: string }>('SELECT selected_service FROM sales_activity');
     expect(activities.rows).toHaveLength(1);
     expect(activities.rows[0]?.selected_service).toBe('BUSINESS_WEB');
+    await expect(page.locator('#activity-result a')).toHaveCount(0);
+    await expect(page.getByText('この操作ではサービス固有Caseや診断を開始しません。')).toBeVisible();
+    await page.unroute('**/api/admin/sales-customers/activities');
+
+    await page.locator('input[name="service"][value="IT_KAIZEN"]').check();
+    await page.locator('#activity-create').click();
+    const staffProxyLink = page.getByRole('link', { name: 'このActivityからIT代理入力を開始' });
+    await expect(staffProxyLink).toBeVisible();
+    await staffProxyLink.click();
+    await expect(page).toHaveURL(/\/admin\/free-diagnosis-v1\.html\?salesActivityId=/);
+    await expect(page.locator('#existingActivitySummary')).toBeVisible();
+    await expect(page.locator('#existingActivityDetails')).toContainText(unsafeName);
+    await expect(page.locator('#existingActivityDetails')).toContainText('Same Name');
+    await expect(page.locator('#existingActivityDetails')).toContainText('IT経営KAIZEN');
+    await expect(page.locator('#newActivityFields')).toBeHidden();
 
     expect(await page.locator('body').evaluate(body => body.scrollWidth <= window.innerWidth + 1)).toBe(true);
-    await expect(page.getByText('この操作ではサービス固有Caseや診断を開始しません。')).toBeVisible();
   } finally {
     await harness.close();
   }
