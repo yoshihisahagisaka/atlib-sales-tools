@@ -32,3 +32,6 @@ jobs:
           node-version: '24'
       - name: Verify frozen WSC, auth, DB and CVE contracts
         run: node --test test/secumieWebAdmin.releaseBoundary.contract.test.cjs
+      - name: Verify Windows PowerShell GCP command in dry-run mode
+        shell: pwsh
+        run: ./scripts/secumie-admin-cve-remote-readonly.ps1 -DryRun
