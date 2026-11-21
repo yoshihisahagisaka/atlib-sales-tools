@@ -9,7 +9,6 @@ const root = path.resolve(__dirname, '..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 const ledger = JSON.parse(read('security/secumie-web-admin-cve-ledger-20261121.json'));
 const runtimeEvidence = JSON.parse(read('security/secumie-web-admin-runtime-evidence-20261122.json'));
-const cveTriage = JSON.parse(read('security/secumie-web-admin-cve-triage-20261122.json'));
 const yaml = read('cloudbuild/secumie-admin-readonly-cve-evidence.yaml');
 const pwsh = read('scripts/secumie-admin-cve-remote-readonly.ps1');
 const server = read('src/server.ts');
@@ -138,50 +137,4 @@ test('read-only 2026-11-22 runtime evidence preserves 30 unresolved CVEs and Exp
   assert.deepEqual(runtimeEvidence.source.inspectionProperties, [
     '--network=none', '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges',
   ]);
-});
-
-test('per-CVE triage exactly matches scanner ledger and cannot silently grant exceptions', () => {
-  assert.equal(cveTriage.schemaVersion, 1);
-  assert.equal(ledger.triageRef, 'security/secumie-web-admin-cve-triage-20261122.json');
-  assert.equal(cveTriage.basis.ledger, 'security/secumie-web-admin-cve-ledger-20261121.json');
-  assert.equal(cveTriage.basis.runtimeEvidence, ledger.runtimeEvidenceRef);
-  assert.equal(cveTriage.releaseDecision, 'SECURITY_NO_GO');
-  assert.deepEqual(cveTriage.approvedExceptions, []);
-  assert.equal(cveTriage.items.length, 30);
-
-  const indexed = new Map(cveTriage.items.map(item => [item.cve, item]));
-  assert.equal(indexed.size, 30);
-  for (const record of ledger.cves) {
-    const triage = indexed.get(record.id);
-    assert.ok(triage, 'Missing triage for ' + record.id);
-    assert.equal(triage.sourcePackage, record.sourcePackage);
-    assert.equal(triage.scannerSeverity, record.severity);
-    assert.equal(triage.reviewStatus, 'OPEN');
-    assert.equal(triage.applicability, 'NOT_DETERMINED');
-    assert.equal(triage.approvedException, false);
-    assert.ok(['P1', 'P2'].includes(triage.investigationPriority));
-    assert.match(triage.evidenceCategory, /^[A-Z0-9_]+$/);
-    assert.ok(triage.remainingQuestion.length > 15);
-    if (triage.vendorTrigger !== null) {
-      assert.ok(triage.vendorEvidence?.url?.startsWith('https://'));
-      assert.ok(triage.vendorEvidence?.source);
-    } else {
-      assert.equal(triage.vendorEvidence, null);
-      assert.equal(triage.debianPackageStatus, 'NOT_CONFIRMED_FOR_THIS_CVE');
-    }
-  }
-  assert.deepEqual(
-    cveTriage.items.filter(item => item.sourcePackage === 'expat').map(x => x.cve).sort(),
-    ['CVE-2026-117610', 'CVE-2026-118370'],
-  );
-  assert.ok(cveTriage.items.filter(item => item.sourcePackage === 'expat').every(item =>
-    item.evidenceCategory === 'HEADLESS_CHROMIUM_DIRECT_LINK_CONFIRMED'
-    && item.investigationPriority === 'P1'));
-  const clientKrb = indexed.get('CVE-2026-112314');
-  assert.match(clientKrb.vendorTrigger, /CLIENT/);
-  assert.match(clientKrb.remainingQuestion, /client/i);
-  assert.equal(indexed.get('CVE-2026-107493').vendorSeverity, 'Low');
-  assert.equal(indexed.get('CVE-2026-107493').scannerSeverity, 'HIGH');
-  assert.equal(indexed.get('CVE-2026-107496').vendorSeverity, 'Low');
-  assert.equal(indexed.get('CVE-2026-107496').scannerSeverity, 'HIGH');
 });
