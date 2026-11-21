@@ -47,6 +47,12 @@
 4. 実行前テスト：`node --test test/secumieWebAdmin.releaseBoundary.contract.test.cjs`。変更時はこのテストを追加・修正し、実装契約との不一致を検出する。
 5. 結果が出ても公開Gateは変えない。Cloud Buildの一般的な実行料金が発生する場合がある。
 
+## 2026-11-22 CVE実体証拠契約のGitHub Actions検証
+
+- GitHub Actions Run `44956753943`、Job `137006457764`：**SUCCESS**。実測 `tests 7 / pass 7 / fail 0 / skipped 0`。
+- 追加テスト：イメージdigestと実調査Build IDの一致、uid1000、Xvfb/印刷/認証サーバー実行ファイル不在、Perlモジュール、実Chromium→Expat依存、未承認CVE30件、`SECURITY_NO_GO`の整合性。
+- PowerShell DryRun：**PASS**。今回の自動契約テストは実GCPへの再実行を伴わず、実体調査は前回Cloud Build `eb944607-e2df-408a-a4b1-01d56b37d006` の既存証拠を使用。
+
 ## 2026-11-22 読み取り専用GCP実体調査：SUCCESS
 
 - Windows PowerShellからのCloud Buildジョブ `eb944607-e2df-408a-a4b1-01d56b37d006`、既存候補イメージdigest一致、実行25秒、**SUCCESS**。
