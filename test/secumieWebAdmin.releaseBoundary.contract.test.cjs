@@ -8,6 +8,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 const ledger = JSON.parse(read('security/secumie-web-admin-cve-ledger-20261121.json'));
+const runtimeEvidence = JSON.parse(read('security/secumie-web-admin-runtime-evidence-20261122.json'));
 const yaml = read('cloudbuild/secumie-admin-readonly-cve-evidence.yaml');
 const pwsh = read('scripts/secumie-admin-cve-remote-readonly.ps1');
 const server = read('src/server.ts');
@@ -103,4 +104,37 @@ test('PR #51 keeps future DB disconnected and requires explicit confirmation bef
   assert.match(adminJs, /credentials: 'same-origin'/);
   assert.match(adminHtml, /送付と対応履歴の記録は自動実行されません/);
   assert.doesNotMatch(adminJs, /\b(?:localStorage|sessionStorage|indexedDB|innerHTML|document\.cookie)\b/);
+});
+
+
+test('read-only 2026-11-22 runtime evidence preserves 30 unresolved CVEs and Expat priority', () => {
+  assert.equal(ledger.runtimeEvidenceRef, 'security/secumie-web-admin-runtime-evidence-20261122.json');
+  assert.equal(runtimeEvidence.schemaVersion, 1);
+  assert.equal(runtimeEvidence.source.buildId, 'eb944607-e2df-408a-a4b1-01d56b37d006');
+  assert.equal(runtimeEvidence.source.buildStatus, 'SUCCESS');
+  assert.equal(runtimeEvidence.source.image, ledger.candidate.image);
+  assert.deepEqual(runtimeEvidence.scanSummaryUnchanged, ledger.summary);
+  assert.equal(runtimeEvidence.releaseDecision, 'SECURITY_NO_GO');
+  assert.deepEqual(runtimeEvidence.approvedExceptions, []);
+  assert.equal(runtimeEvidence.observed.runtimeUid, 1000);
+  assert.equal(runtimeEvidence.observed.runtimeUser, 'node');
+  for (const executable of [
+    '/usr/bin/Xvfb', '/usr/sbin/cupsd', '/usr/sbin/kadmind',
+    '/usr/sbin/krb5kdc', '/usr/bin/setfacl', '/usr/bin/setfattr',
+  ]) {
+    assert.ok(runtimeEvidence.observed.executableAbsent.includes(executable), 'Missing absence evidence: ' + executable);
+  }
+  assert.equal(runtimeEvidence.observed.perlArchiveTarImport, 'NOT_IMPORTABLE');
+  assert.match(runtimeEvidence.observed.headlessShellBinary, /chrome-headless-shell$/);
+  const packageNames = new Set(runtimeEvidence.observed.installedPackages.map(pkg => pkg.name));
+  for (const required of ['libexpat1', 'libkrb5-3', 'libcups2t64', 'libssl3t64', 'libgnutls30t64']) {
+    assert.ok(packageNames.has(required), 'Runtime dependency must not be silently erased: ' + required);
+  }
+  assert.ok(runtimeEvidence.observed.chromiumHeadlessShellLddFilteredMatches.some(x => /libexpat\.so\.1/.test(x)));
+  assert.equal(runtimeEvidence.interpretation.confirmedPdfDependencyPackage, 'expat');
+  assert.equal(ledger.cves.filter(x => x.sourcePackage === 'expat' && x.severity === 'HIGH').length, 2);
+  assert.ok(ledger.cves.every(x => x.reviewStatus === 'UNRESOLVED' && !x.approvedException));
+  assert.deepEqual(runtimeEvidence.source.inspectionProperties, [
+    '--network=none', '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges',
+  ]);
 });
