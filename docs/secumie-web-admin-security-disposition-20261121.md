@@ -54,10 +54,40 @@
 - 明示的な停止も `PREFLIGHT_NO_GO`／`ERROR` として結果ファイルに記録し、セッション終了後に `RUNNING` のまま残さない。
 - **修正版は未実行**。縮小版イメージも未ビルド・未スキャン。本番／Staging／DBは変更なし、SECURITY_NO_GO継続。
 
+## 2026-11-21 Xvfb削減版イメージ：実行結果確定
+
+| 検証・証跡 | 結果 |
+|---|---|
+| Git固定ソース | `b578d4428675c3d9d14e2ac207b88c077248a60f` |
+| Cloud Build | `807cd10c-4a5e-4fd2-b26f-229442b5570a`、**SUCCESS** |
+| 不変イメージdigest | `sha256:87967dd7a73ebbd3e56c3a1c3b20dc6c6c06051af3041b5b6d6a790cba5412f0` |
+| APTシミュレーション | PASS。Xvfb/xserver-common等19パッケージの削除予定を確認、保護対象の削除なし |
+| 日本語PDF Smoke | **PASS**（32,166 bytes） |
+| 実Chromiumブラウザ | **4/4 PASS** |
+| 実HTTP結合（合成データ） | **6/6 PASS** |
+| オンデマンドスキャン | `projects/msp-zabbix/locations/asia/scans/47c0fb7d-2fc9-44fb-8361-3509d194291c` |
+| 最終Gate | **SECURITY_NO_GO**。既存Cloud Run、DB、公開受付には変更なし |
+
+### 脆弱性件数の差分（旧候補と比較）
+
+| 重要度 | 旧 `810d3dd...` | 新 `87967dd...` | 削減 |
+|---|---:|---:|---:|
+| CRITICAL | 0 | 0 | 0 |
+| HIGH | 17 | 16 | 1 |
+| UNKNOWN | 16 | 14 | 2 |
+| OTHER | 230 | 203 | 27 |
+| **合計** | **263** | **233** | **30** |
+
+**重大度HIGH/UNKNOWNの未解決は計30件。** 減った3件のCVE名はこの集計だけでは特定しない（個別スキャン原票の差分で確認）。削減によって実行環境の最小化とPDF動作が確認されたが、残るHIGH/UNKNOWNを安全と承認したものではない。
+
+- 新候補の原票はCloud Shellの `$HOME/secumie-admin-image-vulnerabilities.json` に保存済み。再スキャン不要。
+- 調査次工程は残存30件のCVE ID・対象パッケージ・適用条件・リスク緩和策・必要な例外承認の確認。**本番および公開Stagingへのデプロイは禁止継続**。
+- PR #50 DB/移行と `www.atlib.jp/secumie-web/` 受付導線に影響なし。
+
 ## リリース判定・次の工程
 
 - **A. 実体確認：PASS**。既存イメージを読み取り専用で棚卸し。Xvfb存在、印刷/Kerberosサーバー不在、共有ライブラリは残存。ライブラリが存在することとサービスが動いていることを混同しない。
-- **B. 縮小版候補の1回の受入：未実施**。Xvfb除去前のAPT削除計画を読み取り専用シミュレーションで検査後、新候補を1回ビルドしPDF Smoke、UI 4件、HTTP 6件、オンデマンドスキャンを同一スクリプトで受入する。旧候補へのテスト再実行は不要。
+- **B. 縮小版候補の1回の受入：機能PASS／セキュリティNo-Go**。APT削除計画PASS、新候補ビルドSUCCESS、PDF Smoke（32,166 bytes）PASS、UI 4/4 PASS、HTTP 6/6 PASS。スキャンCRITICAL 0／HIGH 16／UNKNOWN 14のためリリース判定はSECURITY_NO_GO。旧候補の再検証は不要。
 - **C. 残存CVEの意思決定**：未解決のHIGH/UNKNOWNは「実際の脆弱性」「到達可能性」「悪用条件」「緩和策」「根拠」「再確認日」「承認者」を記録し、**明示的に承認された例外だけ**をリリースGateへ反映する。単純に`fixedVersion`無しを許可条件にしない。
 - **D. 実サービス確認**：例外承認または修正完了後、Cloud Runの既存100%トラフィックを保持した別候補でスタッフGoogleログインと実WSC PDFをUAT。リリースは別承認。PR #50 DB/migrationは別工程。
 
