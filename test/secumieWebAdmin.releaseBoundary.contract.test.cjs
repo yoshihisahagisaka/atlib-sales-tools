@@ -13,6 +13,8 @@ const pwsh = read('scripts/secumie-admin-cve-remote-readonly.ps1');
 const server = read('src/server.ts');
 const adminJs = read('public/admin/secumie-web.js');
 const adminHtml = read('public/admin/secumie-web.html');
+const wscRouter = read('src/routes/adminWebSecurityCheck.ts');
+const wscService = read('src/services/wscSalesService.ts');
 
 test('CVE ledger is exact: 30 unresolved, 16 HIGH, 14 UNKNOWN, no approvals', () => {
   assert.equal(ledger.schemaVersion, 1);
@@ -78,4 +80,25 @@ test('staff-only UI reuses WSC API, keeps manual mail handling and DB No-Go', ()
   assert.match(adminHtml, /現在は暫定メール受付/);
   assert.match(adminHtml, /送付と対応履歴の記録は自動実行されません/);
   assert.match(adminJs, /response\.status === 404/);
+});
+
+test('WSC diagnosis remains strict, staff-authenticated and backed by the existing restricted probe', () => {
+  assert.match(wscRouter, /z\.object\(\{ name: z\.string\(\)\.trim\(\)\.min\(1\)\.max\(500\), url: z\.string\(\)\.trim\(\)\.min\(1\)\.max\(2_000\) \}\)\.strict\(\)/);
+  assert.match(wscRouter, /router\.post\('\/diagnose'/);
+  assert.match(wscRouter, /'Content-Type', 'application\/pdf'/);
+  assert.match(wscRouter, /'Cache-Control', 'no-store'/);
+  assert.match(wscService, /createRestrictedNetworkProbe/);
+  assert.match(wscService, /normalizeDiagnosisUrl/);
+  assert.match(wscService, /engine\.evaluate\(/);
+  assert.match(wscService, /engine\.render\(/);
+  assert.match(wscService, /chromium\.launch\(\{ headless: true \}\)/);
+});
+
+test('PR #51 keeps future DB disconnected and requires explicit confirmation before SUBMITTED', () => {
+  assert.doesNotMatch(server, /app\.use\('\/api\/admin\/secumie-web/);
+  assert.match(adminJs, /response\.status === 404/);
+  assert.match(adminJs, /select\.value === 'SUBMITTED' && !window\.confirm\(/);
+  assert.match(adminJs, /credentials: 'same-origin'/);
+  assert.match(adminHtml, /送付と対応履歴の記録は自動実行されません/);
+  assert.doesNotMatch(adminJs, /\b(?:localStorage|sessionStorage|indexedDB|innerHTML|document\.cookie)\b/);
 });
