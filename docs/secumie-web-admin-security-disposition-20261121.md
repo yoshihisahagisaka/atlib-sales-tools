@@ -46,6 +46,14 @@
 2. `scripts/secumie-admin-image-gate.sh`：HIGH/CRITICAL/UNKNOWNのパッケージ別集計のみを表示するよう修正。旧集計はLOW/MODERATEを混ぜていたため無効。
 3. `scripts/secumie-admin-runtime-inventory.sh`：**既存の確定イメージ**をネットワークなし・read-onlyで起動し、Xvfb/`cupsd`/KDCなどのパッケージと実行ファイルの有無を表示。ビルド／スキャン／デプロイを行わない。
 
+## 2026-11-21 Xvfb削除候補 初回Gate停止と修正
+
+- Git `5448b128e8fd056c38756d316298e98edd05c978` でGateを起動したが、ビルド前のAPTシミュレーションで `[STOP] APT plan did not remove expected package: xvfb` と停止。`secumie-admin-image-result.txt` は `RUNNING` のままだった（停止状態の記録不備）。
+- 原因：`apt-get -s purge` は削除操作を `Purg` で出す場合があるのに、従来の抽出は `Remv` のみを処理した。**削除が失敗した、またはビルド失敗した事実はない。初回はビルド前で停止。**
+- Gateを `Purg`／`Remv` の両方の検出へ修正。パッケージ名が読み取れない場合はAPTシミュレーション原文末尾を表示し、安全確認未完了として停止。保護対象の削除を検出した場合も停止。
+- 明示的な停止も `PREFLIGHT_NO_GO`／`ERROR` として結果ファイルに記録し、セッション終了後に `RUNNING` のまま残さない。
+- **修正版は未実行**。縮小版イメージも未ビルド・未スキャン。本番／Staging／DBは変更なし、SECURITY_NO_GO継続。
+
 ## リリース判定・次の工程
 
 - **A. 実体確認：PASS**。既存イメージを読み取り専用で棚卸し。Xvfb存在、印刷/Kerberosサーバー不在、共有ライブラリは残存。ライブラリが存在することとサービスが動いていることを混同しない。
