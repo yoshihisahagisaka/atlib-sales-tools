@@ -4,6 +4,7 @@ import { createCompanySchema, SELECTED_SERVICE } from '../domain/freeDiagnosisRu
 import { SalesCustomerError, type SalesCustomerRepo } from '../services/salesCustomerRepo';
 
 const companyId = z.string().uuid();
+const activityId = z.string().uuid();
 const companyInput = createCompanySchema.pick({ name: true, corporateNumber: true }).strict();
 const contactInput = createCompanySchema.shape.contact.strict();
 const activityInput = z.object({
@@ -39,6 +40,12 @@ export function createAdminSalesCustomersRouter(repo: SalesCustomerRepo): Router
     const id = companyId.safeParse(req.params.companyId);
     if (!id.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
     res.json({ items: await repo.listContacts(id.data) });
+  }));
+  router.get('/activities/:salesActivityId', (req, res) => run(res, async () => {
+    actor(req);
+    const id = activityId.safeParse(req.params.salesActivityId);
+    if (!id.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    res.json(await repo.getActivity(id.data));
   }));
   router.post('/companies', (req, res) => run(res, async () => {
     const email = actor(req);

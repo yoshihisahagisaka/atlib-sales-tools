@@ -85,6 +85,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <p class="hint">公開申込み済みのお客様を選び、現在の工程から作業を再開します。</p>
 <div class="row"><button id="btnLoadCases" class="secondary">案件一覧を更新</button><button id="btnOpenProxyEntry" class="secondary">営業で伺った内容を登録する</button><a class="button secondary" href="/admin/marketing-initiatives.html">施策管理</a><span class="test-filter"><label for="testStatusFilter">案件区分</label><select id="testStatusFilter"><option value="NORMAL" selected>通常案件</option><option value="TEST">テスト案件</option><option value="ALL">すべて</option></select></span></div><p id="initiativeFilter" class="hint" hidden></p><div id="caseList" class="case-list"></div>
 <details id="proxyEntry"><summary>営業で伺った内容を登録する</summary><div class="entry-form">
+<div id="existingActivitySummary" class="proxy-consent" hidden><strong>既存Sales Activity</strong><p id="existingActivityDetails"></p><p class="hint">Company・Contact・サービスは登録済み情報を表示しています。この画面では変更しません。</p></div>
+<div id="newActivityFields">
 <div class="row"><label for="companyName">会社名</label><input id="companyName" type="text" placeholder="サンプル株式会社"></div>
 <div class="row"><label for="contactName">担当者名</label><input id="contactName" type="text" placeholder="山田太郎"></div>
 <div class="row"><label for="contactEmail">メール（任意）</label><input id="contactEmail" type="email"></div>
@@ -92,6 +94,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><label for="acquisitionSourceType">きっかけ</label><select id="acquisitionSourceType"><option value="">（未設定）</option><option value="EVENT">経営者交流会・イベント</option><option value="REFERRAL">紹介</option><option value="WEB">Web</option><option value="OUTBOUND">営業活動</option><option value="PARTNER">パートナー</option><option value="EXISTING_CUSTOMER">既存顧客</option><option value="OTHER">その他</option></select></div>
 <div class="row"><label for="acquisitionSourceName">きっかけの名称（きっかけを選んだ場合は必須）</label><input id="acquisitionSourceName" type="text" maxlength="200" placeholder="例：新成会"></div>
 <div class="row"><label for="referralPersonName">ご紹介者（任意）</label><input id="referralPersonName" type="text" maxlength="200" placeholder="例：山田太郎さん"></div>
+</div>
 <div class="row"><label for="proxyRespondentRole">今回の回答者の立場</label><select id="proxyRespondentRole"><option value="MANAGEMENT">経営者・役員</option><option value="IT_DECISION_OWNER">ITの意思決定を担当</option><option value="IT_OR_BUSINESS_STAFF">ITまたは業務の担当</option></select></div>
 <div id="proxyDesignV2Survey" class="proxy-survey"></div>
 <div class="row proxy-consent"><label for="proxyConsentConfirmed" style="max-width:54rem"><input id="proxyConsentConfirmed" type="checkbox"> 顧客にIT経営KAIZEN無料診断の目的と個人情報の取扱いについて説明し、顧客の同意を得たうえで入力しています。</label></div>
@@ -308,6 +311,7 @@ for (const [code, label] of Object.entries(FOCUS_LABELS)) {
 
 let proxySurveyContract = null;
 let proxySubmissionKey = crypto.randomUUID();
+let proxyExistingActivity = null;
 function renderProxyDesignV2Survey(contract) {
   const target = el('proxyDesignV2Survey'); target.replaceChildren();
   for (const question of contract.questions) {
@@ -348,21 +352,34 @@ function staffProxySubmissionErrorMessage(error) {
   return '接続に失敗しました。ネットワーク接続を確認して、もう一度お試しください。';
 }
 fetch('/api/public/it-management-kaizen/free-diagnosis-v1/survey-contract').then(response=>response.ok?response.json():Promise.reject()).then(contract=>{proxySurveyContract=contract;renderProxyDesignV2Survey(contract);}).catch(()=>{el('proxySaveStatus').className='proxy-save-status error';el('proxySaveStatus').textContent='質問を読み込めませんでした。';});
-el('proxyConsentConfirmed').onchange = () => { el('btnCreateCase').disabled = !el('proxyConsentConfirmed').checked; };
+function updateProxySubmitEnabled(){el('btnCreateCase').disabled=!el('proxyConsentConfirmed').checked||(new URLSearchParams(location.search).has('salesActivityId')&&!proxyExistingActivity);}
+el('proxyConsentConfirmed').onchange = updateProxySubmitEnabled;
+
+const requestedSalesActivityId=new URLSearchParams(location.search).get('salesActivityId');
+if(requestedSalesActivityId){
+  el('proxyEntry').open=true;el('newActivityFields').hidden=true;el('existingActivitySummary').hidden=false;
+  el('existingActivityDetails').textContent='Sales Activityを確認しています。';updateProxySubmitEnabled();
+  fetch(`/api/admin/sales-customers/activities/${encodeURIComponent(requestedSalesActivityId)}`).then(async response=>{
+    const body=await response.json().catch(()=>({}));if(!response.ok)throw new ApiRequestError(response.status,body.error||'REQUEST_FAILED');return body;
+  }).then(activity=>{
+    if(activity.selectedService!=='IT_KAIZEN')throw new ApiRequestError(409,'SERVICE_MISMATCH');
+    proxyExistingActivity=activity;el('existingActivityDetails').textContent=`${activity.companyName} / ${activity.contactName}${activity.contactEmail?` / ${activity.contactEmail}`:''} / IT経営KAIZEN`;updateProxySubmitEnabled();
+  }).catch(error=>{el('existingActivityDetails').textContent=staffProxySubmissionErrorMessage(error);el('proxySaveStatus').className='proxy-save-status error';el('proxySaveStatus').textContent='Sales Activityを確認できないため登録できません。';});
+}
 
 el('btnCreateCase').onclick = async () => {
   setError(''); el('proxySaveStatus').className='proxy-save-status'; el('proxySaveStatus').textContent=''; const button=el('btnCreateCase'); button.disabled=true;
   try {
-    if (!el('companyName').value.trim()) throw new StaffProxyValidationError('会社名を入力してください。');
-    if (!el('contactName').value.trim()) throw new StaffProxyValidationError('担当者名を入力してください。');
-    const attribution = { acquisitionSourceType: el('acquisitionSourceType').value || null, acquisitionSourceName: el('acquisitionSourceName').value.trim() || null };
-    if ((attribution.acquisitionSourceType == null) !== (attribution.acquisitionSourceName == null)) throw new StaffProxyValidationError('きっかけを記録する場合は、種別と名称を両方入力してください。');
+    if (!proxyExistingActivity&&!el('companyName').value.trim()) throw new StaffProxyValidationError('会社名を入力してください。');
+    if (!proxyExistingActivity&&!el('contactName').value.trim()) throw new StaffProxyValidationError('担当者名を入力してください。');
+    const attribution = proxyExistingActivity?null:{ acquisitionSourceType: el('acquisitionSourceType').value || null, acquisitionSourceName: el('acquisitionSourceName').value.trim() || null };
+    if (attribution&&(attribution.acquisitionSourceType == null) !== (attribution.acquisitionSourceName == null)) throw new StaffProxyValidationError('きっかけを記録する場合は、種別と名称を両方入力してください。');
     if (!el('proxyConsentConfirmed').checked) throw new StaffProxyValidationError('顧客への説明と同意確認にチェックしてください。');
-    const result=await call('/design-v2/staff-proxy-submissions','POST',{idempotencyKey:proxySubmissionKey,respondentRole:el('proxyRespondentRole').value,consentConfirmed:true,
-      activity:{name:el('companyName').value,contact:{name:el('contactName').value,email:el('contactEmail').value||null},selectedService:'IT_KAIZEN',referralPersonName:el('referralPersonName').value.trim()||undefined,attribution:attribution.acquisitionSourceType?attribution:undefined},survey:collectProxyDesignV2Survey()});
+    const source=proxyExistingActivity?{salesActivityId:proxyExistingActivity.id}:{activity:{name:el('companyName').value,contact:{name:el('contactName').value,email:el('contactEmail').value||null},selectedService:'IT_KAIZEN',referralPersonName:el('referralPersonName').value.trim()||undefined,attribution:attribution.acquisitionSourceType?attribution:undefined}};
+    const result=await call('/design-v2/staff-proxy-submissions','POST',{idempotencyKey:proxySubmissionKey,respondentRole:el('proxyRespondentRole').value,consentConfirmed:true,...source,survey:collectProxyDesignV2Survey()});
     el('proxySaveStatus').className='proxy-save-status success'; el('proxySaveStatus').replaceChildren(document.createTextNode('営業で伺った内容を登録しました。 ')); const link=document.createElement('a'); link.href=`/admin/free-diagnosis-v2-analysis.html?caseId=${encodeURIComponent(result.caseId)}`; link.textContent='作成した案件を確認'; el('proxySaveStatus').append(link);
     await loadCases();
-  } catch (e) { button.disabled=!el('proxyConsentConfirmed').checked; el('proxySaveStatus').className='proxy-save-status error'; el('proxySaveStatus').textContent=staffProxySubmissionErrorMessage(e); }
+  } catch (e) { updateProxySubmitEnabled(); el('proxySaveStatus').className='proxy-save-status error'; el('proxySaveStatus').textContent=staffProxySubmissionErrorMessage(e); }
 };
 
 function friendlyStatus(status) {

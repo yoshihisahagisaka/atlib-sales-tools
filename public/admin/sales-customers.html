@@ -171,6 +171,11 @@
       const result = await request('/activities', { method: 'POST', body: JSON.stringify({ companyId: state.company.id, contactId: state.contact.id, selectedService }) });
       const output = byId('activity-result'); output.replaceChildren();
       for (const line of [`Sales Activity ID: ${text(result.salesActivityId)}`, `Company ID: ${text(result.companyId)}`, `Contact ID: ${text(result.contactId)}`, `Service: ${text(result.selectedService)}`]) { const p = document.createElement('p'); p.textContent = line; output.append(p); }
+      if (result.selectedService === 'IT_KAIZEN') {
+        const link = document.createElement('a'); link.className = 'button';
+        link.href = `/admin/free-diagnosis-v1.html?salesActivityId=${encodeURIComponent(result.salesActivityId)}`;
+        link.textContent = 'このActivityからIT代理入力を開始'; output.append(link);
+      }
       output.hidden = false; setStatus('activity-status', 'Sales Activityを登録しました。サービス固有Caseは作成していません。', 'success');
     } catch (_) { setStatus('activity-status', '通信結果を確認できません。自動再送はしていません。再登録前にActivityの状態を確認してください。', 'error'); }
     state.activityPending = false; updateActivityEligibility();
