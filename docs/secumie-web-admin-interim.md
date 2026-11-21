@@ -36,6 +36,7 @@
 - オンデマンドスキャン：CRITICAL 0、HIGH 17、UNKNOWN 16、OTHER 230。旧候補とHIGH/UNKNOWN件数は**変化なし**。本番リリースは **SECURITY_NO_GO**。
 - PlaywrightのブラウザテストにあったフルChromiumの`executablePath()`強制指定を削除。ヘッドレスシェルの通常自動選択を利用。`REQUIRE_BROWSER=1`ではブラウザ起動失敗をSKIPせず失敗として扱う。
 - 再ビルドせず、既存イメージに最新のテストファイルだけを読み取り専用でマウントして`bash scripts/secumie-admin-browser-acceptance.sh`を実行できるようにした。対象：デスクトップPDFダウンロード、モバイル表示、仮API一覧・操作、未送付時の提出確定防止。APIはすべてローカルモック、顧客PII・外部通信・DBなし。
+- **2026-11-21 受入証跡：`bash scripts/secumie-admin-browser-acceptance.sh` 実施結果 `tests 4 / pass 4 / fail 0 / skipped 0`**。イメージ `sha256:810d3ddcf97cd009cdf73de77dfff008cd281d234ff49f9ae39a4dfdf86a384e` の非ネットワークコンテナに、最新のブラウザテストのみ読み取り専用マウント。デスクトップPDFダウンロード・モバイル表示・モック受付一覧/状態更新・提出済み取消確認の4件PASS。**ブラウザUI受入のみPASS**、本物の認証・実WSC診断API・DB接続のE2Eとは区別する。
 - このブラウザテストがPASSしても、スタッフ認証と実WSC PDF出力のStaging E2E、脆弱性No-Goは解除されない。既存のWSC運用による手作業のPDF提出は継続可能。
 
 ## 役割と設置先
