@@ -42,7 +42,7 @@
 ## 2026-11-21 本番へ出さずに実HTTPとPDFを検証する追加Gate
 
 - UIについては、実Chromium + モックAPIのブラウザ受入4件PASS／SKIP 0を確認済み。
-- **次Gate（未実行）**：`test/secumieWebAdmin.http.acceptance.cjs`。既存の確定イメージ`sha256:810d3ddcf97cd009cdf73de77dfff008cd281d234ff49f9ae39a4dfdf86a384e`を使用し、別途ビルド・脆弱性スキャン・Cloud Runデプロイを行わない。`bash scripts/secumie-admin-offline-http-acceptance.sh`で実行。
+- **HTTP Gate PASS（2026-11-21実測）**：`bash scripts/secumie-admin-offline-http-acceptance.sh`で **6 PASS / 0 FAIL / 0 SKIP**。既存の確定イメージ`sha256:810d3ddcf97cd009cdf73de77dfff008cd281d234ff49f9ae39a4dfdf86a384e`を使用。別途ビルド・脆弱性スキャン・Cloud Runデプロイは行わず、ローカルHTTPで実Express認証ミドルウェアと実PDF生成を確認。
 - 6つの結合検証：無認証管理HTML/JSのリダイレクト、無認証WSC APIの401、合成スタッフJWTによる保護画面の取得、実WSC評価エンジンとChromiumによる実PDFのHTTP応答、HTTP対象URLの拒否、不正入力の拒否。
 - 実PDFテストは外部ネットワークを切断し、合成済みのWeb/DNS証拠とテスト用DNS・ネットワークトランスポートのみを使用する。秘密情報・顧客PII・実DB・実SMTP・実Googleログインにはアクセスしない。
 - これは**認証ミドルウェアおよびWSC HTTP経路のオフライン結合検証**であって、Google Workspace OAuthの本番ログイン試験ではない。公開Stagingへのデプロイや新コンテナの本番昇格を許可するものでもない。
