@@ -5,6 +5,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import type { Pool } from 'pg';
 import { createSecumieWebPublicRuntime } from '../src/runtime/secumieWebPublicRuntime';
+import { AssemblyAdminService } from '../src/secumieWeb/assemblyAdminService';
 
 const root = path.resolve(__dirname, '..');
 const html = readFileSync(path.join(root, 'prototypes/secumie-web-assembly/intake.html'), 'utf8');
@@ -71,4 +72,26 @@ test('Web runtime rejects unapproved host while keeping healthz available', asyn
       await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     }
   }
+});
+
+test('Web staff status update rolls back missing receipt before releasing its DB connection', async () => {
+  const queries: string[] = [];
+  let released = false;
+  const client = {
+    query: async (sql: string) => {
+      queries.push(sql);
+      return { rows: [] };
+    },
+    release: () => { released = true; },
+  };
+  const pool = { connect: async () => client } as unknown as Pool;
+  const admin = new AssemblyAdminService(pool);
+  const result = await admin.changeStatus('00000000-0000-4000-8000-000000000001', 'IN_PROGRESS', 'staff@atlib.jp');
+  assert.equal(result, undefined);
+  assert.deepEqual(queries, [
+    'BEGIN',
+    'SELECT request_status FROM secumie_web.assembly_intake WHERE intake_id=$1 FOR UPDATE',
+    'ROLLBACK',
+  ]);
+  assert.equal(released, true);
 });
