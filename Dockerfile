@@ -46,6 +46,7 @@ RUN mkdir -p /ms-playwright \
     && apt-get install -y --no-install-recommends fonts-noto-cjk fontconfig \
     && node ./node_modules/playwright/cli.js install --with-deps --only-shell chromium \
     && apt-get purge -y xvfb xserver-common \
+    && apt-get autoremove -y --purge \
     && test ! -x /usr/bin/Xvfb \
     && fc-cache -f \
     && chmod -R a+rX /ms-playwright \
