@@ -37,12 +37,16 @@ ENV NODE_ENV=production
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 COPY --from=production-deps /app/node_modules ./node_modules
 # The WSC and existing reports use chromium.launch({ headless: true }) without a channel.
-# Install only Playwright's headless shell; preserve Japanese PDF fonts.
+# Playwright --with-deps also installs Xvfb (used by headed tests), which is not
+# needed for the headless-only PDF renderer. Remove the X server, retain native libs.
+# Preserve Japanese PDF fonts; test the actual headless PDF before release.
 RUN mkdir -p /ms-playwright \
     && apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends fonts-noto-cjk fontconfig \
     && node ./node_modules/playwright/cli.js install --with-deps --only-shell chromium \
+    && apt-get purge -y xvfb xserver-common \
+    && test ! -x /usr/bin/Xvfb \
     && fc-cache -f \
     && chmod -R a+rX /ms-playwright \
     && rm -rf /usr/local/lib/node_modules/npm \
