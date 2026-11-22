@@ -32,8 +32,13 @@ CREATE TABLE secumie_web.assembly_intake (
   consented_at timestamptz NOT NULL,
   result_delivery_mode text NOT NULL DEFAULT 'MANUAL'
     CHECK (result_delivery_mode = 'MANUAL'),
+  -- Corporate temporary LP explicitly does not consent to association/union
+  -- sharing; assembly OTP requests retain their original approved semantics.
   information_sharing_enabled boolean NOT NULL DEFAULT true
-    CHECK (information_sharing_enabled),
+    CHECK (
+      (reception_code = 'CORPORATE_LP' AND information_sharing_enabled = false)
+      OR (reception_code <> 'CORPORATE_LP' AND information_sharing_enabled = true)
+    ),
   request_status text NOT NULL DEFAULT 'RECEIVED'
     CHECK (request_status IN ('RECEIVED','IN_PROGRESS','SUBMITTED','CANCELLED')),
   received_at timestamptz NOT NULL DEFAULT now(),
