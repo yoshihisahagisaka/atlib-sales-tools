@@ -158,7 +158,7 @@
           method: 'PATCH',
           credentials: 'same-origin',
           cache: 'no-store',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Secumie-Staff-Command': '1' },
           body: JSON.stringify({ status: select.value }),
         });
         if (!response.ok) throw new Error('対応状況を更新できませんでした。再読み込みして確認してください。');
