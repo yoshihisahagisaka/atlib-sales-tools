@@ -187,7 +187,8 @@
       const response = await fetch(`/api/admin/secumie-web/v1/requests?${params.toString()}`, { credentials: 'same-origin', cache: 'no-store' });
       if (number !== listRequestNumber) return;
       if (response.status === 404) {
-        message('list-state', '専用受付APIはまだこの環境に接続されていません。現行の受付メールを確認し、上の診断欄を利用してください。');
+        $('intake-sync-state').textContent = '管理一覧は未接続です。受付メールを確認し、下の診断欄を利用してください。';
+        message('list-state', '専用受付APIはまだこの環境に接続されていません。受付メールから診断できます。');
         return;
       }
       if (response.status === 401 || response.status === 403) throw new Error('スタッフ認証を確認して、ログインし直してください。');
@@ -195,13 +196,17 @@
       const data = await response.json();
       if (!data || !Array.isArray(data.items)) throw new Error('受付一覧の応答形式が正しくありません。');
       $('request-rows').replaceChildren(...data.items.map(renderRequest));
+      $('intake-sync-state').textContent = '申込一覧に接続しました。連携前・未転記の受付はメール原本を確認してください。';
       $('request-results').hidden = false;
       $('previous-button').disabled = offset === 0;
       $('next-button').disabled = data.items.length < PAGE_SIZE;
-      $('page-label').textContent = `${offset + 1}〜${offset + data.items.length}件目`;
+      $('page-label').textContent = data.items.length ? `${offset + 1}〜${offset + data.items.length}件目` : '該当なし';
       message('list-state', data.items.length ? `${data.items.length}件を表示中。` : '条件に一致する受付はありません。', 'success');
     } catch (error) {
-      if (number === listRequestNumber) message('list-state', error instanceof Error ? error.message : '受付一覧を取得できませんでした。', 'error');
+      if (number === listRequestNumber) {
+        $('intake-sync-state').textContent = '一覧の取得に失敗しました。受付メールを原本として確認してください。';
+        message('list-state', error instanceof Error ? error.message : '受付一覧を取得できませんでした。', 'error');
+      }
     }
   };
 
@@ -213,5 +218,7 @@
   $('previous-button').addEventListener('click', () => { offset = Math.max(0, offset - PAGE_SIZE); void loadRequests(); });
   $('next-button').addEventListener('click', () => { offset += PAGE_SIZE; void loadRequests(); });
 
-  // A DB is not required for the manual PDF workflow; do not query the API on page load.
+  // Same simple list-first behavior as existing KAIZEN admin pages.
+  // A missing DB returns 404 and keeps manual PDF diagnosis independently usable.
+  document.addEventListener('DOMContentLoaded', () => { void loadRequests(); });
 })();
