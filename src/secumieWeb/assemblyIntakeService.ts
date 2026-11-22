@@ -55,7 +55,9 @@ export class AssemblyIntakeService {
     const hash = digest(input);
     await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [input.idempotencyKey]);
     const existing = await client.query<{ intake_id: string; receipt_number: string; payload_hash: string; auth_session_id: string }>(
-      'SELECT intake_id,receipt_number,payload_hash,auth_session_id FROM secumie_web.assembly_intake WHERE idempotency_key=$1 FOR UPDATE',
+      // The advisory transaction lock above serializes the idempotency key.
+      // Avoid FOR UPDATE here: public intake must not need UPDATE privileges.
+      'SELECT intake_id,receipt_number,payload_hash,auth_session_id FROM secumie_web.assembly_intake WHERE idempotency_key=$1',
       [input.idempotencyKey],
     );
     if (existing.rows[0]) {
