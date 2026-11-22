@@ -1,4 +1,4 @@
-import test from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -30,7 +30,7 @@ test('業務KAIZEN consultations use their dedicated sender without changing oth
   assert.deepEqual(sent.map(x=>x.from), [
     'system@atlib.jp', 'system@atlib.jp', 'original@atlib.jp',
   ]);
-  assert.match(sent[0].subject,/業務KAIZEN/);
+  assert.match(sent[0]!.subject,/業務KAIZEN/);
 });
 
 test('fallback stays backward compatible until sender address is approved', async () => {
