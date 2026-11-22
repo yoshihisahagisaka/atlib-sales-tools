@@ -76,7 +76,7 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     // the prior draft. The combined SQL omits only the separate BEGIN/COMMIT.
     assert.ok(candidateSql.includes(ddlSource.slice(ddlSource.indexOf('CREATE SCHEMA')).trimEnd()),
       'candidate DDL must match existing draft statements');
-    assert.ok(candidateSql.includes(grantsSource.slice(grantsSource.indexOf('DO $'), grantsSource.lastIndexOf('\nCOMMIT;')).trimEnd()),
+    assert.ok(candidateSql.includes(grantsSource.slice(grantsSource.indexOf('DO ' + '$'), grantsSource.lastIndexOf('\nCOMMIT;')).trimEnd()),
       'candidate grants must match existing draft statements');
     await admin.query('BEGIN');
     try {
