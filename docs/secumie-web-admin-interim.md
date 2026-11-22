@@ -1,5 +1,18 @@
 # SECU:MIE Web｜管理画面（暫定運用・DB接続待ち）
 
+## 2026-11-22 Staging DB 接続準備：現行の差分と実行境界
+
+この節は最新のStaging準備状況。**SQLはDraftのまま、実共有Cloud SQLのdatabase/role/Secret/Migration/Cloud Runは変更していない。**
+
+- PostgreSQLでは新規DBへPUBLIC CONNECT/TEMPORARYが標準付与され得るため、`design/secumie-web/staging-role-grants.draft.sql`で対象`secumie_web_staging`に限りそれらをREVOKEし、Webのruntime/admin roleのみにCONNECTを明示GRANTする。既存Insight・Secure Guard DBの権限は触らない。
+- 既存の合成PostgreSQL16受入`test/secumieWebAdminDb.acceptance.cjs`で、同じWeb専用GRANT SQLを適用した後、**無関係なログインロールのWeb DB接続拒否**、Web runtime/adminの必要操作成功、公開runtimeのUPDATE拒否、adminのDELETE拒否を確認する。実Cloud SQLでの接続可否・所有者は未確認。
+- `scripts/secumie-web-admin-preflight.sh`はread-onlyでGit HEAD、既存Cloud Runトラフィック、共有Staging Cloud SQLのRUNNABLE/PG16/backup/PITR/deletion protection、SQL Admin API上のDB/user一覧を照合する。Web専用DB/userが既存なら停止する。**Cloud SQL Admin APIのusers一覧だけでPostgreSQL `pg_roles` やACLの不在は証明できない**ため、実際のbootstrap前にはDBカタログで最終照合が必要。
+- PR #51は、既存のWSCと管理画面を一体にする最小Slice。PR #50のOTP/組合公開Runtimeを取り込まない。公開LPはコーポレート側Draft PR #75のメール正本を維持し、SMTP成功時のみ署名付きで任意転記する。実Staging接続後に疑似申込・送信失敗時フォールバック・一覧/提出状態・実スタッフ認証を検証する。
+- PR #51はZod v4移行に伴う`zod/v3`互換importも含むため、既存KAIZENおよびBusiness WebのGolden TestをWebのCIで追加実行する。前回実測（Run `45022193086`）：KAIZEN 12 PASS/1 SKIP、Business Web 5 PASS、Web DB/画面 10 PASS、0 FAIL。ブラウザ（Run `45022192995`）4 PASS、境界契約（Run `45022193002`）7+9 PASS、0 FAIL。以後のHEADは最新CIで別途確認する。
+- 共有Cloud SQL Canonicalでは、インスタンス共有・database/role/Secret/Migration台帳の分離が固定されており、**SECU:MIE WebのDB境界とMigration実行は別途承認条件**。本PRのDraft SQLを無承認で適用しない。適用前に所有者、DDL台帳、権限、復旧、実接続数、費用・実行者・明示承認を確認する。
+- コンテナ候補の未解決CVE HIGH16/UNKNOWN14（例外承認0）は別Gateであり、**SECURITY_NO_GO、Draft、Production No-Goは変更なし**。CIの合格だけで公開判断を変えない。
+
+
 ## 2026-11-22 最小管理ページの独立組立
 
 **この節を2026-11-22の最新実装状態とする。下記の過去の「PR #50だけが一覧APIを持つ」という記録は当時の履歴。**
