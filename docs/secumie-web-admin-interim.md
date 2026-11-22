@@ -1,5 +1,15 @@
 # SECU:MIE Web｜管理画面（暫定運用・DB接続待ち）
 
+## 2026-11-22 本番BKSイメージの来歴照合（現行）
+
+- 現行100% Cloud Run Revision `sales-tools-bks-20261122040419` のイメージは `asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/sales-tools@sha256:d132d93c5ffcc998633f10caaec397722422d4389322bccca8b5949397b7560e`。ユーザーが `gcloud run revisions describe`（read-only）で確認した。
+- 既存の業務KAIZEN公開ログ `20261122-040846` では Cloud Build ID `71c1edea-14c6-4483-8524-82342eaf4cce` が、直前の本番候補image `sha256:61393fcc9f47b429f69de72186a508743f17b6d2bcd31e451d7f065257b10a7c` を `FROM` として、3コンパイル済みJS（`dist/config.js`、`dist/services/mailer.js`、`dist/routes/businessWebConsultationLead.js`）と管理HTML2ファイルだけを重ねて新digestを作成している。Git差分のlabelは `jp.atlib.business-kaizen-sales-head=70d154d22657923ae99860bedfdeb7bb917d9815`。
+- `70d154d...` は業務KAIZEN差分のGit HEADであり、既存Imageのすべての機能・Migrationを表す**単一のProduction source HEADではない**。このイメージは継承された実行成果物を含むため、PR #51のbase `main 850e1f0...` からの単純な再ビルド・replace・mergeで同等性を主張してはならない。
+- 業務KAIZEN公開受入では、移行元の画像とSMTP設定を固定し、既存コンテンツ維持・業務KAIZENの表示名と送信者 `system@atlib.jp` の差分を確認した。ただし、公開ログ中の既存コンテンツ保持GateがPASSでも、現在のWSCスタッフ認証画面・診断PDFの実ブラウザ操作は別に検証する。
+- **PR #51の公開順序**：まず本番の認証済みWSC /admin/web-security-check.html で画面と診断機能が継続稼働していることを確認する。次に現行Production Image digest／実配備機能／DB ledger／別レーンPRの差分を合わせて統合候補を確定。新候補はtraffic 0のタグ付き受入から開始する。新DB・Secret・Migration・本番Traffic・PR mergeはいずれも別承認／No-Goのまま。
+- この調査はread-onlyの既存証跡・Git照合のみであり、実GCP、Cloud Run、DB、DNS、Secrets、Productionは変更していない。SECU:MIE WEBの管理画面を公開完了と宣言しない。
+
+
 ## 2026-11-22 実GCP Inventory受領・共有Cloud SQL Canonical照合（現行）
 
 この節は2026-11-22にユーザーがWindows PowerShellから採取した**実GCP読み取り専用の結果**であり、古い2026-11-22午前の配信revision記録より優先する。GCP設定変更・SQL接続・Migrationは行っていない。
