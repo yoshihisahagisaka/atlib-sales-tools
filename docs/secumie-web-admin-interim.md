@@ -2,6 +2,19 @@
 
 2026-11-19 時点の公開受付と、スタッフの診断・レポート作成業務を接続するための実装仕様。
 
+## 実機受入 Gate：自社テスト申込1件だけ（未完了）
+
+**対象：いま稼働しているメール受付と本番WSC。PR #50／#51を新規デプロイして検証するのではない。**
+
+1. 自社で受信できるテスト用メールアドレスから既存公開LP `https://www.atlib.jp/secumie-web/` に申し込み、対象会社・URLは自社のものだけにする（`https://www.atlib.jp/` など、会社が管理するHTTPS URL）。外部の実顧客を使わない。受付確認画面の文言を確認。
+2. `contact@atlib.jp` 側の**着信**を確認する。会社名・HTTPS URL・連絡先・同意情報が申し込みと一致すること。未着や重複時はこのGateをFAILとし、既存メール受付導線の原因を調査する。
+3. **本番で利用可能な既存管理画面** `https://sales.atlib.jp/admin/web-security-check.html` をGoogle Workspaceスタッフ認証で開く。出力先を選び、受付メールの会社名・URLを転記して、診断してPDF保存する。新しい `/admin/secumie-web.html` はDraft/未公開のため使用しない。
+4. **PDFの目視点検**：会社名・対象URL・診断日時・見出し・判定根拠の表現・日本語・改ページを確認。WSC VS1 HTMLの`review-banner`は`@media print`で非表示指定だが、実際の**PDFに「内部デザインレビュー用｜対外配布不可」が載っていない**ことを必ず確認。載っていた場合は送付せずFAIL。
+5. PDFを社内のテスト用宛先にのみ通常メールで送付し、**到着と添付ファイルの正常表示**を確認する。公開フォームや管理画面による自動送信ではない。
+6. 受入記録には **申込受付 PASS/FAIL、受付メール PASS/FAIL、既存スタッフログイン PASS/FAIL、WSC PDF生成 PASS/FAIL、PDF対外向け表記 PASS/FAIL、テスト送付到着 PASS/FAIL** と事実だけ記録する。顧客PII・PDF本体・OTP・SecretをGitHubに保存しない。
+
+**現状：未実施／完了宣言不可。** GitHub Actionsの契約テスト14 PASSは、この1件の運用E2Eやメール配送のPASSを意味しない。上記GateがPASSしても、別PRのWeb専用DB/OTP・新管理画面のProduction No-Goを自動解除しない。
+
 ## 2026-11-22 既存テスト再実行と公開範囲
 
 - 既存CIのGitHub Actions Run `44967626473`、Job `137040127454`：**SUCCESS**。スタッフ画面の既存機能契約 `test/secumieWebAdmin.contract.test.cjs` **7 PASS/0 FAIL/0 SKIP**、認証・CVEリリース境界 `test/secumieWebAdmin.releaseBoundary.contract.test.cjs` **7 PASS/0 FAIL/0 SKIP**、画面JavaScript構文チェック PASS、PowerShell DryRun PASS。
