@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>SECU:MIE Web | Webセキュリティ診断受付</title>
+<style>
+:root{font-family:"Noto Sans JP",system-ui,sans-serif;color:#17283e;background:#f5f7fa}
+*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0}
+.shell{max-width:700px;margin:0 auto;padding:24px 16px 64px}
+header{text-align:center;margin:16px 0 28px}.brand{font-size:30px;letter-spacing:.04em;font-weight:800;color:#16385d}
+.subtitle{font-size:15px;margin-top:8px;color:#40536a}
+.card{background:#fff;border:1px solid #dbe3eb;border-radius:16px;padding:clamp(18px,5vw,30px);box-shadow:0 6px 24px #152d4810}
+h1{font-size:23px;margin:0 0 14px}h2{font-size:19px;margin:0 0 12px}
+p{line-height:1.75;color:#40536a}label{display:block;font-weight:650;margin:16px 0 7px}
+input,select{display:block;width:100%;border:1px solid #aebfd0;border-radius:9px;padding:12px;font:inherit;background:#fff;color:#17283e}
+input:focus,select:focus{outline:2px solid #265d95;outline-offset:1px}
+button{display:block;width:100%;border:0;border-radius:10px;background:#193e65;color:#fff;padding:14px;font:inherit;font-weight:700;cursor:pointer;margin-top:18px}
+button:disabled{opacity:.5;cursor:not-allowed}.secondary{background:#e8eef5;color:#16385d}
+.note{border-left:3px solid #d88333;background:#fff7ed;padding:12px 14px;font-size:13px;line-height:1.7}
+.notice{min-height:1.2em;color:#aa3326;font-size:14px;margin-top:10px}.status{color:#375779;font-size:14px}
+.consent{display:flex;align-items:flex-start;gap:10px;margin:20px 0}.consent input{width:auto;margin:5px 0;flex:none}
+.consent label{margin:0;font-weight:400}.consent-text{white-space:pre-wrap;background:#f3f6fa;padding:14px;border:1px solid #dbe3eb;border-radius:8px;font-size:14px;line-height:1.8}
+footer{text-align:center;margin-top:24px;font-size:12px;color:#65778b}#turnstile{margin:20px 0}
+@media(max-width:420px){.brand{font-size:26px}h1{font-size:21px}}
+</style>
+<!-- WEB_RUNTIME_CONFIG -->
+</head>
+<body>
+<main class="shell">
+<header><div class="brand">SECU:MIE Web</div><div class="subtitle">Webセキュリティ診断</div></header>
+<section id="auth-root" class="card" aria-label="メールアドレスの確認">
+  <div id="email-screen">
+    <h1>Webセキュリティ診断のお申し込み</h1>
+    <p>所属する組合と企業情報をお申し込み後にご入力いただきます。診断結果はこの画面には表示されません。</p>
+    <h2>メールアドレスの確認</h2>
+    <p>6桁の認証コードをメールでお送りします。</p>
+    <form id="email-form"><label for="email">メールアドレス</label>
+      <input id="email" type="email" autocomplete="email" required maxlength="254">
+      <div id="turnstile" class="cf-turnstile"></div>
+      <button id="send" type="submit">認証コードを送信する</button>
+    </form>
+  </div>
+  <div id="code-screen" hidden>
+    <h1>認証コードの入力</h1><p>メールに届いた6桁のコードを入力してください。</p>
+    <form id="code-form"><label for="code">認証コード</label>
+      <input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+      <button id="verify" type="submit">確認する</button>
+    </form>
+    <button id="resend" class="secondary" type="button" disabled>認証コードを再送する</button>
+    <p id="resend-wait" class="status"></p>
+    <button id="change-email" class="secondary" type="button">メールアドレスを変更する</button>
+  </div>
+  <div id="success-screen" hidden>
+    <h1>メールアドレスの確認が完了しました</h1>
+    <button id="start" type="button">申し込み情報を入力する</button>
+  </div>
+  <p id="error" class="notice" role="alert"></p><p id="busy" class="status" role="status"></p>
+</section>
+
+<section id="intake-root" class="card" aria-label="診断のお申し込み" hidden>
+  <h1>診断のお申し込み</h1>
+  <p>所属組合を選び、企業情報をご入力ください。診断結果の確認・送付はatLIB側で行います。</p>
+  <p class="note">お申し込み後、この画面に診断結果は表示されません。</p>
+  <form id="intake-form">
+    <label for="union">所属組合</label>
+    <select id="union" required disabled><option value="">組合情報を読み込み中です</option></select>
+    <label for="company">企業名</label>
+    <input id="company" autocomplete="organization" maxlength="200" required>
+    <label for="address">本店所在地</label>
+    <input id="address" maxlength="500" required>
+    <label for="website">WebサイトURL（https://）</label>
+    <input id="website" type="url" placeholder="https://example.com/" maxlength="2000" required>
+    <label for="contact-name">ご担当者名</label>
+    <input id="contact-name" autocomplete="name" maxlength="200" required>
+    <label for="contact-email">メールアドレス（認証済み）</label>
+    <input id="contact-email" type="email" readonly>
+    <label for="contact-phone">電話番号</label>
+    <input id="contact-phone" type="tel" autocomplete="tel" maxlength="50" required>
+    <label>企業情報の利用・提供について</label>
+    <div id="consent-text" class="consent-text"></div>
+    <div class="consent">
+      <input id="consent" type="checkbox" required>
+      <label for="consent">上記内容を確認し、同意します。</label>
+    </div>
+    <button id="submit-request" type="submit" disabled>診断を申し込む</button>
+    <p id="intake-error" class="notice" role="alert"></p>
+    <p id="intake-busy" class="status" role="status"></p>
+  </form>
+</section>
+<section id="done-screen" class="card" hidden>
+  <h1>お申し込みを受け付けました</h1>
+  <p>ご入力ありがとうございました。診断結果のご案内は、申込内容の確認後に行います。</p>
+  <p>受付番号：<strong id="receipt-number"></strong></p>
+  <p class="note">受付番号を控えてください。診断結果はこの画面には表示されません。</p>
+</section>
+<footer>SECU:MIE Web</footer>
+</main>
+<script>
+(() => {
+  'use strict';
+  const config = window.__SECUMIE_WEB_CONFIG__;
+  const byId = id => document.getElementById(id);
+  const error = byId('intake-error');
+  const busy = byId('intake-busy');
+  const submit = byId('submit-request');
+  const union = byId('union');
+  const form = byId('intake-form');
+  const state = { issueToken: null, email: null, idempotencyKey: null, ready: false };
+  if (!window.crypto?.randomUUID || !window.fetch || !config || !config.consentVersion || !config.consentText || !config.turnstileSiteKey) {
+    byId('error').textContent = '現在お申し込みを受け付けられません。';
+    byId('send').disabled = true;
+    return;
+  }
+  byId('consent-text').textContent = config.consentText;
+  byId('turnstile').setAttribute('data-sitekey', config.turnstileSiteKey);
+  const loadUnions = async () => {
+    const response = await fetch('/api/public/secumie-web/v1/unions', { cache: 'no-store' });
+    if (!response.ok) throw new Error('UNIONS_UNAVAILABLE');
+    const data = await response.json();
+    if (!Array.isArray(data.items) || data.items.length === 0) throw new Error('UNIONS_EMPTY');
+    union.replaceChildren(new Option('所属組合を選択してください', ''));
+    for (const item of data.items) {
+      if (typeof item.unionId === 'string' && typeof item.officialName === 'string')
+        union.add(new Option(item.officialName, item.unionId));
+    }
+    if (union.options.length < 2) throw new Error('UNIONS_EMPTY');
+    union.disabled = false; state.ready = true; submit.disabled = false;
+  };
+  window.publicAuthIntakeAdapter = async ({ issueToken, email }) => {
+    state.issueToken = issueToken;
+    state.email = email;
+    state.idempotencyKey = crypto.randomUUID();
+    byId('contact-email').value = email;
+    byId('auth-root').hidden = true;
+    byId('intake-root').hidden = false;
+    try { await loadUnions(); } catch {
+      error.textContent = '組合情報を取得できません。現在お申し込みを受け付けられません。';
+    }
+  };
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!state.ready || !form.reportValidity() || !byId('consent').checked || !state.issueToken) return;
+    const websiteUrl = byId('website').value.trim();
+    if (!websiteUrl.startsWith('https://')) {
+      error.textContent = 'WebサイトURLは https:// から入力してください。'; return;
+    }
+    error.textContent = ''; busy.textContent = '申し込みを送信しています。'; submit.disabled = true;
+    try {
+      const token = await state.issueToken();
+      const body = {
+        unionId: union.value,
+        companyName: byId('company').value.trim(),
+        registeredAddress: byId('address').value.trim(),
+        websiteUrl,
+        contactName: byId('contact-name').value.trim(),
+        contactPhone: byId('contact-phone').value.trim(),
+        consentVersion: config.consentVersion,
+        accepted: true,
+        idempotencyKey: state.idempotencyKey,
+      };
+      const response = await fetch('/api/public/secumie-web/v1/requests', {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.receiptId) throw new Error(data.error?.code || 'REQUEST_FAILED');
+      byId('receipt-number').textContent = data.receiptId;
+      byId('intake-root').hidden = true;
+      byId('done-screen').hidden = false;
+    } catch (e) {
+      const known = e.message === 'JWT_REPLAYED' ? '認証の有効期限が切れました。最初からやり直してください。' :
+        e.message === 'UNION_NOT_FOUND' ? '組合の選択をやり直してください。' :
+        e.message === 'INVALID_REQUEST' ? '入力内容をご確認ください。' :
+        '送信が完了したことを確認できません。再度お試しください。';
+      error.textContent = known; submit.disabled = false;
+    } finally { busy.textContent = ''; }
+  });
+})();
+</script>
+<script src="/public-service-auth.js"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+</body>
+</html>

@@ -1,0 +1,297 @@
+{
+  "schemaVersion": 1,
+  "status": "approval-required",
+  "project": "msp-zabbix",
+  "region": "asia-northeast1",
+  "cloudSql": {
+    "instance": "secumie-sg-shared-prod-db",
+    "connectionName": "msp-zabbix:asia-northeast1:secumie-sg-shared-prod-db",
+    "database": "secumie_insight",
+    "engine": "POSTGRES_16",
+    "edition": "ENTERPRISE",
+    "machine": { "vCpu": 2, "memoryGiB": 7.5 },
+    "availability": "REGIONAL",
+    "storage": {
+      "type": "SSD",
+      "initialGiB": 30,
+      "autoIncrease": true,
+      "autoIncreaseLimitGiB": 200
+    },
+    "estimatedMonthlyUsd": 270,
+    "backupRequired": true,
+    "pitrRequired": true,
+    "pitrRetentionDays": 7,
+    "deletionProtection": true,
+    "publicIp": false,
+    "retainedFinalBackupRequired": true
+  },
+  "roles": {
+    "otp": { "name": "secumie_otp_prod", "connectionLimit": 6 },
+    "pira": { "name": "secumie_pira_prod", "connectionLimit": 6 },
+    "admin": { "name": "secumie_admin_prod", "connectionLimit": 40 },
+    "migration": { "name": "secumie_migration_prod", "connectionLimit": 1 },
+    "maintenance": { "name": "secumie_maintenance_prod", "connectionLimit": 1 }
+  },
+  "serviceAccounts": {
+    "bootstrap": "secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com",
+    "migration": "secumie-db-migration-prod@msp-zabbix.iam.gserviceaccount.com"
+  },
+  "secrets": [
+    "secumie-prod-db-bootstrap-password",
+    "secumie-prod-db-otp-password",
+    "secumie-prod-db-pira-password",
+    "secumie-prod-db-admin-password",
+    "secumie-prod-db-migration-password",
+    "secumie-prod-db-maintenance-password"
+  ],
+  "jobs": {
+    "bootstrap": "secumie-db-bootstrap-prod",
+    "migration": "secumie-db-migrate-prod",
+    "acceptance": "secumie-db-acceptance-prod",
+    "taskCount": 1,
+    "parallelism": 1,
+    "maxRetries": 0,
+    "timeoutSeconds": 900
+  },
+  "fixedEnvironment": {
+    "SECU_CLOUD_SQL_INSTANCE": "msp-zabbix:asia-northeast1:secumie-sg-shared-prod-db",
+    "DB_NAME": "secumie_insight",
+    "PIRA_GENERAL_ENABLED": "false"
+  },
+  "network": {
+    "ingress": "internal",
+    "vpc": "default",
+    "subnet": "default",
+    "subnetRegion": "asia-northeast1",
+    "egress": "private-ranges-only",
+    "databasePublicIp": false
+  },
+  "temporaryAccessCleanup": {
+    "afterBootstrapAcceptanceEvidence": true,
+    "removeBootstrapSecretAccessor": true,
+    "removeTemporaryIamBindings": true,
+    "preserveRuntimeAndMigrationSecrets": true,
+    "databaseOrRoleDeletionRequiresSeparateApproval": true
+  },
+  "proxyImage": "gcr.io/cloud-sql-connectors/cloud-sql-proxy@sha256:e0cbea7b63455c1635d354ef456696d019dd02a5db47bf1994e849823e71ae89",
+  "migrationManifest": "migration-manifests/secumie-insight-production-037-041.json",
+  "applicationConnectionBudget": 78,
+  "generalEnabled": false,
+  "gateB1Evidence": {
+    "status": "conditional-pass",
+    "createdAt": "2026-11-15T12:59:27.994Z",
+    "createOperationStatus": "DONE",
+    "instanceState": "RUNNABLE",
+    "privateIpOnly": true,
+    "initialAutomatedBackupStatus": "SUCCESSFUL",
+    "sqlCapacityMeasurement": "pending-gate-b2-authenticated-connection"
+  },
+  "gateB2Evidence": {
+    "status": "conditional-pass",
+    "serviceAccountsCreated": [
+      "secumie-db-bootstrap-prod@msp-zabbix.iam.gserviceaccount.com",
+      "secumie-db-migration-prod@msp-zabbix.iam.gserviceaccount.com"
+    ],
+    "cloudSqlClientBindingsApplied": true,
+    "secretsCreated": 6,
+    "secretVersionsCreated": 6,
+    "postgresPasswordChanged": "owner-attested-metadata-only",
+    "sqlCapacityMeasurement": "not-attempted-after-stop",
+    "stopReason": null,
+    "controlledResumeEvidence": {
+      "memberArgumentValidation": "pass-single-argument",
+      "firstIamWriteApplied": false,
+      "secretsCreated": 0,
+      "existingServicesReady": 7,
+      "conditionFileParseReadBack": "pass",
+      "conditionLint": "alpha-unavailable-superseded-by-owner-approved-official-rest-lint",
+      "officialRestLint": "pass-empty-lint-results",
+      "conditionFileBindingsReadBack": "pass-both-service-accounts",
+      "secretScopedIamReadBack": "pass",
+      "secretVersions": 6,
+      "secretVersionContract": "exactly-version-1-enabled-per-secret",
+      "postgresUserMetadata": "present-single-user",
+      "passwordEqualityVerification": "owner-attested-pending-b3-authentication-preflight",
+      "productionDatabaseCreated": false,
+      "productionGateJobsCreated": 0,
+      "protectedServicesReady": 7
+    }
+  },
+  "gateB3Evidence": {
+    "status": "pass-bootstrap-only",
+    "sourceRevision": "35b86f5d2bac676762281e9b6aff1e552a672b35",
+    "localImageManifest": "sha256:70b9f6aa3621db0275fabb5287137a3cd01a32866cfb5a9110af556cc4845ee0",
+    "localImageConfig": "sha256:f011374a198a06c518e6314bc54f7d2eb7a60e86792688228f598d7921eb0928",
+    "registryIndexDigest": "sha256:70b9f6aa3621db0275fabb5287137a3cd01a32866cfb5a9110af556cc4845ee0",
+    "registryLinuxAmd64Manifest": "sha256:856b0cae94a2672b465655f8be3a87571677d5689390e8e574aa986003218c3d",
+    "manifestVerification": "pass-exact-037-041",
+    "wrongTargetRejection": "pass-before-db-connection",
+    "criticalFindings": 0,
+    "highFindings": 0,
+    "affectedPackage": null,
+    "fixedVersion": "24.22.3",
+    "artifactPushed": true,
+    "artifactPushCount": 1,
+    "bootstrapJobCreated": true,
+    "bootstrapExecuted": true,
+    "bootstrapExecution": "secumie-db-bootstrap-prod-4gxvf",
+    "bootstrapExecutionAttempts": 1,
+    "databaseCreated": true,
+    "databaseOwner": "postgres",
+    "rolesCreated": 5,
+    "applicationRoleMemberships": 0,
+    "connectionCapacity": {
+      "maxConnections": 400,
+      "reserve": 80,
+      "applicationAvailable": 320,
+      "required": 78,
+      "pass": true
+    },
+    "stopReason": null,
+    "node24223Remediation": {
+      "implementationRevision": "a00b01f0f2c144e72a4240554f4b06c0e2878f1b",
+      "nodeBuilderDigest": "sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54",
+      "distrolessRuntimeDigest": "sha256:24bc0fe0225c7518f202a822587dad74fe143b96326b81fe5cc08c1df8bed03e",
+      "installedNodeVersion": "24.22.3",
+      "otpLocalImageId": "sha256:a0fc5e44cb3a0e82bde0be11dbd8a658ee3c6784d6886d4557e693b53e68045b",
+      "piraLocalImageId": "sha256:d7c294544b3233630d40b79eeab7345b0091ab6d80a35ec047c210d75feb20fd",
+      "dbOperationsLocalImageId": "sha256:fc794e1cf5a9f60b654c2b5fe553d04cb846cf6b718a652c30b29fae3f36b9f3",
+      "criticalFindings": 0,
+      "highFindings": 0,
+      "postgres16Regression": "32-pass-plus-2-production-lifecycle-pass",
+      "artifactPushed": false,
+      "gcpChanges": 0
+    }
+  },
+  "gateB4Evidence": {
+    "status": "stop-after-migration-acceptance-failed",
+    "approvedHead": "e57b0474dc32ef84f72fdefd7e111c468db99bc3",
+    "imageIndexDigest": "sha256:70b9f6aa3621db0275fabb5287137a3cd01a32866cfb5a9110af556cc4845ee0",
+    "migrationJob": "secumie-db-migrate-prod",
+    "migrationExecution": "secumie-db-migrate-prod-wfzff",
+    "migrationStatus": "succeeded",
+    "migrationAttempts": 1,
+    "ledger": [
+      "037_public_service_otp.sql",
+      "038_pira_public_intake.sql",
+      "039_pira_admin_export.sql",
+      "040_pira_export_audit_retention.sql",
+      "041_secumie_db_operations.sql"
+    ],
+    "ownership": {
+      "schemas": "3/3 migration owner",
+      "tables": "10/10 migration owner",
+      "functions": "7/7 migration owner"
+    },
+    "acceptanceJob": "secumie-db-acceptance-prod",
+    "acceptanceExecution": "secumie-db-acceptance-prod-cs6kz",
+    "acceptanceStatus": "failed",
+    "acceptanceAttempts": 1,
+    "acceptanceFailure": "bootstrap postgres lacks USAGE on public_auth during final synthetic residue query",
+    "syntheticResidue": {
+      "otpSendLocks": 0,
+      "exportAudit": 0,
+      "verifiedReadOnlyWithOwningRuntimeRoles": true
+    },
+    "protectedServicesReady": 7,
+    "automaticRetryOrRepair": false,
+    "b5Started": false
+  },
+  "gateB4AcceptanceCliRecovery": {
+    "status": "code-review-pass-execution-stop",
+    "ownerApprovalComment": 6909091141,
+    "approvedHead": "5e1ec1461024a83fe02c0ee25e44159b72865dfa",
+    "evidenceShaCorrection": {
+      "incorrectPrText": "5e1ec143fa7523b624c4000f29d2b40b676b1074",
+      "authoritativeGitCommit": "5e1ec1461024a83fe02c0ee25e44159b72865dfa"
+    },
+    "residueChecks": {
+      "publicAuthRole": "secumie_otp_prod",
+      "piraAuditRole": "secumie_admin_prod",
+      "exactZeroRequired": true,
+      "failClosed": true
+    },
+    "postgres16Regression": {
+      "bootstrapNonSuperuser": true,
+      "bootstrapPublicAuthUsage": false,
+      "formerDirectSelectSqlstate": "42501",
+      "productionLifecycle": "2/2-pass",
+      "databaseContracts": "32/32-pass"
+    },
+    "localImageGate": {
+      "sourceRevision": "3a3a4e3b577b42faf24d651c0a688fb8786cecb7",
+      "platform": "linux/amd64",
+      "imageId": "sha256:08e6549884971745c02a420a7815699d45de895d16797bb0f48d61de7bee2c3f",
+      "manifestVerification": "pass-exact-037-041",
+      "criticalFindings": 0,
+      "highFindings": 0,
+      "registryDigest": null
+    },
+    "artifactPushed": false,
+    "productionJobUpdated": false,
+    "acceptanceRerun": false,
+    "gcpChanges": 0,
+    "b5Started": false
+  },
+  "gateB4AcceptanceOnlyRecoveryExecution": {
+    "status": "pass-candidate-owner-review",
+    "ownerApprovalComment": 6918480260,
+    "sourceRevision": "90be819bdf405ceaf59d3b5062c02538fd5bc58a",
+    "remoteImage": {
+      "indexDigest": "sha256:c2e2e69ed19d25e7565fa77f1223cad426606b548566d497ec9b3c66633d7741",
+      "linuxAmd64Manifest": "sha256:9cf2cc8b7ee3cc60fe4bc7b0d724eb39123d702eeb045e2569bbd383ecbe04df",
+      "nodeVersion": "24.22.3",
+      "user": "nonroot",
+      "manifestVerification": "pass-exact-037-041",
+      "stagingTargetRejection": "SECU_PRODUCTION_INSTANCE_MISMATCH-before-db",
+      "criticalFindings": 0,
+      "highFindings": 0
+    },
+    "job": {
+      "name": "secumie-db-acceptance-prod",
+      "mainContainer": "acceptance",
+      "change": "main-image-only",
+      "effectiveAdditionalDiffs": 0,
+      "taskCount": 1,
+      "parallelism": 1,
+      "maxRetries": 0,
+      "timeoutSeconds": 900
+    },
+    "execution": {
+      "name": "secumie-db-acceptance-prod-8xkzq",
+      "status": "succeeded",
+      "succeededTasks": 1,
+      "attempts": 1,
+      "exitCode": 0,
+      "ledger": [
+        "037_public_service_otp.sql",
+        "038_pira_public_intake.sql",
+        "039_pira_admin_export.sql",
+        "040_pira_export_audit_retention.sql",
+        "041_secumie_db_operations.sql"
+      ],
+      "ownership": {
+        "schemas": "3/3",
+        "tables": "10/10",
+        "functions": "7/7"
+      },
+      "capacity": {
+        "maxConnections": 400,
+        "observedConnections": 10,
+        "reserve": 80,
+        "applicationAvailable": 320,
+        "required": 78,
+        "pass": true
+      },
+      "retentionPreviewOnly": true,
+      "syntheticResidue": 0,
+      "secretLeakObserved": false
+    },
+    "protectedServicesReady": 7,
+    "migrationRerun": false,
+    "bootstrapRerun": false,
+    "dbIamSecretAclChanges": 0,
+    "b5Started": false,
+    "productionNoGo": true
+  }
+}

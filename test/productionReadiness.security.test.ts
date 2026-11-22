@@ -12,7 +12,7 @@ import { createStaffAuthRouter } from '../src/routes/staffAuth';
 import { requireStaffAuth } from '../src/middleware/staffAuth';
 import { safeRequestError } from '../src/middleware/safeRequestError';
 import { safeAccessRequest, safeAccessResponse } from '../src/middleware/diagnosisLogging';
-import { loadConfig, loadDatabaseConfig } from '../src/config';
+import { loadConfig, loadDatabaseConfig, loadSecumieAdminDatabaseConfig } from '../src/config';
 
 const key = 'synthetic-readiness-signing-key-only-123456';
 test('JWT purpose separation, malformed / expired / tampered session rejection', () => {
@@ -117,5 +117,24 @@ test('migration credentials are independent from runtime credentials and fail cl
     const migration=await loadDatabaseConfig('migration'),runtime=await loadDatabaseConfig('runtime');
     assert.equal(migration.user,'migration_user'); assert.equal(migration.password,'migration_password'); assert.equal(migration.socketPath,'/cloudsql/synthetic');
     assert.equal(runtime.user,'runtime_user'); assert.equal(runtime.password,'runtime_password');
+  } finally { for (const name of Object.keys(process.env)) if (!(name in before)) delete process.env[name]; Object.assign(process.env,before); }
+});
+
+test('SECU:MIE administration credentials are independent and fail closed', async () => {
+  const before = { ...process.env };
+  try {
+    Object.assign(process.env, {
+      DB_NAME:'business', DB_USER:'business_user', DB_PASSWORD:'business_password',
+      SECUMIE_DB_NAME:'secumie', SECUMIE_DB_ADMIN_USER:'secumie_admin',
+      SECUMIE_DB_ADMIN_PASSWORD:'secumie_password', SECUMIE_DB_SOCKET_PATH:'/cloudsql/secumie',
+    });
+    const business = await loadDatabaseConfig();
+    const secumie = await loadSecumieAdminDatabaseConfig();
+    assert.equal(business.name, 'business'); assert.equal(business.user, 'business_user');
+    assert.equal(secumie.name, 'secumie'); assert.equal(secumie.user, 'secumie_admin');
+    assert.equal(secumie.socketPath, '/cloudsql/secumie');
+    delete process.env.SECUMIE_DB_ADMIN_PASSWORD;
+    await assert.rejects(loadSecumieAdminDatabaseConfig(), /SECUMIE_DB_ADMIN_PASSWORD/);
+    assert.equal((await loadDatabaseConfig()).name, 'business');
   } finally { for (const name of Object.keys(process.env)) if (!(name in before)) delete process.env[name]; Object.assign(process.env,before); }
 });

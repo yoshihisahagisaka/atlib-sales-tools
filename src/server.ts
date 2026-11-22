@@ -3,7 +3,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import pinoHttp from 'pino-http';
 import pino from 'pino';
-import { loadConfig } from './config';
+import { loadConfig, loadSecumieAdminDatabaseConfig, loadSecumieWebAdminDatabaseConfig } from './config';
 import { createPool } from './db/pool';
 import { Mailer } from './services/mailer';
 import { IsmsDiagnosticRepo } from './services/ismsDiagnosticRepo';
@@ -79,6 +79,9 @@ import { WscSalesService } from './services/wscSalesService';
 import { createAdminWebSecurityCheckRouter } from './routes/adminWebSecurityCheck';
 import { PiraAdminRepo } from './piraAdmin/piraAdminRepo';
 import { createAdminPiraRouter } from './routes/adminPira';
+import { AssemblyAdminService } from './secumieWeb/assemblyAdminService';
+import { createAdminSecumieWebRouter } from './routes/adminSecumieWeb';
+import { createInternalSecumieWebMirrorRouter } from './routes/internalSecumieWebMirror';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -86,6 +89,18 @@ async function main(): Promise<void> {
 
   const pool = createPool(config);
   pool.on('error',()=>logger.error({event:'database_pool_error'},'Database connection failed'));
+  const secumiePool = createPool(
+    { db: await loadSecumieAdminDatabaseConfig() },
+    { max: 2, idleTimeoutMillis: 10_000 },
+  );
+  secumiePool.on('error',()=>logger.error({event:'secumie_database_pool_error'},'SECU:MIE database connection failed'));
+  // Web requests are owned by a different database/role. Missing config leaves
+  // only the Web staff API disconnected; PIRA and all existing services keep running.
+  const webAdminDb = loadSecumieWebAdminDatabaseConfig();
+  const secumieWebPool = webAdminDb
+    ? createPool({ db: webAdminDb }, { max: 2, idleTimeoutMillis: 10_000 })
+    : null;
+  secumieWebPool?.on('error', () => logger.error({ event: 'secumie_web_database_pool_error' }, 'SECU:MIE Web database connection failed'));
   const mailer = new Mailer(config.smtp);
   const ismsDiagnosticRepo = new IsmsDiagnosticRepo(pool);
   const freeHearingAssessmentRepo = new FreeHearingAssessmentRepo(pool);
@@ -112,7 +127,8 @@ async function main(): Promise<void> {
   const aiAssistService = new AiAssistService(config.aiAssist.anthropicApiKey, marketRateRepo, estimatePreconditionRepo);
   const staffAuthService = new StaffAuthService(config.staffAuth.jwtSecret);
   const wscSalesService = new WscSalesService();
-  const piraAdminRepo = new PiraAdminRepo(pool);
+  const piraAdminRepo = new PiraAdminRepo(secumiePool);
+  const assemblyAdminService = secumieWebPool ? new AssemblyAdminService(secumieWebPool) : null;
   const itManagementDiagnosisRepo = new ItManagementDiagnosisRepo(pool);
   const preparationRepo = new DiagnosisPreparationRepo(pool);
   const preparationProvider = new AnthropicPreDiagnosisProvider(config.aiAssist.anthropicApiKey);
@@ -159,6 +175,17 @@ async function main(): Promise<void> {
   // Staff-only WSC CSV validation sends the source once, while actual
   // diagnostics remain individual requests. Keep the larger body scope narrow.
   app.use('/api/admin/web-security-check', express.json({ limit: '2mb' }));
+  // The existing corporate LP can mirror an accepted email into the Web-owned
+  // request table. Verify a signed raw body before any JSON parsing.
+  const webMirrorSecret = process.env.SECUMIE_WEB_MIRROR_SECRET?.trim();
+  if (webMirrorSecret && !assemblyAdminService) {
+    throw new Error('SECU:MIE Web mirror requires its separate Web database');
+  }
+  if (webMirrorSecret && assemblyAdminService) {
+    app.use('/api/internal/secumie-web/v1',
+      express.raw({ type: 'application/json', limit: '8kb' }),
+      createInternalSecumieWebMirrorRouter(assemblyAdminService, webMirrorSecret));
+  }
   app.use(express.json());
   app.use(cookieParser());
 
@@ -226,6 +253,8 @@ async function main(): Promise<void> {
   app.use('/api/admin/web-security-check', ...adminAuthGate, createAdminWebSecurityCheckRouter(wscSalesService));
   app.use('/api/admin/pira/v1', ...adminAuthGate,
     createAdminPiraRouter(piraAdminRepo, new Set(config.piraAdminEmails)));
+  if (assemblyAdminService) app.use('/api/admin/secumie-web/v1', ...adminAuthGate,
+    createAdminSecumieWebRouter(assemblyAdminService));
   app.use(
     '/api/admin/estimate-preconditions',
     ...adminAuthGate,
@@ -269,9 +298,19 @@ async function main(): Promise<void> {
   app.use(express.static(path.join(__dirname, '../public')));
   app.use(safeRequestError);
 
-  app.listen(config.port, () => {
+  const server = app.listen(config.port, () => {
     logger.info(`sales-tools listening on :${config.port}`);
   });
+  let stopping = false;
+  const stop = async (signal: string): Promise<void> => {
+    if (stopping) return;
+    stopping = true;
+    logger.info({ event: 'server_shutdown', signal }, 'Stopping Sales Tools');
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await Promise.allSettled([pool.end(), secumiePool.end(), ...(secumieWebPool ? [secumieWebPool.end()] : [])]);
+  };
+  process.once('SIGTERM', () => { void stop('SIGTERM').finally(() => process.exit(0)); });
+  process.once('SIGINT', () => { void stop('SIGINT').finally(() => process.exit(0)); });
   const pollReport = () => { void reportWorker.tick().catch(() => logger.warn({ event: 'report_worker_failed' }, 'Report worker failed')); };
   pollReport(); setInterval(pollReport,5000).unref();
   const pollPostDiagnosis = () => { void postDiagnosisWorker.tick().catch(() => logger.warn({ event: 'post_diagnosis_worker_failed' }, 'Post diagnosis worker failed')); };

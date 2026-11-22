@@ -1,0 +1,54 @@
+name: SECU MIE Web admin DB contract
+
+on:
+  pull_request:
+    branches:
+      - feat/secumie-readiness-runtime
+    paths:
+      - '.github/workflows/secumie-web-admin-db-contract.yml'
+      - 'src/config.ts'
+      - 'src/server.ts'
+      - 'src/runtime/runtimeConfig.ts'
+      - 'src/db/pool.ts'
+      - 'src/routes/adminSecumieWeb.ts'
+      - 'src/routes/internalSecumieWebMirror.ts'
+      - 'src/secumieWeb/assemblyAdminService.ts'
+      - 'design/secumie-web/assembly-intake.draft.sql'
+      - 'design/secumie-web/staging-role-grants.draft.sql'
+      - 'test/secumieDedicatedDbConnection.test.ts'
+      - 'test/secumieWebPublic.contract.test.ts'
+
+permissions:
+  contents: read
+
+jobs:
+  admin-db-contract:
+    name: Existing runtime and isolated Web admin DB contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Ephemeral GitHub Actions PostgreSQL only; no Cloud SQL or customer data.
+      SECUMIE_TEST_POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - run: TS_NODE_FILES=true node -r ts-node/register --test test/secumieDedicatedDbConnection.test.ts test/secumieWebPublic.contract.test.ts
