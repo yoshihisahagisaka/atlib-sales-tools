@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { get as httpGet } from 'node:http';
 import path from 'node:path';
@@ -6,6 +7,7 @@ import { test } from 'node:test';
 import express from 'express';
 import type { Pool } from 'pg';
 import { createAdminSecumieWebRouter } from '../src/routes/adminSecumieWeb';
+import { createInternalSecumieWebMirrorRouter } from '../src/routes/internalSecumieWebMirror';
 import { createSecumieWebPublicRuntime } from '../src/runtime/secumieWebPublicRuntime';
 import { AssemblyAdminService } from '../src/secumieWeb/assemblyAdminService';
 
@@ -132,6 +134,65 @@ test('Web staff list reuses established admin items/filter contract without new 
     assert.equal(response.headers.get('cache-control'), 'no-store');
     assert.deepEqual(await response.json(), { items: [row] });
     assert.deepEqual(calls, [['RECEIVED', '検証', 'テスト', 50, 0]]);
+  } finally {
+    if (server.listening) {
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    }
+  }
+});
+
+test('signed corporate LP mirror rejects unsigned, expired and malformed requests', async () => {
+  const received: unknown[] = [];
+  const secret = 'synthetic-key-with-at-least-32-characters';
+  const app = express();
+  app.use('/api/internal/secumie-web/v1', express.raw({ type: 'application/json', limit: '8kb' }),
+    createInternalSecumieWebMirrorRouter({
+      recordCorporateEmailIntake: async item => {
+        received.push(item);
+        return { receiptId: 'SMW-SYNTHETIC', replayed: false };
+      },
+    }, secret));
+  const server = app.listen(0, '127.0.0.1');
+  try {
+    await new Promise<void>((resolve, reject) => {
+      if (server.listening) return resolve();
+      server.once('listening', resolve);
+      server.once('error', reject);
+    });
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('No test listener');
+    const url = 'http://127.0.0.1:' + address.port + '/api/internal/secumie-web/v1/temporary-intakes';
+    const record = {
+      source: 'secumie_web_temporary',
+      eventId: '00000000-0000-4000-8000-000000000004',
+      companyName: '検証株式会社', unionName: '検証組合',
+      registeredAddress: '千葉県', websiteUrl: 'https://example.jp/',
+      contactName: 'テスト担当', contactEmail: 'test@example.jp',
+      contactPhone: '0000000000', consented: true,
+    };
+    const body = JSON.stringify(record);
+    const post = async (timestamp: string, signedBody = body, omitSignature = false) => {
+      const digest = createHmac('sha256', secret).update(timestamp).update('\n').update(signedBody).digest('hex');
+      return fetch(url, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-secumie-timestamp': timestamp,
+          ...(!omitSignature ? { 'x-secumie-signature': digest } : {}),
+        },
+        body: signedBody,
+      });
+    };
+    assert.equal((await post(String(Date.now()), body, true)).status, 401);
+    assert.equal((await post(String(Date.now() - 600_000))).status, 401);
+    assert.equal((await post(String(Date.now()), JSON.stringify({ ...record, websiteUrl: 'http://example.jp/' }))).status, 400);
+    assert.equal(received.length, 0);
+    const response = await post(String(Date.now()));
+    assert.equal(response.status, 201);
+    assert.deepEqual(await response.json(), { ok: true, receiptId: 'SMW-SYNTHETIC' });
+    assert.equal(received.length, 1);
+    assert.equal((received[0] as { companyName: string }).companyName, '検証株式会社');
+    assert.equal((received[0] as { source?: unknown }).source, undefined);
   } finally {
     if (server.listening) {
       await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
