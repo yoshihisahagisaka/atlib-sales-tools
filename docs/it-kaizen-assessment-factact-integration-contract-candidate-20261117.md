@@ -98,3 +98,29 @@ Status: READ-ONLY SOURCE REVIEW / DRAFT; this matrix is evidence for an implemen
 4. Subsequent implementation task is bounded to an approved typed source projection + local tests; no schema migration, new paid engagement state, FACTACT API client or cloud resources under this draft.
 
 **STOP triggers:** source Design v2 report not human-approved; mismatched case FK; missing content/snapshot hash; absent paid engagement authorization; unknown company→tenant binding; unapproved target ingestion/analysis semantics; mismatch with FACTACT Canonical. On any trigger report exact FIT/GAP and halt without migration/deploy.
+
+
+## 9. 2026-11-22 narrow source checkpoint — Design v2 approval and paid Assessment boundary
+
+**Scope:** This is an append-only bounded source verification against Sales Tools main `850e1f0bc9c6a2d269b0d5f71d239c1c98df05ae`, not a new business decision or FACTACT API authorization. Earlier matrix and Candidate v0.1 remain in force.
+
+### Verified source-level behavior
+
+| Source | Observed contract | Integration implication |
+|---|---|---|
+| `src/services/freeDiagnosisDesignV2ApiService.ts`, `approveReportDraft` (lines 252–284) | Requires the draft to be `REVIEW_REQUIRED`; checks its adopted narrative matches the latest generated or human-edited narrative ID and content hash; then delegates approval through existing `approvals.approve`. | The current source approval path is reusable as a **source gate**, not a new paid Assessment approval. Do not copy a stale narrative or claim that a draft is human-approved. |
+| `src/services/freeDiagnosisDesignV2PersistenceRepo.ts`, `getLatestDesignV2ReportReference` (lines 584–601) | Filters `diagnosis_reports` by v2 case ID and `policy_version='design-v2'`, returning report ID and adopted human-edit reference only. Its own contract says “Provenance only”; it does not verify report content, approval or delivery. | **Do not** use this method alone as the Handoff approval/eligibility check. A later typed source read must verify exact report ID, status, content/snapshot hashes and case binding. |
+| `src/services/vs1ReviewReportFeedbackRepo.ts`, `approve`, `deliver`, `decide` (lines 72–75) | Existing v2-case workflow records approval snapshot, then delivery; `decide` requires FEEDBACK_PENDING, feedback started and delivered report; it inserts a versioned `management_feedback_decisions` row with route, material decision, report id/version/content hash/approval snapshot hash and then closes the case for `DESIGN_ASSESSMENT`. | A `DESIGN_ASSESSMENT` feedback decision is a versioned **intent to proceed** and report-reference source; it does **not** prove paid contract acceptance or authorize Core writes. A source-read adapter must select and bind the exact feedback-decision record instead of inferring from the case's CLOSED state. |
+| `src/domain/assessmentStructureRule.ts` (lines 24–68) and `assessment_structure_suggestion` use in the v2 feedback repository (lines 43–48) | Calculates/surfaces suggested scope and base price only. | Never infer human-final scope/price approval from a suggestion. Existing human-final commercial decision persistence remains **UNKNOWN** until a specifically verified record/contract is identified. |
+| `migrations/012_it_management_diagnosis_assessment_handoff.sql` and `src/services/diagnosisAssessmentRepo.ts` (lines 17–25) | Existing handoff FK targets legacy `diagnosis_cases` and `diagnosis_reports(id,diagnosis_case_id)`; READY/TRANSFERRED/ACCEPTED and its freshness guard are legacy-context-specific. | **Do not** reuse, cast or mutate this legacy Handoff as the Design v2 Handoff. Case IDs, entry semantics and status gates are incompatible. |
+
+### Minimal next code-level work permitted only after source/target gate approval
+
+1. **No immediate adapter implementation.** The existing D1/D2/D3/D4 deliverable chain is independent of a FACTACT write integration. Work on it must not add a parallel FACT registry or use an unapproved target API.
+2. To create a future **read-only, deterministic source projection**, first freeze source record types and the authority of the exact approved report, delivery marker and feedback decision (IDs, versions, content/snapshot hashes). Reject mismatched case linkage, stale source content, unpublished/undelivered reports and unapproved scope; never fill unknown fields by guessing.
+3. The source projection, if approved, is reference-only: original case ID / source type, report ID/version/hashes, decision ID/version/context hash, original entry channel, and explicit human-approval state. It must not label customer statements, AI-generated narrative or suggested scope as verified FACT.
+4. FACTACT Product lane must identify its existing authorized tenant/company mapping and typed Evidence/FACT read/write interfaces before any connection/client or schema work. Absence of evidence is **UNKNOWN**, not an invitation to build a generic Assessment ingestion API.
+
+### STOP / release gate
+
+No changes to FACTACT Core, Sales Tools migrations, DB schema, Cloud resources, Production or customer delivery. Do not infer live availability from source alone. Preserve the original versioned evidence and Human Decision semantics. A future Codex task must include the exact source contracts and target FIT/GAP; it cannot decide these on its own.
