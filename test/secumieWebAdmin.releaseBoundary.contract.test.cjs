@@ -97,8 +97,12 @@ test('WSC diagnosis remains strict, staff-authenticated and backed by the existi
   assert.match(wscService, /chromium\.launch\(\{ headless: true \}\)/);
 });
 
-test('PR #51 keeps future DB disconnected and requires explicit confirmation before SUBMITTED', () => {
-  assert.doesNotMatch(server, /app\.use\('\/api\/admin\/secumie-web/);
+test('Web admin list is strictly opt-in and SUBMITTED requires explicit confirmation', () => {
+  assert.match(server, /const webDb = loadSecumieWebAdminDatabaseConfig\(\)/);
+  assert.match(server, /if \(webRequests\) app\.use\('\/api\/admin\/secumie-web\/v1'/);
+  assert.match(server, /createAdminSecumieWebRouter\(webRequests\)/);
+  assert.match(server, /\.\.\.adminAuthGate, createAdminSecumieWebRouter/);
+  assert.match(server, /if \(mirrorSecret && !webRequests\) throw new Error/);
   assert.match(adminJs, /response\.status === 404/);
   assert.match(adminJs, /select\.value === 'SUBMITTED' && !window\.confirm\(/);
   assert.match(adminJs, /credentials: 'same-origin'/);
