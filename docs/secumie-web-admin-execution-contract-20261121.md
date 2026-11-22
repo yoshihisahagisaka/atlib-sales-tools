@@ -1,5 +1,18 @@
 # SECU:MIE Web｜PR #51 実装・検証契約（コードレベル／意図ずれ防止）
 
+## 2026-11-22 現行実装に対する有効契約（下記2026-11-21の制限を更新）
+
+この節を現行PR #51の**最新の実装範囲・公開判断**として優先する。以下に残す2026-11-21の「PR #51にはDB/API連携なし」「PR #50のみ管理APIを持つ」「許容変更はCVE調査のみ」等の記述は、当時の実装・検証フェーズの履歴であり、現行の変更禁止事項として引用しない。新たな仕様を承認するものではない。
+
+- **目的・操作**：既存の公開LP `https://www.atlib.jp/secumie-web/` でメール受付 → スタッフが申込一覧を確認 → 「診断に反映」 → 既存WSC VS1でPDF作成 → メールを手動送付 → 送信確認後に「提出済み」へ更新。管理ページを開くと一覧を自動読込。受付メールが正本であり、過去・未転記受付を自動登録済みと表示しない。
+- **PR #51にすでに含まれるもの**：`/admin/secumie-web.html`、既存Google Workspaceスタッフ認証下の `GET /api/admin/secumie-web/v1/requests` と `PATCH /requests/:id/status`、`POST /api/internal/secumie-web/v1/temporary-intakes` の署名付き任意転記。実装は既存PR #50の必要部分だけを流用し、PR #50のOTP/PIRA公開Runtime全体は導入しない。管理APIが404ならメール原本から既存WSCで手動診断できる。
+- **データ・同意境界**：専用Web database `secumie_web_staging` と専用runtime/admin roleを前提とする。Insight・Secure Guard・業務KAIZENのDB・roleを流用しない。企業LPからの転記は、既存 `atlib-corporate-site` Draft PR #75によるSMTP成功後のオプション経路のみ。署名検証、冪等化、`information_sharing_enabled=false` を維持し、協会・組合への自動提供を行わない。データ／PDFのブラウザ永続保存・診断結果の自動送付・CRM新設はしない。
+- **2026-11-22のCI実測**：PR #51 HEAD `81c551bdc76cc0d47b245deb4ee645c8143fbe74` 時点。GitHub Actions DB受入 Run `44989607033` は合成PostgreSQL16 + 画面契約 **10 PASS / 0 FAIL / 0 SKIP**、ブラウザ Run `44989607067` はChromium **4 PASS / 0 FAIL / 0 SKIP**、リリース境界 Run `44989607117` は既存契約系 **7 PASSと9 PASS（ともに FAIL / SKIP 0）**。実Cloud SQL、Google Workspace実ログイン、現行LPからの実転記、顧客への送付はこのCIでは検証していない。
+- **セキュリティ**：既存候補image `sha256:87967dd7a73ebbd3e56c3a1c3b20dc6c6c06051af3041b5b6d6a790cba5412f0` のCVE台帳は HIGH16 / UNKNOWN14、未解決30件、例外承認0。現在HEADに対する新規イメージの安全性をこの過去のスキャンで保証しない。**SECURITY_NO_GO**を維持し、CVEの一括非該当処理・自動例外承認をしない。
+- **次の境界**：既存共有Cloud SQL StagingのWeb専用DB・role・Draft SQL/GRANTの適用はまだ未承認・未実施。適用前にGit/Canonical/ADR/Decision Log/Production LedgerをFit/Gapし、SQL所有者、最小権限、Migration台帳、rollback、Secret/接続予算と実行承認を確認する。無断でCloud SQL・Cloud Run・Secret・DNS・Traffic・本番LP・PRを変更しない。実Staging接続後に、OAuth・申込ミラー・一覧→WSC PDF→送付記録の実ブラウザ受入を行う。
+- **公開判断**：PR #51とコーポレート側PR #75はDraft維持。現行LPと本番配信中の既存WSCを止めず、新画面やDBのデプロイ・Merge・本番公開は別Go判断とする。
+
+
 状態：2026-11-21。適用先：`yoshihisahagisaka/atlib-sales-tools` Draft PR #51、ブランチ `feat/secumie-web-admin-interim-20261119`。**本番No-Goのまま。**
 
 ## 1. 参照順位と変更原則
