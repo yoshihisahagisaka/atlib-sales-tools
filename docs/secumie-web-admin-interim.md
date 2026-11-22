@@ -2,6 +2,19 @@
 
 2026-11-19 時点の公開受付と、スタッフの診断・レポート作成業務を接続するための実装仕様。
 
+## 2026-11-22 実環境Read-only照合と最短提供経路
+
+Windows PowerShellから`gcloud.cmd run services describe`の`status.traffic`、`gcloud.cmd sql databases list`、DNSを参照した実測。変更操作なし。
+
+- **本番100%の実トラフィック先**：`sales-tools-wsc-release`（タグ `wsc-release-850e1f0`）。`latestReadyRevisionName=sales-tools-bwc-cb-20261121072726`は最新Readyを示すだけで、100%配信先ではない。既存のスタッフ用WSC `/admin/web-security-check.html` を使い続ける。
+- **Staging 100%**：`sales-tools-staging-p228`。無断切り替え禁止。
+- 共有Cloud SQLは既に稼働している。Staging `secumie-sg-shared-staging-db` のdatabaseは`postgres`、`secumie_insight_staging`、`secure_guard_staging`。本番 `secumie-sg-shared-prod-db` は`postgres`、`secumie_insight`。**Web受付専用databaseは未作成**。インスタンスが存在することとWeb固有migration/roleが承認・適用済みであることは同義ではない。
+- `web.atlib.jp` は現時点のDNS照会で名前がない。**新ドメインを先行作成しない**。公開済み `www.atlib.jp/secumie-web/` の既存受付導線を維持。
+- **今回の最小運用**：公開LPの申込メールを原本とする → スタッフが現行WSCで会社名・HTTPS URLを入力してPDF生成 → PDFを目視確認して申込者へ送付。これだけで既存資産による後送レポート運用を継続できる。メールからの自動案件登録・自動診断・自動送信・永続的な提出履歴はこの時点では未実装であり、完了と表示しない。
+- **PR #50**はWeb専用受付DB、組合向けOTPと申込一覧・状態APIのDraft。現状のメール受付を維持した最短提供にDB migration/独立Cloud Run/新DNSは不要。無断マージ、Web DB新設、共有DBでの代替テーブル作成は行わない。
+- **PR #51**はスタッフ用の追加UIのDraftであり、新UIをリリースするために既存WSCの継続運用を止めない。管理画面をCRM化しない。
+- 完成の残りは**外部企業からの申込と結果提供の実運用確認**、および自動化が既定仕様として必要な部分の最小接続だけ。新たな診断エンジン・独立管理基盤を作らない。
+
 ## 2026-11-20 管理画面の暫定運用／コンテナ安全性判定
 
 **業務継続のための即時運用（新イメージの公開を待たない）**
