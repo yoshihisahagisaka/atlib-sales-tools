@@ -32,6 +32,38 @@ function mapCaseRow(row: Record<string, unknown>): CaseRow {
 export class FreeDiagnosisRuleBasedCaseRepo {
   constructor(private readonly pool: Pool) {}
 
+  async createCaseForSalesActivity(salesActivityId: string, staffEmail: string, isInternalTest = true): Promise<CaseRow> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query<{ id: string; company_id: string; primary_contact_id: string | null; selected_service: string }>(
+        `SELECT id,company_id,primary_contact_id,selected_service
+           FROM sales_activity WHERE id=$1 FOR UPDATE`, [salesActivityId],
+      );
+      const activity = rows[0];
+      if (!activity) throw new RuleBasedV1Error(404, 'SALES_ACTIVITY_NOT_FOUND');
+      if (activity.selected_service !== 'IT_KAIZEN') throw new RuleBasedV1Error(409, 'SERVICE_MISMATCH');
+      if (activity.primary_contact_id) {
+        const contact = await client.query(
+          'SELECT id FROM contact WHERE id=$1 AND company_id=$2', [activity.primary_contact_id, activity.company_id],
+        );
+        if (!contact.rows[0]) throw new RuleBasedV1Error(409, 'CONTACT_COMPANY_MISMATCH');
+      }
+      const existing = await client.query(
+        'SELECT id FROM it_management_diagnosis_case_v2 WHERE sales_activity_id=$1 LIMIT 1', [activity.id],
+      );
+      if (existing.rows[0]) throw new RuleBasedV1Error(409, 'SALES_ACTIVITY_CASE_ALREADY_EXISTS');
+      const kase = await new FreeDiagnosisRuleBasedCaseRepo(client as unknown as Pool).createCase(
+        activity.company_id, activity.primary_contact_id, activity.id, staffEmail, isInternalTest,
+      );
+      await client.query('COMMIT');
+      return kase;
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally { client.release(); }
+  }
+
   async createCase(companyId: string, contactId: string | null, salesActivityId: string, staffEmail: string, isInternalTest = true): Promise<CaseRow> {
     const id = randomUUID();
     const { rows } = await this.pool.query(
