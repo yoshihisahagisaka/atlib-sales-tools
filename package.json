@@ -12,6 +12,7 @@
     "test:diagnosis": "node -r ts-node/register --test test/itManagementDiagnosis.golden.test.ts",
     "test:preparation": "node -r ts-node/register --test test/diagnosisPreparation.golden.test.ts",
     "test:business-web-consultation": "node -r ts-node/register --test test/businessWebConsultation.golden.test.ts",
+    "test:business-kaizen-diagnosis": "node -r ts-node/register --test test/businessKaizenDiagnosis.golden.test.ts",
     "test:business-web-consultation:api": "node -r ts-node/register --test test/businessWebConsultation.api.test.ts",
     "test:business-kaizen-package-a:postgres": "node -r ts-node/register --test test/businessKaizenSelfIntake.pg.test.ts",
     "test:business-web-consultation:browser": "playwright test --config=test/businessWebConsultation.playwright.config.ts",
