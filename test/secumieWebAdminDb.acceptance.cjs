@@ -108,7 +108,7 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
   } finally {
     if (server?.listening) await new Promise((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
     await Promise.allSettled([staff?.end(), runtime?.end(), owner?.end()].filter(Boolean));
-    await admin.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1', [dbName]);
+    // All test pools are closed above; do not kill sockets during teardown.
     await admin.query('DROP DATABASE IF EXISTS ' + dbName);
     await admin.query('DROP ROLE IF EXISTS secumie_web_runtime_staging, secumie_web_admin_staging');
     await admin.end();
