@@ -36,7 +36,9 @@ function harness(fetchMock, confirm = () => true) {
   const ids = [...html.matchAll(/\bid="([a-z-]+)"/g)].map(match => match[1]);
   const elements = Object.fromEntries(ids.map(id => [id, new FakeElement()]));
   const downloads = [];
+  const documentListeners = {};
   const document = {
+    addEventListener(name, callback) { documentListeners[name] = callback; },
     getElementById(id) { assert.ok(elements[id], `missing element: ${id}`); return elements[id]; },
     createElement(tag) { return new FakeElement(tag); },
     body: { appendChild(item) { downloads.push(item); } },
@@ -53,7 +55,8 @@ function harness(fetchMock, confirm = () => true) {
     window: { confirm, setTimeout: callback => callback() },
   });
   const fire = (id, action = 'submit') => elements[id].events[action]({ preventDefault() {} });
-  return { elements, downloads, fire };
+  const pageReady = () => documentListeners.DOMContentLoaded?.();
+  return { elements, downloads, fire, pageReady };
 }
 
 test('SECU:MIE Web admin is served only behind existing staff gate', () => {
@@ -61,8 +64,30 @@ test('SECU:MIE Web admin is served only behind existing staff gate', () => {
   assert.match(server, /app\.use\('\/api\/admin\/web-security-check', \.\.\.adminAuthGate/);
   assert.match(html, /<script src="\/admin\/secumie-web\.js" defer><\/script>/);
   assert.match(html, /現在は暫定メール受付/);
-  assert.match(html, /送付と対応履歴の記録は自動実行されません/);
+  assert.match(html, /PDFの送付はスタッフが行います/);
+  assert.ok(html.indexOf('aria-labelledby="requests-title"') < html.indexOf('aria-labelledby="diagnosis-title"'));
+  assert.match(source, /DOMContentLoaded/);
   assert.doesNotMatch(source, /\b(localStorage|sessionStorage|indexedDB|innerHTML|document\.cookie)\b/);
+});
+
+test('new page loads the existing list automatically; disconnected mode keeps manual WSC usable', async () => {
+  const calls = [];
+  const ui = harness(async (url) => { calls.push(url); return { status: 404, ok: false }; });
+  ui.pageReady();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.length, 1);
+  assert.match(calls[0], /^\/api\/admin\/secumie-web\/v1\/requests\?/);
+  assert.equal(ui.elements['request-results'].hidden, true);
+  assert.match(ui.elements['intake-sync-state'].textContent, /管理一覧は未接続/);
+  assert.equal(ui.elements['diagnose-button'].disabled, false);
+});
+
+test('empty connected list never renders an invalid 1–0 range', async () => {
+  const ui = harness(async () => ({ status: 200, ok: true, json: async () => ({ items: [] }) }));
+  ui.pageReady();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(ui.elements['page-label'].textContent, '該当なし');
+  assert.match(ui.elements['intake-sync-state'].textContent, /申込一覧に接続/);
 });
 
 test('manual intake uses the existing authenticated WSC PDF API and browser download', async () => {
