@@ -102,6 +102,14 @@ test('Web admin reuses the dedicated pool but never falls back to the business o
     process.env.SECUMIE_WEB_DB_NAME = 'secumie_web';
     process.env.SECUMIE_WEB_DB_ADMIN_USER = 'secumie_insight_admin';
     assert.throws(loadSecumieWebAdminDatabaseConfig, /must be isolated/);
+    delete process.env.SECUMIE_DB_NAME;
+    process.env.SECUMIE_WEB_DB_NAME = 'secumie_insight';
+    process.env.SECUMIE_WEB_DB_ADMIN_USER = 'secumie_web_admin';
+    assert.throws(loadSecumieWebAdminDatabaseConfig, /must be isolated/);
+    process.env.SECUMIE_WEB_DB_NAME = 'secumie_web';
+    process.env.SECUMIE_WEB_DB_USER = 'secumie_web_runtime';
+    process.env.SECUMIE_WEB_DB_ADMIN_USER = 'secumie_web_runtime';
+    assert.throws(loadSecumieWebAdminDatabaseConfig, /must be isolated/);
   } finally {
     await webPool?.end();
     for (const key of Object.keys(process.env)) if (!(key in previous)) delete process.env[key];
