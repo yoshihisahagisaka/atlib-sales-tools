@@ -11,6 +11,7 @@ on:
       - 'src/runtime/runtimeConfig.ts'
       - 'src/db/pool.ts'
       - 'src/routes/adminSecumieWeb.ts'
+      - 'src/routes/internalSecumieWebMirror.ts'
       - 'src/secumieWeb/assemblyAdminService.ts'
       - 'design/secumie-web/assembly-intake.draft.sql'
       - 'design/secumie-web/staging-role-grants.draft.sql'
