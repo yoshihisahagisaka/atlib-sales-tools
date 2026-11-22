@@ -8,9 +8,7 @@ SET LOCAL statement_timeout = '10s';
 
 DO $$
 BEGIN
-  IF current_database() NOT IN ('secumie_web_staging')
-     AND current_setting('application_name', true) IS DISTINCT FROM 'secumie-web-synthetic-rehearsal'
-  THEN
+  IF current_database() <> 'secumie_web_staging' THEN
     RAISE EXCEPTION 'Not the approved Web staging database';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'secumie_web_runtime_staging')
