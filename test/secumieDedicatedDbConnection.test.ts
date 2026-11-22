@@ -3,6 +3,7 @@ import test from 'node:test';
 import { randomBytes } from 'node:crypto';
 import { Pool } from 'pg';
 import { createPool } from '../src/db/pool';
+import { loadSecumieWebAdminDatabaseConfig } from '../src/config';
 import { databaseRuntime } from '../src/runtime/runtimeConfig';
 
 const connectionString = process.env.SECUMIE_TEST_POSTGRES_URL;
@@ -53,6 +54,55 @@ test('dedicated OTP/PIRA runtime rejects missing DB_PASSWORD before the Sales To
   } finally {
     for(const name of Object.keys(process.env))if(!(name in before))delete process.env[name];
     Object.assign(process.env,before);
+  }
+});
+
+test('Web admin reuses the dedicated pool but never falls back to the business or Insight database', async () => {
+  const previous = { ...process.env };
+  const vars = [
+    'SECUMIE_WEB_DB_NAME', 'SECUMIE_WEB_DB_ADMIN_USER', 'SECUMIE_WEB_DB_ADMIN_PASSWORD',
+    'SECUMIE_WEB_DB_HOST', 'SECUMIE_WEB_DB_PORT', 'SECUMIE_WEB_DB_SOCKET_PATH',
+  ];
+  let webPool: Pool | undefined;
+  try {
+    for (const name of vars) delete process.env[name];
+    assert.equal(loadSecumieWebAdminDatabaseConfig(), null, 'missing config must leave Web API disconnected');
+
+    process.env.SECUMIE_WEB_DB_NAME = 'secumie_web';
+    assert.throws(loadSecumieWebAdminDatabaseConfig, /Incomplete.*Web admin/);
+
+    Object.assign(process.env, {
+      DB_NAME: 'sales_tools',
+      DB_USER: 'sales_runtime',
+      SECUMIE_DB_NAME: 'secumie_insight',
+      SECUMIE_DB_ADMIN_USER: 'secumie_insight_admin',
+      SECUMIE_WEB_DB_NAME: 'secumie_web',
+      SECUMIE_WEB_DB_ADMIN_USER: 'secumie_web_admin',
+      SECUMIE_WEB_DB_ADMIN_PASSWORD: 'test-only-secret',
+      SECUMIE_WEB_DB_SOCKET_PATH: '/cloudsql/synthetic-instance',
+    });
+    const database = loadSecumieWebAdminDatabaseConfig();
+    assert.ok(database);
+    assert.equal(database.name, 'secumie_web');
+    assert.equal(database.user, 'secumie_web_admin');
+    assert.equal(database.socketPath, '/cloudsql/synthetic-instance');
+    webPool = createPool({ db: database }, { max: 2 });
+    assert.equal(webPool.options.max, 2);
+    assert.equal(webPool.options.database, 'secumie_web');
+    assert.equal(webPool.options.user, 'secumie_web_admin');
+    assert.equal(webPool.totalCount, 0, 'a configured but idle pool must not query a DB');
+
+    process.env.SECUMIE_WEB_DB_NAME = 'secumie_insight';
+    assert.throws(loadSecumieWebAdminDatabaseConfig, /must be isolated/);
+    process.env.SECUMIE_WEB_DB_NAME = 'sales_tools';
+    assert.throws(loadSecumieWebAdminDatabaseConfig, /must be isolated/);
+    process.env.SECUMIE_WEB_DB_NAME = 'secumie_web';
+    process.env.SECUMIE_WEB_DB_ADMIN_USER = 'secumie_insight_admin';
+    assert.throws(loadSecumieWebAdminDatabaseConfig, /must be isolated/);
+  } finally {
+    await webPool?.end();
+    for (const key of Object.keys(process.env)) if (!(key in previous)) delete process.env[key];
+    Object.assign(process.env, previous);
   }
 });
 
