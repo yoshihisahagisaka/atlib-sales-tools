@@ -1,5 +1,27 @@
 # SECU:MIE Web｜管理画面（暫定運用・DB接続待ち）
 
+## 2026-11-22 Cloud SQL Studio実DB内部接続容量受入（最新）
+
+ユーザーがGoogle Cloud Console のCloud SQL Studioを使い、既存共有Staging `secumie-sg-shared-staging-db` の組み込みデータベース認証で`postgres`へ接続し、read-only SELECTを実行した画面の**ユーザー提示結果**を受け入れた。ユーザー画面で確認できた列だけを採用し、対象インスタンスのGCPメタデータは直前のread-only inventoryと照合する。実行時点のスナップショットであり、長期ピークの証拠ではない。
+
+| 指標 | 実測 |
+| --- | --- |
+| `current_database()` | `postgres` |
+| `current_user` | `postgres` |
+| `server_version_num` | `160015`（PostgreSQL 16.15） |
+| `max_connections` | `400` |
+| `superuser_reserved_connections` | `3` |
+| `reserved_connections` | `0` |
+| `pg_stat_activity`全体の接続数 | `12` |
+| `pg_database`上の `secumie_web_staging` 件数 | `0` |
+| `pg_roles`上のWeb専用role（runtime/admin/migration）件数 | `0` |
+
+**判定**：接続先・PG16・Web候補不存在・その時点の接続数はPASS。現在使用率12/400 = 3.0%、superuser予約3を除く総接続枠397であり、ただちに容量不足を示す事実はない。ただし、**Cloud SQL本番への適用許可や、Web実運用の接続予算の確定を意味しない**。監視上の最大同時接続数・既存Insight／Secure Guardロール別上限・デプロイ時旧新Revision共存・Web pool max2を合わせて別Gateで評価する。
+
+次は既存DBのDB owner / ACL、DBごとの現行接続数を`postgres`で**SELECTのみ**確認する。既存`design/secumie-web/staging-catalog-readonly.sql`の該当クエリを利用する。Secrets・顧客データ・query textは共有しない。旧`sales-tools-wsc-release`へTrafficを戻さない。
+
+**承認境界**：共有Cloud SQLの保全延長（2026-12-04 10:12 JST）は、Web専用DB/role/Secret/Migration新設の承認ではない。PR #51 Draft、SECURITY_NO_GO・Production No-Goを維持。今回の作業によるGCP/DB/Traffic変更なし。
+
 ## 2026-11-22 本番WSCのスタッフ手動UAT受入（現行）
 
 - ユーザーが**現行本番 `https://sales.atlib.jp/admin/web-security-check.html`** にGoogle Workspaceでログインし、自社URL `https://www.atlib.jp/` を診断してPDFを作成する一連の操作について、「上記動作確認問題なし」と報告した。現行100% Revisionは `sales-tools-bks-20261122040419`、imageは `sha256:d132d93c5ffcc998633f10caaec397722422d4389322bccca8b5949397b7560e`。**このスタッフ操作の実運用受入をPASS（ユーザー目視報告）**として記録する。
