@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs';
 import { get as httpGet } from 'node:http';
 import path from 'node:path';
 import { test } from 'node:test';
+import express from 'express';
 import type { Pool } from 'pg';
+import { createAdminSecumieWebRouter } from '../src/routes/adminSecumieWeb';
 import { createSecumieWebPublicRuntime } from '../src/runtime/secumieWebPublicRuntime';
 import { AssemblyAdminService } from '../src/secumieWeb/assemblyAdminService';
 
@@ -94,4 +96,45 @@ test('Web staff status update rolls back missing receipt before releasing its DB
     'ROLLBACK',
   ]);
   assert.equal(released, true);
+});
+
+test('Web staff list reuses established admin items/filter contract without new CRM or DB', async () => {
+  const calls: unknown[][] = [];
+  const row = {
+    intakeId: '00000000-0000-4000-8000-000000000001',
+    receiptId: 'SMW-EXAMPLE',
+    receivedAt: '2026-11-22T00:00:00Z',
+    unionName: 'テスト組合', companyName: '検証株式会社',
+    websiteUrl: 'https://example.jp/', contactName: '検証担当',
+    contactEmail: 'test@example.jp', status: 'RECEIVED',
+  };
+  const pool = {
+    query: async (_sql: string, values: unknown[]) => {
+      calls.push(values);
+      return { rows: [row] };
+    },
+  } as unknown as Pool;
+  // Router-only contract test; the real server mounts this under adminAuthGate.
+  const app = express();
+  app.use('/api/admin/secumie-web/v1', createAdminSecumieWebRouter(new AssemblyAdminService(pool)));
+  const server = app.listen(0, '127.0.0.1');
+  try {
+    await new Promise<void>((resolve, reject) => {
+      if (server.listening) return resolve();
+      server.once('listening', resolve);
+      server.once('error', reject);
+    });
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('No test listener');
+    const response = await fetch('http://127.0.0.1:' + address.port
+      + '/api/admin/secumie-web/v1/requests?status=RECEIVED&companyName=%E6%A4%9C%E8%A8%BC&unionName=%E3%83%86%E3%82%B9%E3%83%88&limit=50&offset=0');
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await response.json(), { items: [row] });
+    assert.deepEqual(calls, [['RECEIVED', '検証', 'テスト', 50, 0]]);
+  } finally {
+    if (server.listening) {
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    }
+  }
 });
