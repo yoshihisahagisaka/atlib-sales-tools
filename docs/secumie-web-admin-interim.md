@@ -1,5 +1,28 @@
 # SECU:MIE Web｜管理画面（暫定運用・DB接続待ち）
 
+## 2026-11-22 既存DBのCONNECT分離実測PASS・Web専用Staging適用境界（現行）
+
+Cloud SQL Studioで`postgres`へ接続したユーザーによる**SELECT read-only**実測を受領。比較対象のDB名とロール接頭辞を固定した`has_database_privilege`/公開ACLクエリの結果は次のとおり。各ロールの`CONNECT`権限が成立するかだけを検証したものであり、テーブル権限・既存アプリの正常性は証明しない。
+
+| 接続先 | PUBLIC CONNECT | `secumie_`系（接続可能なrole数） | `secure_guard_`系（接続可能なrole数） |
+| --- | --- | ---: | ---: |
+| `secumie_insight_staging` | false | 5 | 0 |
+| `secure_guard_staging` | false | 0 | 3 |
+
+**判定：既存2DBはサービス別LOGINロールのCONNECT権限分離を満たす（PASS）。** `postgres`・`cloudsqlsuperuser`などの運用特権ロールは今回のサービス接頭辞集計の対象外。既存DB ownerはいずれも`postgres`（前回実測）だが、既存DBに対してowner・ACL・grantsの変更はしない。
+
+### Web Staging専用の適用対象（設計確定／実行未承認）
+
+1. 既存インスタンス`msp-zabbix:asia-northeast1:secumie-sg-shared-staging-db`の中に**Web専用database `secumie_web_staging`を1個だけ**追加する。新インスタンス／VPC／LB／公開DNS／CRMは作成しない。
+2. Web専用3ロールを独立：`secumie_web_migration_staging`（DB owner/既存Migration runnerのDDL用、runtimeでは使わない）、`secumie_web_admin_staging`（Staff管理一覧・状態更新・署名付きメール受付転記）、`secumie_web_runtime_staging`（既存Web公開受付Draftだけが使うロール。PR #51管理画面を先行公開するための**実行Runtimeは構築しない**）。ログインroleにCREATEDB/CREATEROLE/SUPERUSER/BYPASSRLS等を付与しない。適用直前に`postgres`管理ユーザーの実際のCREATE ROLE / CREATE DATABASE / OWNER割当可否を非破壊で確認する。
+3. Web用の既存DDL`design/secumie-web/assembly-intake.draft.sql`と既存GRANT`design/secumie-web/staging-role-grants.draft.sql`を流用する。**SQL本文は実行承認までDraft**。スキーマと台帳は`secumie_web_staging`内だけに置き、Sales Tools通常migration（001〜036）やInsight migration（037〜041）、Secure Guard schemaは適用しない。番号付き単一Web SQLのSHA・manifest・台帳の厳格な適用前照合は別途固定する。
+4. 接続制限はWeb staff側既存`createPool(...,{max:2})`を維持。Cloud SQL全体`max_connections=400`／直近`pg_stat_activity=12`はスナップショットのため、既存Insight/SG・旧新revision重複も含め接続予算を適用前に再計算する。現在の接続数をピークとして代用しない。
+5. **Web DBのPUBLIC CONNECT/TEMPORARYを取消**。管理roleに必要なschema/table権限だけ付与し、Insight/SGの既存ロールにCONNECTを与えない（既存Staging GRANT SQLと合成PG16 Gateの通り）。将来の正式公開受付用runtime roleは他サービスDBにアクセス不可。実適用後に`has_database_privilege`で必ず相互アクセス不可を再確認する。
+6. Cloud SQL追加資産作成・role password/Secret Manager・migration execution・Web staff Staging Revision・署名ミラー環境設定・本番deployは**別の明示承認Gate**。既存秘密情報の表示・権限の無断拡大・既存Traffic変更・無断再試行は禁止。Staging資産の保全期限は既存資産に対する2026-12-04 10:12:12 JST（§19.23）。**今回追加予定の新Web DBの保全／費用はこの既存保全承認には含まれないため、追加作成の承認時に併せて確定する。**
+
+**作成前Stop**：Web DB/同名roleの既存検出、接続先違い、DDLのschema・owner未承認、承認済みmanifest/SHA不一致、既存DB/roleに権限変更を伴う必要、容量・費用・秘密情報の不明、CVE/リリース判断の無断変更。**Production No-Go／SECURITY_NO_GO／Draft継続。** 今回はread-only確認と文書更新のみ。
+
+
 ## 2026-11-22 実Staging PostgreSQL既存DB owner・ACL表示のRead-only受入
 
 Cloud SQL Studio（接続先：共有Stagingの`postgres`）で、ユーザーが既存3 DBについて`pg_database`と`pg_stat_activity`を照合したSQL結果のスクリーンショットを確認。**実測事実**：
