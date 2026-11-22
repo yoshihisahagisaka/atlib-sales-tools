@@ -66,6 +66,43 @@ export async function loadDatabaseConfig(role: 'runtime' | 'migration' = 'runtim
   return {name,user,password,host:process.env.DB_HOST??'127.0.0.1',port:Number(process.env.DB_PORT??5432),socketPath:process.env.DB_SOCKET_PATH||undefined};
 }
 
+/**
+ * SECU:MIE Web staff intake is a distinct database/role from Insight/PIRA.
+ * Reuse the existing dedicated pg pool; do not fall back to either existing DB.
+ * When unconfigured, the Web admin route remains unavailable (404).
+ */
+export function loadSecumieWebAdminDatabaseConfig(): Config['db'] | null {
+  const name = process.env.SECUMIE_WEB_DB_NAME?.trim();
+  const user = process.env.SECUMIE_WEB_DB_ADMIN_USER?.trim();
+  const password = process.env.SECUMIE_WEB_DB_ADMIN_PASSWORD;
+  const host = process.env.SECUMIE_WEB_DB_HOST?.trim();
+  const portText = process.env.SECUMIE_WEB_DB_PORT?.trim();
+  const socketPath = process.env.SECUMIE_WEB_DB_SOCKET_PATH?.trim();
+  if (![name, user, password, host, portText, socketPath].some(value => Boolean(value))) return null;
+  if (!name || !user || !password?.trim()) {
+    throw new Error('Incomplete SECU:MIE Web admin database configuration');
+  }
+  // These existing databases are not Web intake stores, even when their
+  // service-specific environment variables are absent on the new runtime.
+  const reservedDatabases = new Set([
+    'postgres', 'sales_tools', 'sales_tools_staging',
+    'secumie_insight', 'secumie_insight_staging',
+  ]);
+  if (reservedDatabases.has(name) || name === process.env.SECUMIE_DB_NAME || name === process.env.DB_NAME
+    || user === process.env.SECUMIE_DB_ADMIN_USER || user === process.env.DB_USER
+    || user === process.env.SECUMIE_WEB_DB_USER) {
+    throw new Error('SECU:MIE Web admin database and role must be isolated');
+  }
+  const port = Number(portText || 5432);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('Invalid SECUMIE_WEB_DB_PORT');
+  }
+  return {
+    name, user, password, port, host: host || '127.0.0.1',
+    ...(socketPath ? { socketPath } : {}),
+  };
+}
+
 export async function loadConfig(): Promise<Config> {
   const gcpProjectId = process.env.GCP_PROJECT_ID ?? 'msp-zabbix';
 
