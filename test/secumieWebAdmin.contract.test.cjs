@@ -188,6 +188,7 @@ test('future DB status is PATCHed only with the selected enum value', async () =
   assert.equal(calls.length, 3, 'GET, PATCH, refreshed GET');
   assert.equal(calls[1].url, `/api/admin/secumie-web/v1/requests/${item.intakeId}/status`);
   assert.equal(calls[1].options.method, 'PATCH');
+  assert.equal(calls[1].options.headers['X-Secumie-Staff-Command'], '1');
   assert.deepEqual(JSON.parse(calls[1].options.body), { status: 'IN_PROGRESS' });
 });
 
