@@ -37,9 +37,10 @@ export class AssemblyAdminService {
         `INSERT INTO secumie_web.assembly_intake
          (intake_id,receipt_number,reception_code,organizer_name,union_id,union_name_snapshot,
           company_name,registered_address,website_url,contact_name,contact_email,contact_phone,
-          consent_version,consented_at,idempotency_key,payload_hash,auth_session_id)
+          consent_version,consented_at,idempotency_key,payload_hash,auth_session_id,
+          information_sharing_enabled)
          VALUES ($1,$2,'CORPORATE_LP','atLIB株式会社','corporate-temporary',$3,
-          $4,$5,$6,$7,$8,$9,'corporate-lp-privacy-20261120',now(),$10,$11,$12)`,
+          $4,$5,$6,$7,$8,$9,'corporate-lp-privacy-20261120',now(),$10,$11,$12,false)`,
         [intakeId,receiptId,input.unionName,input.companyName,input.registeredAddress,
          input.websiteUrl,input.contactName,input.contactEmail,input.contactPhone,
          input.eventId,payloadHash,'corporate-contact:'+input.eventId],
