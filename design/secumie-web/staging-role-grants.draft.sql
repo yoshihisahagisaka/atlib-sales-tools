@@ -39,8 +39,9 @@ GRANT INSERT ON secumie_web.assembly_consumed_jti,
   secumie_web.assembly_status_history
   TO secumie_web_runtime_staging;
 
--- Authenticated Sales Tools staff: list/filter and update status only.
-GRANT SELECT, UPDATE(request_status, updated_at)
+-- Sales Tools staff: list, update status, and record signed corporate LP
+-- submissions using this same backend role (not exposed to browser clients).
+GRANT SELECT, INSERT, UPDATE(request_status, updated_at)
   ON secumie_web.assembly_intake TO secumie_web_admin_staging;
 GRANT SELECT, INSERT ON secumie_web.assembly_status_history
   TO secumie_web_admin_staging;
