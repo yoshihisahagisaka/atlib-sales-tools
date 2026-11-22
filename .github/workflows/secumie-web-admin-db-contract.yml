@@ -1,0 +1,33 @@
+name: SECU MIE Web admin DB contract
+
+on:
+  pull_request:
+    branches:
+      - feat/secumie-readiness-runtime
+    paths:
+      - '.github/workflows/secumie-web-admin-db-contract.yml'
+      - 'src/config.ts'
+      - 'src/server.ts'
+      - 'src/db/pool.ts'
+      - 'src/routes/adminSecumieWeb.ts'
+      - 'src/secumieWeb/assemblyAdminService.ts'
+      - 'test/secumieDedicatedDbConnection.test.ts'
+      - 'test/secumieWebPublic.contract.test.ts'
+
+permissions:
+  contents: read
+
+jobs:
+  admin-db-contract:
+    name: Existing runtime and isolated Web admin DB contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - run: node -r ts-node/register --test test/secumieDedicatedDbConnection.test.ts test/secumieWebPublic.contract.test.ts
