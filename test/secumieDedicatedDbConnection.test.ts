@@ -164,9 +164,12 @@ test('Web public intake uses a Web-only runtime role, never the Insight OTP/PIRA
 });
 
 integration('Web intake and staff status update work on isolated synthetic PostgreSQL 16 only', { timeout: 30_000 }, async () => {
-  const database = 'secumie_web_test_' + randomBytes(5).toString('hex');
+  const suffix = randomBytes(5).toString('hex');
+  const database = 'secumie_web_test_' + suffix;
+  const runtimeRole = 'secumie_web_runtime_' + suffix;
+  const staffRole = 'secumie_web_staff_' + suffix;
   const admin = new Pool({ connectionString, max: 1 });
-  let web: Pool | undefined;
+  let web: Pool | undefined, runtime: Pool | undefined, staff: Pool | undefined;
   try {
     // A disposable database inside the CI PostgreSQL service. Never connect to Cloud SQL.
     await admin.query('CREATE DATABASE "' + database + '"');
@@ -175,10 +178,31 @@ integration('Web intake and staff status update work on isolated synthetic Postg
     web = new Pool({ connectionString: url.toString(), max: 2 });
     const draftSql = readFileSync(path.resolve(__dirname, '../design/secumie-web/assembly-intake.draft.sql'), 'utf8');
     await web.query(draftSql); // Synthetic rehearsal only; not an approved migration.
+    // Rehearse least privilege with ephemeral LOGIN roles, not the postgres owner.
+    // These GRANTs are candidates pending the Web canonical / migration approval.
+    await admin.query(`CREATE ROLE "${runtimeRole}" LOGIN PASSWORD 'synthetic-runtime-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`);
+    await admin.query(`CREATE ROLE "${staffRole}" LOGIN PASSWORD 'synthetic-staff-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`);
+    await web.query(`REVOKE ALL ON SCHEMA secumie_web FROM PUBLIC;
+      GRANT USAGE ON SCHEMA secumie_web TO "${runtimeRole}", "${staffRole}";
+      GRANT SELECT ON secumie_web.assembly_union_master TO "${runtimeRole}";
+      GRANT SELECT, INSERT ON secumie_web.assembly_intake TO "${runtimeRole}";
+      GRANT INSERT ON secumie_web.assembly_consumed_jti,
+        secumie_web.assembly_notification_outbox,
+        secumie_web.assembly_status_history TO "${runtimeRole}";
+      GRANT SELECT, UPDATE(request_status, updated_at) ON secumie_web.assembly_intake TO "${staffRole}";
+      GRANT INSERT, SELECT ON secumie_web.assembly_status_history TO "${staffRole}";`);
+    const runtimeUrl = new URL(url);
+    runtimeUrl.username = runtimeRole;
+    runtimeUrl.password = 'synthetic-runtime-only';
+    const staffUrl = new URL(url);
+    staffUrl.username = staffRole;
+    staffUrl.password = 'synthetic-staff-only';
+    runtime = new Pool({ connectionString: runtimeUrl.toString(), max: 2 });
+    staff = new Pool({ connectionString: staffUrl.toString(), max: 2 });
     await web.query(
       "INSERT INTO secumie_web.assembly_union_master(union_id,official_name,source_version) VALUES('test-union','検証組合','synthetic-v1')"
     );
-    const intake = new AssemblyIntakeService(web, {
+    const intake = new AssemblyIntakeService(runtime, {
       code: 'synthetic', organizerName: 'synthetic-org', consentVersion: 'synthetic-v1',
     });
     const now = Math.floor(Date.now() / 1000);
@@ -215,13 +239,13 @@ integration('Web intake and staff status update work on isolated synthetic Postg
       intake.create(claims, { ...request, companyName: '別会社' }),
       /IDEMPOTENCY_CONFLICT/,
     );
-    const receipt = await web.query<{ intake_id: string }>(
+    const receipt = await staff.query<{ intake_id: string }>(
       'SELECT intake_id FROM secumie_web.assembly_intake WHERE receipt_number=$1',
       [created.receiptId],
     );
     assert.equal(receipt.rows.length, 1);
     const intakeId = receipt.rows[0]!.intake_id;
-    const service = new AssemblyAdminService(web);
+    const service = new AssemblyAdminService(staff);
     const items = await service.list({ status: 'RECEIVED', companyName: '検証', unionName: '組合', limit: 50, offset: 0 });
     assert.equal(items.length, 1);
     assert.equal(items[0].intakeId, intakeId);
@@ -230,7 +254,7 @@ integration('Web intake and staff status update work on isolated synthetic Postg
     const updated = await service.changeStatus(intakeId, 'IN_PROGRESS', 'synthetic-staff@atlib.jp');
     assert.deepEqual(updated, { status: 'IN_PROGRESS', unchanged: false });
     assert.equal((await service.list({ status: 'IN_PROGRESS' })).length, 1);
-    const history = await web.query(
+    const history = await staff.query(
       'SELECT from_status, to_status, changed_by FROM secumie_web.assembly_status_history WHERE intake_id=$1',
       [intakeId]
     );
@@ -240,10 +264,20 @@ integration('Web intake and staff status update work on isolated synthetic Postg
     assert.ok(history.rows.some(row => row.from_status === 'RECEIVED'
       && row.to_status === 'IN_PROGRESS'
       && row.changed_by === 'synthetic-staff@atlib.jp'));
+    await assert.rejects(
+      runtime.query("UPDATE secumie_web.assembly_intake SET request_status='CANCELLED' WHERE intake_id=$1", [intakeId]),
+      /permission denied/, 'public runtime must not change staff-owned status',
+    );
+    await assert.rejects(
+      staff.query("DELETE FROM secumie_web.assembly_intake WHERE intake_id=$1", [intakeId]),
+      /permission denied/, 'staff role must not remove received requests',
+    );
+    assert.equal((await staff.query("SELECT request_status FROM secumie_web.assembly_intake WHERE intake_id=$1", [intakeId])).rows[0].request_status, 'IN_PROGRESS');
   } finally {
-    await web?.end();
+    await Promise.allSettled([runtime?.end(), staff?.end(), web?.end()].filter(Boolean) as Promise<void>[]);
     await admin.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1', [database]);
     await admin.query('DROP DATABASE IF EXISTS "' + database + '"');
+    await admin.query('DROP ROLE IF EXISTS "' + runtimeRole + '", "' + staffRole + '"');
     await admin.end();
   }
 });
