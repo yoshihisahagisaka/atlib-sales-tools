@@ -8,6 +8,14 @@ import {
 } from '../services/businessKaizenProxyService';
 
 const id = z.string().uuid();
+const listInput = z.object({
+  companyName: z.string().trim().min(1).max(200).optional(),
+  owner: z.string().trim().min(1).max(320).optional(),
+  entryChannel: z.enum(['CUSTOMER_SELF','STAFF_PROXY']).optional(),
+  currentStage: z.enum(['ACCEPTED','SCHEDULING','SCHEDULED','MEETING_COMPLETED','PROPOSAL_IN_PROGRESS','PROPOSED']).optional(),
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+}).strict();
 const draftInput = z.object({ expectedRevision: z.number().int().positive(), answers: z.record(z.unknown()) }).strict();
 const completeInput = z.object({
   expectedRevision: z.number().int().positive(),
@@ -30,6 +38,11 @@ export function createAdminBusinessKaizenRouter(service: BusinessKaizenProxyServ
   const router = Router();
   router.get('/questions', (req, res) => run(res, async () => {
     actor(req); res.json({ items: getBusinessKaizenQuestions(), consentWordingVersion: BUSINESS_KAIZEN_PROXY_CONSENT_VERSION });
+  }));
+  router.get('/diagnoses', (req, res) => run(res, async () => {
+    actor(req); const parsed = listInput.safeParse(req.query);
+    if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    res.json(await service.list(parsed.data));
   }));
   router.post('/diagnoses/proxy-drafts', (req, res) => run(res, async () => {
     const staff = actor(req);

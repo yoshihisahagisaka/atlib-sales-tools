@@ -14,6 +14,8 @@
     "test:business-web-consultation": "node -r ts-node/register --test test/businessWebConsultation.golden.test.ts",
     "test:business-kaizen-diagnosis": "node -r ts-node/register --test test/businessKaizenDiagnosis.golden.test.ts",
     "test:business-kaizen-proxy": "node -r ts-node/register --test test/businessKaizenProxy.integration.test.ts",
+    "test:business-kaizen-read": "node -r ts-node/register --test test/businessKaizenDiagnosisRead.integration.test.ts",
+    "test:business-kaizen-read:postgres": "node -r ts-node/register --test test/businessKaizenDiagnosisRead.pg.test.ts",
     "test:business-kaizen-proxy:browser": "playwright test --config=test/businessKaizenProxy.playwright.config.ts",
     "test:business-kaizen-proxy:postgres": "node -r ts-node/register --test test/businessKaizenProxy.pg.test.ts",
     "test:business-web-consultation:api": "node -r ts-node/register --test test/businessWebConsultation.api.test.ts",
