@@ -72,10 +72,33 @@ export async function piraRuntimeConfiguration() {
   };
 }
 
+// Web intake has its own database and runtime role. Never use the OTP/PIRA pool.
+export function secumieWebDatabaseRuntime() {
+  const name = required('SECUMIE_WEB_DB_NAME');
+  const user = required('SECUMIE_WEB_DB_USER');
+  const password = required('SECUMIE_WEB_DB_PASSWORD');
+  const reservedDatabases = new Set([
+    'postgres', 'sales_tools', 'sales_tools_staging',
+    'secumie_insight', 'secumie_insight_staging',
+  ]);
+  if (reservedDatabases.has(name) || name === process.env.DB_NAME || name === process.env.SECUMIE_DB_NAME
+    || user === process.env.DB_USER || user === process.env.SECUMIE_DB_ADMIN_USER
+    || user === process.env.SECUMIE_WEB_DB_ADMIN_USER) {
+    throw new Error('SECU:MIE Web runtime requires an isolated Web database and role');
+  }
+  const port = Number(process.env.SECUMIE_WEB_DB_PORT ?? 5432);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SECUMIE_WEB_DB_PORT');
+  const socketPath = process.env.SECUMIE_WEB_DB_SOCKET_PATH?.trim();
+  return createPool({ db: {
+    name, user, password, host: process.env.SECUMIE_WEB_DB_HOST?.trim() || '127.0.0.1', port,
+    ...(socketPath ? { socketPath } : {}),
+  } }, { max: 2, idleTimeoutMillis: 10_000 });
+}
+
 export async function secumieWebRuntimeConfiguration() {
   const root = path.resolve(__dirname, '../..');
   return {
-    pool: await databaseRuntime(), issuer: httpsUrl('OTP_JWT_ISSUER'), jwksUrl: httpsUrl('OTP_JWKS_URL'),
+    pool: secumieWebDatabaseRuntime(), issuer: httpsUrl('OTP_JWT_ISSUER'), jwksUrl: httpsUrl('OTP_JWKS_URL'),
     host: host('SECUMIE_WEB_HOST'), origin: httpsUrl('SECUMIE_WEB_ORIGIN'),
     turnstileSiteKey: required('TURNSTILE_SITE_KEY'), consentVersion: required('SECUMIE_WEB_CONSENT_VERSION'), consentText: required('SECUMIE_WEB_CONSENT_TEXT'),
     receptionCode: required('SECUMIE_WEB_RECEPTION_CODE'), organizerName: '国際連携推進協会',
