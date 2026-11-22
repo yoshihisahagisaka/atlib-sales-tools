@@ -15,6 +15,14 @@
 
 **現状：未実施／完了宣言不可。** GitHub Actionsの契約テスト14 PASSは、この1件の運用E2Eやメール配送のPASSを意味しない。上記GateがPASSしても、別PRのWeb専用DB/OTP・新管理画面のProduction No-Goを自動解除しない。
 
+## 2026-11-22 既存管理一覧の流用確認（再実装しない）
+
+- `main`の既存管理一覧は `public/admin/it-management-diagnosis.html`（申込一覧/ステータス/ページング）、`public/admin/kaizen-diagnostic.html`（絞り込み/一覧）、`public/admin/business-web-consultation-leads.html`（申込と対応状況）、`public/admin/infravision-partner-leads.html`（受付一覧と状態更新）。認証は `src/server.ts` の共通スタッフゲート、表示基盤は `public/css/style.css`。
+- 本PRの `public/admin/secumie-web.html`／`secumie-web.js` は**既存共通CSS、スタッフ認証、一覧取得・絞り込み・ステータス更新の既存パターンを既に使用**。新しい一覧共通コンポーネント、CRM、検索基盤を追加しない。
+- PR #50に `src/routes/adminSecumieWeb.ts` と `src/secumieWeb/assemblyAdminService.ts` があり、画面が期待する `GET /api/admin/secumie-web/v1/requests`（`{items}`）、`PATCH /requests/:id/status` の契約は一致。管理レスポンスの`Cache-Control: no-store`もIT経営KAIZENの既存パターンに合わせて追加し、既存テストに一覧契約を1件追加（PR #50）。
+- **実データ連携は未完了**。現行 `www.atlib.jp/secumie-web/` はメール受付であり、PR #50のWeb受付専用DBは未作成・未承認。Business Web/KAIZENの業務DBへSECU:MIEの申込を書き込んで流用したことにしない。DB/保存契約はWeb側固有、共通化するのはUIとAPIの実装パターンまで。
+- PR #50は他のOTP/Cloud SQL準備を含む積み重ねDraft。**全体マージせず必要箇所のFit/Gapで扱う**。当面は既存のメール原本→本番WSC PDF→手動送付を止めない。将来の自動一覧化と送付履歴は、正式受付の保存先が決まってから既存APIに接続する。
+
 ## 2026-11-22 既存テスト再実行と公開範囲
 
 - 既存CIのGitHub Actions Run `44967626473`、Job `137040127454`：**SUCCESS**。スタッフ画面の既存機能契約 `test/secumieWebAdmin.contract.test.cjs` **7 PASS/0 FAIL/0 SKIP**、認証・CVEリリース境界 `test/secumieWebAdmin.releaseBoundary.contract.test.cjs` **7 PASS/0 FAIL/0 SKIP**、画面JavaScript構文チェック PASS、PowerShell DryRun PASS。
