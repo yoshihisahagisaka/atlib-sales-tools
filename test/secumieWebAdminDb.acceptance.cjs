@@ -3,8 +3,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const { createHmac } = require('node:crypto');
 const { Pool } = require('pg');
+const { runMigrations } = require('../dist/db/migrate');
 const express = require('express');
 const { AssemblyAdminService } = require('../dist/secumieWeb/assemblyAdminService');
 const { createAdminSecumieWebRouter } = require('../dist/routes/adminSecumieWeb');
@@ -18,13 +20,34 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
   const dbName = 'secumie_web_staging';
   const root = path.resolve(__dirname, '..');
   const admin = new Pool({ connectionString, max: 1 });
-  let owner, staff, runtime, outsider, server;
+  let owner, staff, runtime, outsider, server, migrationDir;
   try {
-    await admin.query('CREATE DATABASE ' + dbName);
+    // A dedicated owner role, database and isolated migration ledger: none of
+    // these objects exist outside the disposable PostgreSQL 16 CI container.
+    await admin.query("CREATE ROLE secumie_web_migration_staging LOGIN PASSWORD 'synthetic-migration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
+    await admin.query('CREATE DATABASE ' + dbName + ' OWNER secumie_web_migration_staging');
     const url = new URL(connectionString);
     url.pathname = '/' + dbName;
-    owner = new Pool({ connectionString: url.toString(), max: 2 });
-    await owner.query(fs.readFileSync(path.join(root, 'design/secumie-web/assembly-intake.draft.sql'), 'utf8'));
+    const migrationUrl = new URL(url);
+    migrationUrl.username = 'secumie_web_migration_staging';
+    migrationUrl.password = 'synthetic-migration-only';
+    owner = new Pool({ connectionString: migrationUrl.toString(), max: 1 });
+    // Exercise the EXISTING migration runner, not a new migration framework.
+    // This one-file numbered package is CI-only: Draft SQL is not production-ready.
+    migrationDir = fs.mkdtempSync(path.join(os.tmpdir(), 'secumie-web-ci-migration-'));
+    const stagedSqlName = '001_secumie_web_intake.sql';
+    fs.copyFileSync(
+      path.join(root, 'design/secumie-web/assembly-intake.draft.sql'),
+      path.join(migrationDir, stagedSqlName),
+    );
+    assert.deepEqual(fs.readdirSync(migrationDir), [stagedSqlName]);
+    await runMigrations(owner, migrationDir);
+    const ledger = await owner.query('SELECT filename FROM schema_migrations ORDER BY filename');
+    assert.deepEqual(ledger.rows.map(row => row.filename), [stagedSqlName],
+      'Web-only migration must record exactly one file in its own database');
+    await runMigrations(owner, migrationDir);
+    assert.equal((await owner.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n, 1,
+      'replay must not duplicate the Web migration ledger');
     await admin.query("CREATE ROLE secumie_web_runtime_staging LOGIN PASSWORD 'synthetic-runtime-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
     await admin.query("CREATE ROLE secumie_web_admin_staging LOGIN PASSWORD 'synthetic-staff-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
     await admin.query("CREATE ROLE secumie_unrelated_staging LOGIN PASSWORD 'synthetic-unrelated-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
@@ -137,7 +160,8 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     await Promise.allSettled([staff?.end(), runtime?.end(), outsider?.end(), owner?.end()].filter(Boolean));
     // All test pools are closed above; do not kill sockets during teardown.
     await admin.query('DROP DATABASE IF EXISTS ' + dbName);
-    await admin.query('DROP ROLE IF EXISTS secumie_web_runtime_staging, secumie_web_admin_staging, secumie_unrelated_staging');
+    if (migrationDir) fs.rmSync(migrationDir, { recursive: true, force: true });
+    await admin.query('DROP ROLE IF EXISTS secumie_web_runtime_staging, secumie_web_admin_staging, secumie_unrelated_staging, secumie_web_migration_staging');
     await admin.end();
   }
 });
