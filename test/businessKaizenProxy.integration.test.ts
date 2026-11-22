@@ -35,6 +35,11 @@ test('staff auth, BUSINESS_WEB service and Contact membership fail closed withou
 });
 
 test('draft create/resume, partial replacement and optimistic revision',async()=>{
+  const concurrentRecord=await activity();
+  const concurrent=await Promise.all(Array.from({length:8},()=>h.businessKaizenProxy.createOrResume(concurrentRecord.activityId,'operator@atlib.jp')));
+  assert.equal(new Set(concurrent.map(result=>result.diagnosisId)).size,1);
+  assert.equal(concurrent.filter(result=>result.created).length,1);
+  assert.equal(Number((await h.pool.query(`SELECT count(*) n FROM business_kaizen_diagnoses WHERE sales_activity_id=$1`,[concurrentRecord.activityId])).rows[0].n),1);
   const record=await activity(),first=await request('/api/admin/business-kaizen/diagnoses/proxy-drafts','POST',{salesActivityId:record.activityId});
   assert.equal(first.status,201);const created=await first.json() as any;
   const resumed=await request('/api/admin/business-kaizen/diagnoses/proxy-drafts','POST',{salesActivityId:record.activityId});
