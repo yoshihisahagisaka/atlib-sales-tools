@@ -12,6 +12,7 @@ on:
       - 'src/routes/internalSecumieWebMirror.ts'
       - 'src/secumieWeb/assemblyAdminService.ts'
       - 'design/secumie-web/**'
+      - 'scripts/secumie-web-admin-preflight.sh'
       - 'test/secumieWebAdminDb.acceptance.cjs'
   workflow_dispatch:
 
@@ -47,6 +48,7 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npm run build
+      - run: bash -n scripts/secumie-web-admin-preflight.sh
       # This PR updates Zod compatibility imports shared with KAIZEN/Business Web.
       # Guard existing business logic against regressions without GCP or API keys.
       - run: npm run test:kaizen
