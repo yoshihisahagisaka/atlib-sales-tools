@@ -251,7 +251,7 @@ test('staging migration candidate is hash-pinned and execution is not authorized
   assert.match(sql, /GRANT CONNECT ON DATABASE secumie_web_staging/);
   assert.doesNotMatch(sql, /^COMMIT;$/m, 'transaction and ledger belong to the existing migration runner');
   const gitBlob = bytes => crypto.createHash('sha1')
-    .update(Buffer.from('blob ' + bytes.length + '\\0'))
+    .update(Buffer.from('blob ' + bytes.length + String.fromCharCode(0)))
     .update(bytes).digest('hex');
   assert.equal(gitBlob(fs.readFileSync(path.join(pkgDir, 'assembly-intake.draft.sql'))),
     manifest.sourceDraftBlobIds.ddl);
