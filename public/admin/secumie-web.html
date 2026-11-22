@@ -39,13 +39,50 @@
 
     <div class="notice" role="note">
       <strong>現在は暫定メール受付です。</strong>
-      受信した受付メールを原本として確認してください。専用DBへの移行が完了するまでは、メール受付分は下の一覧に自動登録されません。
-      この画面ではPDFを作成・保存できますが、顧客への送付と対応履歴の記録は自動実行されません。
+      受信した受付メールを原本として確認してください。
+      <p id="intake-sync-state" role="status">管理一覧への接続を確認しています。</p>
+      PDFの送付はスタッフが行います。送付後は一覧の対応状況を「提出済み」に更新してください。
+      連携前の申込や未転記分は受付メールで確認します。
     </div>
 
+    <section class="card" aria-labelledby="requests-title">
+      <h2 id="requests-title">申込一覧</h2>
+      <p class="help">会社名・組合名・対応状況で絞り込めます。「診断に反映」から既存WSCを利用できます。過去の受付メールは自動登録されません。</p>
+      <form id="filter-form">
+        <div class="filter-grid">
+          <div><label for="filter-company">会社名</label><input id="filter-company" type="text" maxlength="200"></div>
+          <div><label for="filter-union">所属組合名</label><input id="filter-union" type="text" maxlength="200"></div>
+          <div><label for="filter-status">対応状況</label>
+            <select id="filter-status">
+              <option value="">すべて</option>
+              <option value="RECEIVED">受付済み</option>
+              <option value="IN_PROGRESS">対応中</option>
+              <option value="SUBMITTED">提出済み</option>
+              <option value="CANCELLED">取消</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions"><button class="btn btn-secondary" type="submit">一覧を読み込む・検索</button></div>
+      </form>
+      <p id="list-state" role="status" aria-live="polite">受付一覧を確認しています…</p>
+      <div id="request-results" hidden>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th scope="col">受付日時・番号</th><th scope="col">会社名・所属組合</th><th scope="col">対象URL</th><th scope="col">連絡先</th><th scope="col">診断</th><th scope="col">対応状況</th></tr></thead>
+            <tbody id="request-rows"></tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button id="previous-button" class="btn btn-secondary" type="button" disabled>前の50件</button>
+          <span id="page-label" class="status-note"></span>
+          <button id="next-button" class="btn btn-secondary" type="button" disabled>次の50件</button>
+        </div>
+        <p class="status-note">「提出済み」は、PDFを実際に送付したことを確認した後だけ選択してください。PDFをダウンロードしただけでは提出済みになりません。</p>
+      </div>
+    </section>
     <section class="card" aria-labelledby="diagnosis-title">
       <h2 id="diagnosis-title">診断レポートを作成する</h2>
-      <p class="help">受付メールから「会社名・団体名」と「診断対象URL」を転記してください。診断は公開情報のみを対象とします。</p>
+      <p class="help">一覧の「診断に反映」を選ぶと会社名・URLが自動入力されます。未転記分は受付メールから転記してください。診断は公開情報のみを対象とします。</p>
       <form id="diagnosis-form">
         <div class="form-grid">
           <div class="form-row">
@@ -66,41 +103,6 @@
       <p id="diagnosis-state" role="status" aria-live="polite"></p>
     </section>
 
-    <section class="card" aria-labelledby="requests-title">
-      <h2 id="requests-title">正式受付一覧（専用DB接続後）</h2>
-      <p class="help">専用受付APIが本番稼働すると、申込内容をここで検索・確認し、診断対象を反映して対応状況を更新できます。現在のメール受付分は自動同期されません。</p>
-      <form id="filter-form">
-        <div class="filter-grid">
-          <div><label for="filter-company">会社名</label><input id="filter-company" type="text" maxlength="200"></div>
-          <div><label for="filter-union">所属組合名</label><input id="filter-union" type="text" maxlength="200"></div>
-          <div><label for="filter-status">対応状況</label>
-            <select id="filter-status">
-              <option value="">すべて</option>
-              <option value="RECEIVED">受付済み</option>
-              <option value="IN_PROGRESS">対応中</option>
-              <option value="SUBMITTED">提出済み</option>
-              <option value="CANCELLED">取消</option>
-            </select>
-          </div>
-        </div>
-        <div class="actions"><button class="btn btn-secondary" type="submit">一覧を読み込む・検索</button></div>
-      </form>
-      <p id="list-state" role="status" aria-live="polite">一覧を読み込んでいません。</p>
-      <div id="request-results" hidden>
-        <div class="table-scroll">
-          <table>
-            <thead><tr><th scope="col">受付日時・番号</th><th scope="col">会社名・所属組合</th><th scope="col">対象URL</th><th scope="col">連絡先</th><th scope="col">診断</th><th scope="col">対応状況</th></tr></thead>
-            <tbody id="request-rows"></tbody>
-          </table>
-        </div>
-        <div class="actions">
-          <button id="previous-button" class="btn btn-secondary" type="button" disabled>前の50件</button>
-          <span id="page-label" class="status-note"></span>
-          <button id="next-button" class="btn btn-secondary" type="button" disabled>次の50件</button>
-        </div>
-        <p class="status-note">「提出済み」は、PDFを実際に送付したことを確認した後だけ選択してください。PDFをダウンロードしただけでは提出済みになりません。</p>
-      </div>
-    </section>
   </main>
   <script src="/admin/secumie-web.js" defer></script>
 </body>
