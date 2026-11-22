@@ -47,4 +47,8 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npm run build
+      # This PR updates Zod compatibility imports shared with KAIZEN/Business Web.
+      # Guard existing business logic against regressions without GCP or API keys.
+      - run: npm run test:kaizen
+      - run: npm run test:business-web-consultation
       - run: node --test test/secumieWebAdminDb.acceptance.cjs test/secumieWebAdmin.contract.test.cjs
