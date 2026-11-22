@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "scope": "SECU:MIE Web staff intake, shared Cloud SQL Staging only",
+  "status": "STAGING_CANDIDATE_EXECUTION_NO_GO",
+  "project": "msp-zabbix",
+  "region": "asia-northeast1",
+  "instance": "secumie-sg-shared-staging-db",
+  "database": "secumie_web_staging",
+  "databaseOwner": "secumie_web_migration_staging",
+  "adminRole": "secumie_web_admin_staging",
+  "runtimeRole": "secumie_web_runtime_staging",
+  "migrationRunner": "src/db/migrate.ts:runMigrations",
+  "migrationDirectory": "design/secumie-web/migrations",
+  "migrations": [
+    {
+      "order": 1,
+      "filename": "001_secumie_web_intake_staging.sql",
+      "sha256": "04d719efc3cdd5fc70e5df430144b55a749e9fcf94784bc66093aabfd2a7d1cf",
+      "byteCount": 8102
+    }
+  ],
+  "sourceDraftBlobIds": {
+    "ddl": "c2aff1b54be75d8c41bd335a5f1612c28a5cd12b",
+    "grants": "93a412a0130df028b3ce016987a27f250f31a913"
+  },
+  "releaseDecision": {
+    "dbCreationAuthorized": false,
+    "roleOrSecretCreationAuthorized": false,
+    "migrationExecutionAuthorized": false,
+    "cloudRunDeploymentAuthorized": false,
+    "productionReleaseAuthorized": false
+  },
+  "requiredBeforeAnyWrite": [
+    "reconfirm Git PR #51 HEAD and current GCP state",
+    "separate explicit executive approval covering scope, retention and incremental cost",
+    "review operator's CREATE DATABASE OWNER role capability without IAM/role expansion",
+    "Cloud SQL database and role absence incl pg_roles; PG16 and capacity budget",
+    "Web role credentials safely provisioned with Secret Manager; no secrets in arguments/logs",
+    "approved image/source/SA/Proxy & selected private connectivity, without affecting Insight or Secure Guard",
+    "verify the single SQL candidate immutable digest, byte count, only allowlisted filename, and NO-GO manifest promotion separately",
+    "define no-automatic-retry, partial-failure stop and explicit rollback controls",
+    "pass container CVE gate before any public Cloud Run promotion"
+  ],
+  "recovery": "Do not auto-DROP, ALTER, or retry. On failure retain the current shared instance and existing databases, inspect only Web target metadata/ledger, and seek separate rollback/cleanup approval."
+}
