@@ -1,5 +1,14 @@
 # SECU:MIE Web｜管理画面（暫定運用・DB接続待ち）
 
+## 2026-11-22 本番WSCのスタッフ手動UAT受入（現行）
+
+- ユーザーが**現行本番 `https://sales.atlib.jp/admin/web-security-check.html`** にGoogle Workspaceでログインし、自社URL `https://www.atlib.jp/` を診断してPDFを作成する一連の操作について、「上記動作確認問題なし」と報告した。現行100% Revisionは `sales-tools-bks-20261122040419`、imageは `sha256:d132d93c5ffcc998633f10caaec397722422d4389322bccca8b5949397b7560e`。**このスタッフ操作の実運用受入をPASS（ユーザー目視報告）**として記録する。
+- この受入は本番の**既存WSC機能**についてのみ有効。今回の確認は新しい`/admin/secumie-web.html`（PR #51、未公開）の実スタッフ認証、申込DBの自動一覧、コーポレート側PR #75の署名付き転記、提出済み監査、新候補イメージの安全性を検証したものではない。また、LP申込・顧客メール送付を再実施したという主張をしない。
+- **次の最小read-only Gate**：Google Cloud公式の`Cloud SQL Studio`が権限・DB認証条件を満たすなら、新しいJob/踏み台/公開IPを作らず、既存 `msp-zabbix:asia-northeast1:secumie-sg-shared-staging-db` のデータベース `postgres` に接続し、`design/secumie-web/staging-catalog-readonly.sql`（SELECT 5件のみ）を実行する。Studioを使えない場合、DB権限・APIを勝手に拡張せずSTOPし、既存承認済みPrivate接続経路を再確認する。
+- パスワード・Secret値・顧客レコード・SQLのクエリ本文／接続先情報に含まれる機密値をGit、ログ、チャットへ出力しない。共有可能な証跡はDB名・role名・接続数のメタデータのみ。DB schema/user/Secret・Job/Traffic・DNSの書き込みは未承認。Web専用DBが未作成のため内部スキーマMigration台帳照合は**作成後Gate**であり、現時点で存在したと主張しない。
+- **PR #51 Draft／SECURITY_NO_GO／Production No-Go継続**。本番WSC動作PASSはWeb新画面の公開承認ではない。
+
+
 ## 2026-11-22 本番BKSイメージの来歴照合（現行）
 
 - 現行100% Cloud Run Revision `sales-tools-bks-20261122040419` のイメージは `asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/sales-tools@sha256:d132d93c5ffcc998633f10caaec397722422d4389322bccca8b5949397b7560e`。ユーザーが `gcloud run revisions describe`（read-only）で確認した。
