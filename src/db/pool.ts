@@ -6,14 +6,16 @@ import type { Config } from '../config';
  * （`--add-cloudsql-instances` 指定時、/cloudsql/<INSTANCE_CONNECTION_NAME> にソケットが生成される）。
  * ローカル開発時は host/port のTCP接続にフォールバックする。
  */
-export function createPool(config: Pick<Config,'db'>): Pool {
+export function createPool(config: Pick<Config,'db'>, options: { max?: number } = {}): Pool {
+  const max = options.max ?? 5;
+  if (!Number.isInteger(max) || max < 1 || max > 5) throw new Error('DB pool max must be 1..5');
   if (config.db.socketPath) {
     return new Pool({
       host: config.db.socketPath,
       database: config.db.name,
       user: config.db.user,
       password: config.db.password,
-      max: 5,
+      max,
       connectionTimeoutMillis: 10000,
     });
   }
@@ -23,7 +25,7 @@ export function createPool(config: Pick<Config,'db'>): Pool {
     database: config.db.name,
     user: config.db.user,
     password: config.db.password,
-    max: 5,
+    max,
     connectionTimeoutMillis: 10000,
   });
 }
