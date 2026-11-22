@@ -8,6 +8,7 @@ on:
       - '.github/workflows/secumie-web-admin-db-contract.yml'
       - 'src/config.ts'
       - 'src/server.ts'
+      - 'src/runtime/runtimeConfig.ts'
       - 'src/db/pool.ts'
       - 'src/routes/adminSecumieWeb.ts'
       - 'src/secumieWeb/assemblyAdminService.ts'
