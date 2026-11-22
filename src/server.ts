@@ -3,7 +3,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import pinoHttp from 'pino-http';
 import pino from 'pino';
-import { loadConfig, loadSecumieAdminDatabaseConfig } from './config';
+import { loadConfig, loadSecumieAdminDatabaseConfig, loadSecumieWebAdminDatabaseConfig } from './config';
 import { createPool } from './db/pool';
 import { Mailer } from './services/mailer';
 import { IsmsDiagnosticRepo } from './services/ismsDiagnosticRepo';
@@ -93,6 +93,13 @@ async function main(): Promise<void> {
     { max: 2, idleTimeoutMillis: 10_000 },
   );
   secumiePool.on('error',()=>logger.error({event:'secumie_database_pool_error'},'SECU:MIE database connection failed'));
+  // Web requests are owned by a different database/role. Missing config leaves
+  // only the Web staff API disconnected; PIRA and all existing services keep running.
+  const webAdminDb = loadSecumieWebAdminDatabaseConfig();
+  const secumieWebPool = webAdminDb
+    ? createPool({ db: webAdminDb }, { max: 2, idleTimeoutMillis: 10_000 })
+    : null;
+  secumieWebPool?.on('error', () => logger.error({ event: 'secumie_web_database_pool_error' }, 'SECU:MIE Web database connection failed'));
   const mailer = new Mailer(config.smtp);
   const ismsDiagnosticRepo = new IsmsDiagnosticRepo(pool);
   const freeHearingAssessmentRepo = new FreeHearingAssessmentRepo(pool);
@@ -120,7 +127,7 @@ async function main(): Promise<void> {
   const staffAuthService = new StaffAuthService(config.staffAuth.jwtSecret);
   const wscSalesService = new WscSalesService();
   const piraAdminRepo = new PiraAdminRepo(secumiePool);
-  const assemblyAdminService = new AssemblyAdminService(secumiePool);
+  const assemblyAdminService = secumieWebPool ? new AssemblyAdminService(secumieWebPool) : null;
   const itManagementDiagnosisRepo = new ItManagementDiagnosisRepo(pool);
   const preparationRepo = new DiagnosisPreparationRepo(pool);
   const preparationProvider = new AnthropicPreDiagnosisProvider(config.aiAssist.anthropicApiKey);
@@ -234,7 +241,7 @@ async function main(): Promise<void> {
   app.use('/api/admin/web-security-check', ...adminAuthGate, createAdminWebSecurityCheckRouter(wscSalesService));
   app.use('/api/admin/pira/v1', ...adminAuthGate,
     createAdminPiraRouter(piraAdminRepo, new Set(config.piraAdminEmails)));
-  app.use('/api/admin/secumie-web/v1', ...adminAuthGate,
+  if (assemblyAdminService) app.use('/api/admin/secumie-web/v1', ...adminAuthGate,
     createAdminSecumieWebRouter(assemblyAdminService));
   app.use(
     '/api/admin/estimate-preconditions',
@@ -288,7 +295,7 @@ async function main(): Promise<void> {
     stopping = true;
     logger.info({ event: 'server_shutdown', signal }, 'Stopping Sales Tools');
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    await Promise.allSettled([pool.end(), secumiePool.end()]);
+    await Promise.allSettled([pool.end(), secumiePool.end(), ...(secumieWebPool ? [secumieWebPool.end()] : [])]);
   };
   process.once('SIGTERM', () => { void stop('SIGTERM').finally(() => process.exit(0)); });
   process.once('SIGINT', () => { void stop('SIGINT').finally(() => process.exit(0)); });
