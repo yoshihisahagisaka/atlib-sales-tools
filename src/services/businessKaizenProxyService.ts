@@ -15,6 +15,15 @@ export class BusinessKaizenProxyError extends Error {
 
 type Analyzer = (answers: BusinessKaizenAnswers) => DiagnosisSnapshot;
 
+export interface BusinessKaizenDiagnosisListInput {
+  companyName?: string;
+  owner?: string;
+  entryChannel?: 'CUSTOMER_SELF' | 'STAFF_PROXY';
+  currentStage?: 'ACCEPTED' | 'SCHEDULING' | 'SCHEDULED' | 'MEETING_COMPLETED' | 'PROPOSAL_IN_PROGRESS' | 'PROPOSED';
+  page: number;
+  limit: number;
+}
+
 export class BusinessKaizenProxyService {
   constructor(private readonly pool: Pool, private readonly analyzer: Analyzer = diagnoseBusinessKaizenSnapshot) {}
 
@@ -23,6 +32,40 @@ export class BusinessKaizenProxyService {
     try { await client.query('BEGIN'); const result = await fn(client); await client.query('COMMIT'); return result; }
     catch (error) { try { await client.query('ROLLBACK'); } catch { /* preserve original */ } throw error; }
     finally { client.release(); }
+  }
+
+  async list(input: BusinessKaizenDiagnosisListInput) {
+    const parameters: unknown[] = [];
+    const conditions: string[] = [];
+    const parameter = (value: unknown) => { parameters.push(value); return `$${parameters.length}`; };
+    if (input.companyName) {
+      const value = parameter(input.companyName.toLowerCase());
+      conditions.push(`position(${value} in lower(CASE WHEN d.entry_channel='CUSTOMER_SELF' THEN l.company_name ELSE c.name END)) > 0`);
+    }
+    if (input.owner) conditions.push(`d.owner_user_email=${parameter(input.owner)}`);
+    if (input.entryChannel) conditions.push(`d.entry_channel=${parameter(input.entryChannel)}`);
+    if (input.currentStage) conditions.push(`d.current_stage=${parameter(input.currentStage)}`);
+    const limit = parameter(input.limit + 1);
+    const offset = parameter((input.page - 1) * input.limit);
+    const result = await this.pool.query(
+      `SELECT d.id AS "diagnosisId",d.entry_channel AS "entryChannel",d.input_state AS "inputState",
+              CASE WHEN d.entry_channel='CUSTOMER_SELF' THEN l.company_name ELSE c.name END AS "companyName",
+              CASE WHEN d.entry_channel='CUSTOMER_SELF' THEN l.person_name ELSE ct.name END AS "contactName",
+              d.diagnosis_snapshot->>'direction' AS direction,
+              d.diagnosis_snapshot->>'directionStatus' AS "directionStatus",
+              d.current_stage AS "currentStage",d.outcome,d.owner_user_email AS "ownerUserEmail",
+              d.updated_at AS "updatedAt",d.sales_activity_id AS "salesActivityId",
+              d.consultation_lead_id AS "consultationLeadId"
+         FROM business_kaizen_diagnoses d
+         LEFT JOIN business_web_consultation_leads l
+           ON d.entry_channel='CUSTOMER_SELF' AND l.id=d.consultation_lead_id
+         LEFT JOIN company c ON d.entry_channel='STAFF_PROXY' AND c.id=d.company_id
+         LEFT JOIN contact ct ON d.entry_channel='STAFF_PROXY' AND ct.id=d.contact_id
+        ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+        ORDER BY d.updated_at DESC,d.id DESC LIMIT ${limit} OFFSET ${offset}`,
+      parameters,
+    );
+    return { items: result.rows.slice(0, input.limit), page: input.page, limit: input.limit, hasNext: result.rows.length > input.limit };
   }
 
   async createOrResume(salesActivityId: string, actor: string) {
@@ -60,18 +103,48 @@ export class BusinessKaizenProxyService {
     const result = await this.pool.query(
       `SELECT d.id,d.entry_channel AS "entryChannel",d.input_state AS "inputState",
               d.sales_activity_id AS "salesActivityId",d.company_id AS "companyId",
-              c.name AS "companyName",d.contact_id AS "contactId",ct.name AS "contactName",
+              CASE WHEN d.entry_channel='CUSTOMER_SELF' THEN l.company_name ELSE c.name END AS "companyName",
+              d.contact_id AS "contactId",
+              CASE WHEN d.entry_channel='CUSTOMER_SELF' THEN l.person_name ELSE ct.name END AS "contactName",
               s.selected_service AS "selectedService",d.owner_user_email AS "ownerUserEmail",
+              d.consultation_lead_id AS "consultationLeadId",d.original_answers AS "originalAnswers",
               d.current_answers AS "currentAnswers",d.diagnosis_snapshot AS "diagnosisSnapshot",
-              d.revision,d.completed_at AS "completedAt"
+              d.current_stage AS "currentStage",d.outcome,d.outcome_reason AS "outcomeReason",
+              d.outcome_note AS "outcomeNote",d.revision,d.created_at AS "createdAt",
+              d.updated_at AS "updatedAt",d.completed_at AS "completedAt",d.scheduled_at AS "scheduledAt",
+              d.closed_at AS "closedAt",l.consented_at AS "leadConsentedAt",
+              l.created_at AS "leadCreatedAt",l.updated_at AS "leadUpdatedAt",
+              l.utm_source AS "leadUtmSource",l.utm_medium AS "leadUtmMedium",
+              l.utm_campaign AS "leadUtmCampaign",l.utm_content AS "leadUtmContent",
+              l.utm_term AS "leadUtmTerm",l.cta_source AS "leadCtaSource",
+              l.landing_url AS "leadLandingUrl",l.referrer AS "leadReferrer",
+              s.acquisition_source_type AS "activityAcquisitionSourceType",
+              s.acquisition_source_name AS "activityAcquisitionSourceName",
+              s.utm_source AS "activityUtmSource",s.utm_medium AS "activityUtmMedium",
+              s.utm_campaign AS "activityUtmCampaign",s.utm_content AS "activityUtmContent",
+              s.utm_term AS "activityUtmTerm",s.landing_url AS "activityLandingUrl",
+              s.referrer AS "activityReferrer",s.created_at AS "activityCreatedAt"
          FROM business_kaizen_diagnoses d
-         JOIN sales_activity s ON s.id=d.sales_activity_id
-         JOIN company c ON c.id=d.company_id
-         JOIN contact ct ON ct.id=d.contact_id
-        WHERE d.id=$1 AND d.entry_channel='STAFF_PROXY'`, [diagnosisId],
+         LEFT JOIN business_web_consultation_leads l
+           ON d.entry_channel='CUSTOMER_SELF' AND l.id=d.consultation_lead_id
+         LEFT JOIN sales_activity s ON d.entry_channel='STAFF_PROXY' AND s.id=d.sales_activity_id
+         LEFT JOIN company c ON d.entry_channel='STAFF_PROXY' AND c.id=d.company_id
+         LEFT JOIN contact ct ON d.entry_channel='STAFF_PROXY' AND ct.id=d.contact_id
+        WHERE d.id=$1`, [diagnosisId],
     );
     if (!result.rows[0]) throw new BusinessKaizenProxyError(404, 'DIAGNOSIS_NOT_FOUND');
-    return result.rows[0];
+    const row = result.rows[0];
+    const attribution = row.entryChannel === 'CUSTOMER_SELF'
+      ? { utmSource: row.leadUtmSource, utmMedium: row.leadUtmMedium, utmCampaign: row.leadUtmCampaign,
+          utmContent: row.leadUtmContent, utmTerm: row.leadUtmTerm, ctaSource: row.leadCtaSource,
+          landingUrl: row.leadLandingUrl, referrer: row.leadReferrer }
+      : { acquisitionSourceType: row.activityAcquisitionSourceType, acquisitionSourceName: row.activityAcquisitionSourceName,
+          utmSource: row.activityUtmSource, utmMedium: row.activityUtmMedium, utmCampaign: row.activityUtmCampaign,
+          utmContent: row.activityUtmContent, utmTerm: row.activityUtmTerm,
+          landingUrl: row.activityLandingUrl, referrer: row.activityReferrer };
+    for (const key of ['leadUtmSource','leadUtmMedium','leadUtmCampaign','leadUtmContent','leadUtmTerm','leadCtaSource','leadLandingUrl','leadReferrer',
+      'activityAcquisitionSourceType','activityAcquisitionSourceName','activityUtmSource','activityUtmMedium','activityUtmCampaign','activityUtmContent','activityUtmTerm','activityLandingUrl','activityReferrer']) delete row[key];
+    return { ...row, attribution };
   }
 
   async saveDraft(diagnosisId: string, answers: unknown, expectedRevision: number, actor: string) {
