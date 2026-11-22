@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { Pool } from 'pg';
 import { createPool } from '../src/db/pool';
+import { AssemblyAdminService } from '../src/secumieWeb/assemblyAdminService';
 import { loadSecumieWebAdminDatabaseConfig } from '../src/config';
 import { databaseRuntime, secumieWebDatabaseRuntime } from '../src/runtime/runtimeConfig';
 
@@ -150,6 +151,58 @@ test('Web public intake uses a Web-only runtime role, never the Insight OTP/PIRA
     await pool?.end();
     for (const key of Object.keys(process.env)) if (!(key in before)) delete process.env[key];
     Object.assign(process.env, before);
+  }
+});
+
+integration('Web intake and staff status update work on isolated synthetic PostgreSQL 16 only', { timeout: 30_000 }, async () => {
+  const database = 'secumie_web_test_' + randomBytes(5).toString('hex');
+  const admin = new Pool({ connectionString, max: 1 });
+  let web: Pool | undefined;
+  try {
+    // A disposable database inside the CI PostgreSQL service. Never connect to Cloud SQL.
+    await admin.query('CREATE DATABASE "' + database + '"');
+    const url = new URL(connectionString!);
+    url.pathname = '/' + database;
+    web = new Pool({ connectionString: url.toString(), max: 2 });
+    const draftSql = readFileSync(path.resolve(__dirname, '../design/secumie-web/assembly-intake.draft.sql'), 'utf8');
+    await web.query(draftSql); // Synthetic rehearsal only; not an approved migration.
+    await web.query(
+      "INSERT INTO secumie_web.assembly_union_master(union_id,official_name,source_version) VALUES('test-union','検証組合','synthetic-v1')"
+    );
+    const intakeId = '00000000-0000-4000-8000-000000000001';
+    await web.query(
+      `INSERT INTO secumie_web.assembly_intake
+       (intake_id, receipt_number, reception_code, organizer_name, union_id, union_name_snapshot,
+        company_name, registered_address, website_url, contact_name, contact_email, contact_phone,
+        consent_version, consented_at, idempotency_key, payload_hash, auth_session_id)
+       VALUES ($1, 'SMW-SYNTHETIC', 'synthetic', 'synthetic-org', 'test-union', '検証組合',
+        '検証株式会社', '東京都', 'https://example.jp/', '合成担当', 'test@example.jp', '0000000000',
+        'synthetic-v1', now(), $2, 'synthetic-hash', 'synthetic-session')`,
+      [intakeId, '00000000-0000-4000-8000-000000000002']
+    );
+    const service = new AssemblyAdminService(web);
+    const items = await service.list({ status: 'RECEIVED', companyName: '検証', unionName: '組合', limit: 50, offset: 0 });
+    assert.equal(items.length, 1);
+    assert.equal(items[0].intakeId, intakeId);
+    assert.equal(items[0].companyName, '検証株式会社');
+    assert.equal(items[0].status, 'RECEIVED');
+    const updated = await service.changeStatus(intakeId, 'IN_PROGRESS', 'synthetic-staff@atlib.jp');
+    assert.deepEqual(updated, { status: 'IN_PROGRESS', unchanged: false });
+    assert.equal((await service.list({ status: 'IN_PROGRESS' })).length, 1);
+    const history = await web.query(
+      'SELECT from_status, to_status, changed_by FROM secumie_web.assembly_status_history WHERE intake_id=$1',
+      [intakeId]
+    );
+    assert.deepEqual(history.rows, [{
+      from_status: 'RECEIVED',
+      to_status: 'IN_PROGRESS',
+      changed_by: 'synthetic-staff@atlib.jp',
+    }]);
+  } finally {
+    await web?.end();
+    await admin.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1', [database]);
+    await admin.query('DROP DATABASE IF EXISTS "' + database + '"');
+    await admin.end();
   }
 });
 
