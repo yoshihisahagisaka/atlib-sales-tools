@@ -207,6 +207,11 @@ integration('Web intake and staff status update work on isolated synthetic Postg
     const replay = await intake.create(claims, request);
     assert.deepEqual(replay, { receiptId: created.receiptId, replayed: true });
     await assert.rejects(
+      intake.create(claims, { ...request, idempotencyKey: '00000000-0000-4000-8000-000000000003' }),
+      /JWT_REPLAYED/,
+      'the same one-use JWT must not create another intake under a new idempotency key',
+    );
+    await assert.rejects(
       intake.create(claims, { ...request, companyName: '別会社' }),
       /IDEMPOTENCY_CONFLICT/,
     );
