@@ -14,6 +14,19 @@ import { requireStaffAuth } from "../src/middleware/staffAuth";
 import { diagnosisSnapshotSchema } from "../src/domain/businessWebConsultation";
 import { randomUUID } from "node:crypto";
 let server: http.Server, url: string;
+async function prepareBusinessKaizenSchema(db: PGlite) {
+    await db.exec(fs.readFileSync(path.resolve(__dirname, "../migrations/025_business_web_consultation_leads.sql"), "utf8"));
+    await db.exec("CREATE TABLE company(id uuid PRIMARY KEY); CREATE TABLE contact(id uuid PRIMARY KEY); CREATE TABLE sales_activity(id uuid PRIMARY KEY);");
+    const sql = fs.readFileSync(path.resolve(__dirname, "../migrations/UNNUMBERED_business_kaizen_diagnosis_package_a.sql"), "utf8")
+        .replace(/DO \$\$[\s\S]*?END \$\$;/g, "");
+    await db.exec(sql);
+}
+function pglitePool(db: PGlite) {
+    return {
+        query: (query: string, parameters?: unknown[]) => db.query(query, parameters),
+        connect: async () => ({ query: (query: string, parameters?: unknown[]) => db.query(query, parameters), release: () => {} }),
+    } as any;
+}
 async function answerSelfCheck(page: any, choices: number[][], entryUrl = url) {
     await page.goto(entryUrl);
     await page.click("#start");
@@ -26,13 +39,14 @@ async function answerSelfCheck(page: any, choices: number[][], entryUrl = url) {
 async function createBusinessWebHarness() {
     const db = new PGlite();
     await db.waitReady;
-    await db.exec(fs.readFileSync(path.resolve(__dirname, "../migrations/025_business_web_consultation_leads.sql"), "utf8"));
-    const repo = new BusinessWebConsultationLeadRepo({ query: (query: string, parameters?: unknown[]) => db.query(query, parameters) } as any);
+    await prepareBusinessKaizenSchema(db);
+    const pool = pglitePool(db);
+    const repo = new BusinessWebConsultationLeadRepo(pool);
     const auth = new StaffAuthService("disposable-test-key-not-a-production-secret");
     const app = express();
     app.use(express.json());
     app.use(cookieParser());
-    app.use("/api/business-web-consultation-leads", createBusinessWebConsultationLeadRouter(repo, { sendBusinessWebConsultationNotification: async () => {}, sendBusinessWebConsultationThanks: async () => {} } as any, { portalBaseUrl: "http://local", diagnosticNotifyEmail: "x", slack: {} } as any, async () => {}));
+    app.use("/api/business-web-consultation-leads", createBusinessWebConsultationLeadRouter(repo, { sendBusinessWebConsultationNotification: async () => {}, sendBusinessWebConsultationThanks: async () => {} } as any, { portalBaseUrl: "http://local", diagnosticNotifyEmail: "x", slack: {} } as any, pool, async () => {}));
     app.use("/api/admin/business-web-consultation-leads", requireStaffAuth(auth), createAdminBusinessWebConsultationLeadRouter(repo));
     app.use("/admin", requireStaffAuth(auth), express.static("C:/atlib/worktree-business-web-attribution/public/admin"));
     const localServer = app.listen(0, "127.0.0.1");
@@ -142,10 +156,9 @@ test("Production Lead API POST is intercepted and fulfilled locally", async ({ p
 test("local Express route persists a T10-shaped lead in PGlite", async ({ request }) => {
     const db = new PGlite();
     await db.waitReady;
-    await db.exec(fs.readFileSync(path.resolve(__dirname, "../migrations/025_business_web_consultation_leads.sql"), "utf8"));
-    const repo = new BusinessWebConsultationLeadRepo({
-        query: (q: string, p?: unknown[]) => db.query(q, p)
-    } as any), app = express();
+    await prepareBusinessKaizenSchema(db);
+    const pool = pglitePool(db);
+    const repo = new BusinessWebConsultationLeadRepo(pool), app = express();
     app.use(express.json());
     app.use("/api/business-web-consultation-leads", createBusinessWebConsultationLeadRouter(repo, {
         sendBusinessWebConsultationNotification: async () => {
@@ -156,7 +169,7 @@ test("local Express route persists a T10-shaped lead in PGlite", async ({ reques
         portalBaseUrl: "http://local",
         diagnosticNotifyEmail: "x",
         slack: {}
-    } as any, async () => {
+    } as any, pool, async () => {
     }));
     const s = app.listen(0, "127.0.0.1");
     await new Promise<void>(r => s.once("listening", r));
@@ -267,8 +280,9 @@ test("local Express route persists a T10-shaped lead in PGlite", async ({ reques
 test("local Staff Authentication Harness protects and updates Business Web leads", async ({ context, page, request }) => {
     const db = new PGlite();
     await db.waitReady;
-    await db.exec(fs.readFileSync(path.resolve(__dirname, "../migrations/025_business_web_consultation_leads.sql"), "utf8"));
-    const repo = new BusinessWebConsultationLeadRepo({ query: (query: string, parameters?: unknown[]) => db.query(query, parameters) } as any);
+    await prepareBusinessKaizenSchema(db);
+    const pool = pglitePool(db);
+    const repo = new BusinessWebConsultationLeadRepo(pool);
     const auth = new StaffAuthService("disposable-test-key-not-a-production-secret");
     const app = express();
     app.use(express.json());
@@ -276,7 +290,7 @@ test("local Staff Authentication Harness protects and updates Business Web leads
     app.use("/api/business-web-consultation-leads", createBusinessWebConsultationLeadRouter(repo, {
         sendBusinessWebConsultationNotification: async () => {},
         sendBusinessWebConsultationThanks: async () => {},
-    } as any, { portalBaseUrl: "http://local", diagnosticNotifyEmail: "x", slack: {} } as any, async () => {}));
+    } as any, { portalBaseUrl: "http://local", diagnosticNotifyEmail: "x", slack: {} } as any, pool, async () => {}));
     app.use("/api/admin/business-web-consultation-leads", requireStaffAuth(auth), createAdminBusinessWebConsultationLeadRouter(repo));
     const localServer = app.listen(0, "127.0.0.1");
     await new Promise<void>(resolve => localServer.once("listening", resolve));

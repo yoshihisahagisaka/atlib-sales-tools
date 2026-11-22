@@ -190,7 +190,7 @@ async function main(): Promise<void> {
   app.use('/api/web-development-partner-leads', createWebDevelopmentPartnerLeadRouter(webDevelopmentPartnerLeadRepo, mailer, config));
   app.use(
     '/api/business-web-consultation-leads',
-    createBusinessWebConsultationLeadRouter(businessWebConsultationLeadRepo, mailer, config),
+    createBusinessWebConsultationLeadRouter(businessWebConsultationLeadRepo, mailer, config, pool),
   );
   // TimeRex Standard運用中は予約状態を管理画面で手動更新する。\n  // Premiumへアップグレードし、任意URLパラメータ(lead_id)のWebhook受信を実機検証した後に有効化する。\n  // app.use('/api/webhooks/timerex/infravision-partner', createTimeRexWebhookRouter(infraVisionPartnerLeadRepo));
 
