@@ -1,5 +1,16 @@
 # SECU:MIE Web｜管理画面（暫定運用・DB接続待ち）
 
+## 2026-11-22 最小管理ページの独立組立
+
+**この節を2026-11-22の最新実装状態とする。下記の過去の「PR #50だけが一覧APIを持つ」という記録は当時の履歴。**
+
+- **PR #51単独で**既存UI `/admin/secumie-web.html`、既存WSC診断/PDF、スタッフ認証済み`GET /api/admin/secumie-web/v1/requests`、`PATCH /requests/:id/status`、署名付き`POST /api/internal/secumie-web/v1/temporary-intakes`を揃えた。実装はPR #50から必要な既存サービス・ルートだけを再利用。PR #50のOTP/PIRA RuntimeやCloud SQL全体をマージしない。
+- 申込一覧はWeb専用DBを設定した場合のみ接続。未設定なら既存WSCの手動PDF診断を維持。受付と履歴は既存Web draft SQL・最小権限GRANT SQLに従い、暫定LPのデータは`information_sharing_enabled=false`に固定。
+- 既存`www.atlib.jp/secumie-web/`は**メール受付を正本として維持**。`atlib-corporate-site` [Draft PR #75](https://github.com/yoshihisahagisaka/atlib-corporate-site/pull/75)から、TurnstileとSMTP成功後に署名付きでこの管理APIへ任意転記。転記失敗時も現行受付メールは維持。現行のメール申込をバックフィルしたとは扱わない。
+- GitHub Actions `44984228711`：既存画面契約7件、合成PostgreSQL16による申込→一覧→ステータス・監査・非共有・最小権限を含め**8件PASS／0 FAIL／0 SKIP**。リリース境界CI `44984228743`もSUCCESS。企業データやCloud SQLへアクセスしていない。
+- **Draft/Production No-Go継続**。Web専用Staging DB・roles・Migration適用は未承認/未実施。新イメージの脆弱性HIGH16/UNKNOWN14の判定も未解除。画面は未公開。公開前には承認済みStaging実機検証・最新イメージスキャンとCVE Gate・顧客情報の復旧導線を確認する。
+
+
 2026-11-19 時点の公開受付と、スタッフの診断・レポート作成業務を接続するための実装仕様。
 
 ## 実機受入 Gate：自社テスト申込1件だけ（未完了）
