@@ -13,6 +13,17 @@ const { createAdminSecumieWebRouter } = require('../dist/routes/adminSecumieWeb'
 const { createInternalSecumieWebMirrorRouter } = require('../dist/routes/internalSecumieWebMirror');
 
 const connectionString = process.env.SECUMIE_TEST_POSTGRES_URL;
+// This integration test CREATES and DROPS a database and roles. A URI alone is
+// never authorization: refuse non-disposable targets before any SQL mutation.
+if (connectionString) {
+  const url = new URL(connectionString);
+  if (process.env.SECUMIE_TEST_EPHEMERAL_ONLY !== '1'
+    || url.hostname !== '127.0.0.1'
+    || url.pathname !== '/postgres'
+    || url.username !== 'postgres') {
+    throw new Error('Refusing SECU:MIE DB test outside the dedicated disposable localhost PostgreSQL service');
+  }
+}
 const integration = connectionString ? test : test.skip;
 
 // Run only on an ephemeral CI PostgreSQL 16 service; never against Cloud SQL.
@@ -21,11 +32,26 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
   const root = path.resolve(__dirname, '..');
   const admin = new Pool({ connectionString, max: 1 });
   let owner, staff, runtime, outsider, server, migrationDir;
+  let createdDatabase = false;
+  const createdRoles = [];
   try {
+    // Extra guard against a local PostgreSQL host with non-test databases or
+    // an already-existing Web fixture: never overwrite or clean up those objects.
+    const otherDbs = await admin.query(
+      "SELECT datname FROM pg_database WHERE datname NOT IN ('postgres','template0','template1')");
+    assert.equal(otherDbs.rows.length, 0, 'disposable CI instance must not contain other databases');
+    const existingRoles = await admin.query(
+      'SELECT rolname FROM pg_roles WHERE rolname = ANY($1::text[])',
+      [['secumie_web_migration_staging','secumie_web_runtime_staging',
+        'secumie_web_admin_staging','secumie_unrelated_staging']]);
+    assert.equal(existingRoles.rows.length, 0, 'test roles must not preexist');
+
     // A dedicated owner role, database and isolated migration ledger: none of
     // these objects exist outside the disposable PostgreSQL 16 CI container.
     await admin.query("CREATE ROLE secumie_web_migration_staging LOGIN PASSWORD 'synthetic-migration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
+    createdRoles.push('secumie_web_migration_staging');
     await admin.query('CREATE DATABASE ' + dbName + ' OWNER secumie_web_migration_staging');
+    createdDatabase = true;
     const url = new URL(connectionString);
     url.pathname = '/' + dbName;
     const migrationUrl = new URL(url);
@@ -49,8 +75,11 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     assert.equal((await owner.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n, 1,
       'replay must not duplicate the Web migration ledger');
     await admin.query("CREATE ROLE secumie_web_runtime_staging LOGIN PASSWORD 'synthetic-runtime-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
+    createdRoles.push('secumie_web_runtime_staging');
     await admin.query("CREATE ROLE secumie_web_admin_staging LOGIN PASSWORD 'synthetic-staff-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
+    createdRoles.push('secumie_web_admin_staging');
     await admin.query("CREATE ROLE secumie_unrelated_staging LOGIN PASSWORD 'synthetic-unrelated-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
+    createdRoles.push('secumie_unrelated_staging');
     await owner.query(fs.readFileSync(path.join(root, 'design/secumie-web/staging-role-grants.draft.sql'), 'utf8'));
     const staffUrl = new URL(url);
     staffUrl.username = 'secumie_web_admin_staging';
@@ -159,9 +188,11 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     if (server?.listening) await new Promise((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
     await Promise.allSettled([staff?.end(), runtime?.end(), outsider?.end(), owner?.end()].filter(Boolean));
     // All test pools are closed above; do not kill sockets during teardown.
-    await admin.query('DROP DATABASE IF EXISTS ' + dbName);
+    if (createdDatabase) await admin.query('DROP DATABASE ' + dbName);
     if (migrationDir) fs.rmSync(migrationDir, { recursive: true, force: true });
-    await admin.query('DROP ROLE IF EXISTS secumie_web_runtime_staging, secumie_web_admin_staging, secumie_unrelated_staging, secumie_web_migration_staging');
+    for (const roleName of createdRoles.reverse()) {
+      await admin.query('DROP ROLE IF EXISTS ' + roleName);
+    }
     await admin.end();
   }
 });
