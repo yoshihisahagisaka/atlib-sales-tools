@@ -6,7 +6,7 @@ import path from 'node:path';
 import { Pool } from 'pg';
 import { createPool } from '../src/db/pool';
 import { loadSecumieWebAdminDatabaseConfig } from '../src/config';
-import { databaseRuntime } from '../src/runtime/runtimeConfig';
+import { databaseRuntime, secumieWebDatabaseRuntime } from '../src/runtime/runtimeConfig';
 
 const connectionString = process.env.SECUMIE_TEST_POSTGRES_URL;
 const integration = connectionString ? test : test.skip;
@@ -114,6 +114,43 @@ test('Sales Tools mounts the Web request API only when the separate Web database
   assert.match(server, /new AssemblyAdminService\(secumieWebPool\)/);
   assert.match(server, /if \(assemblyAdminService\) app\.use\('\/api\/admin\/secumie-web\/v1'/);
   assert.doesNotMatch(server, /new AssemblyAdminService\(secumiePool\)/);
+});
+
+test('Web public intake uses a Web-only runtime role, never the Insight OTP/PIRA pool', async () => {
+  const before = { ...process.env };
+  let pool: Pool | undefined;
+  try {
+    for (const key of ['SECUMIE_WEB_DB_NAME', 'SECUMIE_WEB_DB_USER', 'SECUMIE_WEB_DB_PASSWORD',
+      'SECUMIE_WEB_DB_HOST', 'SECUMIE_WEB_DB_PORT', 'SECUMIE_WEB_DB_SOCKET_PATH']) {
+      delete process.env[key];
+    }
+    await assert.rejects(async () => secumieWebDatabaseRuntime(), /SECUMIE_WEB_DB_NAME/);
+    Object.assign(process.env, {
+      DB_NAME: 'secumie_insight', DB_USER: 'secumie_otp_runtime', DB_PASSWORD: 'synthetic-otp-secret',
+      SECUMIE_WEB_DB_NAME: 'secumie_web_staging',
+      SECUMIE_WEB_DB_USER: 'secumie_web_runtime',
+      SECUMIE_WEB_DB_PASSWORD: 'synthetic-web-secret',
+      SECUMIE_WEB_DB_SOCKET_PATH: '/cloudsql/synthetic-web-instance',
+    });
+    pool = secumieWebDatabaseRuntime();
+    assert.equal(pool.options.database, 'secumie_web_staging');
+    assert.equal(pool.options.user, 'secumie_web_runtime');
+    assert.equal(pool.options.max, 2);
+    assert.equal(pool.options.password, 'synthetic-web-secret');
+    assert.equal(pool.totalCount, 0, 'pool construction must not access a live database');
+    process.env.SECUMIE_WEB_DB_NAME = 'secumie_insight';
+    assert.throws(secumieWebDatabaseRuntime, /isolated Web database/);
+    process.env.SECUMIE_WEB_DB_NAME = 'secumie_web_staging';
+    process.env.SECUMIE_WEB_DB_USER = 'secumie_otp_runtime';
+    assert.throws(secumieWebDatabaseRuntime, /isolated Web database/);
+    process.env.SECUMIE_WEB_DB_USER = 'secumie_web_runtime';
+    process.env.SECUMIE_WEB_DB_PASSWORD = '';
+    assert.throws(secumieWebDatabaseRuntime, /SECUMIE_WEB_DB_PASSWORD/);
+  } finally {
+    await pool?.end();
+    for (const key of Object.keys(process.env)) if (!(key in before)) delete process.env[key];
+    Object.assign(process.env, before);
+  }
 });
 
 integration('PostgreSQL 16 keeps the business and SECU pools isolated, lazy and bounded', { timeout:30_000 }, async () => {
