@@ -164,10 +164,11 @@ test('Web public intake uses a Web-only runtime role, never the Insight OTP/PIRA
 });
 
 integration('Web intake and staff status update work on isolated synthetic PostgreSQL 16 only', { timeout: 30_000 }, async () => {
-  const suffix = randomBytes(5).toString('hex');
-  const database = 'secumie_web_test_' + suffix;
-  const runtimeRole = 'secumie_web_runtime_' + suffix;
-  const staffRole = 'secumie_web_staff_' + suffix;
+  // The same fixed staging identifiers are used in the grant SQL;
+  // this test runs only against an isolated, throwaway CI PostgreSQL service.
+  const database = 'secumie_web_staging';
+  const runtimeRole = 'secumie_web_runtime_staging';
+  const staffRole = 'secumie_web_admin_staging';
   const admin = new Pool({ connectionString, max: 1 });
   let web: Pool | undefined, runtime: Pool | undefined, staff: Pool | undefined;
   try {
@@ -182,15 +183,9 @@ integration('Web intake and staff status update work on isolated synthetic Postg
     // These GRANTs are candidates pending the Web canonical / migration approval.
     await admin.query(`CREATE ROLE "${runtimeRole}" LOGIN PASSWORD 'synthetic-runtime-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`);
     await admin.query(`CREATE ROLE "${staffRole}" LOGIN PASSWORD 'synthetic-staff-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`);
-    await web.query(`REVOKE ALL ON SCHEMA secumie_web FROM PUBLIC;
-      GRANT USAGE ON SCHEMA secumie_web TO "${runtimeRole}", "${staffRole}";
-      GRANT SELECT ON secumie_web.assembly_union_master TO "${runtimeRole}";
-      GRANT SELECT, INSERT ON secumie_web.assembly_intake TO "${runtimeRole}";
-      GRANT INSERT ON secumie_web.assembly_consumed_jti,
-        secumie_web.assembly_notification_outbox,
-        secumie_web.assembly_status_history TO "${runtimeRole}";
-      GRANT SELECT, UPDATE(request_status, updated_at) ON secumie_web.assembly_intake TO "${staffRole}";
-      GRANT INSERT, SELECT ON secumie_web.assembly_status_history TO "${staffRole}";`);
+    // Test the exact reviewed Staging grants, not a duplicate SQL copy.
+    const grants = readFileSync(path.resolve(__dirname, '../design/secumie-web/staging-role-grants.draft.sql'), 'utf8');
+    await web.query(grants);
     const runtimeUrl = new URL(url);
     runtimeUrl.username = runtimeRole;
     runtimeUrl.password = 'synthetic-runtime-only';
