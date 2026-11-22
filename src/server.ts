@@ -79,6 +79,8 @@ import { createAdminMarketingInitiativeRouter } from './routes/adminMarketingIni
 import { TestCaseManagementRepo } from './services/testCaseManagementRepo';
 import { WscSalesService } from './services/wscSalesService';
 import { createAdminWebSecurityCheckRouter } from './routes/adminWebSecurityCheck';
+import { BusinessKaizenProxyService } from './services/businessKaizenProxyService';
+import { createAdminBusinessKaizenRouter } from './routes/adminBusinessKaizen';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -93,6 +95,7 @@ async function main(): Promise<void> {
   const infraVisionPartnerLeadRepo = new InfraVisionPartnerLeadRepo(pool);
   const webDevelopmentPartnerLeadRepo = new WebDevelopmentPartnerLeadRepo(pool);
   const businessWebConsultationLeadRepo = new BusinessWebConsultationLeadRepo(pool);
+  const businessKaizenProxyService = new BusinessKaizenProxyService(pool);
   const freeDiagnosisSalesLauncherRepo = new FreeDiagnosisSalesLauncherRepo(pool);
   const salesCustomerRepo = new SalesCustomerRepo(pool);
   const marketingInitiativeRepo = new MarketingInitiativeRepo(pool);
@@ -257,6 +260,8 @@ async function main(): Promise<void> {
     createAdminMarketingInitiativeRouter(marketingInitiativeRepo, freeDiagnosisSalesLauncherRepo));
   app.use('/api/admin/sales-customers', ...adminAuthGate,
     createAdminSalesCustomersRouter(salesCustomerRepo));
+  app.use('/api/admin/business-kaizen', ...adminAuthGate,
+    createAdminBusinessKaizenRouter(businessKaizenProxyService));
   app.use(
     '/api/admin/free-diagnosis-v1',
     ...adminAuthGate,

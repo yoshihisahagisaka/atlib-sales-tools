@@ -95,7 +95,7 @@ test('output is deterministic and independent from property order, display state
   assert.deepEqual(diagnoseBusinessKaizen(T05), canonical);
   const reversed = Object.fromEntries(Object.entries(T05).reverse()) as unknown as BusinessKaizenAnswers;
   assert.deepEqual(diagnoseBusinessKaizen(reversed), canonical);
-  const withPresentationMetadata = { ...T05, utmSource: 'campaign', screen: 'result', entryChannel: 'STAFF_PROXY' } as unknown as BusinessKaizenAnswers;
+  const withPresentationMetadata = { ...T05, utmSource: 'campaign', screen: 'result', entryChannel: 'STAFF_PROXY', proxyNote: 'Staff-only memo' } as unknown as BusinessKaizenAnswers;
   const { answers: _canonicalAnswers, ...canonicalDecision } = canonical;
   const { answers: _metadataAnswers, ...metadataDecision } = diagnoseBusinessKaizen(withPresentationMetadata);
   assert.deepEqual(metadataDecision, canonicalDecision);
