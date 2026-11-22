@@ -90,7 +90,7 @@ test('mobile: no page-wide overflow and missing DB route leaves manual diagnosis
   const page = await context.newPage();
   await page.route('**/api/admin/secumie-web/v1/requests?**', route => route.fulfill({ status: 404, body: 'Not Found' }));
   await page.goto(pageUrl);
-  await page.getByRole('button', { name: '一覧を読み込む・検索' }).click();
+  // List-first page must detect missing Web DB without an extra user click.
   await page.getByText(/専用受付APIはまだ/).waitFor();
   assert.equal(await page.locator('#diagnose-button').isVisible(), true);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true);
@@ -116,7 +116,7 @@ test('future DB: text-only applicant rendering, prefill, and explicit status PAT
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'IN_PROGRESS' }) });
   });
   await page.goto(pageUrl);
-  await page.getByRole('button', { name: '一覧を読み込む・検索' }).click();
+  // Automatically display pending applications when staff open the page.
   await page.locator('#request-rows tr').waitFor();
   assert.equal(await page.locator('#request-rows img').count(), 0);
   assert.match(await page.locator('#request-rows').innerText(), /<img src=x onerror=alert\(1\)>/);
@@ -139,7 +139,7 @@ test('submit status is not patched when staff declines confirmation', async t =>
   await page.route('**/api/admin/secumie-web/v1/requests/*/status', route => { patches += 1; return route.fulfill({ status: 200 }); });
   page.on('dialog', dialog => dialog.dismiss());
   await page.goto(pageUrl);
-  await page.getByRole('button', { name: '一覧を読み込む・検索' }).click();
+  // Application list loads as soon as the page opens.
   await page.locator('#request-rows tr').waitFor();
   await page.locator('#request-rows select').selectOption('SUBMITTED');
   await page.getByRole('button', { name: '更新' }).click();
