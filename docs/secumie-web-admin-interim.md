@@ -1,5 +1,15 @@
 # SECU:MIE Web｜管理画面（暫定運用・DB接続待ち）
 
+## 2026-11-22 Windowsからの実Staging read-only preflight と Migration Fit/Gap
+
+- `scripts/secumie-web-staging-readonly.ps1`を追加。Windows PowerShell 5.1+と既存`gcloud.cmd`を利用する。Cloud Run既存2サービスの100% traffic、共有Staging Cloud SQLのRUNNABLE/PG16/backup/PITR/deletion protection/public IP、既存DB名・Web専用DB/user名を**読み取り専用**で点検する。Secret値、DB内の企業情報、ログインパスワードを取得・表示しない。
+- WindowsでリポジトリのPR #51ブランチ最新版を取得した後、`powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\secumie-web-staging-readonly.ps1 -DryRun`で操作範囲を確認し、同じコマンドの`-DryRun`を外して実クラウドのメタデータ確認を行う。現場実行はまだ未実施。CIでは`pwsh -NoProfile -File scripts/secumie-web-staging-readonly.ps1 -DryRun`を実行する。
+- Cloud SQL APIのusers一覧はDB内部の`pg_roles`、DB owner、ACL、`schema_migrations`台帳を完全には証明しない。これらは既存の承認済みプライベート接続経路を使う別の**SELECTのみ**の受入が必要であり、現工程では実施していない。
+- **Migration方式の実Fit/Gap**：既存`src/db/migrate.ts`のrunnerが自動実行する対象ファイル名は`/^\\d+_[a-z0-9_]+\\.sql$/`に一致するSQLのみ。現行`design/secumie-web/assembly-intake.draft.sql`と`staging-role-grants.draft.sql`はどちらも非該当。そのため`MIGRATIONS_DIR=design/secumie-web`を指定するだけでは**0件適用でも正常終了するおそれがあり禁止**。Sales Toolsの通常`migrations/`（001〜036等）をWeb専用DBに指定することも禁止。
+- Web用の承認済みDDLファイル番号・SHA-256・台帳位置・schema owner・別role/Secret・対象DB確認を固定し、既存の`runMigrations`を**Web専用のファイルだけに制限した実行経路**で利用するかを設計判断してから、独立したMigration受入を行う。新runner、新CRM、Insight/SGの既存DB変更はしない。現在のDraft SQLをそのままStagingへ適用しない。
+- 新管理画面の機能CIと実Cloud SQL確認は別Gate。PR #51 Draft、`SECURITY_NO_GO`、既存LPメール正本および既存WSCの本番継続を維持する。
+
+
 ## 2026-11-22 Staging DB 接続準備：現行の差分と実行境界
 
 この節は最新のStaging準備状況。**SQLはDraftのまま、実共有Cloud SQLのdatabase/role/Secret/Migration/Cloud Runは変更していない。**
