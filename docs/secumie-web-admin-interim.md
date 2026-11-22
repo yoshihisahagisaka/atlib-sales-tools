@@ -1,5 +1,14 @@
 # SECU:MIE Web｜管理画面（暫定運用・DB接続待ち）
 
+## 2026-11-22 Migration候補のSHA固定・既存runner受入（最新）
+
+- PR #51内の`design/secumie-web/migrations/001_secumie_web_intake_staging.sql`に**既存DDL＋既存GRANTを同一Web専用SQL1件**として配置。SQL冒頭はWeb DB／migration role／PG16／3 role属性／schema未作成を検証してから変更する。変更点はガードとトランザクション境界の統合のみ。既存`src/db/migrate.ts:runMigrations`を変更せず流用する。
+- `design/secumie-web/staging-migration-candidate.manifest.json`にimmutable SHA-256 `04d719efc3cdd5fc70e5df430144b55a749e9fcf94784bc66093aabfd2a7d1cf`、`8102` bytes、対象DB・role・1 SQL以外の禁止、**実行承認false**を固定した。`test/secumieWebAdmin.contract.test.cjs`がmanifest・SHA256・元Git blob・1ファイルallowlist・NO-GOを検証。
+- 実施順序、Web DB新設・3 role・Secret/費用・権限・復旧の停止条件は`docs/secumie-web-staging-migration-gate-20261122.md`を現行の**実行前契約**とする。従来のDraft SQLは歴史・元ソースとして保持し、実GCPへの個別手動SQL実行には使わない。
+- GitHub Actions最新実測（HEAD `c360b26ecf5d8b0c5829198d01dafaa2364e0cb6`）：Run `45030871127`のTypeScript build／Web合成PostgreSQL16 **12 PASS/0 FAIL/0 SKIP**（含：誤DB/roleでのmigration拒否、migration ledger1件・再実行、受付一覧・最小権限）、KAIZEN **12 PASS/1 SKIP**、Business Web **5 PASS**、SHA/サイズ一致。Run `45030871321` Chromium **4 PASS**、Run `45030871129` release boundary **7+11 PASS**、すべてSUCCESS。
+- **実StagingのCloud SQL／role／Secret／Migrationは一切変更していない。** 既存Cloud SQLの保全承認は新規Web資産の作成を含まない。PR #51 Draft、コンテナ脆弱性HIGH16／UNKNOWN14・例外0の`SECURITY_NO_GO`、Production No-Goを維持する。実行・保全・費用・復旧には別途明示承認が必要。
+
+
 ## 2026-11-22 既存DBのCONNECT分離実測PASS・Web専用Staging適用境界（現行）
 
 Cloud SQL Studioで`postgres`へ接続したユーザーによる**SELECT read-only**実測を受領。比較対象のDB名とロール接頭辞を固定した`has_database_privilege`/公開ACLクエリの結果は次のとおり。各ロールの`CONNECT`権限が成立するかだけを検証したものであり、テーブル権限・既存アプリの正常性は証明しない。
