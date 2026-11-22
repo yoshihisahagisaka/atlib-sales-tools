@@ -11,7 +11,7 @@
     "test:kaizen": "node -r ts-node/register --test test/kaizenAssessment.golden.test.ts",
     "test:diagnosis": "node -r ts-node/register --test test/itManagementDiagnosis.golden.test.ts",
     "test:preparation": "node -r ts-node/register --test test/diagnosisPreparation.golden.test.ts",
-    "test:business-web-consultation": "node -r ts-node/register --test test/businessWebConsultation.golden.test.ts",
+    "test:business-web-consultation": "node -r ts-node/register --test test/businessWebConsultation.golden.test.ts test/businessKaizenConsultationMailer.test.ts",
     "test:business-web-consultation:api": "node -r ts-node/register --test test/businessWebConsultation.api.test.ts",
     "test:business-web-consultation:browser": "playwright test --config=test/businessWebConsultation.playwright.config.ts",
     "test:diagnosis:browser": "playwright test --config=test/diagnosis.playwright.config.ts",

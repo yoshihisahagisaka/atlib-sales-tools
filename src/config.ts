@@ -18,6 +18,8 @@ export interface Config {
     user: string;
     password: string;
     from: string;
+    /** Optional sender specific to 業務KAIZEN consultation; other services keep SMTP_FROM. */
+    businessWebFrom?: string;
   };
   staffAuth: {
     googleClientId: string;
@@ -83,6 +85,11 @@ export async function loadConfig(): Promise<Config> {
     return value;
   };
 
+  const businessWebFrom = process.env.BUSINESS_WEB_CONSULTATION_FROM?.trim() || undefined;
+  if (businessWebFrom && !/^[a-z0-9._%+-]+@atlib\.jp$/iu.test(businessWebFrom)) {
+    throw new Error('BUSINESS_WEB_CONSULTATION_FROM must be an @atlib.jp address');
+  }
+
   const portalBaseUrl = required('PORTAL_BASE_URL', process.env.PORTAL_BASE_URL);
   for(const [name,value] of Object.entries({SMTP_PASSWORD:smtpPassword,GOOGLE_OAUTH_CLIENT_SECRET:googleOauthClientSecret,STAFF_JWT_SECRET:staffJwtSecret}))required(name,value.trim());
   if(process.env.NODE_ENV==='production'){
@@ -101,6 +108,7 @@ export async function loadConfig(): Promise<Config> {
       user: required('SMTP_USER', process.env.SMTP_USER),
       password: smtpPassword,
       from: required('SMTP_FROM', process.env.SMTP_FROM),
+      businessWebFrom,
     },
     staffAuth: {
       googleClientId: required('GOOGLE_OAUTH_CLIENT_ID', process.env.GOOGLE_OAUTH_CLIENT_ID),

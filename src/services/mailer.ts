@@ -17,6 +17,12 @@ export interface DiagnosticNotificationSummary {
 export class Mailer {
   private readonly transporter: Transporter;
 
+  // Same sender-display convention as the established corporate-site mailer.
+  // Gmail/Workspace SMTP credentials and the SMTP envelope are unchanged.
+  private businessKaizenSender(): {name: string; address: string} {
+    return {name: 'atLIB株式会社', address: this.config.businessWebFrom ?? this.config.from};
+  }
+
   async sendItManagementSurveyNotification(to: string, detailUrl: string): Promise<void> {
     await this.transporter.sendMail({
       from: this.config.from, to, subject: '【無料 IT経営診断】アンケート回答完了 - atLIB株式会社',
@@ -36,8 +42,8 @@ export class Mailer {
     });
   }
 
-  async sendBusinessWebConsultationNotification(to:string, params:{company:string;name:string;email:string;detailUrl:string}):Promise<void>{await this.transporter.sendMail({from:this.config.from,to,subject:`【Business Web 無料相談】新規申込: ${params.company} 様`,text:`Business Web無料相談の申込がありました。\n\n会社名: ${params.company}\nお名前: ${params.name}\nメール: ${params.email}\n\n詳細: ${params.detailUrl}`});}
-  async sendBusinessWebConsultationThanks(to:string,name:string):Promise<void>{await this.transporter.sendMail({from:this.config.from,to,subject:'無料相談のお申し込みを受け付けました - atLIB株式会社',text:`${name} 様\n\n無料相談のお申し込みを受け付けました。\n今回のセルフチェックの回答・診断結果を確認したうえで、相談時にお話を伺います。\n担当者よりご連絡します。\n\n提供：atLIB株式会社`});}
+  async sendBusinessWebConsultationNotification(to:string, params:{company:string;name:string;email:string;detailUrl:string}):Promise<void>{await this.transporter.sendMail({from:this.businessKaizenSender(),to,subject:`【業務KAIZEN 無料相談】新規申込: ${params.company} 様`,text:`業務KAIZEN無料相談の申込がありました。\n\n会社名: ${params.company}\nお名前: ${params.name}\nメール: ${params.email}\n\n詳細: ${params.detailUrl}`});}
+  async sendBusinessWebConsultationThanks(to:string,name:string):Promise<void>{await this.transporter.sendMail({from:this.businessKaizenSender(),to,subject:'無料相談のお申し込みを受け付けました - atLIB株式会社',text:`${name} 様\n\n無料相談のお申し込みを受け付けました。\n今回のセルフチェックの回答・診断結果を確認したうえで、相談時にお話を伺います。\n担当者よりご連絡します。\n\n提供：atLIB株式会社`});}
 
   /** toはカンマ区切りで複数宛先可（nodemailerがそのまま複数宛先として解釈する）。 */
   async sendDiagnosticSubmissionNotification(to: string, summary: DiagnosticNotificationSummary): Promise<void> {
