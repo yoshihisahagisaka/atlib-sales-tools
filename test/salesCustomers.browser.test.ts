@@ -108,7 +108,9 @@ test('staff-only common customer workflow is safe, responsive, and submits once'
     const activities = await harness.pool.query<{ selected_service: string }>('SELECT selected_service FROM sales_activity');
     expect(activities.rows).toHaveLength(1);
     expect(activities.rows[0]?.selected_service).toBe('BUSINESS_WEB');
-    await expect(page.locator('#activity-result a')).toHaveCount(0);
+    const businessKaizenListLink = page.getByRole('link', { name: '業務KAIZEN案件一覧で確認' });
+    await expect(businessKaizenListLink).toBeVisible();
+    await expect(businessKaizenListLink).toHaveAttribute('href', /\/admin\/business-kaizen-diagnoses\.html\?salesActivityId=/);
     await expect(page.getByText('この操作ではサービス固有Caseや診断を開始しません。')).toBeVisible();
     await page.unroute('**/api/admin/sales-customers/activities');
 

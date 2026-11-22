@@ -15,7 +15,7 @@
 <main class="admin-shell">
   <header class="admin-header">
     <div><p class="eyebrow">atLIB Sales Tools</p><h1>共通顧客管理</h1><p class="subtitle">既存のCompanyとContactを再利用して、サービス別のSales Activityを登録します。</p></div>
-    <nav class="admin-nav" aria-label="関連画面"><a href="/admin/free-diagnosis-v1.html">IT経営KAIZEN一覧</a><a href="/admin/business-web-consultation-leads.html">業務KAIZEN一覧</a></nav>
+    <nav class="admin-nav" aria-label="関連画面"><a href="/admin/free-diagnosis-v1.html">IT経営KAIZEN一覧</a><a href="/admin/business-kaizen-diagnoses.html">業務KAIZEN一覧</a></nav>
   </header>
 
   <div id="customer-workflow" class="workflow">
@@ -175,6 +175,10 @@
         const link = document.createElement('a'); link.className = 'button';
         link.href = `/admin/free-diagnosis-v1.html?salesActivityId=${encodeURIComponent(result.salesActivityId)}`;
         link.textContent = 'このActivityからIT代理入力を開始'; output.append(link);
+      } else if (result.selectedService === 'BUSINESS_WEB') {
+        const link = document.createElement('a'); link.className = 'button';
+        link.href = `/admin/business-kaizen-diagnoses.html?salesActivityId=${encodeURIComponent(result.salesActivityId)}`;
+        link.textContent = '業務KAIZEN案件一覧で確認'; output.append(link);
       }
       output.hidden = false; setStatus('activity-status', 'Sales Activityを登録しました。サービス固有Caseは作成していません。', 'success');
     } catch (_) { setStatus('activity-status', '通信結果を確認できません。自動再送はしていません。再登録前にActivityの状態を確認してください。', 'error'); }
