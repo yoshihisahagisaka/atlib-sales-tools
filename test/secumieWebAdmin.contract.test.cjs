@@ -223,3 +223,38 @@ test('staging catalog preflight is SELECT-only metadata with no credentials or c
   assert.match(sql, /'secumie_web_staging'/);
   assert.doesNotMatch(sql, /\bSELECT\s+\*\s+FROM\s+secumie_web\./i);
 });
+
+
+test('staging migration candidate is hash-pinned and execution is not authorized', () => {
+  const crypto = require('node:crypto');
+  const pkgDir = path.join(root, 'design/secumie-web');
+  const manifest = JSON.parse(fs.readFileSync(path.join(pkgDir, 'staging-migration-candidate.manifest.json'), 'utf8'));
+  assert.equal(manifest.status, 'STAGING_CANDIDATE_EXECUTION_NO_GO');
+  assert.equal(manifest.database, 'secumie_web_staging');
+  assert.equal(manifest.databaseOwner, 'secumie_web_migration_staging');
+  assert.equal(manifest.adminRole, 'secumie_web_admin_staging');
+  assert.equal(manifest.runtimeRole, 'secumie_web_runtime_staging');
+  assert.ok(Object.values(manifest.releaseDecision).every(value => value === false),
+    'candidate is not an approval for GCP, DB, migration, or production');
+  const items = fs.readdirSync(path.join(pkgDir, 'migrations'));
+  assert.deepEqual(items, ['001_secumie_web_intake_staging.sql']);
+  assert.equal(manifest.migrations.length, 1);
+  assert.equal(manifest.migrations[0].filename, items[0]);
+  const bytes = fs.readFileSync(path.join(pkgDir, 'migrations', items[0]));
+  assert.equal(bytes.length, manifest.migrations[0].byteCount);
+  assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'), manifest.migrations[0].sha256);
+  assert.equal(bytes.includes(13), false, 'candidate SQL must use LF only');
+  const sql = bytes.toString('utf8');
+  assert.match(sql, /current_database\(\) <> 'secumie_web_staging'/);
+  assert.match(sql, /current_user <> 'secumie_web_migration_staging'/);
+  assert.match(sql, /REVOKE CONNECT, TEMPORARY ON DATABASE secumie_web_staging FROM PUBLIC/);
+  assert.match(sql, /GRANT CONNECT ON DATABASE secumie_web_staging/);
+  assert.doesNotMatch(sql, /^COMMIT;$/m, 'transaction and ledger belong to the existing migration runner');
+  const gitBlob = bytes => crypto.createHash('sha1')
+    .update(Buffer.from('blob ' + bytes.length + '\\0'))
+    .update(bytes).digest('hex');
+  assert.equal(gitBlob(fs.readFileSync(path.join(pkgDir, 'assembly-intake.draft.sql'))),
+    manifest.sourceDraftBlobIds.ddl);
+  assert.equal(gitBlob(fs.readFileSync(path.join(pkgDir, 'staging-role-grants.draft.sql'))),
+    manifest.sourceDraftBlobIds.grants);
+});
