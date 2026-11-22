@@ -246,6 +246,31 @@ integration('Web intake and staff status update work on isolated synthetic Postg
     assert.equal(items[0].intakeId, intakeId);
     assert.equal(items[0].companyName, '検証株式会社');
     assert.equal(items[0].status, 'RECEIVED');
+    const corporate = {
+      eventId: '00000000-0000-4000-8000-000000000004',
+      companyName: '既存LP受付株式会社', unionName: '既存組合',
+      registeredAddress: '千葉県', websiteUrl: 'https://example.com/',
+      contactName: '担当者', contactEmail: 'lp@example.com', contactPhone: '0430000000',
+    };
+    const mirrored = await service.recordCorporateEmailIntake(corporate);
+    assert.equal(mirrored.replayed, false);
+    assert.match(mirrored.receiptId, /^SMW-[0-9]{8}-[A-F0-9]{8}$/);
+    assert.deepEqual(await service.recordCorporateEmailIntake(corporate), {
+      receiptId: mirrored.receiptId, replayed: true,
+    });
+    await assert.rejects(
+      service.recordCorporateEmailIntake({ ...corporate, companyName: '別会社' }),
+      /EVENT_ID_CONFLICT/,
+    );
+    const mirrorRows = await service.list({ companyName: '既存LP受付' });
+    assert.equal(mirrorRows.length, 1);
+    assert.equal(mirrorRows[0].unionName, '既存組合');
+    assert.equal(mirrorRows[0].contactEmail, 'lp@example.com');
+    const mirroredHistory = await staff.query(
+      "SELECT to_status, changed_by FROM secumie_web.assembly_status_history h JOIN secumie_web.assembly_intake i ON i.intake_id=h.intake_id WHERE i.receipt_number=$1",
+      [mirrored.receiptId],
+    );
+    assert.deepEqual(mirroredHistory.rows, [{ to_status: 'RECEIVED', changed_by: 'corporate-contact' }]);
     const updated = await service.changeStatus(intakeId, 'IN_PROGRESS', 'synthetic-staff@atlib.jp');
     assert.deepEqual(updated, { status: 'IN_PROGRESS', unchanged: false });
     assert.equal((await service.list({ status: 'IN_PROGRESS' })).length, 1);
