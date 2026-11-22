@@ -6,7 +6,8 @@
 - WindowsでリポジトリのPR #51ブランチ最新版を取得した後、`powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\secumie-web-staging-readonly.ps1 -DryRun`で操作範囲を確認し、同じコマンドの`-DryRun`を外して実クラウドのメタデータ確認を行う。現場実行はまだ未実施。CIでは`pwsh -NoProfile -File scripts/secumie-web-staging-readonly.ps1 -DryRun`を実行する。
 - Cloud SQL APIのusers一覧はDB内部の`pg_roles`、DB owner、ACL、`schema_migrations`台帳を完全には証明しない。これらは既存の承認済みプライベート接続経路を使う別の**SELECTのみ**の受入が必要であり、現工程では実施していない。
 - **Migration方式の実Fit/Gap**：既存`src/db/migrate.ts`のrunnerが自動実行する対象ファイル名は`/^\\d+_[a-z0-9_]+\\.sql$/`に一致するSQLのみ。現行`design/secumie-web/assembly-intake.draft.sql`と`staging-role-grants.draft.sql`はどちらも非該当。そのため`MIGRATIONS_DIR=design/secumie-web`を指定するだけでは**0件適用でも正常終了するおそれがあり禁止**。Sales Toolsの通常`migrations/`（001〜036等）をWeb専用DBに指定することも禁止。
-- Web用の承認済みDDLファイル番号・SHA-256・台帳位置・schema owner・別role/Secret・対象DB確認を固定し、既存の`runMigrations`を**Web専用のファイルだけに制限した実行経路**で利用するかを設計判断してから、独立したMigration受入を行う。新runner、新CRM、Insight/SGの既存DB変更はしない。現在のDraft SQLをそのままStagingへ適用しない。
+- Web用の承認済みDDLファイル番号・SHA-256・台帳位置・schema owner・別role/Secret・対象DB確認を固定し、既存の`runMigrations`を**Web専用のファイルだけに制限した実行経路**で利用する方針。新runner、新CRM、Insight/SGの既存DB変更はしない。現在のDraft SQLをそのままStagingへ適用しない。
+- **合成DBでの既存runner受入（Run `45024012140` SUCCESS）**：`test/secumieWebAdminDb.acceptance.cjs`は使い捨てPostgreSQL16に独立migration login roleとowner databaseを用意し、既存のDraft DDLを一時ディレクトリの番号付きSQL **1ファイルのみ**へコピーして`runMigrations`を実行。Web DB内の`schema_migrations`に1件だけ記録され、同じrunner再実行でも重複しないことを検証。さらに既存GRANT SQL、署名付き転記、一覧、監査、別roleのWeb DB接続拒否も確認した。Webテスト10 PASS/0 FAIL/0 SKIP、KAIZEN 12 PASS/1 SKIP、Business Web 5 PASS。Chromium Run `45024012149` 4 PASS、境界 Run `45024012165` 7+9 PASS。**この番号付きSQLはCI一時生成物であり、リポジトリの正式Migration artifactではない**。正式SHA・所有者・実行権限・Staging承認・実Cloud SQL接続は未完了。
 - 新管理画面の機能CIと実Cloud SQL確認は別Gate。PR #51 Draft、`SECURITY_NO_GO`、既存LPメール正本および既存WSCの本番継続を維持する。
 
 
