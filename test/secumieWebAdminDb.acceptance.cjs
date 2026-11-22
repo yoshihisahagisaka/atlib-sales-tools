@@ -18,7 +18,7 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
   const dbName = 'secumie_web_staging';
   const root = path.resolve(__dirname, '..');
   const admin = new Pool({ connectionString, max: 1 });
-  let owner, staff, runtime, server;
+  let owner, staff, runtime, outsider, server;
   try {
     await admin.query('CREATE DATABASE ' + dbName);
     const url = new URL(connectionString);
@@ -27,6 +27,7 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     await owner.query(fs.readFileSync(path.join(root, 'design/secumie-web/assembly-intake.draft.sql'), 'utf8'));
     await admin.query("CREATE ROLE secumie_web_runtime_staging LOGIN PASSWORD 'synthetic-runtime-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
     await admin.query("CREATE ROLE secumie_web_admin_staging LOGIN PASSWORD 'synthetic-staff-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
+    await admin.query("CREATE ROLE secumie_unrelated_staging LOGIN PASSWORD 'synthetic-unrelated-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
     await owner.query(fs.readFileSync(path.join(root, 'design/secumie-web/staging-role-grants.draft.sql'), 'utf8'));
     const staffUrl = new URL(url);
     staffUrl.username = 'secumie_web_admin_staging';
@@ -36,6 +37,14 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     runtimeUrl.username = 'secumie_web_runtime_staging';
     runtimeUrl.password = 'synthetic-runtime-only';
     runtime = new Pool({ connectionString: runtimeUrl.toString(), max: 2 });
+    // The same shared instance may host Insight and Secure Guard credentials.
+    // Their roles must not be able to CONNECT to the Web-owned database.
+    const outsiderUrl = new URL(url);
+    outsiderUrl.username = 'secumie_unrelated_staging';
+    outsiderUrl.password = 'synthetic-unrelated-only';
+    outsider = new Pool({ connectionString: outsiderUrl.toString(), max: 1 });
+    await assert.rejects(outsider.query('SELECT 1'), /permission denied for database/i,
+      'unrelated login must not connect to the Web staging database');
     const service = new AssemblyAdminService(staff);
     const key = 'synthetic-HMAC-secret-only-for-CI-1234567890';
     const app = express();
@@ -125,10 +134,10 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     await assert.rejects(staff.query('DELETE FROM secumie_web.assembly_intake WHERE intake_id=$1', [row.intakeId]), /permission denied/);
   } finally {
     if (server?.listening) await new Promise((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
-    await Promise.allSettled([staff?.end(), runtime?.end(), owner?.end()].filter(Boolean));
+    await Promise.allSettled([staff?.end(), runtime?.end(), outsider?.end(), owner?.end()].filter(Boolean));
     // All test pools are closed above; do not kill sockets during teardown.
     await admin.query('DROP DATABASE IF EXISTS ' + dbName);
-    await admin.query('DROP ROLE IF EXISTS secumie_web_runtime_staging, secumie_web_admin_staging');
+    await admin.query('DROP ROLE IF EXISTS secumie_web_runtime_staging, secumie_web_admin_staging, secumie_unrelated_staging');
     await admin.end();
   }
 });
