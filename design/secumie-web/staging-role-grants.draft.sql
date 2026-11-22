@@ -23,6 +23,14 @@ BEGIN
   END IF;
 END $$;
 
+-- The shared PostgreSQL instance hosts separate service databases.
+-- PostgreSQL normally grants CONNECT and TEMPORARY on new databases to PUBLIC.
+-- Restrict the Web database itself, not only its schema. The migration owner
+-- retains its inherent owner access; other service roles receive no CONNECT.
+REVOKE CONNECT, TEMPORARY ON DATABASE secumie_web_staging FROM PUBLIC;
+GRANT CONNECT ON DATABASE secumie_web_staging
+  TO secumie_web_runtime_staging, secumie_web_admin_staging;
+
 REVOKE ALL ON SCHEMA secumie_web FROM PUBLIC;
 REVOKE ALL ON ALL TABLES IN SCHEMA secumie_web FROM PUBLIC;
 GRANT USAGE ON SCHEMA secumie_web
