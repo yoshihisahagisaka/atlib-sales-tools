@@ -41,6 +41,7 @@ jobs:
     env:
       # GitHub Actions disposable container only; never GCP Cloud SQL.
       SECUMIE_TEST_POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+      SECUMIE_TEST_EPHEMERAL_ONLY: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
