@@ -81,6 +81,7 @@ import { PiraAdminRepo } from './piraAdmin/piraAdminRepo';
 import { createAdminPiraRouter } from './routes/adminPira';
 import { AssemblyAdminService } from './secumieWeb/assemblyAdminService';
 import { createAdminSecumieWebRouter } from './routes/adminSecumieWeb';
+import { createInternalSecumieWebMirrorRouter } from './routes/internalSecumieWebMirror';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -174,6 +175,17 @@ async function main(): Promise<void> {
   // Staff-only WSC CSV validation sends the source once, while actual
   // diagnostics remain individual requests. Keep the larger body scope narrow.
   app.use('/api/admin/web-security-check', express.json({ limit: '2mb' }));
+  // The existing corporate LP can mirror an accepted email into the Web-owned
+  // request table. Verify a signed raw body before any JSON parsing.
+  const webMirrorSecret = process.env.SECUMIE_WEB_MIRROR_SECRET?.trim();
+  if (webMirrorSecret && !assemblyAdminService) {
+    throw new Error('SECU:MIE Web mirror requires its separate Web database');
+  }
+  if (webMirrorSecret && assemblyAdminService) {
+    app.use('/api/internal/secumie-web/v1',
+      express.raw({ type: 'application/json', limit: '8kb' }),
+      createInternalSecumieWebMirrorRouter(assemblyAdminService, webMirrorSecret));
+  }
   app.use(express.json());
   app.use(cookieParser());
 
