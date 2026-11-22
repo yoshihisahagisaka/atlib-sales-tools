@@ -81,7 +81,7 @@ test('staff-only UI reuses WSC API, keeps manual mail handling and DB No-Go', ()
   assert.match(adminJs, /fetch\('\/api\/admin\/web-security-check\/diagnose'/);
   assert.doesNotMatch(adminJs, /localStorage|sessionStorage|indexedDB|innerHTML|document\.cookie/);
   assert.match(adminHtml, /現在は暫定メール受付/);
-  assert.match(adminHtml, /送付と対応履歴の記録は自動実行されません/);
+  assert.match(adminHtml, /PDFの送付はスタッフが行います/);
   assert.match(adminJs, /response\.status === 404/);
 });
 
@@ -106,7 +106,7 @@ test('Web admin list is strictly opt-in and SUBMITTED requires explicit confirma
   assert.match(adminJs, /response\.status === 404/);
   assert.match(adminJs, /select\.value === 'SUBMITTED' && !window\.confirm\(/);
   assert.match(adminJs, /credentials: 'same-origin'/);
-  assert.match(adminHtml, /送付と対応履歴の記録は自動実行されません/);
+  assert.match(adminHtml, /PDFの送付はスタッフが行います/);
   assert.doesNotMatch(adminJs, /\b(?:localStorage|sessionStorage|indexedDB|innerHTML|document\.cookie)\b/);
 });
 
