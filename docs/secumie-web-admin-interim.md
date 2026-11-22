@@ -2,6 +2,14 @@
 
 2026-11-19 時点の公開受付と、スタッフの診断・レポート作成業務を接続するための実装仕様。
 
+## 2026-11-22 既存テスト再実行と公開範囲
+
+- 既存CIのGitHub Actions Run `44967626473`、Job `137040127454`：**SUCCESS**。スタッフ画面の既存機能契約 `test/secumieWebAdmin.contract.test.cjs` **7 PASS/0 FAIL/0 SKIP**、認証・CVEリリース境界 `test/secumieWebAdmin.releaseBoundary.contract.test.cjs` **7 PASS/0 FAIL/0 SKIP**、画面JavaScript構文チェック PASS、PowerShell DryRun PASS。
+- 追加変更は既存CIへの既存テスト呼出しのみ。WSC VS1、公開LP、メール送信、Cloud Run、DB、認証機構のコードは変更しない。
+- 2026-11-18採用済みの外部受付方針：**受付URL単位**で団体選択の有無と結果提供方式（即時提供／当社提出）を独立設定する。**先行する団体向けは、組合選択・当社提出（画面即時結果なし）・同意必須・外部CSVなし**。モード設定・URL発行機能が今回の暫定版ですでに動いているとは扱わない。国連協向け先行版の仕様を勝手に一般向けへ変更しない。
+- **運用の最終受入は未完了**：既存LPでの実申込→`contact@atlib.jp`着信→Google Workspaceの実スタッフログイン→既存WSCで診断・PDF保存→内容確認・別途メール提出を、テスト用の自社申込1件で確認する必要がある。
+- PR #50（Web専用DB・OTP受付）とPR #51（追加スタッフUI）はDraft/Production No-Goのまま。実環境受入未完了・残存CVEがある限り、新イメージの公開やマイグレーションをしない。
+
 ## 2026-11-22 実環境Read-only照合と最短提供経路
 
 Windows PowerShellから`gcloud.cmd run services describe`の`status.traffic`、`gcloud.cmd sql databases list`、DNSを参照した実測。変更操作なし。
