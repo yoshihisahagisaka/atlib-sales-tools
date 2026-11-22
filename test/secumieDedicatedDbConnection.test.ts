@@ -6,6 +6,7 @@ import path from 'node:path';
 import { Pool } from 'pg';
 import { createPool } from '../src/db/pool';
 import { AssemblyAdminService } from '../src/secumieWeb/assemblyAdminService';
+import { AssemblyIntakeService } from '../src/secumieWeb/assemblyIntakeService';
 import { loadSecumieWebAdminDatabaseConfig } from '../src/config';
 import { databaseRuntime, secumieWebDatabaseRuntime } from '../src/runtime/runtimeConfig';
 
@@ -177,17 +178,44 @@ integration('Web intake and staff status update work on isolated synthetic Postg
     await web.query(
       "INSERT INTO secumie_web.assembly_union_master(union_id,official_name,source_version) VALUES('test-union','検証組合','synthetic-v1')"
     );
-    const intakeId = '00000000-0000-4000-8000-000000000001';
-    await web.query(
-      `INSERT INTO secumie_web.assembly_intake
-       (intake_id, receipt_number, reception_code, organizer_name, union_id, union_name_snapshot,
-        company_name, registered_address, website_url, contact_name, contact_email, contact_phone,
-        consent_version, consented_at, idempotency_key, payload_hash, auth_session_id)
-       VALUES ($1, 'SMW-SYNTHETIC', 'synthetic', 'synthetic-org', 'test-union', '検証組合',
-        '検証株式会社', '東京都', 'https://example.jp/', '合成担当', 'test@example.jp', '0000000000',
-        'synthetic-v1', now(), $2, 'synthetic-hash', 'synthetic-session')`,
-      [intakeId, '00000000-0000-4000-8000-000000000002']
+    const intake = new AssemblyIntakeService(web, {
+      code: 'synthetic', organizerName: 'synthetic-org', consentVersion: 'synthetic-v1',
+    });
+    const now = Math.floor(Date.now() / 1000);
+    const claims = {
+      iss: 'https://synthetic.example', aud: 'secumie-web-assembly',
+      sub: 'synthetic-session', jti: 'synthetic-jti', iat: now, exp: now + 300,
+      email: 'test@example.jp',
+    };
+    const request = {
+      unionId: 'test-union', companyName: '検証株式会社', registeredAddress: '東京都',
+      websiteUrl: 'https://example.jp/', contactName: '合成担当',
+      contactPhone: '0000000000', consentVersion: 'synthetic-v1',
+      accepted: true as const, idempotencyKey: '00000000-0000-4000-8000-000000000002',
+    };
+    await assert.rejects(
+      intake.create(claims, { ...request, websiteUrl: 'https://user:password@example.jp/' }),
+      /INVALID_URL/,
     );
+    await assert.rejects(
+      intake.create({ ...claims, email: 'not-an-email' }, request),
+      /JWT_INVALID/,
+    );
+    const created = await intake.create(claims, request);
+    assert.equal(created.replayed, false);
+    assert.match(created.receiptId, /^SMW-[0-9]{8}-[A-F0-9]{8}$/);
+    const replay = await intake.create(claims, request);
+    assert.deepEqual(replay, { receiptId: created.receiptId, replayed: true });
+    await assert.rejects(
+      intake.create(claims, { ...request, companyName: '別会社' }),
+      /IDEMPOTENCY_CONFLICT/,
+    );
+    const receipt = await web.query<{ intake_id: string }>(
+      'SELECT intake_id FROM secumie_web.assembly_intake WHERE receipt_number=$1',
+      [created.receiptId],
+    );
+    assert.equal(receipt.rows.length, 1);
+    const intakeId = receipt.rows[0]!.intake_id;
     const service = new AssemblyAdminService(web);
     const items = await service.list({ status: 'RECEIVED', companyName: '検証', unionName: '組合', limit: 50, offset: 0 });
     assert.equal(items.length, 1);
@@ -201,11 +229,12 @@ integration('Web intake and staff status update work on isolated synthetic Postg
       'SELECT from_status, to_status, changed_by FROM secumie_web.assembly_status_history WHERE intake_id=$1',
       [intakeId]
     );
-    assert.deepEqual(history.rows, [{
-      from_status: 'RECEIVED',
-      to_status: 'IN_PROGRESS',
-      changed_by: 'synthetic-staff@atlib.jp',
-    }]);
+    assert.equal(history.rows.length, 2, 'initial intake and staff update are both audited');
+    assert.ok(history.rows.some(row => row.from_status === null
+      && row.to_status === 'RECEIVED' && row.changed_by === 'system'));
+    assert.ok(history.rows.some(row => row.from_status === 'RECEIVED'
+      && row.to_status === 'IN_PROGRESS'
+      && row.changed_by === 'synthetic-staff@atlib.jp'));
   } finally {
     await web?.end();
     await admin.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1', [database]);
