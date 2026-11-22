@@ -205,3 +205,21 @@ test('unexpected HTML response never becomes a downloaded PDF', async () => {
   assert.equal(ui.downloads.length, 0);
   assert.match(ui.elements['diagnosis-state'].textContent, /PDFを受信できませんでした/);
 });
+
+test('staging catalog preflight is SELECT-only metadata with no credentials or customer rows', () => {
+  const sql = fs.readFileSync(
+    path.join(root, 'design/secumie-web/staging-catalog-readonly.sql'), 'utf8');
+  const statements = sql.replace(/--[^\n]*/g, '').split(';').map(x => x.trim()).filter(Boolean);
+  assert.equal(statements.length, 5, 'Only five existing catalog and aggregate queries are allowed');
+  for (const statement of statements) {
+    assert.match(statement, /^SELECT\s/i);
+    assert.doesNotMatch(statement,
+      /\b(?:CREATE|ALTER|DROP|GRANT|REVOKE|INSERT|UPDATE|DELETE|TRUNCATE|COPY|EXECUTE|CALL|DO)\b/i);
+  }
+  assert.match(sql, /current_database\(\)\s*=\s*'postgres'/);
+  assert.match(sql, /pg_roles/);
+  assert.match(sql, /pg_database/);
+  assert.match(sql, /pg_stat_activity/);
+  assert.match(sql, /'secumie_web_staging'/);
+  assert.doesNotMatch(sql, /\bSELECT\s+\*\s+FROM\s+secumie_web\./i);
+});
