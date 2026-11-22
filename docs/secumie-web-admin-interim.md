@@ -1,5 +1,21 @@
 # SECU:MIE Web｜管理画面（暫定運用・DB接続待ち）
 
+## 2026-11-22 実Staging PostgreSQL既存DB owner・ACL表示のRead-only受入
+
+Cloud SQL Studio（接続先：共有Stagingの`postgres`）で、ユーザーが既存3 DBについて`pg_database`と`pg_stat_activity`を照合したSQL結果のスクリーンショットを確認。**実測事実**：
+
+| DB | owner | datallowconn | datconnlimit | current_connections（該当SQL時点） |
+| --- | --- | --- | --- | --- |
+| `postgres` | `cloudsqlsuperuser` | true | -1 | 1 |
+| `secumie_insight_staging` | `postgres` | true | -1 | 0 |
+| `secure_guard_staging` | `postgres` | true | -1 | 0 |
+
+- `postgres`の`datacl`表示は`(default)`。InsightとSecure Guardには明示ACLがあるが、画面上で省略表示されているため**全文やcross-database分離は未判定**。各DBのownerは想定した`migration role`ではなく`postgres`。共有基盤の従来設計にある「migration roleをDB ownerとする」構成との実体差分として記録し、既存DBのownerを変更せず、Web新規DBの所有者選択を設計上確定してからBootstrapする。
+- `current_connections`が0という結果は、その瞬間に確認できた既存DB接続数が0であることだけを表す。前回の全体`pg_stat_activity`12接続と今回3行の合計1接続は調査時点と集計対象が違い、同じ値に一致すべきものではない。稼働率・最大接続数・長期ピークは別Gate。
+- **次のSELECTのみの最短確認**：`pg_roles`、`pg_database`と`has_database_privilege`を使い、Insight系・Secure Guard系ロールが互いのDBへCONNECTできるかを真偽値で集計。PUBLIC CONNECTの有無は`aclexplode(COALESCE(datacl,acldefault('d',datdba)))`から取得。ACL全文や個人情報は出力しない。これにより既存資産のACLを変更するのではなく、Web DBに採用する独立権限モデルのFit/Gapのみ判断する。
+- この判定は**read-only実測受入の進行**であり、新DB/role/Secret/Migrationの承認ではない。既存Insight/Secure Guard DB・ACL・Cloud Runの変更は0。PR #51 Draft／SECURITY_NO_GO／Production No-Go維持。
+
+
 ## 2026-11-22 Cloud SQL Studio実DB内部接続容量受入（最新）
 
 ユーザーがGoogle Cloud Console のCloud SQL Studioを使い、既存共有Staging `secumie-sg-shared-staging-db` の組み込みデータベース認証で`postgres`へ接続し、read-only SELECTを実行した画面の**ユーザー提示結果**を受け入れた。ユーザー画面で確認できた列だけを採用し、対象インスタンスのGCPメタデータは直前のread-only inventoryと照合する。実行時点のスナップショットであり、長期ピークの証拠ではない。
