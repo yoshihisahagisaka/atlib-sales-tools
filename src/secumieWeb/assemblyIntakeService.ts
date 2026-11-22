@@ -36,9 +36,9 @@ export class AssemblyIntakeService {
         input.websiteUrl.length > 2000) throw new AssemblyIntakeError(422, 'INVALID_REQUEST');
     let url: URL;
     try { url = new URL(input.websiteUrl); } catch { throw new AssemblyIntakeError(422, 'INVALID_URL'); }
-    if (url.protocol !== 'https:' || !url.hostname) throw new AssemblyIntakeError(422, 'INVALID_URL');
+    if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) throw new AssemblyIntakeError(422, 'INVALID_URL');
 
-    if (!/^\\S+@\\S+\\.\\S+$/.test(claims.email)) throw new AssemblyIntakeError(401, 'JWT_INVALID');
+    if (!/^\S+@\S+\.\S+$/.test(claims.email)) throw new AssemblyIntakeError(401, 'JWT_INVALID');
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
