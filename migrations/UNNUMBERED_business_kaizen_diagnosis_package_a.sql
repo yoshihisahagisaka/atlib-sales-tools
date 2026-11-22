@@ -19,6 +19,7 @@ CREATE TABLE business_kaizen_diagnoses (
   closed_at TIMESTAMPTZ,
   diagnosis_version TEXT,
   logic_version TEXT,
+  revision INTEGER NOT NULL DEFAULT 1,
   completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -78,6 +79,26 @@ CREATE TRIGGER business_kaizen_original_answers_immutable
   BEFORE UPDATE OF original_answers ON business_kaizen_diagnoses
   FOR EACH ROW EXECUTE FUNCTION business_kaizen_protect_original_answers();
 
+CREATE TABLE business_kaizen_diagnosis_audit (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  diagnosis_id UUID NOT NULL REFERENCES business_kaizen_diagnoses(id),
+  operation TEXT NOT NULL CHECK (operation IN ('DRAFT_CREATED','DRAFT_ANSWERS_REPLACED','DIAGNOSIS_COMPLETED')),
+  actor_user_email TEXT NOT NULL,
+  metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX business_kaizen_diagnosis_audit_diagnosis_idx
+  ON business_kaizen_diagnosis_audit(diagnosis_id, occurred_at);
+CREATE FUNCTION business_kaizen_reject_diagnosis_audit_mutation() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'business kaizen diagnosis audit is append-only';
+END;
+$$;
+CREATE TRIGGER business_kaizen_diagnosis_audit_append_only
+  BEFORE UPDATE OR DELETE ON business_kaizen_diagnosis_audit
+  FOR EACH ROW EXECUTE FUNCTION business_kaizen_reject_diagnosis_audit_mutation();
+
 -- Role-exists-safe runtime grants. The draft MUST NOT be applied to Production.
 DO $$
 BEGIN
@@ -85,10 +106,14 @@ BEGIN
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE business_kaizen_diagnoses TO sales_tools_runtime;
     GRANT SELECT, INSERT ON TABLE business_kaizen_diagnosis_stage_history TO sales_tools_runtime;
     REVOKE UPDATE, DELETE ON TABLE business_kaizen_diagnosis_stage_history FROM sales_tools_runtime;
+    GRANT SELECT, INSERT ON TABLE business_kaizen_diagnosis_audit TO sales_tools_runtime;
+    REVOKE UPDATE, DELETE ON TABLE business_kaizen_diagnosis_audit FROM sales_tools_runtime;
   END IF;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sales_tools_app') THEN
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE business_kaizen_diagnoses TO sales_tools_app;
     GRANT SELECT, INSERT ON TABLE business_kaizen_diagnosis_stage_history TO sales_tools_app;
     REVOKE UPDATE, DELETE ON TABLE business_kaizen_diagnosis_stage_history FROM sales_tools_app;
+    GRANT SELECT, INSERT ON TABLE business_kaizen_diagnosis_audit TO sales_tools_app;
+    REVOKE UPDATE, DELETE ON TABLE business_kaizen_diagnosis_audit FROM sales_tools_app;
   END IF;
 END $$;

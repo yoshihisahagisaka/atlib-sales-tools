@@ -14,11 +14,7 @@ const axisSchema = z.object({
   knownCount: z.number().int().min(0), eligibleCount: z.number().int().min(0), average: z.number().min(0).max(3).nullable(),
 }).strict();
 
-export const diagnosisSnapshotSchema = z.object({
-  diagnosisDefinition: z.literal(DIAGNOSIS_DEFINITION),
-  diagnosisVersion: z.literal(DIAGNOSIS_VERSION),
-  logicVersion: z.literal(LOGIC_VERSION),
-  originalAnswers: z.object({
+export const businessKaizenAnswersSchema = z.object({
     Q01: z.enum(['EXECUTIVE', 'MANAGER', 'IT', 'OPERATOR', 'OTHER']),
     Q02: z.array(z.enum(['NO_DUPLICATE_ENTRY', 'INSTANT_INFORMATION', 'REALTIME_VISIBILITY', 'TRANSFERABLE_WORK', 'SMOOTH_WORKFLOW', 'SCALABLE_OPERATION', 'SHARED_INFORMATION', 'FIT_FOR_BUSINESS', 'UNKNOWN'])).min(1).max(3),
     Q03: z.enum(['OPEN', 'CONDITIONAL', 'PRESERVE', 'UNKNOWN']),
@@ -27,7 +23,13 @@ export const diagnosisSnapshotSchema = z.object({
     Q12: z.array(z.enum(['EXCEL', 'GOOGLE_SHEETS', 'LOW_CODE_NO_CODE', 'BUSINESS_SAAS', 'PACKAGE_SYSTEM', 'CUSTOM_SYSTEM', 'EMAIL_CHAT', 'PAPER', 'OTHER'])).min(1),
     Q13: numericOrUnknown, Q14: numericOrUnknown,
     Q15: z.enum(['LOCAL', 'MULTIPLE_INDEPENDENT', 'CONNECTED', 'MULTI_DEPARTMENT', 'COMPANY_WIDE', 'UNKNOWN']),
-  }).strict(),
+  }).strict();
+
+export const diagnosisSnapshotSchema = z.object({
+  diagnosisDefinition: z.literal(DIAGNOSIS_DEFINITION),
+  diagnosisVersion: z.literal(DIAGNOSIS_VERSION),
+  logicVersion: z.literal(LOGIC_VERSION),
+  originalAnswers: businessKaizenAnswersSchema,
   targetState: z.object({ clarity: z.enum(['CLEAR', 'UNKNOWN']), selected: z.array(z.string()).min(1).max(3) }).strict(),
   sixAxisGaps: z.object({ workflow: axisSchema, information: axisSchema, decision: axisSchema, dependency: axisSchema, scalability: axisSchema, toolConstraint: axisSchema }).strict(),
   confirmedFacts: z.array(z.string().min(1).max(1000)).max(4),

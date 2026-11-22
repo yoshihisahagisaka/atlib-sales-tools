@@ -23,12 +23,14 @@ import { StaffProxyDesignV2SubmissionService } from '../../src/services/staffPro
 import { MarketingInitiativeRepo } from '../../src/services/marketingInitiativeRepo';
 import { createAdminMarketingInitiativeRouter } from '../../src/routes/adminMarketingInitiative';
 import { TestCaseManagementRepo } from '../../src/services/testCaseManagementRepo';
+import { BusinessKaizenProxyService } from '../../src/services/businessKaizenProxyService';
+import { createAdminBusinessKaizenRouter } from '../../src/routes/adminBusinessKaizen';
 
 /** Real PostgreSQL SQL/constraints/transactions in a disposable WASM database.
  * Same pattern as test/support/diagnosisHarness.ts. Only migration 027 is applied: the
  * Rule-Based v1 tables have no foreign key into any legacy table.
  */
-export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDesignV2?: boolean } = {}) {
+export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDesignV2?: boolean; includeBusinessKaizen?: boolean } = {}) {
   const db = new PGlite();
   await db.waitReady;
   const root = path.resolve(__dirname, '../..');
@@ -44,6 +46,12 @@ export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDe
   if (options.includeDesignV2) await db.exec(fs.readFileSync(path.join(root, 'migrations/033_free_diagnosis_design_v2_persistence.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/034_marketing_initiative_v1.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(root, 'migrations/035_it_management_test_case_designation.sql'), 'utf8'));
+  if (options.includeBusinessKaizen) {
+    await db.exec(fs.readFileSync(path.join(root, 'migrations/025_business_web_consultation_leads.sql'), 'utf8'));
+    const sql = fs.readFileSync(path.join(root, 'migrations/UNNUMBERED_business_kaizen_diagnosis_package_a.sql'), 'utf8')
+      .replace(/DO \$\$[\s\S]*?END \$\$;/g, '');
+    await db.exec(sql);
+  }
 
   let tail = Promise.resolve();
   async function acquire() {
@@ -70,6 +78,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDe
   const designV2Entry = new FreeDiagnosisDesignV2EntryAdapter(designV2Persistence);
   const publicSelf = new PublicCustomerSelfSubmissionService(pool, designV2Entry);
   const staffProxyDesignV2 = new StaffProxyDesignV2SubmissionService(pool, designV2Entry);
+  const businessKaizenProxy = new BusinessKaizenProxyService(pool);
   const staffAuth = new StaffAuthService('disposable-test-key-not-a-production-secret');
   const staffCookie = `staff_session=${staffAuth.issueSessionToken({ email: 'operator@atlib.jp' })}`;
 
@@ -80,6 +89,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDe
   app.use('/api/admin/free-diagnosis-v1', requireStaffAuth(staffAuth), createAdminFreeDiagnosisRuleBasedV1Router(launcher, cases, vs1, staffProxyDesignV2, testCases, new Set(['operator@atlib.jp'])));
   app.use('/api/admin/marketing-initiatives', requireStaffAuth(staffAuth), createAdminMarketingInitiativeRouter(initiatives, launcher));
   app.use('/api/admin/sales-customers', requireStaffAuth(staffAuth), createAdminSalesCustomersRouter(salesCustomers));
+  if (options.includeBusinessKaizen) app.use('/api/admin/business-kaizen', requireStaffAuth(staffAuth), createAdminBusinessKaizenRouter(businessKaizenProxy));
   app.use('/api/admin/free-diagnosis-v1', requireStaffAuth(staffAuth), createAdminFreeDiagnosisDesignV2Router(designV2Api));
   app.use('/admin', requireStaffAuth(staffAuth), express.static(path.join(root, 'public/admin')));
   app.use(express.static(path.join(root, 'public')));
@@ -88,7 +98,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDe
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
   return {
-    db, pool, launcher, initiatives, testCases, cases, vs1, publicSelf, staffProxyDesignV2, designV2Persistence, url, staffCookie,
+    db, pool, launcher, initiatives, testCases, cases, vs1, publicSelf, staffProxyDesignV2, businessKaizenProxy, designV2Persistence, url, staffCookie,
     close: async () => { await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve())); await db.close(); },
   };
 }

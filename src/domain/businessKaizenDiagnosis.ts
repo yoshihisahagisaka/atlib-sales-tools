@@ -3,6 +3,7 @@ import {
   DIAGNOSIS_VERSION,
   LOGIC_VERSION,
   diagnosisSnapshotSchema,
+  businessKaizenAnswersSchema,
   type DiagnosisSnapshot,
 } from './businessWebConsultation';
 
@@ -25,6 +26,36 @@ export const BUSINESS_KAIZEN_OPTION_CODES = {
 } as const;
 
 export type BusinessKaizenAnswers = DiagnosisSnapshot['originalAnswers'];
+export const businessKaizenDraftAnswersSchema = businessKaizenAnswersSchema.partial().strict().superRefine((answers, ctx) => {
+  const selected = answers.Q02;
+  if (selected) {
+    const unique = new Set(selected);
+    if (unique.size !== selected.length || (unique.has('UNKNOWN') && unique.size !== 1)) {
+      ctx.addIssue({ code: 'custom', path: ['Q02'], message: 'Invalid Q02 selection' });
+    }
+  }
+  if (answers.Q12 && new Set(answers.Q12).size !== answers.Q12.length) {
+    ctx.addIssue({ code: 'custom', path: ['Q12'], message: 'Invalid Q12 selection' });
+  }
+});
+
+export const getBusinessKaizenQuestions = () => [
+  { id:'Q01', text:'このセルフチェックに回答される方のお立場に最も近いものを教えてください。', multiple:false, options:[['経営者・役員','EXECUTIVE'],['管理職・部門責任者','MANAGER'],['IT・情報システム担当','IT'],['実際に対象業務を行っている方','OPERATOR'],['その他','OTHER']] },
+  { id:'Q02', text:'これからの仕事で、特に実現したいことを選んでください。', multiple:true, maxSelections:3, options:[['同じ情報を何度も入力・転記しなくてよい','NO_DUPLICATE_ENTRY'],['必要な情報を探さず、すぐ確認できる','INSTANT_INFORMATION'],['集計作業をしなくても、状況や数字が分かる','REALTIME_VISIBILITY'],['担当者が変わっても、同じように仕事が進む','TRANSFERABLE_WORK'],['確認・承認・連絡などがスムーズに次へ進む','SMOOTH_WORKFLOW'],['人や案件が増えても、管理業務があまり増えない','SCALABLE_OPERATION'],['現場・管理者・経営者が必要な情報を共有できる','SHARED_INFORMATION'],['自社の仕事に合った仕組みで働ける','FIT_FOR_BUSINESS'],['まだ具体的には決まっていない','UNKNOWN']] },
+  { id:'Q03', text:'今の業務をそのままシステム化するのではなく、仕事の流れそのものを整理することについてどう感じますか？', multiple:false, options:[['ぜひ整理・見直したい','OPEN'],['必要であれば見直したい','CONDITIONAL'],['できれば今の業務は変えたくない','PRESERVE'],['まだ分からない','UNKNOWN']] },
+  { id:'Q04', text:QUESTION_TEXT.Q04!, multiple:false, options:[['ほとんどない',0],['一部の業務である',1],['よくある',2],['多くの業務で発生している',3],['分からない／把握していない','UNKNOWN']] },
+  { id:'Q05', text:QUESTION_TEXT.Q05!, multiple:false, options:[['ほとんどない',0],['ときどきある',1],['よくある',2],['日常的にある',3],['分からない／把握していない','UNKNOWN']] },
+  { id:'Q06', text:QUESTION_TEXT.Q06!, multiple:false, options:[['ほとんどない',0],['一部ある',1],['定期的にある',2],['多くの業務で必要',3],['分からない／把握していない','UNKNOWN']] },
+  { id:'Q07', text:QUESTION_TEXT.Q07!, multiple:false, options:[['ほとんどない',0],['一部ある',1],['よくある',2],['多くの業務がそうなっている',3],['分からない／把握していない','UNKNOWN']] },
+  { id:'Q08', text:QUESTION_TEXT.Q08!, multiple:false, options:[['ほとんどない',0],['一部ある',1],['よくある',2],['特定の人がいないと進まない業務がある',3],['分からない／把握していない','UNKNOWN']] },
+  { id:'Q09', text:QUESTION_TEXT.Q09!, multiple:false, options:[['問題なく引き継げる',0],['少し確認すれば引き継げる',1],['引き継ぎにかなり手間がかかる',2],['特定の人でないと難しい',3],['分からない／把握していない','UNKNOWN']] },
+  { id:'Q10', text:QUESTION_TEXT.Q10!, multiple:false, options:[['すぐ確認できる',0],['少し確認・集計すれば分かる',1],['誰かに確認・集計してもらう必要がある',2],['必要な情報を把握すること自体が難しい',3],['分からない／把握していない','UNKNOWN']] },
+  { id:'Q11', text:QUESTION_TEXT.Q11!, multiple:false, options:[['ほとんど増えない',0],['少し増える',1],['かなり増える',2],['人を増やさないと対応が難しくなる',3],['分からない','UNKNOWN'],['まだその状況を経験していない','N_A']] },
+  { id:'Q12', text:'現在の業務で利用しているものを選んでください。', multiple:true, options:[['Excel','EXCEL'],['Googleスプレッドシート','GOOGLE_SHEETS'],['kintoneなどのローコード・ノーコードツール','LOW_CODE_NO_CODE'],['業務用SaaS','BUSINESS_SAAS'],['パッケージシステム','PACKAGE_SYSTEM'],['自社専用システム','CUSTOM_SYSTEM'],['メール・チャット','EMAIL_CHAT'],['紙','PAPER'],['その他','OTHER']] },
+  { id:'Q13', text:QUESTION_TEXT.Q13!, multiple:false, options:[['ほとんどない',0],['ときどきある',1],['よくある',2],['やりたいことを諦めていることがある',3],['分からない／把握していない','UNKNOWN']] },
+  { id:'Q14', text:QUESTION_TEXT.Q14!, multiple:false, options:[['ほとんどない',0],['一部ある',1],['よくある',2],['ツールに合わせることが前提になっている',3],['分からない／把握していない','UNKNOWN']] },
+  { id:'Q15', text:'これまで回答したような課題について、最も近い状態を選んでください。', multiple:false, options:[['特定の作業・一部の業務だけで発生している','LOCAL'],['いくつかの業務で発生しているが、それぞれ個別の課題である','MULTIPLE_INDEPENDENT'],['前後の業務や情報がつながっており、一つの課題が他の業務にも影響している','CONNECTED'],['複数の部門・業務にまたがっている','MULTI_DEPARTMENT'],['会社全体の仕事の進め方に関係している','COMPANY_WIDE'],['分からない','UNKNOWN']] },
+] as const;
 type AxisKey = keyof DiagnosisSnapshot['sixAxisGaps'];
 type AxisResult = DiagnosisSnapshot['sixAxisGaps'][AxisKey];
 type DirectionKey = NonNullable<DiagnosisSnapshot['direction']> | Exclude<DiagnosisSnapshot['directionStatus'], 'DETERMINED'>;
