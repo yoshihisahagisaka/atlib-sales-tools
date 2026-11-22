@@ -12,9 +12,9 @@ const config = {
 
 test('業務KAIZEN consultations use their dedicated sender without changing other mail', async () => {
   const mailer = new Mailer(config);
-  const sent: Array<{from:string;subject:string;to:string}> = [];
+  const sent: Array<{from:string | {name:string;address:string};subject:string;to:string}> = [];
   (mailer as any).transporter = {
-    sendMail: async (message: {from:string;subject:string;to:string}) => {
+    sendMail: async (message: {from:string | {name:string;address:string};subject:string;to:string}) => {
       sent.push(message);
       return { accepted: [message.to] };
     },
@@ -28,17 +28,19 @@ test('業務KAIZEN consultations use their dedicated sender without changing oth
   await mailer.sendItManagementSurveyNotification('staff@example.test','https://example.test/');
 
   assert.deepEqual(sent.map(x=>x.from), [
-    'system@atlib.jp', 'system@atlib.jp', 'original@atlib.jp',
+    {name:'atLIB株式会社',address:'system@atlib.jp'},
+    {name:'atLIB株式会社',address:'system@atlib.jp'},
+    'original@atlib.jp',
   ]);
   assert.match(sent[0]!.subject,/業務KAIZEN/);
 });
 
 test('fallback stays backward compatible until sender address is approved', async () => {
   const mailer = new Mailer({ ...config, businessWebFrom: undefined });
-  let from = '';
-  (mailer as any).transporter = {sendMail: async (message: {from:string}) => {from=message.from;}};
+  let from: string | {name:string;address:string} = '';
+  (mailer as any).transporter = {sendMail: async (message: {from:string | {name:string;address:string}}) => {from=message.from;}};
   await mailer.sendBusinessWebConsultationThanks('tester@example.test','テスト太郎');
-  assert.equal(from,'original@atlib.jp');
+  assert.deepEqual(from,{name:'atLIB株式会社',address:'original@atlib.jp'});
 });
 
 test('admin pages display the new service label while URLs remain compatible', () => {
