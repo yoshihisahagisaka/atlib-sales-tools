@@ -12,6 +12,8 @@ on:
       - 'src/db/pool.ts'
       - 'src/routes/adminSecumieWeb.ts'
       - 'src/secumieWeb/assemblyAdminService.ts'
+      - 'design/secumie-web/assembly-intake.draft.sql'
+      - 'design/secumie-web/staging-role-grants.draft.sql'
       - 'test/secumieDedicatedDbConnection.test.ts'
       - 'test/secumieWebPublic.contract.test.ts'
 
