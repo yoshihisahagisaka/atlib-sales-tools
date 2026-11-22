@@ -103,8 +103,15 @@ export function loadSecumieWebAdminDatabaseConfig(): Config['db'] | null {
   if (!name || !user || !password?.trim()) {
     throw new Error('Incomplete SECU:MIE Web admin database configuration');
   }
-  if (name === process.env.SECUMIE_DB_NAME || name === process.env.DB_NAME
-    || user === process.env.SECUMIE_DB_ADMIN_USER || user === process.env.DB_USER) {
+  // These existing databases are not Web intake stores, even when their
+  // service-specific environment variables are absent on the new runtime.
+  const reservedDatabases = new Set([
+    'postgres', 'sales_tools', 'sales_tools_staging',
+    'secumie_insight', 'secumie_insight_staging',
+  ]);
+  if (reservedDatabases.has(name) || name === process.env.SECUMIE_DB_NAME || name === process.env.DB_NAME
+    || user === process.env.SECUMIE_DB_ADMIN_USER || user === process.env.DB_USER
+    || user === process.env.SECUMIE_WEB_DB_USER) {
     throw new Error('SECU:MIE Web admin database and role must be isolated');
   }
   const port = Number(portText || 5432);
