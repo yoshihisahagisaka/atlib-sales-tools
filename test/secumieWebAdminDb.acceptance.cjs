@@ -42,7 +42,8 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     app.use('/api/internal/secumie-web/v1', express.raw({ type: 'application/json', limit: '8kb' }),
       createInternalSecumieWebMirrorRouter(service, key));
     app.use('/api/admin/secumie-web/v1', express.json(), (req, _res, next) => {
-      req.staffEmail = 'synthetic-staff@atlib.jp';
+      // Synthetic principal; exercise the existing staff gate at router level.
+      if (req.get('x-synthetic-anonymous') !== '1') req.staffEmail = 'synthetic-staff@atlib.jp';
       next();
     }, createAdminSecumieWebRouter(service));
     server = app.listen(0, '127.0.0.1');
@@ -90,8 +91,25 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     const privacy = await staff.query(
       'SELECT reception_code,information_sharing_enabled FROM secumie_web.assembly_intake WHERE intake_id=$1', [row.intakeId]);
     assert.deepEqual(privacy.rows[0], { reception_code: 'CORPORATE_LP', information_sharing_enabled: false });
-    const changed = await fetch(base + '/api/admin/secumie-web/v1/requests/' + row.intakeId + '/status', {
+    const statusUrl = base + '/api/admin/secumie-web/v1/requests/' + row.intakeId + '/status';
+    assert.equal((await fetch(statusUrl, {
       method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status: 'IN_PROGRESS' }),
+    })).status, 403, 'cookie-authenticated mutations require a staff command header');
+    assert.equal((await fetch(statusUrl, {
+      method: 'PATCH', headers: {
+        'content-type': 'application/json', 'x-secumie-staff-command': '1',
+        'sec-fetch-site': 'cross-site',
+      },
+      body: JSON.stringify({ status: 'IN_PROGRESS' }),
+    })).status, 403, 'cross-site mutations must be denied');
+    assert.equal((await fetch(statusUrl, {
+      method: 'PATCH', headers: { 'content-type': 'application/json',
+        'x-secumie-staff-command': '1', 'x-synthetic-anonymous': '1' },
+      body: JSON.stringify({ status: 'IN_PROGRESS' }),
+    })).status, 401, 'missing staff session must be denied');
+    const changed = await fetch(statusUrl, {
+      method: 'PATCH', headers: { 'content-type': 'application/json', 'x-secumie-staff-command': '1' },
       body: JSON.stringify({ status: 'IN_PROGRESS' }),
     });
     assert.equal(changed.status, 200);
