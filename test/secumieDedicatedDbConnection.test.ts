@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { Pool } from 'pg';
 import { createPool } from '../src/db/pool';
 import { loadSecumieWebAdminDatabaseConfig } from '../src/config';
@@ -104,6 +106,14 @@ test('Web admin reuses the dedicated pool but never falls back to the business o
     for (const key of Object.keys(process.env)) if (!(key in previous)) delete process.env[key];
     Object.assign(process.env, previous);
   }
+});
+
+test('Sales Tools mounts the Web request API only when the separate Web database is configured', () => {
+  const server = readFileSync(path.resolve(__dirname, '../src/server.ts'), 'utf8');
+  assert.match(server, /const secumieWebPool = webAdminDb/);
+  assert.match(server, /new AssemblyAdminService\(secumieWebPool\)/);
+  assert.match(server, /if \(assemblyAdminService\) app\.use\('\/api\/admin\/secumie-web\/v1'/);
+  assert.doesNotMatch(server, /new AssemblyAdminService\(secumiePool\)/);
 });
 
 integration('PostgreSQL 16 keeps the business and SECU pools isolated, lazy and bounded', { timeout:30_000 }, async () => {
