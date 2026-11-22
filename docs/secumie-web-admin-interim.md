@@ -1,5 +1,18 @@
 # SECU:MIE Web｜管理画面（暫定運用・DB接続待ち）
 
+## 2026-11-22 実GCP Inventory受領・共有Cloud SQL Canonical照合（現行）
+
+この節は2026-11-22にユーザーがWindows PowerShellから採取した**実GCP読み取り専用の結果**であり、古い2026-11-22午前の配信revision記録より優先する。GCP設定変更・SQL接続・Migrationは行っていない。
+
+- Project `msp-zabbix`／Region `asia-northeast1` のProduction `sales-tools`は**`sales-tools-bks-20261122040419`へ100%配信**（`latestReadyRevisionName`も同一）。旧`sales-tools-wsc-release`はタグ付きrevisionとして残るが**100%配信ではない**。本件によるTraffic戻しは禁止。現在の100% revisionに既存WSC管理画面/APIが含まれるかは追加確認が必要。
+- Staging `sales-tools-staging`の100%配信先は`sales-tools-staging-p228`で変更なし。Stagingの既存配信先も変更しない。
+- 共有Cloud SQL `secumie-sg-shared-staging-db`は`RUNNABLE`／`POSTGRES_16`、Private IP `172.20.0.3`のみ、backup/PITR/deletion protection有効。
+- Cloud SQL Admin API DB一覧は`postgres`、`secumie_insight_staging`、`secure_guard_staging`の3件。Web専用`secumie_web_staging`は**未作成**。ユーザー一覧は既存Insight 5＋Secure Guard 3＋postgresで、Web専用3 roleは**未作成**（ただしPostgreSQL `pg_roles`内部確認は未実施）。
+- 共有Cloud SQL Canonical（PR #46／`docs/secumie-shared-staging-db-bootstrap-approval-20261106.md` §19.23）では、**2026-11-18経営者承認で既存Cloud SQL／既存Insight・Secure Guard資産の保全期限を2026-12-04 10:12:12 JSTに延長**。追加費用運用上限75 USDは旧75 USDとは別枠。**Web用新規database、role、Secret、Migration、Jobの追加作成はこの保全承認に含まれない**。費用実績はUNKNOWN、適用前の費用・承認を別Gateとする。
+- Web DB内部のread-only次Gate用に`design/secumie-web/staging-catalog-readonly.sql`（5件のSELECTだけ）を追加した。既存承認済みのPrivate接続を`postgres`へ行える場合だけ実行する。接続先context、`pg_database`のDB/owner/ACL、`pg_roles`のWeb候補不在、`pg_stat_activity`の接続数、PG16の上限/予約枠を取得。申込・個人情報・Secretは照会しない。SQL未実行のため内部カタログ結果は**UNKNOWN**。
+- 最小構築方針：共有instanceにWeb専用DB（migration owner、runtime、adminは別role）、既存`runMigrations`とWeb固有の単一番号付きDDL、既存GRANT SQLを利用。Cloud SQL/Secret/SA/Job/Productionへの書込み、番号付き正式Migrationへの昇格は**別途承認・実行Gate**。適用後に署名付きメール連携と実Google Workspace受入、イメージ安全判定を行う。今はPR #51 Draft／SECURITY_NO_GO／Production No-Goを維持。
+
+
 ## 2026-11-22 Windowsからの実Staging read-only preflight と Migration Fit/Gap
 
 - `scripts/secumie-web-staging-readonly.ps1`を追加。Windows PowerShell 5.1+と既存`gcloud.cmd`を利用する。Cloud Run既存2サービスの100% traffic、共有Staging Cloud SQLのRUNNABLE/PG16/backup/PITR/deletion protection/public IP、既存DB名・Web専用DB/user名を**読み取り専用**で点検する。Secret値、DB内の企業情報、ログインパスワードを取得・表示しない。
