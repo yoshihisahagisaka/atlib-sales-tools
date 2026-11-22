@@ -3,7 +3,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import pinoHttp from 'pino-http';
 import pino from 'pino';
-import { loadConfig } from './config';
+import { loadConfig, loadSecumieWebAdminDatabaseConfig } from './config';
 import { createPool } from './db/pool';
 import { Mailer } from './services/mailer';
 import { IsmsDiagnosticRepo } from './services/ismsDiagnosticRepo';
@@ -77,6 +77,9 @@ import { createAdminMarketingInitiativeRouter } from './routes/adminMarketingIni
 import { TestCaseManagementRepo } from './services/testCaseManagementRepo';
 import { WscSalesService } from './services/wscSalesService';
 import { createAdminWebSecurityCheckRouter } from './routes/adminWebSecurityCheck';
+import { AssemblyAdminService } from './secumieWeb/assemblyAdminService';
+import { createAdminSecumieWebRouter } from './routes/adminSecumieWeb';
+import { createInternalSecumieWebMirrorRouter } from './routes/internalSecumieWebMirror';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -84,6 +87,11 @@ async function main(): Promise<void> {
 
   const pool = createPool(config);
   pool.on('error',()=>logger.error({event:'database_pool_error'},'Database connection failed'));
+  // Separate Web-only database is optional until the approved Staging migration.
+  const webDb = loadSecumieWebAdminDatabaseConfig();
+  const webPool = webDb ? createPool({ db: webDb }, { max: 2 }) : null;
+  webPool?.on('error', () => logger.error({event:'secumie_web_pool_error'}, 'Web intake DB unavailable'));
+  const webRequests = webPool ? new AssemblyAdminService(webPool) : null;
   const mailer = new Mailer(config.smtp);
   const ismsDiagnosticRepo = new IsmsDiagnosticRepo(pool);
   const freeHearingAssessmentRepo = new FreeHearingAssessmentRepo(pool);
@@ -156,6 +164,15 @@ async function main(): Promise<void> {
   // Staff-only WSC CSV validation sends the source once, while actual
   // diagnostics remain individual requests. Keep the larger body scope narrow.
   app.use('/api/admin/web-security-check', express.json({ limit: '2mb' }));
+  // Corporate-site may mirror only an already-accepted email via a signed
+  // internal request. Raw body must be verified before ordinary JSON parsing.
+  const mirrorSecret = process.env.SECUMIE_WEB_MIRROR_SECRET?.trim();
+  if (mirrorSecret && !webRequests) throw new Error('Web mirror requires its separate database');
+  if (mirrorSecret && webRequests) {
+    app.use('/api/internal/secumie-web/v1',
+      express.raw({ type: 'application/json', limit: '8kb' }),
+      createInternalSecumieWebMirrorRouter(webRequests, mirrorSecret));
+  }
   app.use(express.json());
   app.use(cookieParser());
 
@@ -221,6 +238,8 @@ async function main(): Promise<void> {
   );
   app.use('/api/admin/market-rates', ...adminAuthGate, createAdminMarketRatesRouter(marketRateRepo));
   app.use('/api/admin/web-security-check', ...adminAuthGate, createAdminWebSecurityCheckRouter(wscSalesService));
+  if (webRequests) app.use('/api/admin/secumie-web/v1',
+    ...adminAuthGate, createAdminSecumieWebRouter(webRequests));
   app.use(
     '/api/admin/estimate-preconditions',
     ...adminAuthGate,
