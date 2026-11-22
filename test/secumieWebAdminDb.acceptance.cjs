@@ -3,7 +3,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const os = require('node:os');
 const { createHmac } = require('node:crypto');
 const { Pool } = require('pg');
 const { runMigrations } = require('../dist/db/migrate');
@@ -31,7 +30,7 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
   const dbName = 'secumie_web_staging';
   const root = path.resolve(__dirname, '..');
   const admin = new Pool({ connectionString, max: 1 });
-  let owner, staff, runtime, outsider, server, migrationDir;
+  let owner, staff, runtime, outsider, server;
   let createdDatabase = false;
   const createdRoles = [];
   try {
@@ -52,35 +51,48 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     createdRoles.push('secumie_web_migration_staging');
     await admin.query('CREATE DATABASE ' + dbName + ' OWNER secumie_web_migration_staging');
     createdDatabase = true;
-    const url = new URL(connectionString);
-    url.pathname = '/' + dbName;
-    const migrationUrl = new URL(url);
-    migrationUrl.username = 'secumie_web_migration_staging';
-    migrationUrl.password = 'synthetic-migration-only';
-    owner = new Pool({ connectionString: migrationUrl.toString(), max: 1 });
-    // Exercise the EXISTING migration runner, not a new migration framework.
-    // This one-file numbered package is CI-only: Draft SQL is not production-ready.
-    migrationDir = fs.mkdtempSync(path.join(os.tmpdir(), 'secumie-web-ci-migration-'));
-    const stagedSqlName = '001_secumie_web_intake.sql';
-    fs.copyFileSync(
-      path.join(root, 'design/secumie-web/assembly-intake.draft.sql'),
-      path.join(migrationDir, stagedSqlName),
-    );
-    assert.deepEqual(fs.readdirSync(migrationDir), [stagedSqlName]);
-    await runMigrations(owner, migrationDir);
-    const ledger = await owner.query('SELECT filename FROM schema_migrations ORDER BY filename');
-    assert.deepEqual(ledger.rows.map(row => row.filename), [stagedSqlName],
-      'Web-only migration must record exactly one file in its own database');
-    await runMigrations(owner, migrationDir);
-    assert.equal((await owner.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n, 1,
-      'replay must not duplicate the Web migration ledger');
+    // Roles must pre-exist the single guarded schema+GRANT migration.
     await admin.query("CREATE ROLE secumie_web_runtime_staging LOGIN PASSWORD 'synthetic-runtime-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
     createdRoles.push('secumie_web_runtime_staging');
     await admin.query("CREATE ROLE secumie_web_admin_staging LOGIN PASSWORD 'synthetic-staff-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
     createdRoles.push('secumie_web_admin_staging');
     await admin.query("CREATE ROLE secumie_unrelated_staging LOGIN PASSWORD 'synthetic-unrelated-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
     createdRoles.push('secumie_unrelated_staging');
-    await owner.query(fs.readFileSync(path.join(root, 'design/secumie-web/staging-role-grants.draft.sql'), 'utf8'));
+    const url = new URL(connectionString);
+    url.pathname = '/' + dbName;
+    const migrationUrl = new URL(url);
+    migrationUrl.username = 'secumie_web_migration_staging';
+    migrationUrl.password = 'synthetic-migration-only';
+    owner = new Pool({ connectionString: migrationUrl.toString(), max: 1 });
+    // Exercise the EXISTING migration runner using only the unapproved
+    // STAGING-only package. It never touches a real Cloud SQL instance.
+    const migrationDirPath = path.join(root, 'design/secumie-web/migrations');
+    const stagedSqlName = '001_secumie_web_intake_staging.sql';
+    assert.deepEqual(fs.readdirSync(migrationDirPath), [stagedSqlName]);
+    const candidateSql = fs.readFileSync(path.join(migrationDirPath, stagedSqlName), 'utf8');
+    const ddlSource = fs.readFileSync(path.join(root, 'design/secumie-web/assembly-intake.draft.sql'), 'utf8');
+    const grantsSource = fs.readFileSync(path.join(root, 'design/secumie-web/staging-role-grants.draft.sql'), 'utf8');
+    // Keep the approved-domain DDL/ACL behavior byte-for-byte consistent with
+    // the prior draft. The combined SQL omits only the separate BEGIN/COMMIT.
+    assert.ok(candidateSql.includes(ddlSource.slice(ddlSource.indexOf('CREATE SCHEMA')).trimEnd()),
+      'candidate DDL must match existing draft statements');
+    assert.ok(candidateSql.includes(grantsSource.slice(grantsSource.indexOf('DO $'), grantsSource.lastIndexOf('\nCOMMIT;')).trimEnd()),
+      'candidate grants must match existing draft statements');
+    await admin.query('BEGIN');
+    try {
+      await assert.rejects(admin.query(candidateSql), /SECU:MIE_WEB_STAGING_CONTEXT_STOP/,
+        'the candidate must reject the wrong database/role before any DDL');
+    } finally {
+      await admin.query('ROLLBACK');
+    }
+    await runMigrations(owner, migrationDirPath);
+    const ledger = await owner.query('SELECT filename FROM schema_migrations ORDER BY filename');
+    assert.deepEqual(ledger.rows.map(row => row.filename), [stagedSqlName],
+      'Web-only migration must record exactly one file in its own database');
+    await runMigrations(owner, migrationDirPath);
+    assert.equal((await owner.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n, 1,
+      'replay must not duplicate the Web migration ledger');
+    // The Web-only candidate already executed grants inside its one migration transaction.
     const staffUrl = new URL(url);
     staffUrl.username = 'secumie_web_admin_staging';
     staffUrl.password = 'synthetic-staff-only';
@@ -189,7 +201,6 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     await Promise.allSettled([staff?.end(), runtime?.end(), outsider?.end(), owner?.end()].filter(Boolean));
     // All test pools are closed above; do not kill sockets during teardown.
     if (createdDatabase) await admin.query('DROP DATABASE ' + dbName);
-    if (migrationDir) fs.rmSync(migrationDir, { recursive: true, force: true });
     for (const roleName of createdRoles.reverse()) {
       await admin.query('DROP ROLE IF EXISTS ' + roleName);
     }
