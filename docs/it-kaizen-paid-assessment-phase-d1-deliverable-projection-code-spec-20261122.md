@@ -31,12 +31,14 @@ export type DeliverableStatementKind =
   | 'FUTURE' | 'VERIFIED_FACT_REFERENCE' | 'CUSTOMER_STATEMENT'
   | 'UNKNOWN' | 'OBSERVATION' | 'RISK_IMPACT' | 'HYPOTHESIS'
   | 'PROPOSAL' | 'DECISION_CANDIDATE' | 'EXPECTED_CHANGE';
+export type DeliverableRelatedKind = 'GAP' | 'ROOT_CAUSE' | 'ACT_OPTION' | 'SCENARIO' | 'DECISION_CANDIDATE' | 'INITIAL_ACTION' | 'ROADMAP' | 'STATEMENT';
+export interface DeliverableRelatedRef { kind: DeliverableRelatedKind; id: string }
 export interface DeliverableStatement {
   id: string;
   kind: DeliverableStatementKind;
   text: string; // human-authored customer-facing explanation
   sourceRefs: readonly PreparationSourceRef[];
-  relatedIds: readonly string[]; // traceability only, no invented facts
+  relatedRefs: readonly DeliverableRelatedRef[]; // typed references, avoid ID collisions across domains
 }
 export interface DeliverableSectionDraft {
   id: string;
@@ -79,10 +81,10 @@ export function buildPaidAssessmentDeliverableProjection(input: DeliverableProje
 1. Validate reportId, customerLabel, purpose, section id/title/narrative, statement id/text, exact statement kind; unique IDs and nonblank text. Sections may be empty for an incomplete draft, but return NEEDS_CONFIRMATION with `NO_SECTIONS`. Statement list may be empty; no fabricated filler.
 2. Validate every source kind/id/positive version/optional 64 lowercase hex hash. A `VERIFIED_FACT_REFERENCE` statement requires >=1 source with kind `CORE_VERIFIED_REFERENCE`; **this is still a caller-asserted verified reference**, not an authenticated Core fact. A statement with no source refs is allowed for UNKNOWN/PROPOSAL/HYPOTHESIS/EXPECTED_CHANGE/FUTURE but produces `SOURCE_NOT_PROVIDED:<statementId>` review reason where appropriate; do not silently promote it to FACT. For VERIFIED_FACT_REFERENCE, missing matching source is a hard TypeError. No literal text classifier or fact inference.
 3. Section statementIds must resolve to existing unique statement IDs; reject dangling/duplicate section references. Preserve statement and section order, with deep-detached copies.
-4. `relatedIds` are traceability references and must resolve to one of the IDs in the 7 upstream projections (gaps/causes/options/scenarios/decisions/initialActions/roadmap), or another statement ID. Reject dangling/duplicate references. Reject ambiguous IDs reused across upstream collections **or between upstream items and statement IDs** (fail closed rather than silently mislink).
-5. Validate all seven upstream result arrays, unique nonblank IDs per array, exact state enums; also reject duplicate IDs across all seven arrays. Do not re-run domain analysis, trust their review state only as review projection.
-6. Exact BLOCKED mapping: C2 `BLOCKED_BY_GAP_EVIDENCE`; C3a `BLOCKED_BY_GAP_EVIDENCE`; C3b/C4a `BLOCKED_BY_OPTION_EVIDENCE`; C4b `BLOCKED_BY_DECISION_EVIDENCE`; C4c `BLOCKED_BY_EVIDENCE`. If any **referenced** upstream item is in a BLOCKED state, set `BLOCKED_BY_EVIDENCE`, collect `UPSTREAM_BLOCKED:<id>` for each referenced blocked item in stable first-reference order. Do not classify C1 `INSUFFICIENT_EVIDENCE` as BLOCKED; it calls for additional verification. Ignore unreferenced upstream items for readiness (but still validate their structural IDs/states).
-7. Exact NEEDS_CONFIRMATION mapping: C1 `INSUFFICIENT_EVIDENCE`; C2 `HYPOTHESIS_CONTESTED` or `HYPOTHESIS_UNSUBSTANTIATED`; C3a/C3b/C4a/C4b/C4c `NEEDS_CONFIRMATION`. Referenced items in those states produce `UPSTREAM_REVIEW_NEEDED:<id>`. Every referenced C4a decision *candidate* also produces `DECISION_NOT_AUTHENTICATED:<id>` even if state is REVIEWABLE; it is never an authenticated Decision Record. Missing sources on any non-UNKNOWN statement produce `SOURCE_NOT_PROVIDED:<statementId>`; no sections produce `NO_SECTIONS`. If there are no BLOCKED reasons but there are any confirmation reasons, use `NEEDS_CONFIRMATION`. If both exist, BLOCKED takes precedence; return the blocked reasons in deterministic order without silently treating confirmation as clearance.
+4. `relatedRefs` are **typed** traceability references. Validate each kind from `DeliverableRelatedKind`, nonblank id, and existence in exactly the corresponding collection (or `STATEMENT` namespace). Duplicate `(kind,id)` pairs within a statement fail; the same raw ID in different kinds is valid and unambiguous. Do not infer category from a bare ID. Preserve order and deep-copy typed refs. State propagation and reason codes must use the typed target to avoid ID collisions.
+5. Validate all seven upstream result arrays, unique nonblank IDs **within each collection**, exact state enums. IDs may legitimately repeat in different collections; namespace by `kind`. Do not re-run domain analysis, trust their review state only as a review projection.
+6. Exact BLOCKED mapping: C2 `BLOCKED_BY_GAP_EVIDENCE`; C3a `BLOCKED_BY_GAP_EVIDENCE`; C3b/C4a `BLOCKED_BY_OPTION_EVIDENCE`; C4b `BLOCKED_BY_DECISION_EVIDENCE`; C4c `BLOCKED_BY_EVIDENCE`. If any **referenced** upstream item is in a BLOCKED state, set `BLOCKED_BY_EVIDENCE`, collect `UPSTREAM_BLOCKED:<kind>:<id>` for each referenced blocked item in stable first-reference order. Do not classify C1 `INSUFFICIENT_EVIDENCE` as BLOCKED; it calls for additional verification. Ignore unreferenced upstream items for readiness (but still validate their structural IDs/states).
+7. Exact NEEDS_CONFIRMATION mapping: C1 `INSUFFICIENT_EVIDENCE`; C2 `HYPOTHESIS_CONTESTED` or `HYPOTHESIS_UNSUBSTANTIATED`; C3a/C3b/C4a/C4b/C4c `NEEDS_CONFIRMATION`. Referenced items in those states produce `UPSTREAM_REVIEW_NEEDED:<kind>:<id>`. Every referenced C4a decision *candidate* also produces `DECISION_NOT_AUTHENTICATED:DECISION_CANDIDATE:<id>` even if state is REVIEWABLE; it is never an authenticated Decision Record. Missing sources on any non-UNKNOWN statement produce `SOURCE_NOT_PROVIDED:<statementId>`; no sections produce `NO_SECTIONS`. If there are no BLOCKED reasons but there are any confirmation reasons, use `NEEDS_CONFIRMATION`. If both exist, BLOCKED takes precedence; return the blocked reasons in deterministic order without silently treating confirmation as clearance.
 8. If none of the above, `REVIEWABLE_DRAFT` means a structurally reviewable **draft**. Never call it customer approved, delivered, signed, verified by Core, or publishable.
 9. All views share the same statement IDs and sources. Do not generate a separate conclusion for slides. No Word/PDF/PPTX rendering in D1; no customer-ready document claims. No AI/DB/API/Work/FACTACT Core/authorization, no actor assignment, no automatic priority, no maturity score, no prices.
 10. Empty/healthy gap lists and zero scenarios are valid. No forced section count, option count, 3 scenarios or chapter template. Evidence Book index is a reference list, not duplicated evidence bytes. The output may omit unreferenced statements from sections but evidenceIndex includes all supplied statements to avoid loss.
@@ -93,7 +95,7 @@ export function buildPaidAssessmentDeliverableProjection(input: DeliverableProje
 - Valid source-linked verified reference remains a reference, not new FACTACT authorization.
 - Missing verified source fails; source-free non-UNKNOWN gets review reason; UNKNOWN source-free stays UNKNOWN.
 - Referenced upstream blocked / needs confirmation / decision candidate produce correct readiness/reasons; unreferenced blocked does not contaminate report.
-- Unknown, duplicated and ambiguous IDs rejected; empty scenarios, no sections, empty statements supported.
+- Invalid typed refs, duplicate (kind,id), unresolvable refs rejected; equal raw IDs across different kinds accepted; empty scenarios, no sections, empty statements supported.
 - Deep-detached output, no input mutation, deterministic repeated runs; no separate slide conclusion.
 - Build, new tests, all 93 existing tests, `git diff --check`.
 
