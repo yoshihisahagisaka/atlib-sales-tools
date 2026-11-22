@@ -266,6 +266,13 @@ integration('Web intake and staff status update work on isolated synthetic Postg
     assert.equal(mirrorRows.length, 1);
     assert.equal(mirrorRows[0].unionName, '既存組合');
     assert.equal(mirrorRows[0].contactEmail, 'lp@example.com');
+    const sharing = await staff.query(
+      'SELECT reception_code,information_sharing_enabled FROM secumie_web.assembly_intake WHERE receipt_number=$1',
+      [mirrored.receiptId],
+    );
+    assert.equal(sharing.rows[0].reception_code, 'CORPORATE_LP');
+    assert.equal(sharing.rows[0].information_sharing_enabled, false,
+      'temporary corporate applicants do not consent to association/union data sharing');
     const mirroredHistory = await staff.query(
       "SELECT to_status, changed_by FROM secumie_web.assembly_status_history h JOIN secumie_web.assembly_intake i ON i.intake_id=h.intake_id WHERE i.receipt_number=$1",
       [mirrored.receiptId],
