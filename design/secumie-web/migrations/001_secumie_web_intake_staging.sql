@@ -24,7 +24,18 @@ BEGIN
       WHERE rolname IN ('secumie_web_migration_staging',
                         'secumie_web_admin_staging',
                         'secumie_web_runtime_staging')
-      AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+      AND (NOT rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+     -- Cloud SQL's default built-in user creation can grant cloudsqlsuperuser.
+     -- Reject ANY Web login-role membership, not only role flags. This also
+     -- protects against inherited access to Insight/Secure Guard roles.
+     OR EXISTS (
+       SELECT 1
+       FROM pg_auth_members membership
+       JOIN pg_roles web_role ON web_role.oid = membership.member
+       WHERE web_role.rolname IN ('secumie_web_migration_staging',
+                                 'secumie_web_admin_staging',
+                                 'secumie_web_runtime_staging')
+     )
   THEN
     RAISE EXCEPTION 'SECU:MIE_WEB_ROLE_BOUNDARY_STOP';
   END IF;
