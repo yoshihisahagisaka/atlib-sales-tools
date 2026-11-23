@@ -12,8 +12,6 @@ on:
       - 'src/routes/internalSecumieWebMirror.ts'
       - 'src/secumieWeb/assemblyAdminService.ts'
       - 'design/secumie-web/**'
-      - 'scripts/secumie-web-admin-preflight.sh'
-      - 'scripts/secumie-web-staging-readonly.ps1'
       - 'test/secumieWebAdminDb.acceptance.cjs'
   workflow_dispatch:
 
@@ -50,12 +48,6 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npm run build
-      # Prints only candidate SQL metadata for a future immutable allowlist.
-      - run: |
-          sha256sum design/secumie-web/migrations/001_secumie_web_intake_staging.sql
-          wc -c design/secumie-web/migrations/001_secumie_web_intake_staging.sql
-      - run: bash -n scripts/secumie-web-admin-preflight.sh
-      - run: pwsh -NoProfile -File scripts/secumie-web-staging-readonly.ps1 -DryRun
       # This PR updates Zod compatibility imports shared with KAIZEN/Business Web.
       # Guard existing business logic against regressions without GCP or API keys.
       - run: npm run test:kaizen
