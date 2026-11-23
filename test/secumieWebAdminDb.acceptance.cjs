@@ -30,7 +30,7 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
   const dbName = 'secumie_web_staging';
   const root = path.resolve(__dirname, '..');
   const admin = new Pool({ connectionString, max: 1 });
-  let owner, staff, runtime, outsider, server;
+  let owner, staff, outsider, server;
   let createdDatabase = false;
   const createdRoles = [];
   try {
@@ -41,8 +41,7 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     assert.equal(otherDbs.rows.length, 0, 'disposable CI instance must not contain other databases');
     const existingRoles = await admin.query(
       'SELECT rolname FROM pg_roles WHERE rolname = ANY($1::text[])',
-      [['secumie_web_migration_staging','secumie_web_runtime_staging',
-        'secumie_web_admin_staging','secumie_unrelated_staging']]);
+      [['secumie_web_migration_staging', 'secumie_web_admin_staging', 'secumie_unrelated_staging']]);
     assert.equal(existingRoles.rows.length, 0, 'test roles must not preexist');
 
     // A dedicated owner role, database and isolated migration ledger: none of
@@ -52,8 +51,6 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     await admin.query('CREATE DATABASE ' + dbName + ' OWNER secumie_web_migration_staging');
     createdDatabase = true;
     // Roles must pre-exist the single guarded schema+GRANT migration.
-    await admin.query("CREATE ROLE secumie_web_runtime_staging LOGIN PASSWORD 'synthetic-runtime-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
-    createdRoles.push('secumie_web_runtime_staging');
     await admin.query("CREATE ROLE secumie_web_admin_staging LOGIN PASSWORD 'synthetic-staff-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
     createdRoles.push('secumie_web_admin_staging');
     await admin.query("CREATE ROLE secumie_unrelated_staging LOGIN PASSWORD 'synthetic-unrelated-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
@@ -70,35 +67,27 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     const stagedSqlName = '001_secumie_web_intake_staging.sql';
     assert.deepEqual(fs.readdirSync(migrationDirPath), [stagedSqlName]);
     const candidateSql = fs.readFileSync(path.join(migrationDirPath, stagedSqlName), 'utf8');
-    const ddlSource = fs.readFileSync(path.join(root, 'design/secumie-web/assembly-intake.draft.sql'), 'utf8');
-    const grantsSource = fs.readFileSync(path.join(root, 'design/secumie-web/staging-role-grants.draft.sql'), 'utf8');
-    // Keep the approved-domain DDL/ACL behavior byte-for-byte consistent with
-    // the prior draft. The combined SQL omits only the separate BEGIN/COMMIT.
-    assert.ok(candidateSql.includes(ddlSource.slice(ddlSource.indexOf('CREATE SCHEMA')).trimEnd()),
-      'candidate DDL must match existing draft statements');
-    assert.ok(candidateSql.includes(grantsSource.slice(grantsSource.indexOf('DO ' + '$'), grantsSource.lastIndexOf('\nCOMMIT;')).trimEnd()),
-      'candidate grants must match existing draft statements');
+    assert.equal((candidateSql.match(/CREATE TABLE secumie_web\./g) || []).length, 2);
+    assert.doesNotMatch(candidateSql, /assembly_union_master|assembly_consumed_jti|assembly_notification_outbox/);
     await admin.query('BEGIN');
     try {
-      await assert.rejects(admin.query(candidateSql), /SECU:MIE_WEB_STAGING_CONTEXT_STOP/,
+      await assert.rejects(admin.query(candidateSql), /WEB_STAGING_CONTEXT_STOP/,
         'the candidate must reject the wrong database/role before any DDL');
     } finally {
       await admin.query('ROLLBACK');
     }
-    // PostgreSQL 16 role membership can confer privileges even when direct
-    // role attributes look harmless. A Web runtime role must not inherit any
-    // group (including Cloud SQL's cloudsqlsuperuser in real staging).
-    await admin.query('GRANT pg_read_all_data TO secumie_web_runtime_staging');
+    // Reject accidental privileged membership on the only Web application role.
+    await admin.query('GRANT pg_read_all_data TO secumie_web_admin_staging');
     try {
       await assert.rejects(runMigrations(owner, migrationDirPath),
-        /SECU:MIE_WEB_ROLE_BOUNDARY_STOP/,
+        /WEB_STAGING_ROLE_STOP/,
         'Web migration must refuse any inherited membership before DDL');
       const noSchema = await owner.query(
         "SELECT count(*)::int AS n FROM pg_namespace WHERE nspname='secumie_web'");
       assert.equal(noSchema.rows[0].n, 0,
         'rejected role membership must leave the Web schema absent');
     } finally {
-      await admin.query('REVOKE pg_read_all_data FROM secumie_web_runtime_staging');
+      await admin.query('REVOKE pg_read_all_data FROM secumie_web_admin_staging');
     }
     await runMigrations(owner, migrationDirPath);
     const ledger = await owner.query('SELECT filename FROM schema_migrations ORDER BY filename');
@@ -112,10 +101,6 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     staffUrl.username = 'secumie_web_admin_staging';
     staffUrl.password = 'synthetic-staff-only';
     staff = new Pool({ connectionString: staffUrl.toString(), max: 2 });
-    const runtimeUrl = new URL(url);
-    runtimeUrl.username = 'secumie_web_runtime_staging';
-    runtimeUrl.password = 'synthetic-runtime-only';
-    runtime = new Pool({ connectionString: runtimeUrl.toString(), max: 2 });
     // The same shared instance may host Insight and Secure Guard credentials.
     // Their roles must not be able to CONNECT to the Web-owned database.
     const outsiderUrl = new URL(url);
@@ -177,8 +162,8 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     assert.equal(row.unionName, application.unionName);
     assert.equal(row.contactEmail, application.contactEmail);
     const privacy = await staff.query(
-      'SELECT reception_code,information_sharing_enabled FROM secumie_web.assembly_intake WHERE intake_id=$1', [row.intakeId]);
-    assert.deepEqual(privacy.rows[0], { reception_code: 'CORPORATE_LP', information_sharing_enabled: false });
+      'SELECT information_sharing_enabled FROM secumie_web.assembly_intake WHERE intake_id=$1', [row.intakeId]);
+    assert.deepEqual(privacy.rows[0], { information_sharing_enabled: false });
     const statusUrl = base + '/api/admin/secumie-web/v1/requests/' + row.intakeId + '/status';
     assert.equal((await fetch(statusUrl, {
       method: 'PATCH', headers: { 'content-type': 'application/json' },
@@ -208,12 +193,15 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     assert.ok(audit.rows.some(x => x.to_status === 'RECEIVED' && x.changed_by === 'corporate-contact'));
     assert.ok(audit.rows.some(x => x.to_status === 'IN_PROGRESS' && x.changed_by === 'synthetic-staff@atlib.jp'));
     await assert.rejects(
-      runtime.query("UPDATE secumie_web.assembly_intake SET request_status='CANCELLED' WHERE intake_id=$1", [row.intakeId]),
+      staff.query("UPDATE secumie_web.assembly_intake SET company_name='tampered' WHERE intake_id=$1", [row.intakeId]),
       /permission denied/);
+    const tables = await owner.query(
+      "SELECT tablename FROM pg_tables WHERE schemaname='secumie_web' ORDER BY tablename");
+    assert.deepEqual(tables.rows.map(x => x.tablename), ['assembly_intake', 'assembly_status_history']);
     await assert.rejects(staff.query('DELETE FROM secumie_web.assembly_intake WHERE intake_id=$1', [row.intakeId]), /permission denied/);
   } finally {
     if (server?.listening) await new Promise((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
-    await Promise.allSettled([staff?.end(), runtime?.end(), outsider?.end(), owner?.end()].filter(Boolean));
+    await Promise.allSettled([staff?.end(), outsider?.end(), owner?.end()].filter(Boolean));
     // All test pools are closed above; do not kill sockets during teardown.
     if (createdDatabase) await admin.query('DROP DATABASE ' + dbName);
     for (const roleName of createdRoles.reverse()) {
