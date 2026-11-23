@@ -15,8 +15,8 @@
     {
       "order": 1,
       "filename": "001_secumie_web_intake_staging.sql",
-      "sha256": "04d719efc3cdd5fc70e5df430144b55a749e9fcf94784bc66093aabfd2a7d1cf",
-      "byteCount": 8102
+      "sha256": "a0c4521e8c94917f3a00b1481c43a765e80c9b1c57d7ca74dfdb3d09efcb3015",
+      "byteCount": 8689
     }
   ],
   "sourceDraftBlobIds": {
@@ -34,6 +34,7 @@
     "reconfirm Git PR #51 HEAD and current GCP state",
     "separate explicit executive approval covering scope, retention and incremental cost",
     "review operator's CREATE DATABASE OWNER role capability without IAM/role expansion",
+    "all three Web LOGIN roles have zero pg_auth_members memberships (including cloudsqlsuperuser); no implicit Cloud SQL admin grants",
     "Cloud SQL database and role absence incl pg_roles; PG16 and capacity budget",
     "Web role credentials safely provisioned with Secret Manager; no secrets in arguments/logs",
     "approved image/source/SA/Proxy & selected private connectivity, without affecting Insight or Secure Guard",
