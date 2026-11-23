@@ -258,3 +258,22 @@ test('staging migration candidate is hash-pinned and execution is not authorized
   assert.equal(gitBlob(fs.readFileSync(path.join(pkgDir, 'staging-role-grants.draft.sql'))),
     manifest.sourceDraftBlobIds.grants);
 });
+
+test('bootstrap operator preflight is SELECT-only and migration guard denies role inheritance', () => {
+  const sql = fs.readFileSync(
+    path.join(root, 'design/secumie-web/staging-bootstrap-operator-readonly.sql'), 'utf8');
+  const statements = sql.replace(/--[^\n]*/g, '').split(';').map(value => value.trim()).filter(Boolean);
+  assert.equal(statements.length, 1);
+  assert.match(statements[0], /^SELECT\s/i);
+  assert.doesNotMatch(statements[0],
+    /\b(?:CREATE|ALTER|DROP|GRANT|REVOKE|INSERT|UPDATE|DELETE|TRUNCATE|COPY|EXECUTE|CALL|DO)\b/i);
+  assert.match(sql, /roles\.rolcreatedb/);
+  assert.match(sql, /roles\.rolcreaterole/);
+  assert.match(sql, /pg_has_role/);
+  assert.match(sql, /createrole_self_grant/);
+  const candidate = fs.readFileSync(
+    path.join(root, 'design/secumie-web/migrations/001_secumie_web_intake_staging.sql'), 'utf8');
+  assert.match(candidate, /NOT rolcanlogin/);
+  assert.match(candidate, /pg_auth_members/);
+  assert.match(candidate, /SECU:MIE_WEB_ROLE_BOUNDARY_STOP/);
+});
