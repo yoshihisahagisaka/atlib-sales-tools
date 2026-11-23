@@ -30,7 +30,7 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
   const dbName = 'secumie_web_staging';
   const root = path.resolve(__dirname, '..');
   const admin = new Pool({ connectionString, max: 1 });
-  let owner, staff, outsider, server;
+  let owner, bootstrap, staff, outsider, server;
   let createdDatabase = false;
   const createdRoles = [];
   try {
@@ -48,15 +48,29 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     // these objects exist outside the disposable PostgreSQL 16 CI container.
     await admin.query("CREATE ROLE secumie_web_migration_staging LOGIN PASSWORD 'synthetic-migration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
     createdRoles.push('secumie_web_migration_staging');
-    await admin.query('CREATE DATABASE ' + dbName + ' OWNER secumie_web_migration_staging');
-    createdDatabase = true;
-    // Roles must pre-exist the single guarded schema+GRANT migration.
     await admin.query("CREATE ROLE secumie_web_admin_staging LOGIN PASSWORD 'synthetic-staff-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
     createdRoles.push('secumie_web_admin_staging');
     await admin.query("CREATE ROLE secumie_unrelated_staging LOGIN PASSWORD 'synthetic-unrelated-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
     createdRoles.push('secumie_unrelated_staging');
+
+    // Match the real shared Cloud SQL foundation: the operator owns the DB;
+    // schema/tables/ledger are owned by the separate migration login.
+    // No temporary SET ROLE membership is needed.
+    await admin.query('CREATE DATABASE ' + dbName + ' ALLOW_CONNECTIONS false');
+    createdDatabase = true;
+    await admin.query('REVOKE CONNECT, TEMPORARY ON DATABASE ' + dbName + ' FROM PUBLIC');
+    await admin.query('GRANT CONNECT, CREATE ON DATABASE ' + dbName + ' TO secumie_web_migration_staging');
+    await admin.query('GRANT CONNECT ON DATABASE ' + dbName + ' TO secumie_web_admin_staging');
+    await admin.query('ALTER DATABASE ' + dbName + ' ALLOW_CONNECTIONS true');
     const url = new URL(connectionString);
     url.pathname = '/' + dbName;
+    bootstrap = new Pool({ connectionString: url.toString(), max: 1 });
+    await bootstrap.query('GRANT CREATE ON SCHEMA public TO secumie_web_migration_staging');
+    const dbOwner = await bootstrap.query(
+      "SELECT pg_get_userbyid(datdba) AS owner FROM pg_database WHERE datname=$1", [dbName]);
+    assert.equal(dbOwner.rows[0].owner, 'postgres');
+    await bootstrap.end();
+    bootstrap = undefined;
     const migrationUrl = new URL(url);
     migrationUrl.username = 'secumie_web_migration_staging';
     migrationUrl.password = 'synthetic-migration-only';
@@ -201,7 +215,7 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     await assert.rejects(staff.query('DELETE FROM secumie_web.assembly_intake WHERE intake_id=$1', [row.intakeId]), /permission denied/);
   } finally {
     if (server?.listening) await new Promise((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
-    await Promise.allSettled([staff?.end(), outsider?.end(), owner?.end()].filter(Boolean));
+    await Promise.allSettled([staff?.end(), outsider?.end(), owner?.end(), bootstrap?.end()].filter(Boolean));
     // All test pools are closed above; do not kill sockets during teardown.
     if (createdDatabase) await admin.query('DROP DATABASE ' + dbName);
     for (const roleName of createdRoles.reverse()) {
