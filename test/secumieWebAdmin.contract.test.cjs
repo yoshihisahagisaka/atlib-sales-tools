@@ -222,3 +222,18 @@ test('Web staff intake uses one guarded two-table migration only', () => {
   assert.doesNotMatch(sql, /assembly_union_master|assembly_consumed_jti|assembly_notification_outbox|secumie_web_runtime_staging/);
   assert.doesNotMatch(sql, /^COMMIT;$/m, 'transaction stays with the existing runner');
 });
+
+test('one-time SQL Studio staging apply includes exact canonical migration and atomic ledger', () => {
+  const migration = fs.readFileSync(
+    path.join(root, 'design/secumie-web/migrations/001_secumie_web_intake_staging.sql'), 'utf8').trimEnd();
+  const applied = fs.readFileSync(
+    path.join(root, 'design/secumie-web/apply-once-staging.sql'), 'utf8');
+  assert.ok(applied.includes('-- CANONICAL BEGIN: do not alter the following SQL\n' + migration + '\n-- CANONICAL END'),
+    'the Studio apply script must embed the exact canonical SQL');
+  assert.match(applied, /BEGIN;[\s\S]*CREATE TABLE public\.schema_migrations/);
+  assert.match(applied, /WEB_STAGING_MIGRATION_NOT_EMPTY_OR_WRONG_TARGET/);
+  assert.match(applied, /INSERT INTO public\.schema_migrations\(filename\) VALUES \('001_secumie_web_intake_staging\.sql'\)/);
+  assert.match(applied, /\nCOMMIT;\n/);
+  assert.equal((applied.match(/^COMMIT;$/gm) || []).length, 1);
+  assert.equal((applied.match(/CREATE TABLE secumie_web\./g) || []).length, 2);
+});
