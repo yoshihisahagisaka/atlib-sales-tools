@@ -17,11 +17,23 @@
 候補は**Web専用単一SQL**：
 `design/secumie-web/migrations/001_secumie_web_intake_staging.sql`。
 
-- SHA-256: `04d719efc3cdd5fc70e5df430144b55a749e9fcf94784bc66093aabfd2a7d1cf`
-- 文字コードUTF-8（LF）、ファイルサイズ：`8102` bytes。CIの`sha256sum`/`wc -c`実測で固定。
+- SHA-256: `a0c4521e8c94917f3a00b1481c43a765e80c9b1c57d7ca74dfdb3d09efcb3015`
+- 文字コードUTF-8（LF）、ファイルサイズ：`8689` bytes。CIの`sha256sum`/`wc -c`実測で固定。
 - Manifest：`design/secumie-web/staging-migration-candidate.manifest.json`（`STAGING_CANDIDATE_EXECUTION_NO_GO`）。
-- 既存`assembly-intake.draft.sql`と`staging-role-grants.draft.sql`のDDL/権限文を変更せず、外側のBEGIN/COMMITを削除して1本化。既存runnerがトランザクションとledgerを担う。SQL冒頭のguardはWeb専用DB・migration user・PG16・3 role存在と属性・schema不存在を要求し、誤接続ならDDL前にSTOPする。
+- 既存`assembly-intake.draft.sql`と`staging-role-grants.draft.sql`のDDL/権限文を変更せず、外側のBEGIN/COMMITを削除して1本化。既存runnerがトランザクションとledgerを担う。SQL冒頭のguardはWeb専用DB・migration user・PG16・3 role存在・LOGIN属性・管理権限なし・**他ロールへの所属0件**・schema不存在を要求し、誤接続ならDDL前にSTOPする。
 - **現時点では候補であり正式な実施承認ではない**。このファイルを手動でCloud SQL Studioへ貼り付けない。適用承認の際はGit HEAD、Manifest、SHA、サイズ、SQL実体を再照合し、候補が変更されていたら既存のshaを使い回さず再審査する。
+
+## 2A. 2026-11-23 Cloud SQLのロール作成・DB ownerに関する必須Fit/Gap
+
+Google Cloudの公式仕様では、Cloud SQL Consoleや`gcloud sql users create`によって新しい組み込み認証ユーザーを通常作成すると`cloudsqlsuperuser`が自動付与される構成があり、`CREATEROLE`/`CREATEDB`等が含まれる。**Web専用の3つのログインロールにこの権限を付与してはならない**。既定の一般的な「ユーザーを作成」画面を、そのまま使わない。PostgreSQL 16の`CREATE ROLE ... LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD NULL`等で最小権限のロールを作成する方法を第一候補とし、作成前の承認・実際の安全な資格情報注入方法を別途確定する。パスワードはSQL本文やCloud SQL Studio履歴、コマンド引数に書かない。パスワード更新には既存のCloud SQL Consoleまたは`gcloud sql users set-password --prompt-for-password`などの非表示入力手段を検討し、Secret Managerとの値の整合を検証する。
+
+`CREATE DATABASE ... OWNER secumie_web_migration_staging`は、PG16の仕様上、実行者が`CREATEDB`を持つだけでは不十分で、migration roleへ`SET ROLE`可能であることも条件。PostgreSQL 16は`createrole_self_grant`により新しいroleへの権限を自動付与する場合があるが、既存Cloud SQLでの値・権限を仮定しない。必要な一時的role membershipを設計する場合は**管理者側のみ**に限定し、操作と撤回の順序・監査を個別承認する。Webアプリrole側には親roleの継承を認めない。
+
+- 既存`postgres`ユーザーでCloud SQL Studioへ接続したまま、`design/secumie-web/staging-bootstrap-operator-readonly.sql`（**SELECT 1本のみ**）を実行して`CREATEDB`/`CREATEROLE`、`cloudsqlsuperuser`所属、`createrole_self_grant`、Web DB/roleの不存在を再測定する。画面から得るのは構造情報のみ。認証情報・個人情報は取得しない。
+- Migration候補`001_secumie_web_intake_staging.sql`では、Webの全3 roleがLOGIN・非管理者属性であり、`pg_auth_members`上の**いかなる親roleにも属していない**ことをDDL前に強制。合成PG16で権限を意図的に継承させた場合はSTOPし、schemaが作られないことを確認する。
+- このGateはロール作成やCloud SQL変更の承認ではない。SQL候補hash変更時はManifest/CIを再照合し、古いmanifestの使用を禁止。
+
+根拠：Google Cloud [PostgreSQL users](https://docs.cloud.google.com/sql/docs/postgres/users)、[Create and manage users](https://docs.cloud.google.com/sql/docs/postgres/create-manage-users)；PostgreSQL 16 [CREATE DATABASE](https://www.postgresql.org/docs/16/sql-createdatabase.html)、[GRANT](https://www.postgresql.org/docs/16/sql-grant.html)。
 
 ## 3. 実Stagingでの確定済みFit（2026-11-22ユーザー実測）
 
