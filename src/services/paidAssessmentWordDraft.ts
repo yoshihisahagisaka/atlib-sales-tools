@@ -113,16 +113,27 @@ function statementParagraphs(statement: DeliverableStatement): Paragraph[] {
 }
 
 function textCharacterCount(input: DeliverableProjectionInput): number {
+  const statementsById = new Map(input.statements.map(s => [s.id, s] as const));
   let total = input.reportId.length + input.customerLabel.length + input.purpose.length;
-  for (const statement of input.statements) {
-    total += statement.id.length + statement.text.length + kindLabels[statement.kind].length;
-    for (const source of statement.sourceRefs) {
-      total += source.kind.length + source.id.length + String(source.version).length;
-    }
-    for (const ref of statement.relatedRefs) total += ref.kind.length + ref.id.length;
-  }
+
   for (const section of input.sections) {
-    total += section.id.length + section.title.length + section.narrative.length;
+    total += section.title.length + section.narrative.length;
+    for (const id of section.statementIds) {
+      const statement = statementsById.get(id)!; // resolved by D1 first
+      total += kindLabels[statement.kind].length + statement.text.length;
+      for (const line of sourceText(statement)) total += line.length;
+      if (statement.relatedRefs.length > 0) {
+        total += '内部追跡：'.length
+          + statement.relatedRefs.map(ref => `${ref.kind}:${ref.id}`).join('、').length;
+      }
+    }
+  }
+
+  // Every statement is shown once in D2's Evidence Index even if
+  // it does not occur in any section; do NOT charge an unrendered body.
+  for (const statement of input.statements) {
+    total += statement.id.length + kindLabels[statement.kind].length;
+    for (const line of sourceText(statement)) total += line.length;
   }
   return total;
 }

@@ -289,6 +289,17 @@ test('rejects render sizes beyond each explicit guard without truncation', async
   const tooMuchText = fixture();
   tooMuchText.sections[0]!.narrative = 'あ'.repeat(1_000_001);
   await assert.rejects(() => renderPaidAssessmentWordDraft(tooMuchText), /text characters must not exceed 1000000/);
+
+  const repeated = fixture();
+  repeated.statements[0]!.text = 'あ'.repeat(600_000);
+  repeated.sections = [
+    { id: 'repeat-1', title: '一', narrative: '説明', statementIds: ['statement-1'] },
+    { id: 'repeat-2', title: '二', narrative: '説明', statementIds: ['statement-1'] },
+  ];
+  await assert.rejects(
+    () => renderPaidAssessmentWordDraft(repeated),
+    /text characters must not exceed 1000000/,
+  );
 });
 
 test('invokes D1 validation and rejects forged or malformed inputs', async () => {
