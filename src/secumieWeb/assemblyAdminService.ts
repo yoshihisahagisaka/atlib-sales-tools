@@ -35,15 +35,14 @@ export class AssemblyAdminService {
       const receiptId = `SMW-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${randomUUID().slice(0,8).toUpperCase()}`;
       await client.query(
         `INSERT INTO secumie_web.assembly_intake
-         (intake_id,receipt_number,reception_code,organizer_name,union_id,union_name_snapshot,
-          company_name,registered_address,website_url,contact_name,contact_email,contact_phone,
-          consent_version,consented_at,idempotency_key,payload_hash,auth_session_id,
-          information_sharing_enabled)
-         VALUES ($1,$2,'CORPORATE_LP','atLIB株式会社','corporate-temporary',$3,
-          $4,$5,$6,$7,$8,$9,'corporate-lp-privacy-20261120',now(),$10,$11,$12,false)`,
+         (intake_id,receipt_number,union_name,company_name,registered_address,
+          website_url,contact_name,contact_email,contact_phone,consent_version,
+          consented_at,information_sharing_enabled,idempotency_key,payload_hash)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,
+          'corporate-lp-privacy-20261120',now(),false,$10,$11)`,
         [intakeId,receiptId,input.unionName,input.companyName,input.registeredAddress,
          input.websiteUrl,input.contactName,input.contactEmail,input.contactPhone,
-         input.eventId,payloadHash,'corporate-contact:'+input.eventId],
+         input.eventId,payloadHash],
       );
       await client.query(
         "INSERT INTO secumie_web.assembly_status_history(intake_id,from_status,to_status,changed_by) VALUES($1,NULL,'RECEIVED','corporate-contact')",
@@ -64,14 +63,14 @@ export class AssemblyAdminService {
     const offset = Math.max(0, filters.offset ?? 0);
     const result = await this.pool.query(
       `SELECT intake_id AS "intakeId", receipt_number AS "receiptId", received_at AS "receivedAt",
-              union_name_snapshot AS "unionName", company_name AS "companyName",
+              union_name AS "unionName", company_name AS "companyName",
               registered_address AS "registeredAddress", website_url AS "websiteUrl",
               contact_name AS "contactName", contact_email AS "contactEmail",
               contact_phone AS "contactPhone", request_status AS "status"
        FROM secumie_web.assembly_intake
        WHERE ($1::text IS NULL OR request_status = $1)
          AND ($2::text IS NULL OR company_name ILIKE '%' || $2 || '%')
-         AND ($3::text IS NULL OR union_name_snapshot ILIKE '%' || $3 || '%')
+         AND ($3::text IS NULL OR union_name ILIKE '%' || $3 || '%')
        ORDER BY received_at DESC, intake_id DESC LIMIT $4 OFFSET $5`,
       [filters.status ?? null, filters.companyName ?? null, filters.unionName ?? null, limit, offset],
     );
