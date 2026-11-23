@@ -124,3 +124,26 @@ Status: READ-ONLY SOURCE REVIEW / DRAFT; this matrix is evidence for an implemen
 ### STOP / release gate
 
 No changes to FACTACT Core, Sales Tools migrations, DB schema, Cloud resources, Production or customer delivery. Do not infer live availability from source alone. Preserve the original versioned evidence and Human Decision semantics. A future Codex task must include the exact source contracts and target FIT/GAP; it cannot decide these on its own.
+
+
+## 10. 2026-11-23 supersession: Technical Handoff is independent of commercial scope/price
+
+**Authority and priority:** The later user decision in `docs/it-kaizen-assessment-scope-price-separated-development-priority-20261117.md` and approved cross-lane boundary in `docs/it-kaizen-assessment-factact-core-division-and-parallel-development-20261121.md` **supersede any earlier interpretation here** that final paid scope/price approval, invoice/payment, quote authorization or commercial acceptance is a **precondition for technical Design v2 source-context Handoff**. Those are separate business workflows and must not be built as part of Handoff. The candidate table above remains historical evidence, not a reason to reopen the settled commercial decision.
+
+### Current proven reusable source boundary
+
+- `src/services/designV2AssessmentEligibility.ts` already exports `readDesignV2AssessmentEligibility(pool, caseId)` returning exactly:
+  - `caseId`
+  - `feedbackDecision.{id,version,contextHash,decidedByUserId,decidedAt}`
+  - `report.{id,version,contentHash,approvalSnapshotHash}`
+- This function checks the actual v2 case is CLOSED, the **latest** feedback route is DESIGN_ASSESSMENT, source decision snapshot hash/route is internally consistent, and the referenced Design v2 report is DELIVERED with the matching original case, version, content hash, approval snapshot hash and human approval provenance.
+- It performs read-only SQL, and its current regression test `test/designV2AssessmentEligibility.test.ts` covers success, latest-decision route changes, stale or mismatched report, corrupt hashes, missing approval provenance and no legacy-case fallback.
+- Thus these checks are FIT and MUST be reused. A new Handoff writer must not re-implement the same source verification or reinterpret approved report prose as FACT.
+
+### True next GAP and minimal design target
+
+**E1 technical source-context Handoff only:** a small, staff-authorized, immutable and idempotent reference snapshot linking a v2 case and the exact eligibility result (decision/report IDs, versions, hashes) for later Assessment preparation. This is an Assessment application record, **not** a FACTACT Evidence/FACT/Work/Decision record. Use existing Sales Tools staff authentication, the repository's existing version/transaction/audit and migration conventions, and `contentHash`, with a single human-triggered action to hand off. No broad workflow, paid case/quote/pricing engine, parallel fact registry, new Core API or automatic verification. Do not modify `assessment_handoffs` (legacy FK) or implicitly equate Design v2 case IDs with legacy IDs or FACTACT tenant IDs.
+
+**Code-level implementation contract still required before Codex writes:** exact database shape and migration number, unique/version/idempotency behavior under concurrency, staff authentication and route, source freshness check within the same transaction, fail-closed error mapping and local PostgreSQL tests. Do a targeted source inspection of these known existing patterns only. Any unknown authority or migration collision must be returned here before writing code; Codex does not decide these.
+
+**Current D3 baseline:** Draft PR #91 `c136bc553ca75d17080dca09396e456df88b5b5a` was source-reviewed against its design; no Merge/Production authorization. E1 must be developed on an explicitly chosen additive branch/baseline rather than retroactively editing D1/D2/D3 stacked PRs.
