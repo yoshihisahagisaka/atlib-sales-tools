@@ -81,6 +81,7 @@ import { WscSalesService } from './services/wscSalesService';
 import { createAdminWebSecurityCheckRouter } from './routes/adminWebSecurityCheck';
 import { BusinessKaizenProxyService } from './services/businessKaizenProxyService';
 import { createAdminBusinessKaizenRouter } from './routes/adminBusinessKaizen';
+import { BusinessKaizenKpiService } from './services/businessKaizenKpiService';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -96,6 +97,7 @@ async function main(): Promise<void> {
   const webDevelopmentPartnerLeadRepo = new WebDevelopmentPartnerLeadRepo(pool);
   const businessWebConsultationLeadRepo = new BusinessWebConsultationLeadRepo(pool);
   const businessKaizenProxyService = new BusinessKaizenProxyService(pool);
+  const businessKaizenKpiService = new BusinessKaizenKpiService(pool);
   const freeDiagnosisSalesLauncherRepo = new FreeDiagnosisSalesLauncherRepo(pool);
   const salesCustomerRepo = new SalesCustomerRepo(pool);
   const marketingInitiativeRepo = new MarketingInitiativeRepo(pool);
@@ -261,7 +263,7 @@ async function main(): Promise<void> {
   app.use('/api/admin/sales-customers', ...adminAuthGate,
     createAdminSalesCustomersRouter(salesCustomerRepo));
   app.use('/api/admin/business-kaizen', ...adminAuthGate,
-    createAdminBusinessKaizenRouter(businessKaizenProxyService));
+    createAdminBusinessKaizenRouter(businessKaizenProxyService, businessKaizenKpiService));
   app.use(
     '/api/admin/free-diagnosis-v1',
     ...adminAuthGate,

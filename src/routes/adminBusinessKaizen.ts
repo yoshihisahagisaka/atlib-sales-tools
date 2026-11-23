@@ -6,6 +6,7 @@ import {
   BusinessKaizenProxyError,
   type BusinessKaizenProxyService,
 } from '../services/businessKaizenProxyService';
+import { resolveBusinessKaizenKpiPeriod, type BusinessKaizenKpiService } from '../services/businessKaizenKpiService';
 
 const id = z.string().uuid();
 const listInput = z.object({
@@ -55,7 +56,7 @@ function run(res: Response, fn: () => Promise<void>): void {
   });
 }
 
-export function createAdminBusinessKaizenRouter(service: BusinessKaizenProxyService): Router {
+export function createAdminBusinessKaizenRouter(service: BusinessKaizenProxyService, kpiService: BusinessKaizenKpiService): Router {
   const router = Router();
   router.get('/questions', (req, res) => run(res, async () => {
     actor(req); res.json({ items: getBusinessKaizenQuestions(), consentWordingVersion: BUSINESS_KAIZEN_PROXY_CONSENT_VERSION });
@@ -64,6 +65,17 @@ export function createAdminBusinessKaizenRouter(service: BusinessKaizenProxyServ
     actor(req); const parsed = listInput.safeParse(req.query);
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
     res.json(await service.list(parsed.data));
+  }));
+  router.get('/kpis', (req, res) => run(res, async () => {
+    actor(req);
+    const parsed = z.object({
+      from: z.string().optional(), to: z.string().optional(),
+      fiscalYear: z.coerce.number().int().optional(),
+    }).strict().safeParse(req.query);
+    if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    const period = resolveBusinessKaizenKpiPeriod(parsed.data);
+    if (!period) { res.status(400).json({ error: 'INVALID_PERIOD' }); return; }
+    res.json(await kpiService.aggregate(period));
   }));
   router.post('/diagnoses/proxy-drafts', (req, res) => run(res, async () => {
     const staff = actor(req);
