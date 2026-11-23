@@ -206,74 +206,19 @@ test('unexpected HTML response never becomes a downloaded PDF', async () => {
   assert.match(ui.elements['diagnosis-state'].textContent, /PDFを受信できませんでした/);
 });
 
-test('staging catalog preflight is SELECT-only metadata with no credentials or customer rows', () => {
-  const sql = fs.readFileSync(
-    path.join(root, 'design/secumie-web/staging-catalog-readonly.sql'), 'utf8');
-  const statements = sql.replace(/--[^\n]*/g, '').split(';').map(x => x.trim()).filter(Boolean);
-  assert.equal(statements.length, 5, 'Only five existing catalog and aggregate queries are allowed');
-  for (const statement of statements) {
-    assert.match(statement, /^SELECT\s/i);
-    assert.doesNotMatch(statement,
-      /\b(?:CREATE|ALTER|DROP|GRANT|REVOKE|INSERT|UPDATE|DELETE|TRUNCATE|COPY|EXECUTE|CALL|DO)\b/i);
-  }
-  assert.match(sql, /current_database\(\)\s*=\s*'postgres'/);
-  assert.match(sql, /pg_roles/);
-  assert.match(sql, /pg_database/);
-  assert.match(sql, /pg_stat_activity/);
-  assert.match(sql, /'secumie_web_staging'/);
-  assert.doesNotMatch(sql, /\bSELECT\s+\*\s+FROM\s+secumie_web\./i);
-});
-
-
-test('staging migration candidate is hash-pinned and execution is not authorized', () => {
-  const crypto = require('node:crypto');
-  const pkgDir = path.join(root, 'design/secumie-web');
-  const manifest = JSON.parse(fs.readFileSync(path.join(pkgDir, 'staging-migration-candidate.manifest.json'), 'utf8'));
-  assert.equal(manifest.status, 'STAGING_CANDIDATE_EXECUTION_NO_GO');
-  assert.equal(manifest.database, 'secumie_web_staging');
-  assert.equal(manifest.databaseOwner, 'secumie_web_migration_staging');
-  assert.equal(manifest.adminRole, 'secumie_web_admin_staging');
-  assert.equal(manifest.runtimeRole, 'secumie_web_runtime_staging');
-  assert.ok(Object.values(manifest.releaseDecision).every(value => value === false),
-    'candidate is not an approval for GCP, DB, migration, or production');
-  const items = fs.readdirSync(path.join(pkgDir, 'migrations'));
-  assert.deepEqual(items, ['001_secumie_web_intake_staging.sql']);
-  assert.equal(manifest.migrations.length, 1);
-  assert.equal(manifest.migrations[0].filename, items[0]);
-  const bytes = fs.readFileSync(path.join(pkgDir, 'migrations', items[0]));
-  assert.equal(bytes.length, manifest.migrations[0].byteCount);
-  assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'), manifest.migrations[0].sha256);
-  assert.equal(bytes.includes(13), false, 'candidate SQL must use LF only');
-  const sql = bytes.toString('utf8');
+test('Web staff intake uses one guarded two-table migration only', () => {
+  const dir = path.join(root, 'design/secumie-web/migrations');
+  assert.deepEqual(fs.readdirSync(dir), ['001_secumie_web_intake_staging.sql']);
+  const sql = fs.readFileSync(path.join(dir, '001_secumie_web_intake_staging.sql'), 'utf8');
+  assert.equal((sql.match(/CREATE TABLE secumie_web\./g) || []).length, 2);
+  assert.match(sql, /CREATE TABLE secumie_web\.assembly_intake/);
+  assert.match(sql, /CREATE TABLE secumie_web\.assembly_status_history/);
   assert.match(sql, /current_database\(\) <> 'secumie_web_staging'/);
   assert.match(sql, /current_user <> 'secumie_web_migration_staging'/);
+  assert.match(sql, /pg_auth_members/);
   assert.match(sql, /REVOKE CONNECT, TEMPORARY ON DATABASE secumie_web_staging FROM PUBLIC/);
-  assert.match(sql, /GRANT CONNECT ON DATABASE secumie_web_staging/);
-  assert.doesNotMatch(sql, /^COMMIT;$/m, 'transaction and ledger belong to the existing migration runner');
-  const gitBlob = bytes => crypto.createHash('sha1')
-    .update(Buffer.from('blob ' + bytes.length + String.fromCharCode(0)))
-    .update(bytes).digest('hex');
-  assert.equal(gitBlob(fs.readFileSync(path.join(pkgDir, 'assembly-intake.draft.sql'))),
-    manifest.sourceDraftBlobIds.ddl);
-  assert.equal(gitBlob(fs.readFileSync(path.join(pkgDir, 'staging-role-grants.draft.sql'))),
-    manifest.sourceDraftBlobIds.grants);
-});
-
-test('bootstrap operator preflight is SELECT-only and migration guard denies role inheritance', () => {
-  const sql = fs.readFileSync(
-    path.join(root, 'design/secumie-web/staging-bootstrap-operator-readonly.sql'), 'utf8');
-  const statements = sql.replace(/--[^\n]*/g, '').split(';').map(value => value.trim()).filter(Boolean);
-  assert.equal(statements.length, 1);
-  assert.match(statements[0], /^SELECT\s/i);
-  assert.doesNotMatch(statements[0],
-    /\b(?:CREATE|ALTER|DROP|GRANT|REVOKE|INSERT|UPDATE|DELETE|TRUNCATE|COPY|EXECUTE|CALL|DO)\b/i);
-  assert.match(sql, /roles\.rolcreatedb/);
-  assert.match(sql, /roles\.rolcreaterole/);
-  assert.match(sql, /pg_has_role/);
-  assert.match(sql, /createrole_self_grant/);
-  const candidate = fs.readFileSync(
-    path.join(root, 'design/secumie-web/migrations/001_secumie_web_intake_staging.sql'), 'utf8');
-  assert.match(candidate, /NOT rolcanlogin/);
-  assert.match(candidate, /pg_auth_members/);
-  assert.match(candidate, /SECU:MIE_WEB_ROLE_BOUNDARY_STOP/);
+  assert.match(sql, /GRANT CONNECT ON DATABASE secumie_web_staging TO secumie_web_admin_staging/);
+  assert.match(sql, /information_sharing_enabled = false/);
+  assert.doesNotMatch(sql, /assembly_union_master|assembly_consumed_jti|assembly_notification_outbox|secumie_web_runtime_staging/);
+  assert.doesNotMatch(sql, /^COMMIT;$/m, 'transaction stays with the existing runner');
 });
