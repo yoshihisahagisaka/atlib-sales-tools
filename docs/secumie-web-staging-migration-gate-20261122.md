@@ -35,6 +35,36 @@ Google Cloudの公式仕様では、Cloud SQL Consoleや`gcloud sql users create
 
 根拠：Google Cloud [PostgreSQL users](https://docs.cloud.google.com/sql/docs/postgres/users)、[Create and manage users](https://docs.cloud.google.com/sql/docs/postgres/create-manage-users)；PostgreSQL 16 [CREATE DATABASE](https://www.postgresql.org/docs/16/sql-createdatabase.html)、[GRANT](https://www.postgresql.org/docs/16/sql-grant.html)。
 
+## 2B. 2026-11-23 PostgreSQL管理ユーザーの実測（Cloud SQL Studio）
+
+ユーザーが既存Staging Cloud SQL Studioで、DB `postgres` に組み込み認証 `postgres` ユーザーとして接続し、既存の`design/secumie-web/staging-bootstrap-operator-readonly.sql`と同等のSELECT 1件を実行。実画面から確認できた結果だけを採用する。
+
+| 項目 | 実測 |
+| --- | --- |
+| `current_database()` | `postgres` |
+| `current_user` | `postgres` |
+| `rolcreatedb` | `true` |
+| `rolcreaterole` | `true` |
+| `rolsuper` | `false` |
+| `cloudsqlsuperuser`所属 | `true` |
+| `createrole_self_grant` | 画面表示は空欄（既定の空文字列と整合。SQL NULLと断定しない） |
+| Web専用DB数 | `0` |
+| Web専用3 role数 | `0` |
+
+**基本的なoperator権限のread-only GateはPASS**。ただし`CREATE DATABASE ... OWNER secumie_web_migration_staging`の実行可能性は、新規roleが存在せず`SET ROLE`可否を確認できないため、**未判定**。このPASSをDB新設・ユーザー作成の承認に読み替えない。
+
+PostgreSQL 16の`createrole_self_grant`空文字列は、自動的に`SET ROLE`を可能にしない既定状態。非superuserの`CREATEROLE`ユーザーがroleを作成すると、通常、作成者には管理用のrole membership（ADMIN TRUE・SET FALSE・INHERIT FALSE）が自動付与され得る。**この既定の管理membershipはWeb role自身が別roleのmemberであることとは異なる**。管理者側の自動membershipが撤回できると仮定しない（PG16の作成者自身がbootstrap grantを撤回できない場合がある）。
+
+### 承認後の操作契約（この節自体は実行承認ではない）
+
+1. **ロール作成のみを独立承認**：Web専用3 roleを`LOGIN PASSWORD NULL NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`として生成する案。SQLに平文passwordを入れず、初期状態はpassword認証不可。Web roleを`IN ROLE`/`ROLE`で他roleに所属させない。一般Cloud SQLユーザー作成APIの既定`cloudsqlsuperuser`付与経路を使用しない。
+2. 作成直後に`pg_roles`属性、`pg_auth_members`の**Web roleをmemberとする行が0件**、他DB/roleに対する変更0をSELECTで照合する。GCP/SQL catalogで実体が予想外ならその場でSTOP。再実行・修復・無断role削除をしない。
+3. **DB作成は別承認**：`postgres`の`CREATEDB`が確認済みでも、migration roleを新DB ownerに指定するには`SET ROLE`経路が必要。必要になった場合にだけ、管理者`postgres`側へ`SET TRUE / INHERIT FALSE`の一時membershipを明示承認・監査する。Web 3 roleは他roleのmemberにしない。DB作成後は当該`SET`許可の撤回可否と実行結果を必ず照合し、戻せない場合はSTOP・設計再判断する。
+4. ロールのpasswordは、作成／DB owner検証と分けて、承認済みの非表示UIまたはSecret Managerを介した秘密経路で設定。Cloud SQL SQL-created roleのConsole／gcloudユーザー管理で変更可能かは実際の取扱いを確認するまで**未検証**。SQL本文・CLI引数・Git・ログ・チャットへSecret値を置かない。
+5. Web DB/Secret/Cloud Run配備・Migrationはさらに独立承認。`createrole_self_grant`を無断変更したり、`postgres`/既存Insight・Secure GuardのroleやACLを変更したりしない。
+
+PostgreSQL 16 [ロール属性](https://www.postgresql.org/docs/16/role-attributes.html) ／ [CREATE DATABASE](https://www.postgresql.org/docs/16/sql-createdatabase.html) ／ [Client Connection Defaults](https://www.postgresql.org/docs/16/runtime-config-client.html)。
+
 ## 3. 実Stagingでの確定済みFit（2026-11-22ユーザー実測）
 
 PG `16.15`、`max_connections=400`、superuser予約`3`、追加予約`0`、全体接続数`12`（スナップショット）。既存Web DBは0、Web roleは0。Insight DB／Secure Guard DBはともにPUBLIC CONNECT=false、接続可能ロール数はそれぞれ自己側5／3、他方0。既存DB ownerは2つとも`postgres`であり、Web用のownerは**その実体を踏襲して`postgres`へ変更するのではなく**、migration roleをowner候補として個別検証する。
