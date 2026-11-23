@@ -36,7 +36,7 @@ Do not edit D1/D2/D3, `designV2AssessmentEligibility.ts`, shared harness, `packa
 
 ## 3. Database contract: one small append-only table
 
-SQL file 037 uses an ordinary `BEGIN; ... COMMIT;` as the adjacent SQL migration conventions do (the repository migration runner also brackets migrations and supports nested transaction commands in PostgreSQL).
+SQL file 037 **must not contain `BEGIN` or `COMMIT`**. The existing `src/db/migrate.ts` already executes each migration in `BEGIN` → file SQL → `INSERT schema_migrations` → `COMMIT`; an embedded `COMMIT` would end that transaction before the migration-history insert and break rollback atomicity. Do not edit the migration runner or neighboring migrations; this is a narrower exception to the adjacent-file style based on the actual runner.
 
 ```sql
 CREATE TABLE paid_assessment_source_handoff_v2 (
@@ -59,7 +59,7 @@ CREATE INDEX paid_assessment_source_handoff_v2_latest_idx
   ON paid_assessment_source_handoff_v2(source_case_id,version DESC);
 ```
 
-- The migration must also add `BEFORE UPDATE OR DELETE` trigger that unconditionally rejects mutation (use the adjacent `prevent_*_mutation` pattern), and `DO $$ ... $$` role-exists-safe GRANT **SELECT, INSERT only** to `sales_tools_runtime` and `sales_tools_app`. No UPDATE, DELETE or public grants.
+- The migration must also add `BEFORE UPDATE OR DELETE` trigger that unconditionally rejects mutation (use the adjacent `prevent_*_mutation` pattern), and `DO $ ... $` role-exists-safe GRANT **SELECT, INSERT only** to `sales_tools_runtime` and `sales_tools_app`. In the same role-exists-safe block, **REVOKE UPDATE, DELETE explicitly** from each existing runtime role for this table: migration 018 grants `sales_tools_runtime` default UPDATE/DELETE on subsequently created tables, so GRANT SELECT/INSERT alone is insufficient to ensure least privilege. No UPDATE, DELETE or public grants after migration. Do not modify global default privileges.
 - Audit: **reuse** `it_management_diagnosis_case_v2_audit` in the same transaction for the initial creation. Store command `CreatePaidAssessmentSourceHandoff`, actor, and a *minimal* detail JSON with source IDs, version, handoff ID and snapshot hash. Never log report text/survey or secrets. Duplicate retries generate **no new** audit event.
 - SQL FKs establish the referenced entities exist. Cross-case linkage and matching hashes are enforced by the *existing eligibility reader* inside the command, not by invented composite FKs or source-table alterations. No new company/FACT/Work tables.
 
@@ -150,7 +150,7 @@ Required:
 6. Audit INSERT failure → transaction rollback: no handoff, no audit, no partial rows. Ensure transaction connection released.
 7. REST authentication: without staff cookie 401, invalid cookie 401, authenticated POST 201/200, GET read 200; extra payload rejected 400, no public route. No `Authorization` bearer bypass. Apply middleware in test exactly as server.
 8. Cross-case wrong source record cannot be linked; latest read returns null for case with no handoff, no leakage across case IDs.
-9. SQL migration 037 creates one table and indexes; immutable trigger and grants do not alter legacy Handoff, reports, feedback, source facts or other migrations.
+9. SQL migration 037 creates one table and indexes **without nested transaction commands**; immutable trigger and effective SELECT/INSERT-only runtime privileges (including explicit UPDATE/DELETE REVOKE) do not alter legacy Handoff, reports, feedback, source facts, other migrations or the migration runner.
 10. Confirm `npm ci`, `npm run build`, E1 new test suite, **all 121 existing D3 baseline regressions** plus any other directly relevant eligibility/source tests, `git diff --check`. Report actual PASS counts, file diff, immutable migration SQL, and full STOP status.
 
 ## 7. Execution, acceptance, STOP
