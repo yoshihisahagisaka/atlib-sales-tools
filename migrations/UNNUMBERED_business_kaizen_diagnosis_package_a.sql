@@ -82,7 +82,10 @@ CREATE TRIGGER business_kaizen_original_answers_immutable
 CREATE TABLE business_kaizen_diagnosis_audit (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   diagnosis_id UUID NOT NULL REFERENCES business_kaizen_diagnoses(id),
-  operation TEXT NOT NULL CHECK (operation IN ('DRAFT_CREATED','DRAFT_ANSWERS_REPLACED','DIAGNOSIS_COMPLETED')),
+  operation TEXT NOT NULL CHECK (operation IN (
+    'DRAFT_CREATED','DRAFT_ANSWERS_REPLACED','DIAGNOSIS_COMPLETED',
+    'STAGE_CHANGED','SCHEDULE_CHANGED','OUTCOME_CHANGED','COMMERCIAL_EVENT_CREATED'
+  )),
   actor_user_email TEXT NOT NULL,
   metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   occurred_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -99,6 +102,32 @@ CREATE TRIGGER business_kaizen_diagnosis_audit_append_only
   BEFORE UPDATE OR DELETE ON business_kaizen_diagnosis_audit
   FOR EACH ROW EXECUTE FUNCTION business_kaizen_reject_diagnosis_audit_mutation();
 
+CREATE TABLE business_kaizen_commercial_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  diagnosis_id UUID NOT NULL REFERENCES business_kaizen_diagnoses(id),
+  event_type TEXT NOT NULL CHECK (event_type IN ('PROPOSED','WON')),
+  service_name TEXT NOT NULL CHECK (btrim(service_name) <> ''),
+  description TEXT NOT NULL CHECK (btrim(description) <> ''),
+  amount NUMERIC(14,2) CHECK (amount IS NULL OR amount >= 0),
+  currency TEXT NOT NULL DEFAULT 'JPY' CHECK (currency = 'JPY'),
+  occurred_at TIMESTAMPTZ NOT NULL,
+  created_by_user_email TEXT NOT NULL,
+  idempotency_key UUID NOT NULL UNIQUE,
+  payload_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX business_kaizen_commercial_events_diagnosis_idx
+  ON business_kaizen_commercial_events(diagnosis_id, occurred_at DESC, id DESC);
+CREATE FUNCTION business_kaizen_reject_commercial_event_mutation() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'business kaizen commercial events are append-only';
+END;
+$$;
+CREATE TRIGGER business_kaizen_commercial_events_append_only
+  BEFORE UPDATE OR DELETE ON business_kaizen_commercial_events
+  FOR EACH ROW EXECUTE FUNCTION business_kaizen_reject_commercial_event_mutation();
+
 -- Role-exists-safe runtime grants. The draft MUST NOT be applied to Production.
 DO $$
 BEGIN
@@ -108,6 +137,8 @@ BEGIN
     REVOKE UPDATE, DELETE ON TABLE business_kaizen_diagnosis_stage_history FROM sales_tools_runtime;
     GRANT SELECT, INSERT ON TABLE business_kaizen_diagnosis_audit TO sales_tools_runtime;
     REVOKE UPDATE, DELETE ON TABLE business_kaizen_diagnosis_audit FROM sales_tools_runtime;
+    GRANT SELECT, INSERT ON TABLE business_kaizen_commercial_events TO sales_tools_runtime;
+    REVOKE UPDATE, DELETE ON TABLE business_kaizen_commercial_events FROM sales_tools_runtime;
   END IF;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sales_tools_app') THEN
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE business_kaizen_diagnoses TO sales_tools_app;
@@ -115,5 +146,7 @@ BEGIN
     REVOKE UPDATE, DELETE ON TABLE business_kaizen_diagnosis_stage_history FROM sales_tools_app;
     GRANT SELECT, INSERT ON TABLE business_kaizen_diagnosis_audit TO sales_tools_app;
     REVOKE UPDATE, DELETE ON TABLE business_kaizen_diagnosis_audit FROM sales_tools_app;
+    GRANT SELECT, INSERT ON TABLE business_kaizen_commercial_events TO sales_tools_app;
+    REVOKE UPDATE, DELETE ON TABLE business_kaizen_commercial_events FROM sales_tools_app;
   END IF;
 END $$;

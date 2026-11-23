@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import {
   businessKaizenDraftAnswersSchema,
@@ -22,6 +22,18 @@ export interface BusinessKaizenDiagnosisListInput {
   currentStage?: 'ACCEPTED' | 'SCHEDULING' | 'SCHEDULED' | 'MEETING_COMPLETED' | 'PROPOSAL_IN_PROGRESS' | 'PROPOSED';
   page: number;
   limit: number;
+}
+
+export type BusinessKaizenStage = 'ACCEPTED' | 'SCHEDULING' | 'SCHEDULED' | 'MEETING_COMPLETED' | 'PROPOSAL_IN_PROGRESS' | 'PROPOSED';
+export type BusinessKaizenOutcome = 'WON' | 'COMPLETED_NO_PROPOSAL' | 'NOT_PROCEEDED' | 'LOST';
+export interface BusinessKaizenCommercialEventInput {
+  idempotencyKey: string;
+  eventType: 'PROPOSED' | 'WON';
+  serviceName: string;
+  description: string;
+  amount: number | null;
+  currency: 'JPY';
+  occurredAt: string;
 }
 
 export class BusinessKaizenProxyService {
@@ -199,6 +211,150 @@ export class BusinessKaizenProxyService {
       });
       return { created: true, ...updated.rows[0] };
     });
+  }
+
+  async updateStage(diagnosisId: string, stage: BusinessKaizenStage, expectedRevision: number, actor: string) {
+    return this.tx(async client => {
+      const diagnosis = await this.lockCommercialDiagnosis(client, diagnosisId);
+      if (diagnosis.revision !== expectedRevision) throw new BusinessKaizenProxyError(409, 'REVISION_CONFLICT');
+      if (diagnosis.current_stage === stage) return { currentStage: stage, revision: diagnosis.revision, changed: false };
+      const updated = await client.query(
+        `UPDATE business_kaizen_diagnoses SET current_stage=$2,revision=revision+1,updated_at=now()
+          WHERE id=$1 RETURNING current_stage AS "currentStage",revision,updated_at AS "updatedAt"`,
+        [diagnosisId, stage],
+      );
+      let history;
+      try {
+        history = await client.query(
+          `INSERT INTO business_kaizen_diagnosis_stage_history(id,diagnosis_id,stage,changed_by_user_email)
+           VALUES($1,$2,$3,$4) RETURNING id,stage,reached_at AS "reachedAt",changed_by_user_email AS "changedByUserEmail"`,
+          [randomUUID(), diagnosisId, stage, actor],
+        );
+      } catch (error) {
+        if ((error as { code?: string }).code === '23505') throw new BusinessKaizenProxyError(409, 'STAGE_ALREADY_RECORDED');
+        throw error;
+      }
+      await this.audit(client, diagnosisId, 'STAGE_CHANGED', actor, {
+        from: diagnosis.current_stage, to: stage, fromRevision: expectedRevision, toRevision: expectedRevision + 1,
+      });
+      return { ...updated.rows[0], history: history.rows[0], changed: true };
+    });
+  }
+
+  async updateSchedule(diagnosisId: string, scheduledAt: string | null, expectedRevision: number, actor: string) {
+    return this.tx(async client => {
+      const diagnosis = await this.lockCommercialDiagnosis(client, diagnosisId);
+      if (diagnosis.revision !== expectedRevision) throw new BusinessKaizenProxyError(409, 'REVISION_CONFLICT');
+      const before = this.iso(diagnosis.scheduled_at), after = this.iso(scheduledAt);
+      if (before === after) return { scheduledAt: before, revision: diagnosis.revision, changed: false };
+      const updated = await client.query(
+        `UPDATE business_kaizen_diagnoses SET scheduled_at=$2,revision=revision+1,updated_at=now()
+          WHERE id=$1 RETURNING scheduled_at AS "scheduledAt",revision,updated_at AS "updatedAt"`,
+        [diagnosisId, scheduledAt],
+      );
+      await this.audit(client, diagnosisId, 'SCHEDULE_CHANGED', actor, {
+        from: before, to: after, fromRevision: expectedRevision, toRevision: expectedRevision + 1,
+      });
+      return { ...updated.rows[0], changed: true };
+    });
+  }
+
+  async updateOutcome(diagnosisId: string, outcome: BusinessKaizenOutcome | null, outcomeReason: string | null,
+    outcomeNote: string | null, expectedRevision: number, actor: string) {
+    return this.tx(async client => {
+      const diagnosis = await this.lockCommercialDiagnosis(client, diagnosisId);
+      if (diagnosis.revision !== expectedRevision) throw new BusinessKaizenProxyError(409, 'REVISION_CONFLICT');
+      const before = { outcome: diagnosis.outcome, outcomeReason: diagnosis.outcome_reason, outcomeNote: diagnosis.outcome_note };
+      const after = { outcome, outcomeReason, outcomeNote };
+      if (JSON.stringify(before) === JSON.stringify(after)) return { ...after, closedAt: diagnosis.closed_at, revision: diagnosis.revision, changed: false };
+      const updated = await client.query(
+        `UPDATE business_kaizen_diagnoses
+            SET outcome=$2,outcome_reason=$3,outcome_note=$4,
+                closed_at=CASE WHEN $2::text IS NOT NULL THEN COALESCE(closed_at,now()) ELSE closed_at END,
+                revision=revision+1,updated_at=now()
+          WHERE id=$1 RETURNING outcome,outcome_reason AS "outcomeReason",outcome_note AS "outcomeNote",
+                                closed_at AS "closedAt",revision,updated_at AS "updatedAt"`,
+        [diagnosisId, outcome, outcomeReason, outcomeNote],
+      );
+      await this.audit(client, diagnosisId, 'OUTCOME_CHANGED', actor, {
+        from: before, to: after, fromRevision: expectedRevision, toRevision: expectedRevision + 1,
+      });
+      return { ...updated.rows[0], changed: true };
+    });
+  }
+
+  async createCommercialEvent(diagnosisId: string, input: BusinessKaizenCommercialEventInput, actor: string) {
+    const payloadHash = createHash('sha256').update(JSON.stringify({ diagnosisId, ...input })).digest('hex');
+    return this.tx(async client => {
+      await this.lockCommercialDiagnosis(client, diagnosisId);
+      const inserted = await client.query(
+        `INSERT INTO business_kaizen_commercial_events
+          (id,diagnosis_id,event_type,service_name,description,amount,currency,occurred_at,created_by_user_email,idempotency_key,payload_hash)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         ON CONFLICT(idempotency_key) DO NOTHING
+         RETURNING id,diagnosis_id AS "diagnosisId",event_type AS "eventType",service_name AS "serviceName",
+                   description,amount,currency,occurred_at AS "occurredAt",created_by_user_email AS "createdByUserEmail",
+                   idempotency_key AS "idempotencyKey",created_at AS "createdAt"`,
+        [randomUUID(), diagnosisId, input.eventType, input.serviceName, input.description, input.amount,
+          input.currency, input.occurredAt, actor, input.idempotencyKey, payloadHash],
+      );
+      if (inserted.rows[0]) {
+        await this.audit(client, diagnosisId, 'COMMERCIAL_EVENT_CREATED', actor, {
+          commercialEventId: inserted.rows[0].id, eventType: input.eventType, idempotencyKey: input.idempotencyKey,
+        });
+        return { created: true, event: inserted.rows[0] };
+      }
+      const existing = await client.query(
+        `SELECT id,diagnosis_id AS "diagnosisId",event_type AS "eventType",service_name AS "serviceName",
+                description,amount,currency,occurred_at AS "occurredAt",created_by_user_email AS "createdByUserEmail",
+                idempotency_key AS "idempotencyKey",created_at AS "createdAt",payload_hash
+           FROM business_kaizen_commercial_events WHERE idempotency_key=$1`, [input.idempotencyKey],
+      );
+      if (!existing.rows[0] || existing.rows[0].payload_hash !== payloadHash) throw new BusinessKaizenProxyError(409, 'IDEMPOTENCY_CONFLICT');
+      const { payload_hash: _payloadHash, ...event } = existing.rows[0];
+      return { created: false, event };
+    });
+  }
+
+  async listStageHistory(diagnosisId: string) {
+    await this.assertDiagnosis(diagnosisId);
+    const result = await this.pool.query(
+      `SELECT id,diagnosis_id AS "diagnosisId",stage,reached_at AS "reachedAt",
+              changed_by_user_email AS "changedByUserEmail",created_at AS "createdAt"
+         FROM business_kaizen_diagnosis_stage_history WHERE diagnosis_id=$1 ORDER BY reached_at,id`, [diagnosisId],
+    );
+    return { items: result.rows };
+  }
+
+  async listCommercialEvents(diagnosisId: string) {
+    await this.assertDiagnosis(diagnosisId);
+    const result = await this.pool.query(
+      `SELECT id,diagnosis_id AS "diagnosisId",event_type AS "eventType",service_name AS "serviceName",
+              description,amount,currency,occurred_at AS "occurredAt",created_by_user_email AS "createdByUserEmail",
+              idempotency_key AS "idempotencyKey",created_at AS "createdAt"
+         FROM business_kaizen_commercial_events WHERE diagnosis_id=$1 ORDER BY occurred_at DESC,id DESC`, [diagnosisId],
+    );
+    return { items: result.rows };
+  }
+
+  private async lockCommercialDiagnosis(client: PoolClient, diagnosisId: string) {
+    const result = await client.query<{
+      revision:number; current_stage:BusinessKaizenStage|null; scheduled_at:Date|string|null;
+      outcome:BusinessKaizenOutcome|null; outcome_reason:string|null; outcome_note:string|null; closed_at:Date|string|null;
+    }>(`SELECT revision,current_stage,scheduled_at,outcome,outcome_reason,outcome_note,closed_at
+          FROM business_kaizen_diagnoses WHERE id=$1 FOR UPDATE`, [diagnosisId]);
+    if (!result.rows[0]) throw new BusinessKaizenProxyError(404, 'DIAGNOSIS_NOT_FOUND');
+    return result.rows[0];
+  }
+
+  private async assertDiagnosis(diagnosisId: string) {
+    const result = await this.pool.query('SELECT id FROM business_kaizen_diagnoses WHERE id=$1', [diagnosisId]);
+    if (!result.rows[0]) throw new BusinessKaizenProxyError(404, 'DIAGNOSIS_NOT_FOUND');
+  }
+
+  private iso(value: Date | string | null): string | null {
+    if (value === null) return null;
+    return new Date(value).toISOString();
   }
 
   private async audit(client: Pick<PoolClient, 'query'>, diagnosisId: string, operation: string, actor: string, metadata: unknown) {

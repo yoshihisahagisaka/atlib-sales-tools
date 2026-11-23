@@ -22,6 +22,27 @@ const completeInput = z.object({
   purposeConfirmed: z.literal(true), privacyHandlingConfirmed: z.literal(true),
   consentWordingVersion: z.literal(BUSINESS_KAIZEN_PROXY_CONSENT_VERSION),
 }).strict();
+const expectedRevision = z.number().int().positive();
+const stageInput = z.object({
+  expectedRevision,
+  stage: z.enum(['ACCEPTED','SCHEDULING','SCHEDULED','MEETING_COMPLETED','PROPOSAL_IN_PROGRESS','PROPOSED']),
+}).strict();
+const scheduleInput = z.object({ expectedRevision, scheduledAt: z.string().datetime({ offset: true }).nullable() }).strict();
+const outcomeInput = z.object({
+  expectedRevision,
+  outcome: z.enum(['WON','COMPLETED_NO_PROPOSAL','NOT_PROCEEDED','LOST']).nullable(),
+  outcomeReason: z.string().trim().min(1).max(1000).nullable().optional().default(null),
+  outcomeNote: z.string().trim().min(1).max(5000).nullable().optional().default(null),
+}).strict().superRefine((value, ctx) => {
+  if (value.outcome === null && (value.outcomeReason !== null || value.outcomeNote !== null))
+    ctx.addIssue({ code: 'custom', path: ['outcome'], message: 'Cleared outcome cannot retain reason or note' });
+});
+const commercialEventInput = z.object({
+  idempotencyKey: z.string().uuid(), eventType: z.enum(['PROPOSED','WON']),
+  serviceName: z.string().trim().min(1).max(200), description: z.string().trim().min(1).max(5000),
+  amount: z.number().finite().min(0).max(999999999999.99).nullable(), currency: z.literal('JPY'),
+  occurredAt: z.string().datetime({ offset: true }),
+}).strict();
 
 function actor(req: Request): string {
   if (!req.staffEmail) throw new BusinessKaizenProxyError(401, 'STAFF_AUTH_REQUIRED');
@@ -55,6 +76,38 @@ export function createAdminBusinessKaizenRouter(service: BusinessKaizenProxyServ
     actor(req); const parsed = id.safeParse(req.params.id);
     if (!parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
     res.json(await service.get(parsed.data));
+  }));
+  router.patch('/diagnoses/:id/stage', (req, res) => run(res, async () => {
+    const staff = actor(req), diagnosisId = id.safeParse(req.params.id), parsed = stageInput.safeParse(req.body);
+    if (!diagnosisId.success || !parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    res.json(await service.updateStage(diagnosisId.data, parsed.data.stage, parsed.data.expectedRevision, staff));
+  }));
+  router.patch('/diagnoses/:id/schedule', (req, res) => run(res, async () => {
+    const staff = actor(req), diagnosisId = id.safeParse(req.params.id), parsed = scheduleInput.safeParse(req.body);
+    if (!diagnosisId.success || !parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    res.json(await service.updateSchedule(diagnosisId.data, parsed.data.scheduledAt, parsed.data.expectedRevision, staff));
+  }));
+  router.patch('/diagnoses/:id/outcome', (req, res) => run(res, async () => {
+    const staff = actor(req), diagnosisId = id.safeParse(req.params.id), parsed = outcomeInput.safeParse(req.body);
+    if (!diagnosisId.success || !parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    res.json(await service.updateOutcome(diagnosisId.data, parsed.data.outcome, parsed.data.outcomeReason,
+      parsed.data.outcomeNote, parsed.data.expectedRevision, staff));
+  }));
+  router.post('/diagnoses/:id/commercial-events', (req, res) => run(res, async () => {
+    const staff = actor(req), diagnosisId = id.safeParse(req.params.id), parsed = commercialEventInput.safeParse(req.body);
+    if (!diagnosisId.success || !parsed.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    const result = await service.createCommercialEvent(diagnosisId.data, parsed.data, staff);
+    res.status(result.created ? 201 : 200).json(result);
+  }));
+  router.get('/diagnoses/:id/stage-history', (req, res) => run(res, async () => {
+    actor(req); const diagnosisId = id.safeParse(req.params.id);
+    if (!diagnosisId.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    res.json(await service.listStageHistory(diagnosisId.data));
+  }));
+  router.get('/diagnoses/:id/commercial-events', (req, res) => run(res, async () => {
+    actor(req); const diagnosisId = id.safeParse(req.params.id);
+    if (!diagnosisId.success) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    res.json(await service.listCommercialEvents(diagnosisId.data));
   }));
   router.put('/diagnoses/:id/draft-answers', (req, res) => run(res, async () => {
     const staff = actor(req), diagnosisId = id.safeParse(req.params.id), parsed = draftInput.safeParse(req.body);
