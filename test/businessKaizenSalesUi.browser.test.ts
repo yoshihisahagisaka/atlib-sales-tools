@@ -3,17 +3,188 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createFreeDiagnosisRuleBasedV1Harness } from './support/freeDiagnosisRuleBasedV1Harness';
 
-test('SELF and PROXY sales activity can be recorded safely on one detail screen',async({page,context})=>{const h=await createFreeDiagnosisRuleBasedV1Harness({includeDesignV2:true,includeBusinessKaizen:true});try{const leadId=randomUUID(),selfId=randomUUID();await h.pool.query(`INSERT INTO business_web_consultation_leads(id,company_name,person_name,email,privacy_consent,diagnosis_transfer_consent,consent_wording_version,idempotency_key,diagnosis_snapshot,preparation_result) VALUES($1,'Self D2','Self Contact','self@example.test',true,true,'v1',$2,'{}','{}')`,[leadId,randomUUID()]);await h.pool.query(`INSERT INTO business_kaizen_diagnoses(id,entry_channel,input_state,consultation_lead_id,current_stage) VALUES($1,'CUSTOMER_SELF','DRAFT',$2,'ACCEPTED')`,[selfId,leadId]);await h.pool.query(`INSERT INTO business_kaizen_diagnosis_stage_history(id,diagnosis_id,stage) VALUES($1,$2,'ACCEPTED')`,[randomUUID(),selfId]);const companyId=randomUUID(),contactId=randomUUID(),activityId=randomUUID();await h.pool.query(`INSERT INTO company(id,name,created_by_user_id,owner_user_id) VALUES($1,'Proxy D2','seed','owner@atlib.jp')`,[companyId]);await h.pool.query(`INSERT INTO contact(id,company_id,name) VALUES($1,$2,'Proxy Contact')`,[contactId,companyId]);await h.pool.query(`INSERT INTO sales_activity(id,company_id,primary_contact_id,selected_service,created_by_user_id,owner_user_id) VALUES($1,$2,$3,'BUSINESS_WEB','seed','owner@atlib.jp')`,[activityId,companyId,contactId]);const proxy=await h.businessKaizenProxy.createOrResume(activityId,'operator@atlib.jp');const proxyUrl=`${h.url}/admin/business-kaizen-diagnosis-detail.html?id=${proxy.diagnosisId}`;
-await page.goto(proxyUrl);await expect(page).toHaveURL(/\/auth\/login\?returnTo=/);await context.addCookies([{name:'staff_session',value:h.staffCookie.slice('staff_session='.length),url:h.url,httpOnly:true,sameSite:'Lax'}]);await page.goto(`${h.url}/admin/business-kaizen-diagnosis-detail.html?id=${selfId}`);await expect(page.locator('#identity')).toContainText('Self D2');await expect(page.locator('#sales')).toContainText('受付');await expect(page.locator('#stage-history')).toContainText('受付');
-await page.goto(proxyUrl);await expect(page.locator('#identity')).toContainText('Proxy D2');await expect(page.locator('#stage-history')).toContainText('履歴はありません');let stageRequests=0;await page.route('**/stage',async route=>{stageRequests++;await new Promise(resolve=>setTimeout(resolve,120));await route.continue()});await page.locator('#stage').selectOption('ACCEPTED');await page.locator('#stage-save').evaluate((button:HTMLElement)=>{button.click();button.click()});await expect(page.locator('#stage-save')).toBeDisabled();await expect(page.locator('#stage-status')).toContainText('保存しました');expect(stageRequests).toBe(1);await expect(page.locator('#stage-history')).toContainText('受付');await page.unroute('**/stage');
-await page.locator('#stage').selectOption('SCHEDULING');await page.locator('#stage-save').click();await expect(page.locator('#sales')).toContainText('日程調整中');await expect(page.locator('#stage-history li')).toHaveCount(2);assertNoCommercial(await h.pool.query(`SELECT count(*) n FROM business_kaizen_commercial_events WHERE diagnosis_id=$1`,[proxy.diagnosisId]));await h.businessKaizenProxy.updateStage(proxy.diagnosisId,'SCHEDULED',3,'other@atlib.jp');await page.locator('#stage').selectOption('MEETING_COMPLETED');await page.locator('#stage-save').click();await expect(page.locator('#stage-status')).toContainText('別の画面で更新');assert.equal((await h.pool.query(`SELECT current_stage FROM business_kaizen_diagnoses WHERE id=$1`,[proxy.diagnosisId])).rows[0].current_stage,'SCHEDULED');await page.reload();await page.locator('#stage').selectOption('ACCEPTED');await page.locator('#stage-save').click();await expect(page.locator('#stage-status')).toContainText('受付への再到達');
+test('SELF and PROXY sales activity can be recorded safely on one detail screen', async ({ page, context }) => {
+  const h = await createFreeDiagnosisRuleBasedV1Harness({ includeDesignV2: true, includeBusinessKaizen: true });
+  try {
+    const leadId = randomUUID(), selfId = randomUUID();
+    await h.pool.query(`INSERT INTO business_web_consultation_leads(id,company_name,person_name,email,privacy_consent,diagnosis_transfer_consent,consent_wording_version,idempotency_key,diagnosis_snapshot,preparation_result) VALUES($1,'Self D2','Self Contact','self@example.test',true,true,'v1',$2,'{}','{}')`, [leadId, randomUUID()]);
+    await h.pool.query(`INSERT INTO business_kaizen_diagnoses(id,entry_channel,input_state,consultation_lead_id,current_stage) VALUES($1,'CUSTOMER_SELF','DRAFT',$2,'ACCEPTED')`, [selfId, leadId]);
+    await h.pool.query(`INSERT INTO business_kaizen_diagnosis_stage_history(id,diagnosis_id,stage) VALUES($1,$2,'ACCEPTED')`, [randomUUID(), selfId]);
+    const companyId = randomUUID(), contactId = randomUUID(), activityId = randomUUID();
+    await h.pool.query(`INSERT INTO company(id,name,created_by_user_id,owner_user_id) VALUES($1,'Proxy D2','seed','owner@atlib.jp')`, [companyId]);
+    await h.pool.query(`INSERT INTO contact(id,company_id,name) VALUES($1,$2,'Proxy Contact')`, [contactId, companyId]);
+    await h.pool.query(`INSERT INTO sales_activity(id,company_id,primary_contact_id,selected_service,created_by_user_id,owner_user_id) VALUES($1,$2,$3,'BUSINESS_WEB','seed','owner@atlib.jp')`, [activityId, companyId, contactId]);
+    const proxy = await h.businessKaizenProxy.createOrResume(activityId, 'operator@atlib.jp');
+    const proxyUrl = `${h.url}/admin/business-kaizen-diagnosis-detail.html?id=${proxy.diagnosisId}`;
 
-await page.reload();let scheduleRequests=0;await page.route('**/schedule',async route=>{scheduleRequests++;await new Promise(resolve=>setTimeout(resolve,120));await route.continue()});await page.locator('#scheduled-at').fill('2026-12-15T10:30');await page.locator('#schedule-save').evaluate((button:HTMLElement)=>{button.click();button.click()});await expect(page.locator('#schedule-save')).toBeDisabled();await expect(page.locator('#schedule-status')).toContainText('保存しました');expect(scheduleRequests).toBe(1);assert.equal(new Date((await h.pool.query(`SELECT scheduled_at FROM business_kaizen_diagnoses WHERE id=$1`,[proxy.diagnosisId])).rows[0].scheduled_at).toISOString(),'2026-12-15T01:30:00.000Z');await page.unroute('**/schedule');await page.locator('#scheduled-at').fill('2026-12-15T11:45');await page.locator('#schedule-save').click();await expect(page.locator('#sales')).toContainText('2026/12/15 11:45');await page.locator('#schedule-clear').click();await expect(page.locator('#schedule-status')).toContainText('取り消しました');assert.equal((await h.pool.query(`SELECT scheduled_at FROM business_kaizen_diagnoses WHERE id=$1`,[proxy.diagnosisId])).rows[0].scheduled_at,null);assert.equal((await h.pool.query(`SELECT current_stage FROM business_kaizen_diagnoses WHERE id=$1`,[proxy.diagnosisId])).rows[0].current_stage,'SCHEDULED');
+    await page.goto(proxyUrl);
+    await expect(page).toHaveURL(/\/auth\/login\?returnTo=/);
+    await context.addCookies([{ name: 'staff_session', value: h.staffCookie.slice('staff_session='.length), url: h.url, httpOnly: true, sameSite: 'Lax' }]);
+    await page.goto(`${h.url}/admin/business-kaizen-diagnosis-detail.html?id=${selfId}`);
+    await expect(page.locator('#identity')).toContainText('Self D2');
+    await expect(page.locator('#sales')).toContainText('受付');
+    await expect(page.locator('#stage-history')).toContainText('受付');
 
-let firstClosed='';for(const [code,label] of [['WON','受注'],['COMPLETED_NO_PROPOSAL','相談・診断で完了'],['NOT_PROCEEDED','見送り'],['LOST','失注']] as const){await page.locator('#outcome').selectOption(code);await page.locator('#outcome-reason').fill(`Reason ${code}`);await page.locator('#outcome-note').fill(`Note ${code}`);await page.locator('#outcome-save').click();await expect(page.locator('#sales')).toContainText(label);const closed=(await h.pool.query(`SELECT closed_at FROM business_kaizen_diagnoses WHERE id=$1`,[proxy.diagnosisId])).rows[0].closed_at;firstClosed||=new Date(closed).toISOString();expect(new Date(closed).toISOString()).toBe(firstClosed);if(code==='WON')await expect(page.locator('#outcome-panel')).toHaveClass(/outcome-won/);if(code==='LOST')await expect(page.locator('#outcome-panel')).toHaveClass(/outcome-lost/)}await page.locator('#outcome').selectOption('');await page.locator('#outcome-reason').fill('');await page.locator('#outcome-note').fill('');await page.locator('#outcome-save').click();await expect(page.locator('#sales')).toContainText('進行中');expect(new Date((await h.pool.query(`SELECT closed_at FROM business_kaizen_diagnoses WHERE id=$1`,[proxy.diagnosisId])).rows[0].closed_at).toISOString()).toBe(firstClosed);assertNoCommercial(await h.pool.query(`SELECT count(*) n FROM business_kaizen_commercial_events WHERE diagnosis_id=$1`,[proxy.diagnosisId]));
+    await page.goto(proxyUrl);
+    await expect(page.locator('#identity')).toContainText('Proxy D2');
+    const order = await page.locator('#content > *').evaluateAll(nodes => nodes.map(node => node.querySelector('h2,summary')?.textContent));
+    expect(order).toEqual(['企業・担当者', '診断結果', '営業情報', '詳細情報']);
+    await expect(page.locator('#details')).not.toHaveAttribute('open', '');
+    await page.locator('#details summary').click();
+    await expect(page.locator('#original')).toBeVisible();
 
-const fillEvent=async(type:string,service:string,description:string,amount:string|null,time:string)=>{await page.locator('#event-type').selectOption(type);await page.locator('#service-name').fill(service);await page.locator('#event-description').fill(description);if(amount===null){await page.locator('#amount-unknown').check()}else{await page.locator('#amount-unknown').uncheck();await page.locator('#amount').fill(amount)}await page.locator('#occurred-at').fill(time)};let commercialRequests=0;page.on('request',request=>{if(request.method()==='POST'&&request.url().endsWith('/commercial-events'))commercialRequests++});await fillEvent('PROPOSED','業務KAIZEN','提案を確認',null,'2026-11-23T10:00');await page.locator('#commercial-save').evaluate((button:HTMLElement)=>{button.click();button.click()});await expect(page.locator('#commercial-save')).toBeDisabled();await expect(page.locator('#commercial-status')).toContainText('登録しました');expect(commercialRequests).toBe(1);await expect(page.locator('#commercial-events')).toContainText('金額未確定');await fillEvent('WON','業務KAIZEN','0円で受注','0','2026-11-23T11:00');await page.locator('#commercial-save').click();await expect(page.locator('#commercial-events')).toContainText('0円');
-const unsafe=`<img src=x onerror=alert(1)> ${randomUUID()}`;await fillEvent('PROPOSED',unsafe,'通信結果不明テスト',null,'2026-11-23T12:00');let lostPayload:any=null;await page.route('**/commercial-events',async route=>{if(route.request().method()!=='POST'){await route.continue();return}lostPayload=route.request().postDataJSON();await fetch(route.request().url(),{method:'POST',headers:{'Content-Type':'application/json',Cookie:h.staffCookie},body:route.request().postData()});await route.abort('failed')});await page.locator('#commercial-save').click();await expect(page.locator('#commercial-status')).toContainText('同じ内容・同じキー');await page.unroute('**/commercial-events');await page.locator('#commercial-refresh').click();await expect(page.locator('#commercial-events')).toContainText(unsafe);await expect(page.locator('#commercial-events img')).toHaveCount(0);const beforeReplay=Number((await h.pool.query(`SELECT count(*) n FROM business_kaizen_commercial_events WHERE diagnosis_id=$1`,[proxy.diagnosisId])).rows[0].n);await page.locator('#commercial-save').click();await expect(page.locator('#commercial-status')).toContainText('登録しました');const afterReplay=Number((await h.pool.query(`SELECT count(*) n FROM business_kaizen_commercial_events WHERE diagnosis_id=$1`,[proxy.diagnosisId])).rows[0].n);expect(afterReplay).toBe(beforeReplay);expect(lostPayload.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);expect(await page.locator('body').evaluate(body=>body.scrollWidth<=window.innerWidth+1)).toBe(true)
-}finally{await h.close()}});
+    let stageRequests = 0;
+    await page.route('**/stage', async route => { stageRequests++; await new Promise(resolve => setTimeout(resolve, 120)); await route.continue(); });
+    await page.locator('#stage').selectOption('ACCEPTED');
+    await page.locator('#stage-save').evaluate((button: HTMLElement) => { button.click(); button.click(); });
+    await expect(page.locator('#stage-save')).toBeDisabled();
+    await expect(page.locator('#stage-status')).toContainText('保存しました');
+    expect(stageRequests).toBe(1);
+    await page.unroute('**/stage');
+    await page.locator('#stage').selectOption('SCHEDULING');
+    await page.locator('#stage-save').click();
+    await expect(page.locator('#sales')).toContainText('日程調整中');
+    await expect(page.locator('#stage-history li')).toHaveCount(2);
+    assertNoCommercial(await h.pool.query(`SELECT count(*) n FROM business_kaizen_commercial_events WHERE diagnosis_id=$1`, [proxy.diagnosisId]));
+    await h.businessKaizenProxy.updateStage(proxy.diagnosisId, 'SCHEDULED', 3, 'other@atlib.jp');
+    await page.locator('#stage').selectOption('MEETING_COMPLETED');
+    await page.locator('#stage-save').click();
+    await expect(page.locator('#stage-status')).toContainText('別の画面で更新');
+    assert.equal((await h.pool.query(`SELECT current_stage FROM business_kaizen_diagnoses WHERE id=$1`, [proxy.diagnosisId])).rows[0].current_stage, 'SCHEDULED');
+    await page.reload();
+    await page.locator('#stage').selectOption('ACCEPTED');
+    await page.locator('#stage-save').click();
+    await expect(page.locator('#stage-status')).toContainText('受付への再到達');
 
-function assertNoCommercial(result:{rows:Array<{n:unknown}>}){expect(Number(result.rows[0]!.n)).toBe(0)}
+    let scheduleRequests = 0;
+    await page.route('**/schedule', async route => { scheduleRequests++; await new Promise(resolve => setTimeout(resolve, 120)); await route.continue(); });
+    await page.locator('#scheduled-at').fill('2026-12-15T10:30');
+    await page.locator('#schedule-save').evaluate((button: HTMLElement) => { button.click(); button.click(); });
+    await expect(page.locator('#schedule-save')).toBeDisabled();
+    await expect(page.locator('#schedule-status')).toContainText('保存しました');
+    expect(scheduleRequests).toBe(1);
+    assert.equal(new Date((await h.pool.query(`SELECT scheduled_at FROM business_kaizen_diagnoses WHERE id=$1`, [proxy.diagnosisId])).rows[0].scheduled_at).toISOString(), '2026-12-15T01:30:00.000Z');
+    await page.unroute('**/schedule');
+    await page.locator('#scheduled-at').fill('2026-12-15T11:45');
+    await page.locator('#schedule-save').click();
+    await expect(page.locator('#sales')).toContainText('2026/12/15 11:45');
+    await page.locator('#schedule-clear').click();
+    await expect(page.locator('#schedule-status')).toContainText('取り消しました');
+    assert.equal((await h.pool.query(`SELECT scheduled_at FROM business_kaizen_diagnoses WHERE id=$1`, [proxy.diagnosisId])).rows[0].scheduled_at, null);
+
+    let firstClosed = '';
+    for (const [code, label] of [['WON', '受注'], ['COMPLETED_NO_PROPOSAL', '相談・診断で完了'], ['NOT_PROCEEDED', '見送り'], ['LOST', '失注']] as const) {
+      await page.locator('#outcome').selectOption(code);
+      await page.locator('#outcome-reason').fill(`Reason ${code}`);
+      await page.locator('#outcome-note').fill(`Note ${code}`);
+      await page.locator('#outcome-save').click();
+      await expect(page.locator('#sales')).toContainText(label);
+      const closed = (await h.pool.query(`SELECT closed_at FROM business_kaizen_diagnoses WHERE id=$1`, [proxy.diagnosisId])).rows[0].closed_at;
+      firstClosed ||= new Date(closed).toISOString();
+      expect(new Date(closed).toISOString()).toBe(firstClosed);
+      if (code === 'WON') await expect(page.locator('#outcome-panel')).toHaveClass(/outcome-won/);
+      if (code === 'LOST') await expect(page.locator('#outcome-panel')).toHaveClass(/outcome-lost/);
+    }
+    await page.locator('#outcome').selectOption('');
+    await page.locator('#outcome-reason').fill('');
+    await page.locator('#outcome-note').fill('');
+    await page.locator('#outcome-save').click();
+    await expect(page.locator('#sales')).toContainText('進行中');
+
+    const fillEvent = async (type: string, service: string, description: string, amount: string | null, time: string) => {
+      await page.locator('#event-type').selectOption(type);
+      await page.locator('#service-name').fill(service);
+      await page.locator('#event-description').fill(description);
+      if (amount === null) await page.locator('#amount-unknown').check();
+      else { await page.locator('#amount-unknown').uncheck(); await page.locator('#amount').fill(amount); }
+      await page.locator('#occurred-at').fill(time);
+    };
+    let commercialRequests = 0;
+    page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/commercial-events')) commercialRequests++; });
+    await fillEvent('PROPOSED', '業務KAIZEN', '提案を確認', null, '2026-11-23T10:00');
+    await page.locator('#commercial-save').evaluate((button: HTMLElement) => { button.click(); button.click(); });
+    await expect(page.locator('#commercial-save')).toBeDisabled();
+    await expect(page.locator('#commercial-status')).toContainText('登録しました');
+    expect(commercialRequests).toBe(1);
+
+    await fillEvent('WON', '入力修正サービス', '400後に修正', '0', '2026-11-23T11:00');
+    let rejectOnce = true;
+    await page.route('**/commercial-events', async route => {
+      if (route.request().method() === 'POST' && rejectOnce) { rejectOnce = false; await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'INVALID_INPUT' }) }); }
+      else await route.continue();
+    });
+    await page.locator('#commercial-save').click();
+    await expect(page.locator('#commercial-status')).toContainText('入力を修正');
+    await expect(page.locator('#service-name')).toBeEnabled();
+    await expect(page.locator('#service-name')).toHaveValue('入力修正サービス');
+    await page.locator('#service-name').fill('修正済みサービス');
+    await page.locator('#commercial-save').click();
+    await expect(page.locator('#commercial-status')).toContainText('登録しました');
+    await page.unroute('**/commercial-events');
+
+    await fillEvent('WON', '履歴失敗サービス', 'POST成功GET失敗', '0', '2026-11-23T11:30');
+    let postCompleted = false;
+    await page.route('**/commercial-events', async route => {
+      if (route.request().method() === 'POST') { postCompleted = true; await route.continue(); }
+      else if (postCompleted) await route.abort('failed');
+      else await route.continue();
+    });
+    const beforePostGetFailure = commercialRequests;
+    await page.locator('#commercial-save').click();
+    await expect(page.locator('#commercial-status')).toContainText('登録済みですが、履歴を再取得できません');
+    expect(commercialRequests).toBe(beforePostGetFailure + 1);
+    await expect(page.locator('#service-name')).toHaveValue('');
+    await page.locator('#commercial-save').click();
+    expect(commercialRequests).toBe(beforePostGetFailure + 1);
+    await page.unroute('**/commercial-events');
+
+    await fillEvent('PROPOSED', '未確認サービス', '未保存の通信結果不明', null, '2026-11-23T11:45');
+    const unknownPayloads: unknown[] = [];
+    await page.route('**/commercial-events', async route => {
+      if (route.request().method() === 'POST') { unknownPayloads.push(route.request().postDataJSON()); await route.abort('failed'); }
+      else await route.continue();
+    });
+    await page.locator('#commercial-save').click();
+    await expect(page.locator('#commercial-status')).toContainText('同じ内容・同じキー');
+    await page.locator('#commercial-save').click();
+    expect(unknownPayloads).toHaveLength(2);
+    expect(unknownPayloads[1]).toEqual(unknownPayloads[0]);
+    await page.unroute('**/commercial-events');
+
+    await page.reload();
+    const unsafe = `<img src=x onerror=alert(1)> ${randomUUID()}`;
+    await fillEvent('PROPOSED', unsafe, '通信結果不明テスト', null, '2026-11-23T12:00');
+    let lostPayload: any = null;
+    await page.route('**/commercial-events', async route => {
+      if (route.request().method() !== 'POST') { await route.continue(); return; }
+      lostPayload = route.request().postDataJSON();
+      await fetch(route.request().url(), { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: h.staffCookie }, body: route.request().postData() });
+      await route.abort('failed');
+    });
+    await page.locator('#commercial-save').click();
+    await expect(page.locator('#commercial-status')).toContainText('同じ内容・同じキー');
+    await page.unroute('**/commercial-events');
+    await page.locator('#commercial-refresh').click();
+    await expect(page.locator('#commercial-status')).toContainText('登録済みの実績を確認');
+    await expect(page.locator('#commercial-events')).toContainText(unsafe);
+    await expect(page.locator('#commercial-events img')).toHaveCount(0);
+    await expect(page.locator('#service-name')).toBeEnabled();
+    await expect(page.locator('#service-name')).toHaveValue('');
+    expect(lostPayload.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
+    await page.route(`**/diagnoses/${proxy.diagnosisId}`, async route => {
+      if (route.request().method() === 'GET') await route.abort('failed');
+      else await route.continue();
+    });
+    await page.locator('#stage').selectOption('SCHEDULED');
+    await page.locator('#stage-save').click();
+    await expect(page.locator('#stage-status')).toContainText('Stageを保存しました。 ただし最新表示を取得できませんでした');
+    await page.unroute(`**/diagnoses/${proxy.diagnosisId}`);
+    expect(await page.locator('body').evaluate(body => body.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  } finally {
+    await h.close();
+  }
+});
+
+function assertNoCommercial(result: { rows: Array<{ n: unknown }> }) {
+  expect(Number(result.rows[0]!.n)).toBe(0);
+}
