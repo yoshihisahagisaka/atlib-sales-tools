@@ -85,6 +85,21 @@ integration('corporate LP mirror -> existing staff list -> status + audit, with 
     } finally {
       await admin.query('ROLLBACK');
     }
+    // PostgreSQL 16 role membership can confer privileges even when direct
+    // role attributes look harmless. A Web runtime role must not inherit any
+    // group (including Cloud SQL's cloudsqlsuperuser in real staging).
+    await admin.query('GRANT pg_read_all_data TO secumie_web_runtime_staging');
+    try {
+      await assert.rejects(runMigrations(owner, migrationDirPath),
+        /SECU:MIE_WEB_ROLE_BOUNDARY_STOP/,
+        'Web migration must refuse any inherited membership before DDL');
+      const noSchema = await owner.query(
+        "SELECT count(*)::int AS n FROM pg_namespace WHERE nspname='secumie_web'");
+      assert.equal(noSchema.rows[0].n, 0,
+        'rejected role membership must leave the Web schema absent');
+    } finally {
+      await admin.query('REVOKE pg_read_all_data FROM secumie_web_runtime_staging');
+    }
     await runMigrations(owner, migrationDirPath);
     const ledger = await owner.query('SELECT filename FROM schema_migrations ORDER BY filename');
     assert.deepEqual(ledger.rows.map(row => row.filename), [stagedSqlName],
