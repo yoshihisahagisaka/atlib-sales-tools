@@ -1,4 +1,4 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { structuredHearingAnswerSchema } from './structuredHearing';
 
 // IT経営KAIZEN 無料診断 Rule-Based v1. See

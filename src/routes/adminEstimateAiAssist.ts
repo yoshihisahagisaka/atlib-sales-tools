@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { AiAssistNotConfiguredError, type AiAssistService } from '../services/aiAssistService';
 
 const categorySchema = z.enum(['network', 'server', 'kitting', 'dev', 'other']);

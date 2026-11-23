@@ -1,4 +1,4 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
 
 /**
  * ISMS支援プラン診断フォームの質問・配点・しきい値を1箇所に集約したモジュール。

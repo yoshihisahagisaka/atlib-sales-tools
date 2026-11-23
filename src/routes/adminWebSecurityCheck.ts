@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { WscSalesService } from '../services/wscSalesService';

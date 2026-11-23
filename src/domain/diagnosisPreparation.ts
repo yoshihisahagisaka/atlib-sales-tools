@@ -1,4 +1,4 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { DiagnosisError } from './itManagementDiagnosis';
 
 export const PROMPT_VERSION = 'pre-diagnosis-organizer-v1';

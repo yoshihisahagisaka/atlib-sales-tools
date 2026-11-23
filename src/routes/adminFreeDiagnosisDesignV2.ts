@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import {
   CURRENT_INTEREST_CODES_V2,
   FUTURE_CODES_V2,

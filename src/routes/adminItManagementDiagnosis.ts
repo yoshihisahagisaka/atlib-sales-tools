@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import {createDiagnosisAssessmentRouter} from './diagnosisAssessment';
 import type {DiagnosisAssessmentRepo} from '../services/diagnosisAssessmentRepo';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { DIAGNOSIS_STATUSES, DiagnosisError } from '../domain/itManagementDiagnosis';
 import type { ItManagementDiagnosisRepo } from '../services/itManagementDiagnosisRepo';
 import { caseId, diagnosisHandler, mountSurveyCommands, staffActor, type CompletionNotifier } from './itManagementDiagnosis';

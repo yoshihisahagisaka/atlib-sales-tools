@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { CATEGORIES, QUESTIONS, QUESTION_SET_VERSION, buildAnswersSchema, scoreSubmission } from '../domain/ismsDiagnostic';
 import { createIpRateLimiter } from '../middleware/rateLimit';
 import type { IsmsDiagnosticRepo } from '../services/ismsDiagnosticRepo';

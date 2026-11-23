@@ -1,4 +1,4 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
 
 /**
  * 情シスKAIZEN｜60分無料診断（V5診断エンジン）の設計定数・カタログ・純粋関数を1箇所に集約。

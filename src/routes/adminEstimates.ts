@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import type { EstimateRepo, EstimateStatus } from '../services/estimateRepo';
 
 const categorySchema = z.enum(['network', 'server', 'kitting', 'dev', 'other']);

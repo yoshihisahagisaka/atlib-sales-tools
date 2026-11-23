@@ -1,4 +1,4 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
 
 export const DIAGNOSIS_DEFINITION = 'business_web_self_check';
 export const DIAGNOSIS_VERSION = '1.0';

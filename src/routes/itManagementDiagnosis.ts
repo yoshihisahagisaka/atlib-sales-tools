@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { DiagnosisError, responseSchema, type Actor } from '../domain/itManagementDiagnosis';
 import { createIpRateLimiter } from '../middleware/rateLimit';
 import type { ItManagementDiagnosisRepo } from '../services/itManagementDiagnosisRepo';
