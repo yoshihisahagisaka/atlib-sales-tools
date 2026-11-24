@@ -59,3 +59,14 @@ test('Cloud Build upload ignores local npm cache without excluding app sources',
     assert.ok(fs.existsSync(path.join(root, file)), `Cloud Build source missing: ${file}`);
   }
 });
+
+test('headless PDF image uses maintained Node and only the required browser shell', () => {
+  const dockerfile = read('Dockerfile');
+  const bases = dockerfile.match(/^FROM node:24-bookworm-slim/gm) || [];
+  assert.equal(bases.length, 4, 'all four image stages must use the same supported Node 24 base');
+  assert.doesNotMatch(dockerfile, /^FROM node:20-/m);
+  assert.match(dockerfile, /playwright\/cli\.js install --with-deps --only-shell chromium/);
+  assert.match(read('src/services/wscSalesService.ts'),
+    /chromium\.launch\(\{ headless: true \}\)/,
+    'WSC must continue using headless mode without a full Chromium channel');
+});
