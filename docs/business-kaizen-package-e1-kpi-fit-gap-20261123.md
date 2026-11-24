@@ -20,7 +20,7 @@ The governing rule is: only facts whose meaning is already shared are projected.
 | Subject | `business_kaizen_diagnoses.id` | One Business Diagnosis is one subject; Company and Lead are not subjects. |
 | Business line/type | Adapter constants `BUSINESS_KAIZEN` / `BUSINESS_DIAGNOSIS` | Stable labels only; no persistence. |
 | ENTRY_ACCEPTED | Earliest `business_kaizen_diagnosis_stage_history.reached_at` where `stage='ACCEPTED'` | Draft/create/complete/current Stage/legacy Lead status do not imply acceptance. |
-| Diagnosis completed | `business_kaizen_diagnoses.completed_at` | Never inferred from `updated_at`, Outcome, or answer presence. |
+| Diagnosis completed | `business_kaizen_diagnoses.completed_at` | Never inferred from `updated_at`, Outcome, or answer presence. For an accepted Cohort subject, any non-NULL completion is counted even when the actual completion preceded later acceptance. |
 | Proposed | `business_kaizen_commercial_events` where `event_type='PROPOSED'` | A `PROPOSED` Stage is not a Commercial Event. |
 | Won | `business_kaizen_commercial_events` where `event_type='WON'` | Outcome `WON` alone is not converted to a Commercial Event. |
 | Meeting/schedule | Actual Stage History rows (`SCHEDULING`, `SCHEDULED`, `MEETING_COMPLETED`) | Available for a later detailed funnel; E1 does not add them to the initial seven KPIs. `scheduled_at` is a plan, not a reached timestamp. |
@@ -35,6 +35,7 @@ The governing rule is: only facts whose meaning is already shared are projected.
 - Request dates are JST calendar dates. `from` is inclusive; `to` is an inclusive date converted to the next JST midnight as `toExclusive`.
 - `fiscalYear=YYYY` means `[YYYY-02-01 00:00 JST, YYYY+1-02-01 00:00 JST)`.
 - Cohort Funnel selects subjects by their first ENTRY_ACCEPTED in the period and follows their later facts after acceptance, including facts reached after the cohort selection period. This follows the Common KPI Contract and is intentionally distinct from period Activity Volume.
+- Cohort diagnosis completion is a property of an accepted subject: `completed_at IS NOT NULL`. Its actual timestamp is not moved to acceptance time. Activity Volume counts that completion only in the period containing the real `completed_at`.
 - Activity Volume counts facts whose own timestamp is in the period, regardless of the subject's entry cohort.
 - Proposal/win diagnosis counts use distinct Diagnosis IDs. Event counts remain separate fields, so multiple events for one Diagnosis do not inflate subject counts.
 - Acceptance-to-win conversion uses won Diagnosis subjects divided by accepted cohort subjects. A zero denominator returns `null`, never zero percent.

@@ -10,7 +10,7 @@ test('Business KAIZEN KPI separates cohort subjects, activity events and missing
     await accept(h, self, '2026-01-31T15:00:00Z'); // 2026-02-01 00:00 JST, inclusive.
     const normalClose = await seedSelf(h, 'Normal Close', null, '2026-03-05T00:00:00Z', 'COMPLETED_NO_PROPOSAL');
     await accept(h, normalClose, '2026-02-28T14:59:59Z'); // Last second in the requested JST period.
-    const proxy = await seedProxy(h, 'Proxy KPI', 'owner@atlib.jp', null);
+    const proxy = await seedProxy(h, 'Proxy KPI', 'owner@atlib.jp', '2026-01-15T00:00:00Z'); // Completed before later acceptance.
     await accept(h, proxy, '2026-02-10T00:00:00Z');
 
     const stageOnly = await seedProxy(h, 'Stage Only', 'owner@atlib.jp', null);
@@ -41,7 +41,7 @@ test('Business KAIZEN KPI separates cohort subjects, activity events and missing
     assert.deepEqual(body.period, { from: '2026-02-01T00:00:00+09:00', toExclusive: '2026-03-01T00:00:00+09:00', timeZone: 'Asia/Tokyo', fiscalYearStartMonth: 2 });
     assert.deepEqual(body.subject, { businessLine: 'BUSINESS_KAIZEN', subjectType: 'BUSINESS_DIAGNOSIS' });
     assert.deepEqual(body.cohortFunnel, {
-      acceptedDiagnosisCount: 3, completedDiagnosisCount: 2,
+      acceptedDiagnosisCount: 3, completedDiagnosisCount: 3,
       proposedDiagnosisCount: 2, wonDiagnosisCount: 2,
       proposedAmountTotal: 650, wonAmountTotal: 500,
       acceptedToWonRate: 2 / 3,

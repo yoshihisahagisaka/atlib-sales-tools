@@ -65,7 +65,7 @@ export class BusinessKaizenKpiService {
       )
       SELECT
         (SELECT count(*) FROM cohort) AS cohort_accepted,
-        (SELECT count(*) FROM cohort WHERE completed_at >= accepted_at) AS cohort_completed,
+        (SELECT count(*) FROM cohort WHERE completed_at IS NOT NULL) AS cohort_completed,
         (SELECT count(DISTINCT diagnosis_id) FROM cohort_events WHERE event_type='PROPOSED') AS cohort_proposed,
         (SELECT count(DISTINCT diagnosis_id) FROM cohort_events WHERE event_type='WON') AS cohort_won,
         (SELECT CASE WHEN count(*)=0 THEN 0 WHEN count(amount)=0 THEN NULL ELSE sum(amount) END FROM cohort_events WHERE event_type='PROPOSED') AS cohort_proposed_amount,

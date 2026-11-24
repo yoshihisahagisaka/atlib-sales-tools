@@ -29,7 +29,7 @@ test('Business KAIZEN KPI reads canonical facts on isolated PostgreSQL 16', { sk
     try {
       const lead = randomUUID(), diagnosis = randomUUID();
       await pool.query(`INSERT INTO business_web_consultation_leads(id,company_name,person_name,email,privacy_consent,diagnosis_transfer_consent,consent_wording_version,idempotency_key,diagnosis_snapshot,preparation_result) VALUES($1,'PG KPI','Person','pg@example.test',true,true,'v1',$2,'{}','{}')`, [lead, randomUUID()]);
-      await pool.query(`INSERT INTO business_kaizen_diagnoses(id,entry_channel,input_state,consultation_lead_id,owner_user_email,original_answers,current_answers,diagnosis_snapshot,completed_at) VALUES($1,'CUSTOMER_SELF','COMPLETED',$2,NULL,'{}','{}','{}','2026-01-31T16:00:00Z')`, [diagnosis, lead]);
+      await pool.query(`INSERT INTO business_kaizen_diagnoses(id,entry_channel,input_state,consultation_lead_id,owner_user_email,original_answers,current_answers,diagnosis_snapshot,completed_at) VALUES($1,'CUSTOMER_SELF','COMPLETED',$2,NULL,'{}','{}','{}','2026-01-30T16:00:00Z')`, [diagnosis, lead]);
       await pool.query(`INSERT INTO business_kaizen_diagnosis_stage_history(id,diagnosis_id,stage,reached_at) VALUES($1,$2,'ACCEPTED','2026-01-31T15:00:00Z')`, [randomUUID(), diagnosis]);
       const eventId = randomUUID(), key = randomUUID();
       await pool.query(`INSERT INTO business_kaizen_commercial_events(id,diagnosis_id,event_type,service_name,description,amount,currency,occurred_at,created_by_user_email,idempotency_key,payload_hash) VALUES($1,$2,'WON','業務KAIZEN','PG win',NULL,'JPY','2026-02-01T00:00:00Z','pg@atlib.jp',$3,'hash')`, [eventId, diagnosis, key]);
@@ -38,6 +38,7 @@ test('Business KAIZEN KPI reads canonical facts on isolated PostgreSQL 16', { sk
       const result = await new BusinessKaizenKpiService(pool).aggregate(period);
       assert.equal(result.cohortFunnel.acceptedDiagnosisCount, 1);
       assert.equal(result.cohortFunnel.completedDiagnosisCount, 1);
+      assert.equal(result.activityVolume.completedDiagnosisCount, 0);
       assert.equal(result.cohortFunnel.wonDiagnosisCount, 1);
       assert.equal(result.cohortFunnel.acceptedToWonRate, 1);
       assert.equal(result.cohortFunnel.wonAmountTotal, null);
