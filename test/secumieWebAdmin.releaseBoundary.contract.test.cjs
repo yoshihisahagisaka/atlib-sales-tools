@@ -48,3 +48,14 @@ test('release remains unapproved while current source is not reconciled with dep
   assert.match(record, /sales-tools-bks-20261122040419/);
   assert.match(record, /未作成/);
 });
+
+test('Cloud Build upload ignores local npm cache without excluding app sources', () => {
+  const ignore = read('.gcloudignore');
+  assert.match(ignore, /^\.npm-cache\/$/m);
+  assert.match(ignore, /^node_modules\/$/m);
+  assert.match(ignore, /^\.git\/$/m);
+  assert.doesNotMatch(ignore, /^\s*(?:Dockerfile|package(?:-lock)?\.json|src\/|public\/)\s*$/m);
+  for (const file of ['Dockerfile','package.json','package-lock.json','src/server.ts','public/admin/secumie-web.html']) {
+    assert.ok(fs.existsSync(path.join(root, file)), `Cloud Build source missing: ${file}`);
+  }
+});
