@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'package-lock.json'
       - 'Dockerfile'
       - '.github/workflows/secumie-web-admin-browser-acceptance.yml'
       - 'public/admin/secumie-web.html'
