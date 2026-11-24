@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'Dockerfile'
       - '.github/workflows/secumie-web-admin-browser-acceptance.yml'
       - 'public/admin/secumie-web.html'
       - 'public/admin/secumie-web.js'
@@ -29,6 +30,6 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Install only Playwright Chromium dependencies
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps --only-shell chromium
       - name: Exercise application list, fallback, WSC PDF and delivery confirmation
         run: node --test test/secumieWebAdmin.browser.test.cjs
