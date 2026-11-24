@@ -39,6 +39,13 @@ export interface Config {
   publicIntakeEnabled: boolean;
   /** Fail-closed allowlist for test-case designation. Deletion is never a runtime capability. */
   testCaseAdminEmails: string[];
+  businessKaizenAnonymousKpi: {
+    enabled: boolean;
+    secret: string;
+    environment: 'PRODUCTION' | 'TEST';
+    allowedOrigins: string[];
+    allowedHostnames: string[];
+  };
 }
 
 /**
@@ -82,6 +89,19 @@ export async function loadConfig(): Promise<Config> {
     if (!value) throw new Error(`Missing required config value: ${name}`);
     return value;
   };
+  const list = (value: string | undefined): string[] => [...new Set((value ?? '').split(',').map(item => item.trim()).filter(Boolean))];
+  const validOrigins = (value: string | undefined): string[] => list(value).filter(item => {
+    try { const parsed = new URL(item); return parsed.protocol === 'https:' && parsed.origin === item && !parsed.username && !parsed.password; }
+    catch { return false; }
+  });
+  const validHostnames = (value: string | undefined): string[] => list(value).map(item => item.toLowerCase())
+    .filter(item => /^[a-z0-9.-]+$/.test(item) && !item.startsWith('.') && !item.endsWith('.'));
+  const anonymousEnvironment = process.env.BUSINESS_KAIZEN_ANONYMOUS_KPI_ENVIRONMENT === 'PRODUCTION' ? 'PRODUCTION' : 'TEST';
+  const anonymousOrigins = validOrigins(process.env.BUSINESS_KAIZEN_ANONYMOUS_KPI_ALLOWED_ORIGINS);
+  const anonymousHostnames = validHostnames(process.env.BUSINESS_KAIZEN_ANONYMOUS_KPI_ALLOWED_HOSTNAMES);
+  const anonymousSecret = process.env.BUSINESS_KAIZEN_ANONYMOUS_KPI_TURNSTILE_SECRET ?? '';
+  const anonymousRequested = process.env.BUSINESS_KAIZEN_ANONYMOUS_KPI_ENABLED === 'true';
+  const anonymousEnabled = anonymousRequested && Boolean(anonymousSecret && anonymousOrigins.length && anonymousHostnames.length);
 
   const portalBaseUrl = required('PORTAL_BASE_URL', process.env.PORTAL_BASE_URL);
   for(const [name,value] of Object.entries({SMTP_PASSWORD:smtpPassword,GOOGLE_OAUTH_CLIENT_SECRET:googleOauthClientSecret,STAFF_JWT_SECRET:staffJwtSecret}))required(name,value.trim());
@@ -118,5 +138,9 @@ export async function loadConfig(): Promise<Config> {
     publicIntakeEnabled: process.env.DIAGNOSIS_PUBLIC_INTAKE_ENABLED === 'true',
     testCaseAdminEmails: [...new Set((process.env.TEST_CASE_ADMIN_EMAILS ?? '').split(',')
       .map(value => value.trim().toLowerCase()).filter(Boolean))],
+    businessKaizenAnonymousKpi: {
+      enabled: anonymousEnabled, secret: anonymousSecret, environment: anonymousEnvironment,
+      allowedOrigins: anonymousOrigins, allowedHostnames: anonymousHostnames,
+    },
   };
 }

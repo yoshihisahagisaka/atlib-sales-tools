@@ -82,6 +82,9 @@ import { createAdminWebSecurityCheckRouter } from './routes/adminWebSecurityChec
 import { BusinessKaizenProxyService } from './services/businessKaizenProxyService';
 import { createAdminBusinessKaizenRouter } from './routes/adminBusinessKaizen';
 import { BusinessKaizenKpiService } from './services/businessKaizenKpiService';
+import { BusinessKaizenAnonymousKpiService } from './services/businessKaizenAnonymousKpiService';
+import { createBusinessKaizenAnonymousEventsRouter } from './routes/businessKaizenAnonymousEvents';
+import { createAdminBusinessKaizenAnonymousKpiRouter } from './routes/adminBusinessKaizenAnonymousKpi';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -98,6 +101,7 @@ async function main(): Promise<void> {
   const businessWebConsultationLeadRepo = new BusinessWebConsultationLeadRepo(pool);
   const businessKaizenProxyService = new BusinessKaizenProxyService(pool);
   const businessKaizenKpiService = new BusinessKaizenKpiService(pool);
+  const businessKaizenAnonymousKpiService = new BusinessKaizenAnonymousKpiService(pool, config.businessKaizenAnonymousKpi);
   const freeDiagnosisSalesLauncherRepo = new FreeDiagnosisSalesLauncherRepo(pool);
   const salesCustomerRepo = new SalesCustomerRepo(pool);
   const marketingInitiativeRepo = new MarketingInitiativeRepo(pool);
@@ -197,6 +201,8 @@ async function main(): Promise<void> {
     '/api/business-web-consultation-leads',
     createBusinessWebConsultationLeadRouter(businessWebConsultationLeadRepo, mailer, config, pool),
   );
+  app.use('/api/public/business-kaizen/anonymous-events',
+    createBusinessKaizenAnonymousEventsRouter(businessKaizenAnonymousKpiService));
   // TimeRex Standard運用中は予約状態を管理画面で手動更新する。\n  // Premiumへアップグレードし、任意URLパラメータ(lead_id)のWebhook受信を実機検証した後に有効化する。\n  // app.use('/api/webhooks/timerex/infravision-partner', createTimeRexWebhookRouter(infraVisionPartnerLeadRepo));
 
   // 情シスKAIZEN｜60分無料診断（V5）: LP→事前アンケート→担当者主導の60分診断→PDF/PPTXレポート。
@@ -262,6 +268,8 @@ async function main(): Promise<void> {
     createAdminMarketingInitiativeRouter(marketingInitiativeRepo, freeDiagnosisSalesLauncherRepo));
   app.use('/api/admin/sales-customers', ...adminAuthGate,
     createAdminSalesCustomersRouter(salesCustomerRepo));
+  app.use('/api/admin/business-kaizen/anonymous-kpis', ...adminAuthGate,
+    createAdminBusinessKaizenAnonymousKpiRouter(businessKaizenAnonymousKpiService));
   app.use('/api/admin/business-kaizen', ...adminAuthGate,
     createAdminBusinessKaizenRouter(businessKaizenProxyService, businessKaizenKpiService));
   app.use(
