@@ -45,6 +45,24 @@ RUN mkdir -p /ms-playwright \
     && node ./node_modules/playwright/cli.js install --with-deps chromium \
     && fc-cache -f \
     && chmod -R a+rX /ms-playwright
+RUN apt-get update \
+    && apt-get install -y \
+       --no-install-recommends \
+       --only-upgrade \
+       dpkg=1.21.23 \
+       perl-base=5.36.0-7+deb12u4 \
+       libc6:amd64=2.36-9+deb12u14 \
+       libc-bin=2.36-9+deb12u14 \
+       libcap2:amd64=1:2.66-4+deb12u3+b1 \
+       libgnutls30:amd64=3.7.9-2+deb12u7 \
+       libpcre2-8-0:amd64=10.42-1+deb12u2 \
+    && rm -rf /var/lib/apt/lists/*
+RUN rm -rf /usr/local/lib/node_modules/npm \
+    && rm -f /usr/local/bin/npm \
+             /usr/local/bin/npx \
+    && test ! -e /usr/local/lib/node_modules/npm \
+    && ! command -v npm \
+    && ! command -v npx
 COPY --from=build /app/dist ./dist
 COPY public ./public
 USER node
