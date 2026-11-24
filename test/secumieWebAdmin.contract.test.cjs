@@ -216,8 +216,8 @@ test('Web staff intake uses one guarded two-table migration only', () => {
   assert.match(sql, /current_database\(\) <> 'secumie_web_staging'/);
   assert.match(sql, /current_user <> 'secumie_web_migration_staging'/);
   assert.match(sql, /pg_auth_members/);
-  assert.match(sql, /REVOKE CONNECT, TEMPORARY ON DATABASE secumie_web_staging FROM PUBLIC/);
-  assert.match(sql, /GRANT CONNECT ON DATABASE secumie_web_staging TO secumie_web_admin_staging/);
+  assert.doesNotMatch(sql, /REVOKE CONNECT, TEMPORARY ON DATABASE/, 'DB owner applies ACL during bootstrap');
+  assert.doesNotMatch(sql, /GRANT CONNECT ON DATABASE/, 'migration role must not grant DB CONNECT');
   assert.match(sql, /information_sharing_enabled = false/);
   assert.doesNotMatch(sql, /assembly_union_master|assembly_consumed_jti|assembly_notification_outbox|secumie_web_runtime_staging/);
   assert.doesNotMatch(sql, /^COMMIT;$/m, 'transaction stays with the existing runner');
