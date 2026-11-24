@@ -24,6 +24,8 @@
     "test:business-kaizen-kpi:postgres": "node -r ts-node/register --test test/businessKaizenKpi.pg.test.ts",
     "test:business-kaizen-common-kpi-adapter": "node -r ts-node/register --test test/businessKaizenCommonKpiAdapter.contract.test.ts",
     "test:business-kaizen-common-kpi-adapter:postgres": "node -r ts-node/register --test test/businessKaizenCommonKpiAdapter.pg.test.ts",
+    "test:business-kaizen-accepted-reentry": "node -r ts-node/register --test test/businessKaizenAcceptedReentry.integration.test.ts",
+    "test:business-kaizen-accepted-reentry:postgres": "node -r ts-node/register --test test/businessKaizenAcceptedReentry.pg.test.ts",
     "test:business-kaizen-anonymous-kpi": "node -r ts-node/register --test test/businessKaizenAnonymousKpi.integration.test.ts",
     "test:business-kaizen-anonymous-kpi:postgres": "node -r ts-node/register --test test/businessKaizenAnonymousKpi.pg.test.ts",
     "test:business-kaizen-proxy:browser": "playwright test --config=test/businessKaizenProxy.playwright.config.ts",

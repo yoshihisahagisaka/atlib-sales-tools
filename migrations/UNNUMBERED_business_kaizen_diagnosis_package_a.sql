@@ -49,9 +49,10 @@ CREATE TABLE business_kaizen_diagnosis_stage_history (
   changed_by_user_email TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX business_kaizen_initial_accepted_unique
-  ON business_kaizen_diagnosis_stage_history(diagnosis_id)
-  WHERE stage = 'ACCEPTED';
+-- A stage may be reached again. The first ACCEPTED remains the entry fact and is
+-- resolved with min(reached_at); later rows remain immutable sales history.
+CREATE INDEX business_kaizen_stage_history_stage_reached_idx
+  ON business_kaizen_diagnosis_stage_history(diagnosis_id, stage, reached_at, id);
 CREATE INDEX business_kaizen_stage_history_diagnosis_idx
   ON business_kaizen_diagnosis_stage_history(diagnosis_id, reached_at);
 
