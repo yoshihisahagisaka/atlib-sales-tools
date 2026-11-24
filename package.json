@@ -22,6 +22,8 @@
     "test:business-kaizen-sales:browser": "playwright test --config=test/businessKaizenSalesUi.playwright.config.ts",
     "test:business-kaizen-kpi": "node -r ts-node/register --test test/businessKaizenKpi.integration.test.ts",
     "test:business-kaizen-kpi:postgres": "node -r ts-node/register --test test/businessKaizenKpi.pg.test.ts",
+    "test:business-kaizen-common-kpi-adapter": "node -r ts-node/register --test test/businessKaizenCommonKpiAdapter.contract.test.ts",
+    "test:business-kaizen-common-kpi-adapter:postgres": "node -r ts-node/register --test test/businessKaizenCommonKpiAdapter.pg.test.ts",
     "test:business-kaizen-anonymous-kpi": "node -r ts-node/register --test test/businessKaizenAnonymousKpi.integration.test.ts",
     "test:business-kaizen-anonymous-kpi:postgres": "node -r ts-node/register --test test/businessKaizenAnonymousKpi.pg.test.ts",
     "test:business-kaizen-proxy:browser": "playwright test --config=test/businessKaizenProxy.playwright.config.ts",
