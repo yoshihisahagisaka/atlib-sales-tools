@@ -39,6 +39,35 @@ export interface Config {
   publicIntakeEnabled: boolean;
   /** Fail-closed allowlist for test-case designation. Deletion is never a runtime capability. */
   testCaseAdminEmails: string[];
+  businessKaizenAnonymousKpi: {
+    enabled: boolean;
+    secret: string;
+    environment: 'PRODUCTION' | 'TEST';
+    allowedOrigins: string[];
+    allowedHostnames: string[];
+  };
+}
+
+function configuredList(value: string | undefined): string[] {
+  return [...new Set((value ?? '').split(',').map(item => item.trim()).filter(Boolean))];
+}
+
+export function resolveBusinessKaizenAnonymousKpiConfig(env: NodeJS.ProcessEnv): Config['businessKaizenAnonymousKpi'] {
+  const validOrigins = configuredList(env.BUSINESS_KAIZEN_ANONYMOUS_KPI_ALLOWED_ORIGINS).filter(item => {
+    try { const parsed = new URL(item); return parsed.protocol === 'https:' && parsed.origin === item && !parsed.username && !parsed.password; }
+    catch { return false; }
+  });
+  const validHostnames = configuredList(env.BUSINESS_KAIZEN_ANONYMOUS_KPI_ALLOWED_HOSTNAMES).map(item => item.toLowerCase())
+    .filter(item => /^[a-z0-9.-]+$/.test(item) && !item.startsWith('.') && !item.endsWith('.'));
+  const rawEnvironment = env.BUSINESS_KAIZEN_ANONYMOUS_KPI_ENVIRONMENT;
+  const environmentValid = rawEnvironment === 'PRODUCTION' || rawEnvironment === 'TEST';
+  const environment: 'PRODUCTION' | 'TEST' = rawEnvironment === 'PRODUCTION' ? 'PRODUCTION' : 'TEST';
+  const secret = env.BUSINESS_KAIZEN_ANONYMOUS_KPI_TURNSTILE_SECRET ?? '';
+  const requested = env.BUSINESS_KAIZEN_ANONYMOUS_KPI_ENABLED === 'true';
+  return {
+    enabled: requested && environmentValid && Boolean(secret && validOrigins.length && validHostnames.length),
+    secret, environment, allowedOrigins: validOrigins, allowedHostnames: validHostnames,
+  };
 }
 
 /**
@@ -82,6 +111,7 @@ export async function loadConfig(): Promise<Config> {
     if (!value) throw new Error(`Missing required config value: ${name}`);
     return value;
   };
+  const anonymousKpi = resolveBusinessKaizenAnonymousKpiConfig(process.env);
 
   const portalBaseUrl = required('PORTAL_BASE_URL', process.env.PORTAL_BASE_URL);
   for(const [name,value] of Object.entries({SMTP_PASSWORD:smtpPassword,GOOGLE_OAUTH_CLIENT_SECRET:googleOauthClientSecret,STAFF_JWT_SECRET:staffJwtSecret}))required(name,value.trim());
@@ -118,5 +148,6 @@ export async function loadConfig(): Promise<Config> {
     publicIntakeEnabled: process.env.DIAGNOSIS_PUBLIC_INTAKE_ENABLED === 'true',
     testCaseAdminEmails: [...new Set((process.env.TEST_CASE_ADMIN_EMAILS ?? '').split(',')
       .map(value => value.trim().toLowerCase()).filter(Boolean))],
+    businessKaizenAnonymousKpi: anonymousKpi,
   };
 }
