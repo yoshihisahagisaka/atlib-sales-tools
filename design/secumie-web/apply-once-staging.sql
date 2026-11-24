@@ -92,8 +92,8 @@ CREATE TABLE secumie_web.assembly_status_history (
   changed_at timestamptz NOT NULL DEFAULT now()
 );
 
-REVOKE CONNECT, TEMPORARY ON DATABASE secumie_web_staging FROM PUBLIC;
-GRANT CONNECT ON DATABASE secumie_web_staging TO secumie_web_admin_staging;
+-- Database CONNECT/TEMPORARY grants are owned by postgres and must be
+-- configured before this migration. Migration role cannot change DB ACL.
 REVOKE ALL ON SCHEMA secumie_web FROM PUBLIC;
 REVOKE ALL ON ALL TABLES IN SCHEMA secumie_web FROM PUBLIC;
 GRANT USAGE ON SCHEMA secumie_web TO secumie_web_admin_staging;
