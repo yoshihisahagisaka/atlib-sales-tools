@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'package-lock.json'
       - 'Dockerfile'
       - '.github/workflows/secumie-web-admin-db-acceptance.yml'
       - 'src/config.ts'
