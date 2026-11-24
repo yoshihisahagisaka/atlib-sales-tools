@@ -101,6 +101,65 @@ test('施策管理でUTM条件をカード表示し、登録・集計・無効�
   await expect(current).toContainText('無効');
 });
 
+test('Public Customer Selfは全画面で中央配置と共通幅・7問の進捗バーを維持する', async ({ browser }, testInfo) => {
+  const context = await browser.newContext(); const page = await context.newPage();
+  await page.goto(h.url + '/it-management-kaizen/free-diagnosis/');
+
+  const layouts: Array<{ screen: string; mainWidth: number; cardWidth: number; centerDelta: number }> = [];
+  const recordLayout = async (screen: string) => {
+    const layout = await page.evaluate(() => {
+      const main = document.querySelector('main')!.getBoundingClientRect();
+      const card = document.querySelector('#app')!.getBoundingClientRect();
+      return {
+        mainWidth: main.width,
+        cardWidth: card.width,
+        centerDelta: Math.abs((card.left + card.width / 2) - window.innerWidth / 2),
+        horizontalOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    expect(layout.centerDelta).toBeLessThanOrEqual(1);
+    expect(layout.horizontalOverflow).toBeLessThanOrEqual(0);
+    layouts.push({ screen, mainWidth: layout.mainWidth, cardWidth: layout.cardWidth, centerDelta: layout.centerDelta });
+  };
+
+  await recordLayout('role');
+  await page.keyboard.press('Tab');
+  const focused = page.locator(':focus');
+  await expect(focused).toBeVisible();
+  expect(await focused.evaluate(element => getComputedStyle(element).outlineStyle)).not.toBe('none');
+  await page.locator('input[name="respondent-role"]').first().check();
+  await page.click('#start-questions');
+
+  for (let step = 1; step <= 7; step += 1) {
+    await expect(page.locator('.survey-progress')).toHaveAttribute('max', '7');
+    await expect(page.locator('.survey-progress')).toHaveAttribute('value', String(step));
+    await expect(page.locator('.survey-progress')).toHaveAttribute('aria-label', `事前アンケート ${step} / 7`);
+    await recordLayout(`question-${step}`);
+    if (step === 1) {
+      for (const select of await page.locator('#app select').all()) await select.selectOption({ index: 1 });
+    } else {
+      await page.locator('input[name="answer"]').first().check();
+    }
+    await page.click('#next');
+  }
+
+  await recordLayout('conversion');
+  await page.click('#to-application');
+  await recordLayout('application');
+  await expect(page.locator('#back')).toHaveClass(/secondary/);
+  await expect(page.locator('#submit')).toHaveCSS('background-color', 'rgb(23, 59, 99)');
+  if (process.env.FREE_DIAGNOSIS_UI_EVIDENCE_DIR) {
+    await page.screenshot({ path: `${process.env.FREE_DIAGNOSIS_UI_EVIDENCE_DIR}/${testInfo.project.name}-application.png`, fullPage: true });
+  }
+  expect(Math.max(...layouts.map(item => item.cardWidth)) - Math.min(...layouts.map(item => item.cardWidth))).toBeLessThanOrEqual(1);
+  if (testInfo.project.name === 'mobile') {
+    expect(await page.locator('#submit').evaluate(element => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+  } else {
+    expect(layouts[0].cardWidth).toBeLessThanOrEqual(820);
+  }
+  await context.close();
+});
+
 test('Public Customer Selfは事前アンケートから申込み・予約導線へ進み、送信前には永続化しない', async ({ browser }) => {
   const context = await browser.newContext(); const page = await context.newPage();
   const before = Number((await h.pool.query('SELECT count(*)::int AS count FROM it_management_public_self_submission')).rows[0].count);

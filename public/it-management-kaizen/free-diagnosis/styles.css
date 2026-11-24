@@ -1,0 +1,275 @@
+.free-diagnosis-page {
+  margin: 0;
+  background: #f4f6f8;
+  color: #172033;
+}
+
+.free-diagnosis-page main {
+  box-sizing: border-box;
+  width: min(820px, calc(100% - 32px));
+  max-width: none;
+  margin: 40px auto 56px;
+  padding: 0;
+}
+
+.free-diagnosis-page main > h1 {
+  margin: 0 0 16px;
+  color: #142b4a;
+  font-size: clamp(1.6rem, 4vw, 2.15rem);
+  line-height: 1.35;
+}
+
+.free-diagnosis-page .service-intro {
+  max-width: none;
+  margin: 0 0 18px;
+  color: #475569;
+  line-height: 1.8;
+}
+
+.free-diagnosis-page .service-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 0 0 24px;
+  padding-left: 1.5rem;
+  color: #334155;
+}
+
+.free-diagnosis-page .card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  padding: 32px;
+  overflow-wrap: anywhere;
+  background: #fff;
+  border: 1px solid #dce3ea;
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(20, 43, 74, 0.08);
+}
+
+.free-diagnosis-page .card h2 {
+  margin: 0 0 16px;
+  color: #142b4a;
+  font-size: clamp(1.25rem, 3vw, 1.6rem);
+  line-height: 1.5;
+}
+
+.free-diagnosis-page .card p { line-height: 1.75; }
+
+.free-diagnosis-page label {
+  display: block;
+  margin: 16px 0 0;
+  color: #27364b;
+  font-weight: 600;
+}
+
+.free-diagnosis-page input,
+.free-diagnosis-page select,
+.free-diagnosis-page textarea {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: 46px;
+  margin-top: 7px;
+  padding: 10px 12px;
+  color: #172033;
+  background: #fff;
+  border: 1px solid #94a3b8;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.free-diagnosis-page input:hover,
+.free-diagnosis-page select:hover,
+.free-diagnosis-page textarea:hover { border-color: #64748b; }
+
+.free-diagnosis-page input:focus-visible,
+.free-diagnosis-page select:focus-visible,
+.free-diagnosis-page textarea:focus-visible,
+.free-diagnosis-page button:focus-visible,
+.free-diagnosis-page a:focus-visible {
+  outline: 3px solid #4b83bd;
+  outline-offset: 3px;
+}
+
+.free-diagnosis-page fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.free-diagnosis-page .answer-options {
+  display: grid;
+  gap: 10px;
+}
+
+.free-diagnosis-page .answer-choice,
+.free-diagnosis-page fieldset > label {
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #d8e0e8;
+  border-radius: 9px;
+  cursor: pointer;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.free-diagnosis-page .answer-choice:hover,
+.free-diagnosis-page fieldset > label:hover {
+  background: #f7f9fc;
+  border-color: #8da5bd;
+}
+
+.free-diagnosis-page .answer-choice:has(input:checked),
+.free-diagnosis-page fieldset > label:has(input:checked) {
+  background: #eef4fa;
+  border-color: #315a82;
+}
+
+.free-diagnosis-page .answer-choice input,
+.free-diagnosis-page fieldset input {
+  flex: 0 0 auto;
+  width: 20px;
+  min-height: 20px;
+  margin: 2px 0 0;
+  accent-color: #173b63;
+}
+
+.free-diagnosis-page fieldset > label a { color: #174e85; }
+
+.free-diagnosis-page small {
+  display: block;
+  margin-top: 7px;
+  color: #64748b;
+  font-weight: 400;
+  line-height: 1.55;
+}
+
+.free-diagnosis-page .actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.free-diagnosis-page button,
+.free-diagnosis-page .button-link {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 11px 20px;
+  color: #fff;
+  background: #173b63;
+  border: 1px solid #173b63;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.free-diagnosis-page button:hover,
+.free-diagnosis-page .button-link:hover {
+  background: #0f2d4c;
+  border-color: #0f2d4c;
+}
+
+.free-diagnosis-page button.secondary {
+  color: #173b63;
+  background: #fff;
+  border-color: #9aabba;
+}
+
+.free-diagnosis-page button.secondary:hover {
+  background: #f1f5f9;
+  border-color: #667b90;
+}
+
+.free-diagnosis-page .progress {
+  margin: 0 0 8px;
+  color: #475569;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.free-diagnosis-page .survey-progress {
+  width: 100%;
+  height: 8px;
+  margin: 0 0 24px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: #e2e8f0;
+  appearance: none;
+}
+
+.free-diagnosis-page .survey-progress::-webkit-progress-bar {
+  background: #e2e8f0;
+  border-radius: 999px;
+}
+
+.free-diagnosis-page .survey-progress::-webkit-progress-value {
+  background: #315a82;
+  border-radius: 999px;
+}
+
+.free-diagnosis-page .survey-progress::-moz-progress-bar {
+  background: #315a82;
+  border-radius: 999px;
+}
+
+.free-diagnosis-page .error {
+  min-height: 1.5em;
+  margin: 16px 0 0;
+  color: #a0182d;
+  font-weight: 700;
+}
+
+.free-diagnosis-page .hidden { display: none; }
+
+.free-diagnosis-page[data-screen="questions"] .service-intro,
+.free-diagnosis-page[data-screen="questions"] .service-steps,
+.free-diagnosis-page[data-screen="application"] .service-intro,
+.free-diagnosis-page[data-screen="application"] .service-steps,
+.free-diagnosis-page[data-screen="conversion"] .service-intro,
+.free-diagnosis-page[data-screen="conversion"] .service-steps,
+.free-diagnosis-page[data-screen="complete"] .service-intro,
+.free-diagnosis-page[data-screen="complete"] .service-steps { display: none; }
+
+@media (max-width: 640px) {
+  .free-diagnosis-page main {
+    width: min(100% - 24px, 820px);
+    margin: 24px auto 36px;
+  }
+
+  .free-diagnosis-page .service-steps {
+    display: block;
+    padding-left: 1.35rem;
+  }
+
+  .free-diagnosis-page .service-steps li + li { margin-top: 6px; }
+
+  .free-diagnosis-page .card {
+    padding: 22px 18px;
+    border-radius: 12px;
+  }
+
+  .free-diagnosis-page .actions { flex-direction: column-reverse; }
+
+  .free-diagnosis-page .actions button,
+  .free-diagnosis-page .actions .button-link { width: 100%; }
+}
