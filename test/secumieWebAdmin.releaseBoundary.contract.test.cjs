@@ -61,7 +61,7 @@ test('Cloud Build upload ignores local npm cache without excluding app sources',
 });
 
 test('headless PDF image uses maintained Node and only the required browser shell', () => {
-  const dockerfile = read('Dockerfile');
+  const dockerfile = read('Dockerfile').replace(/^\uFEFF/, '');
   const bases = dockerfile.match(/^FROM node:24-bookworm-slim/gm) || [];
   assert.equal(bases.length, 4, 'all four image stages must use the same supported Node 24 base');
   assert.doesNotMatch(dockerfile, /^FROM node:20-/m);
