@@ -224,12 +224,20 @@ test('Web staff intake uses one guarded two-table migration only', () => {
 });
 
 test('one-time SQL Studio staging apply includes exact canonical migration and atomic ledger', () => {
-  const migration = fs.readFileSync(
-    path.join(root, 'design/secumie-web/migrations/001_secumie_web_intake_staging.sql'), 'utf8').trimEnd();
-  const applied = fs.readFileSync(
-    path.join(root, 'design/secumie-web/apply-once-staging.sql'), 'utf8');
-  assert.ok(applied.includes('-- CANONICAL BEGIN: do not alter the following SQL\n' + migration + '\n-- CANONICAL END'),
+  // Git on Windows may check out .sql files as CRLF while GitHub CI uses LF.
+  // Compare canonical SQL text after newline normalization; do not change
+  // either SQL file because the same migration was already applied to Staging.
+  const normalizeNewlines = text => text.replace(/\r\n/g, '\n');
+  const migration = normalizeNewlines(fs.readFileSync(
+    path.join(root, 'design/secumie-web/migrations/001_secumie_web_intake_staging.sql'), 'utf8')).trimEnd();
+  const applied = normalizeNewlines(fs.readFileSync(
+    path.join(root, 'design/secumie-web/apply-once-staging.sql'), 'utf8'));
+  const canonicalBlock = '-- CANONICAL BEGIN: do not alter the following SQL\n'
+    + migration + '\n-- CANONICAL END';
+  assert.ok(applied.includes(canonicalBlock),
     'the Studio apply script must embed the exact canonical SQL');
+  assert.ok(normalizeNewlines(applied.replace(/\n/g, '\r\n')).includes(canonicalBlock),
+    'Windows CRLF checkout must not cause a false canonical SQL mismatch');
   assert.match(applied, /BEGIN;[\s\S]*CREATE TABLE public\.schema_migrations/);
   assert.match(applied, /WEB_STAGING_MIGRATION_NOT_EMPTY_OR_WRONG_TARGET/);
   assert.match(applied, /INSERT INTO public\.schema_migrations\(filename\) VALUES \('001_secumie_web_intake_staging\.sql'\)/);
