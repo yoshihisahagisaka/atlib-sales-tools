@@ -34,7 +34,7 @@ test('one database, two tables, two login roles; no future public intake infrast
   const items = fs.readdirSync(path.join(root, 'design/secumie-web/migrations'));
   assert.deepEqual(items, ['001_secumie_web_intake_staging.sql']);
   assert.equal((sql.match(/CREATE TABLE secumie_web\./g) || []).length, 2);
-  assert.match(sql, /REVOKE CONNECT, TEMPORARY ON DATABASE secumie_web_staging FROM PUBLIC/);
+  assert.doesNotMatch(sql, /REVOKE CONNECT, TEMPORARY ON DATABASE/, 'DB owner, not migration role, manages ACL');
   assert.match(sql, /information_sharing_enabled = false/);
   assert.match(sql, /pg_auth_members/);
   assert.doesNotMatch(sql, /assembly_union_master|assembly_consumed_jti|assembly_notification_outbox|secumie_web_runtime_staging/);
