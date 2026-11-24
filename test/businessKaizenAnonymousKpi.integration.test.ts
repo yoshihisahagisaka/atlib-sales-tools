@@ -13,6 +13,7 @@ import { createAdminBusinessKaizenAnonymousKpiRouter } from '../src/routes/admin
 import { StaffAuthService } from '../src/services/staffAuthService';
 import { requireStaffAuth } from '../src/middleware/staffAuth';
 import { safeAccessRequest } from '../src/middleware/diagnosisLogging';
+import { resolveBusinessKaizenAnonymousKpiConfig } from '../src/config';
 
 async function harness(now = new Date('2026-01-31T15:00:00.000Z')) {
   const db = new PGlite(); await db.waitReady;
@@ -116,6 +117,12 @@ test('anonymous KPI keeps Production and Test aggregates separate',async()=>{
     assert.equal(prod.items.length,1);assert.equal(prod.items[0]!.diagnosisCompleteCount,1);
     assert.equal(testOnly.items.length,1);assert.equal(testOnly.items[0]!.diagnosisCompleteCount,1);
     assert.notEqual(prod.items[0]!.environment,testOnly.items[0]!.environment);
+    const defaultResponse=await fetch(`${h.url}/api/admin/business-kaizen/anonymous-kpis?from=2026-02-01&to=2026-02-28`,{headers:{cookie:h.cookie}});
+    const defaultBody=await defaultResponse.json() as any;
+    assert.equal(defaultResponse.status,200);assert.equal(defaultBody.items.length,1);assert.equal(defaultBody.items[0].environment,'PRODUCTION');
+    const explicitTestResponse=await fetch(`${h.url}/api/admin/business-kaizen/anonymous-kpis?from=2026-02-01&to=2026-02-28&environment=TEST`,{headers:{cookie:h.cookie}});
+    const explicitTestBody=await explicitTestResponse.json() as any;
+    assert.equal(explicitTestResponse.status,200);assert.equal(explicitTestBody.items.length,1);assert.equal(explicitTestBody.items[0].environment,'TEST');
   }finally{await h.close()}
 });
 
@@ -123,4 +130,19 @@ test('anonymous KPI access log serializer omits IP and never sees body secrets',
   const serialized=safeAccessRequest({id:'request',method:'POST',url:'/api/public/business-kaizen/anonymous-events?ignored=yes',remoteAddress:'203.0.113.10'});
   assert.deepEqual(serialized,{id:'request',method:'POST',url:'/api/public/business-kaizen/anonymous-events'});
   assert.equal(JSON.stringify(serialized).includes('203.0.113.10'),false);
+});
+
+test('anonymous KPI config requires an explicit valid environment and fails closed independently',()=>{
+  const base:NodeJS.ProcessEnv={
+    BUSINESS_KAIZEN_ANONYMOUS_KPI_ENABLED:'true',
+    BUSINESS_KAIZEN_ANONYMOUS_KPI_TURNSTILE_SECRET:'isolated-test-secret',
+    BUSINESS_KAIZEN_ANONYMOUS_KPI_ALLOWED_ORIGINS:'https://service.atlib.jp',
+    BUSINESS_KAIZEN_ANONYMOUS_KPI_ALLOWED_HOSTNAMES:'service.atlib.jp',
+  };
+  assert.equal(resolveBusinessKaizenAnonymousKpiConfig(base).enabled,false);
+  assert.equal(resolveBusinessKaizenAnonymousKpiConfig({...base,BUSINESS_KAIZEN_ANONYMOUS_KPI_ENVIRONMENT:'invalid'}).enabled,false);
+  assert.deepEqual(resolveBusinessKaizenAnonymousKpiConfig({...base,BUSINESS_KAIZEN_ANONYMOUS_KPI_ENVIRONMENT:'PRODUCTION'}),{
+    enabled:true,secret:'isolated-test-secret',environment:'PRODUCTION',allowedOrigins:['https://service.atlib.jp'],allowedHostnames:['service.atlib.jp'],
+  });
+  assert.equal(resolveBusinessKaizenAnonymousKpiConfig({...base,BUSINESS_KAIZEN_ANONYMOUS_KPI_ENVIRONMENT:'TEST',BUSINESS_KAIZEN_ANONYMOUS_KPI_TURNSTILE_SECRET:''}).enabled,false);
 });

@@ -20,7 +20,7 @@ export function createAdminBusinessKaizenAnonymousKpiRouter(service: BusinessKai
       const to = new Date(`${exclusiveDate}T00:00:00Z`);
       to.setUTCDate(to.getUTCDate()-1);
       res.json(await service.read({ from: period.from.slice(0,10), to: to.toISOString().slice(0,10),
-        environment: parsed.data.environment, origin: parsed.data.origin }));
+        environment: parsed.data.environment ?? 'PRODUCTION', origin: parsed.data.origin }));
     } catch { res.status(500).json({ error: 'INTERNAL_ERROR' }); }
   });
   return router;

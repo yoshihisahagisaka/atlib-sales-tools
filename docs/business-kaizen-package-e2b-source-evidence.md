@@ -28,17 +28,17 @@
 - Address: `127.0.0.1/32`
 - Production database名 `sales_tools` および既知Production address `10.17.0.3` を拒否するtest guardを通過
 - Connections: 2
-- Backend PIDs: `26296`, `11428`
+- Backend PIDs (final review run): `26824`, `25776`
 - Concurrent requests: 8
 - Result: JST境界の2 bucketへ4件ずつ、合計8件。欠落・重複rowなし
 
 ## Verification
 
 - TypeScript build: PASS
-- E2b PGlite/API: 6/6 PASS
+- E2b PGlite/API: 7/7 PASS
 - E2b PostgreSQL 16: 1/1 PASS
-- Related E1/D1/Business Web/CRM/IT regression: 47/47 PASS
-- Production readiness security: 4/4 PASS
+- Production-equivalent ACL: both runtime/app roles can SELECT/INSERT/UPSERT; DELETE and DROP rejected; neither role owns the table
+- Related E1/D1/Business Web/CRM/IT and Production readiness security regression: 51/51 PASS
 - Business Web Browser: 9/9 PASS
 - Common CRM Browser desktop/mobile: 2/2 PASS
 - Production secret、Production DB、Migration実行は不使用
