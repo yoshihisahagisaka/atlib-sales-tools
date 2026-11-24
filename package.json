@@ -20,6 +20,8 @@
     "test:business-kaizen-sales": "node -r ts-node/register --test test/businessKaizenSalesManagement.integration.test.ts",
     "test:business-kaizen-sales:postgres": "node -r ts-node/register --test test/businessKaizenSalesManagement.pg.test.ts",
     "test:business-kaizen-sales:browser": "playwright test --config=test/businessKaizenSalesUi.playwright.config.ts",
+    "test:business-kaizen-kpi": "node -r ts-node/register --test test/businessKaizenKpi.integration.test.ts",
+    "test:business-kaizen-kpi:postgres": "node -r ts-node/register --test test/businessKaizenKpi.pg.test.ts",
     "test:business-kaizen-proxy:browser": "playwright test --config=test/businessKaizenProxy.playwright.config.ts",
     "test:business-kaizen-proxy:postgres": "node -r ts-node/register --test test/businessKaizenProxy.pg.test.ts",
     "test:business-web-consultation:api": "node -r ts-node/register --test test/businessWebConsultation.api.test.ts",

@@ -25,6 +25,7 @@ import { createAdminMarketingInitiativeRouter } from '../../src/routes/adminMark
 import { TestCaseManagementRepo } from '../../src/services/testCaseManagementRepo';
 import { BusinessKaizenProxyService } from '../../src/services/businessKaizenProxyService';
 import { createAdminBusinessKaizenRouter } from '../../src/routes/adminBusinessKaizen';
+import { BusinessKaizenKpiService } from '../../src/services/businessKaizenKpiService';
 
 /** Real PostgreSQL SQL/constraints/transactions in a disposable WASM database.
  * Same pattern as test/support/diagnosisHarness.ts. Only migration 027 is applied: the
@@ -79,6 +80,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDe
   const publicSelf = new PublicCustomerSelfSubmissionService(pool, designV2Entry);
   const staffProxyDesignV2 = new StaffProxyDesignV2SubmissionService(pool, designV2Entry);
   const businessKaizenProxy = new BusinessKaizenProxyService(pool);
+  const businessKaizenKpi = new BusinessKaizenKpiService(pool);
   const staffAuth = new StaffAuthService('disposable-test-key-not-a-production-secret');
   const staffCookie = `staff_session=${staffAuth.issueSessionToken({ email: 'operator@atlib.jp' })}`;
 
@@ -89,7 +91,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDe
   app.use('/api/admin/free-diagnosis-v1', requireStaffAuth(staffAuth), createAdminFreeDiagnosisRuleBasedV1Router(launcher, cases, vs1, staffProxyDesignV2, testCases, new Set(['operator@atlib.jp'])));
   app.use('/api/admin/marketing-initiatives', requireStaffAuth(staffAuth), createAdminMarketingInitiativeRouter(initiatives, launcher));
   app.use('/api/admin/sales-customers', requireStaffAuth(staffAuth), createAdminSalesCustomersRouter(salesCustomers));
-  if (options.includeBusinessKaizen) app.use('/api/admin/business-kaizen', requireStaffAuth(staffAuth), createAdminBusinessKaizenRouter(businessKaizenProxy));
+  if (options.includeBusinessKaizen) app.use('/api/admin/business-kaizen', requireStaffAuth(staffAuth), createAdminBusinessKaizenRouter(businessKaizenProxy, businessKaizenKpi));
   app.use('/api/admin/free-diagnosis-v1', requireStaffAuth(staffAuth), createAdminFreeDiagnosisDesignV2Router(designV2Api));
   app.use('/admin', requireStaffAuth(staffAuth), express.static(path.join(root, 'public/admin')));
   app.use(express.static(path.join(root, 'public')));
