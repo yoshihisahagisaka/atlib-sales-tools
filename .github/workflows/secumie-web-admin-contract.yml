@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'Dockerfile'
       - '.github/workflows/secumie-web-admin-contract.yml'
       - 'src/server.ts'
       - 'src/config.ts'
