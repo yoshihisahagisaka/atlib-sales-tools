@@ -62,8 +62,10 @@ Two and only two Business KAIZEN SQL drafts are unnumbered at the reviewed HEAD:
 
 | Draft | SHA-256 / bytes | Direct prerequisites | Runtime dependency |
 | --- | --- | --- | --- |
-| `UNNUMBERED_business_kaizen_diagnosis_package_a.sql` | `7dc5405eaeba25ac969161ba12ab0992820c0aa68256fc5f3ec568736391442c` / 7,864 | Business Web Lead table (025); Company/Contact/Sales Activity tables (027) | Sales Activity attribution (030) for PROXY read projection; app/runtime roles and Production default ACL must be verified. |
+| `UNNUMBERED_business_kaizen_diagnosis_package_a.sql` | `239da79789346ec01afadd9e58f445a8389af667450f3364f6ede7b2467933c0` / 8,021 | Business Web Lead table (025); Company/Contact/Sales Activity tables (027) | Sales Activity attribution (030) for PROXY read projection; app/runtime roles and Production default ACL must be verified. |
 | `UNNUMBERED_business_kaizen_anonymous_kpi_daily.sql` | `e5fa76b55c5feacbb3e3149e75a7e686e2f8bc9015c3db78b29634569bb14a77` / 2,050 | PostgreSQL 16 for `UNIQUE NULLS NOT DISTINCT` | Marketing Initiative table (034) is queried by E2b classification; runtime roles need SELECT/INSERT/UPDATE and must not have DELETE/ownership. |
+
+The Diagnosis identity above is the current Release-preparation identity after F2a. It was recalculated from the working-tree file on 2026-11-24 and matches the F2a Source Evidence. At the original F1 audit point, before ACCEPTED re-entry was implemented, the same unnumbered filename had SHA-256 `7dc5405eaeba25ac969161ba12ab0992820c0aa68256fc5f3ec568736391442c` and 7,864 bytes. That old identity is historical evidence only and must not be used to build, allowlist or verify the Release artifact.
 
 Required order is: confirmed prerequisites → Diagnosis schema → Anonymous daily aggregate. The two drafts must become separate immutable migration artifacts and ledger entries. Applying both as an unreviewed combined script is prohibited.
 
@@ -125,7 +127,7 @@ No step requires stopping the current public diagnosis. Database migrations are 
 
 ## 7. Human Acceptance
 
-- SELF: initial 201, replay 200, one Diagnosis/ACCEPTED, Original preservation, notification only after commit and only once.
+- SELF: initial 201 and replay 200 produce one Diagnosis and exactly one initial ACCEPTED history row, preserve Original, and notify only after commit and only once. Later explicit Stage operations may append further ACCEPTED history rows; they must not change the first accepted timestamp or increase the E1/Common entry count.
 - PROXY: authoritative Activity identity, draft/resume/revision conflict, consent, completion, no CRM/Lead creation and no automatic ACCEPTED.
 - Diagnosis list/detail: SELF/PROXY source separation, safe rendering, stable paging, mobile use and draft resume.
 - Sales operations: explicit Stage/schedule/Outcome/Event changes, history/audit, NULL vs zero, unknown-result retry and no inferred events.
