@@ -45,6 +45,11 @@ RUN mkdir -p /ms-playwright \
     && node ./node_modules/playwright/cli.js install --with-deps --only-shell chromium \
     && fc-cache -f \
     && chmod -R a+rX /ms-playwright
+# npm/npx are needed only during image assembly, not to run the Node server.
+# Fail closed if the upstream Node image no longer uses the known npm path.
+RUN test -d /usr/local/lib/node_modules/npm \
+    && rm -rf /usr/local/lib/node_modules/npm \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx
 COPY --from=build /app/dist ./dist
 COPY public ./public
 USER node
