@@ -15,6 +15,17 @@
   <div id="handoffAction" class="hidden"><button type="button" id="createHandoff">設計Assessmentへ引継ぐ</button><p id="handoffStatus" role="status"></p></div>
   <a id="returnToAnalysis" class="button secondary hidden" href="#">ヒアリング・確認に戻る</a>
 </section>
+<section id="preparationSelection" class="card hidden" aria-label="Assessment準備の選択">
+  <h2>設計Assessment｜準備の選択</h2>
+  <p>無料診断の内容を参照し、調査に必要なものだけ選んでください。確認候補はすべて未確認です。</p>
+  <p id="preparationStatus" class="status" role="status"></p>
+  <label for="preparationFuture">実現したい会社の姿</label>
+  <select id="preparationFuture"><option value="">選択してください</option></select>
+  <h3>確認したい候補</h3>
+  <div id="preparationCandidates"></div>
+  <button type="button" id="savePreparation" disabled>Assessment準備の選択内容を保存</button>
+  <div id="preparationSummary" role="status"></div>
+</section>
 <section id="reportUnavailable" class="card unavailable hidden"><h2>レポートを開けませんでした。</h2><p>案件とレポートの状態を確認してください。</p></section>
 <section id="reportWorkspace" class="report-editor-grid hidden"><form id="reportForm" class="report-form" novalidate><h2>提出情報と次のステップ</h2><p class="editor-note">01〜05を修正する場合は「診断結果の整理に戻る」からHuman Reviewへ戻ってください。</p><section class="edit-group"><h3>宛名・発行情報</h3><label>企業名<input id="recipientCompany" required maxlength="500"></label><label>役職<input id="recipientRole" maxlength="200"></label><label>氏名<input id="recipientName" maxlength="200"></label><label>診断実施日<input id="diagnosisDate" type="date" required></label></section><section class="edit-group"><h3>設計Assessment</h3><p class="editor-note">確認対象は、分析で示された候補から営業担当者が選びます。候補そのものは変更されません。</p><section class="assessment-picker"><h4>Assessmentで確認する候補</h4><div id="assessmentCandidates"></div></section><section id="assessmentSelectedEditors" class="assessment-selected-editors"><h4>今回Assessmentで確認する対象</h4></section><label>想定実施期間<input id="durationText" maxlength="500" placeholder="例：2〜4週間"></label><label>ご提案金額（税別）<input id="priceExcludingTaxText" maxlength="500" placeholder="例：個別にご相談のうえお見積り"></label></section><div class="editor-save-bar"><button type="submit">提案情報を保存</button></div></form><section class="preview-column"><div class="preview-heading"><h2>A4プレビュー</h2><p>顧客へお渡しする完成イメージです。</p></div><article id="reportPreview" class="report-document" aria-label="レポートプレビュー"></article></section></section>
 </main><script src="/admin/free-diagnosis-v2-common.js"></script><script src="/admin/free-diagnosis-v2-report.js"></script></body></html>

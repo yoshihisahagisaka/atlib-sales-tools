@@ -6,6 +6,7 @@
   const apiBase = '/api/admin/free-diagnosis-v1/cases/';
   const handoffBase = '/api/admin/it-management-kaizen/assessment-source-handoffs/';
   let feedbackState = null;
+  let currentPreparationHandoff = null;
   let report;
   let postHearingWorkspace;
   const byId = id => document.querySelector(`#${id}`);
@@ -206,8 +207,138 @@
     node.className = isError ? 'status error' : 'status';
   }
 
+  function resetPreparationPanel() {
+    currentPreparationHandoff = null;
+    hidden(byId('preparationSelection'), true);
+    byId('preparationStatus').textContent = '';
+    byId('preparationSummary').replaceChildren();
+    byId('savePreparation').disabled = true;
+  }
+
+  function prepStatus(text, error = false) {
+    const node = byId('preparationStatus');
+    node.textContent = text;
+    node.className = error ? 'status error' : 'status';
+  }
+
+  function populatePreparation(saved) {
+    const future = byId('preparationFuture');
+    future.replaceChildren();
+    const blank = document.createElement('option'); blank.value = ''; blank.textContent = '選択してください';
+    future.append(blank);
+    const section = report.content.sections.filter(item => item.key === 'FUTURE');
+    if (section.length !== 1 || !Array.isArray(section[0].entries)) throw new Error('Future unavailable');
+    section[0].entries.forEach((entry, index) => {
+      if (!entry || !entry.trim()) return;
+      const option = document.createElement('option');
+      option.value = String(index); option.textContent = entry;
+      future.append(option);
+    });
+    const choice = saved?.selection;
+    future.value = Number.isInteger(choice?.futureEntryIndex) ? String(choice.futureEntryIndex) : '';
+    const selected = new Map((choice?.candidates || []).map(item => [item.candidateId, item]));
+    const list = byId('preparationCandidates');
+    list.replaceChildren();
+    for (const candidate of report.content.factCandidates) {
+      const row = document.createElement('section'); row.className = 'card preparation-candidate';
+      row.dataset.candidateId = candidate.id;
+      const label = document.createElement('label');
+      const check = document.createElement('input'); check.type = 'checkbox';
+      check.className = 'preparation-check';
+      check.checked = selected.has(candidate.id);
+      const name = document.createElement('span'); name.textContent = candidate.whatToVerify;
+      label.append(check, name);
+      const reason = document.createElement('p'); reason.textContent = candidate.whyItMattersToFuture;
+      const controls = document.createElement('div'); controls.className = 'preparation-details';
+      const areaLabel = document.createElement('label'); areaLabel.textContent = '確認領域';
+      const area = document.createElement('select'); area.className = 'preparation-area';
+      for (const [value, title] of [
+        ['', '選択してください'], ['TECHNOLOGY', '技術'], ['OPERATION', '運用'], ['MANAGEMENT', '管理'],
+      ]) {
+        const option = document.createElement('option'); option.value = value; option.textContent = title;
+        area.append(option);
+      }
+      area.value = selected.get(candidate.id)?.area || '';
+      areaLabel.append(area);
+      const questionLabel = document.createElement('label'); questionLabel.textContent = '確認したい質問（任意）';
+      const question = document.createElement('textarea'); question.className = 'preparation-question';
+      question.maxLength = 1000; question.value = selected.get(candidate.id)?.confirmationQuestion || '';
+      questionLabel.append(question);
+      const recipientLabel = document.createElement('label'); recipientLabel.textContent = '確認する相手（任意）';
+      const recipient = document.createElement('input'); recipient.className = 'preparation-recipient';
+      recipient.maxLength = 200; recipient.value = selected.get(candidate.id)?.requestedFrom || '';
+      recipientLabel.append(recipient);
+      controls.append(areaLabel, questionLabel, recipientLabel);
+      controls.hidden = !check.checked;
+      check.addEventListener('change', () => { controls.hidden = !check.checked; });
+      row.append(label, reason, controls); list.append(row);
+    }
+  }
+
+  function summarizePreparation(view) {
+    const summary = byId('preparationSummary'); summary.replaceChildren();
+    if (!view.saved) return;
+    const header = document.createElement('p');
+    header.textContent = `準備下書き保存済み（第${view.saved.version}版）`;
+    summary.append(header);
+    const counts = view.agenda?.counts;
+    if (counts) {
+      const p = document.createElement('p');
+      p.textContent = `要確認 ${counts.toConfirm}件・確認質問未設定 ${counts.pendingWithoutQuestion}件（無料診断由来の候補は未確認）`;
+      summary.append(p);
+    }
+    const list = document.createElement('ul');
+    for (const action of view.agenda?.nextActions || []) {
+      const li = document.createElement('li');
+      li.textContent = `未確認：${action.topic}／${action.question}`;
+      list.append(li);
+    }
+    summary.append(list);
+  }
+
+  async function loadPreparationFor(handoff) {
+    currentPreparationHandoff = null;
+    hidden(byId('preparationSelection'), true);
+    const response = await fetch(`${handoffBase}${encodeURIComponent(caseId)}/preparation`);
+    if (!response.ok) throw new Error('Preparation state unavailable');
+    const payload = await response.json();
+    const view = payload?.view;
+    if (!view || (view.saved && (view.saved.handoffId !== handoff.id
+      || view.saved.sourceCaseId !== caseId))) throw new Error('Preparation state mismatch');
+    populatePreparation(view.saved);
+    summarizePreparation(view);
+    currentPreparationHandoff = handoff;
+    hidden(byId('preparationSelection'), false);
+    byId('savePreparation').disabled = false;
+    prepStatus(view.saved ? '保存済みの準備選択を表示しています。' : 'Futureと必要な確認事項を選択してください。');
+    return view;
+  }
+
+  function collectPreparationSelection() {
+    const value = byId('preparationFuture').value;
+    if (value === '') throw new Error('実現したい会社の姿を選んでください。');
+    const futureEntryIndex = Number(value);
+    const candidates = [];
+    for (const row of byId('preparationCandidates').querySelectorAll('.preparation-candidate')) {
+      if (!row.querySelector('.preparation-check').checked) continue;
+      const area = row.querySelector('.preparation-area').value;
+      if (!area) throw new Error('選んだ確認事項の領域を指定してください。');
+      const confirmationQuestion = row.querySelector('.preparation-question').value.trim();
+      const requestedFrom = row.querySelector('.preparation-recipient').value.trim();
+      if (requestedFrom && !confirmationQuestion) throw new Error('確認する相手を指定する場合は質問も入力してください。');
+      candidates.push({
+        candidateId: row.dataset.candidateId,
+        area,
+        ...(confirmationQuestion ? { confirmationQuestion } : {}),
+        ...(requestedFrom ? { requestedFrom } : {}),
+      });
+    }
+    return { futureEntryIndex, candidates };
+  }
+
   async function loadWorkflow() {
     feedbackState = null;
+    resetPreparationPanel();
     hidden(byId('assessmentNextStep'), true);
     hidden(byId('deliveryAction'), true);
     hidden(byId('feedbackEntry'), true);
@@ -255,6 +386,10 @@
           ? `引継ぎ済み（第${saved.version}版）`
           : saved ? '過去の引継ぎがあります。最新の判断を引き継いでください。' : '';
         workflowMessage(current ? '設計Assessmentへの引継ぎを記録済みです。' : '設計Assessmentへ引継ぐことができます。');
+        if (current && saved.reportId === reportId) {
+          try { await loadPreparationFor(saved); }
+          catch { resetPreparationPanel(); prepStatus('Assessment準備の状態を確認できません。画面を更新してください。', true); }
+        }
         return;
       }
       workflowMessage('経営フィードバックは記録済みです。');
@@ -359,6 +494,31 @@
     } catch {
       workflowMessage('引継ぎに失敗しました。現在の判断と提出レポートを確認してください。', true);
     } finally { button.disabled = false; }
+  });
+
+  byId('savePreparation').addEventListener('click', async () => {
+    if (report?.status !== 'DELIVERED' || feedbackState?.caseStatus !== 'CLOSED'
+      || feedbackState?.feedbackReportId !== reportId
+      || feedbackState?.latestDecision?.route !== 'DESIGN_ASSESSMENT'
+      || !currentPreparationHandoff || currentPreparationHandoff.reportId !== reportId
+      || currentPreparationHandoff.feedbackDecisionId !== feedbackState.latestDecision.id) return;
+    let selection;
+    try { selection = collectPreparationSelection(); }
+    catch (error) { prepStatus(error.message || '選択内容を確認してください。', true); return; }
+    const button = byId('savePreparation'); button.disabled = true;
+    try {
+      const result = await postWorkflow(`${handoffBase}${encodeURIComponent(caseId)}/preparation`, selection);
+      if (!result?.view?.saved || result.view.saved.handoffId !== currentPreparationHandoff.id
+        || JSON.stringify(result.view.saved.selection) !== JSON.stringify(selection)) {
+        throw new Error('Preparation response mismatch');
+      }
+      const fresh = await loadPreparationFor(currentPreparationHandoff);
+      if (!fresh.saved || JSON.stringify(fresh.saved.selection) !== JSON.stringify(selection)) {
+        throw new Error('Preparation refresh mismatch');
+      }
+      prepStatus('Assessment準備の選択を保存しました。');
+    } catch { prepStatus('保存を確認できませんでした。現在の状態を確認してください。', true); }
+    finally { button.disabled = !currentPreparationHandoff; }
   });
 
   byId('reportForm').addEventListener('submit', event => { event.preventDefault(); save(); });
