@@ -46,7 +46,12 @@
             <h3>IT経営KAIZEN</h3>
             <p class="card-copy">診断・案件管理は既存のIT経営KAIZEN画面で確認します。</p>
           </div>
-          <p class="kpi-unavailable">サービスKPI：未連携</p>
+          <div class="service-kpi" aria-live="polite">
+            <p class="service-kpi-label">無料診断受付件数</p>
+            <p id="itAcceptedCount" class="service-kpi-value">—</p>
+            <p id="itAcceptedPeriod" class="service-kpi-period">会計年度を確認中</p>
+            <p id="itAcceptedStatus" class="service-kpi-status">読み込み中</p>
+          </div>
           <a class="portal-link" href="/admin/free-diagnosis-v1.html">IT経営KAIZEN管理へ</a>
         </article>
         <article class="portal-card">
@@ -88,5 +93,6 @@
       </nav>
     </section>
   </main>
+  <script src="/admin/admin-portal.js" defer></script>
 </body>
 </html>
