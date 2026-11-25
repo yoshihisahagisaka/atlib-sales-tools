@@ -62,8 +62,12 @@ test('Cloud Build upload ignores local npm cache without excluding app sources',
 
 test('headless PDF image uses maintained Node and only the required browser shell', () => {
   const dockerfile = read('Dockerfile').replace(/^\uFEFF/, '');
-  const bases = dockerfile.match(/^FROM node:24-bookworm-slim/gm) || [];
-  assert.equal(bases.length, 4, 'all four image stages must use the same supported Node 24 base');
+  const bookwormStages = dockerfile.match(/^FROM node:24-bookworm-slim AS (build|production-deps|migration)$/gm) || [];
+  assert.equal(bookwormStages.length, 3, 'build/deps/migration stages stay unchanged');
+  assert.match(dockerfile, /^FROM node:24-trixie-slim AS runtime$/m,
+    'only runtime moves to Debian 13 with fixed GLib');
+  assert.equal((dockerfile.match(/^FROM /gm) || []).length, 4,
+    'no new build stage may be introduced');
   assert.doesNotMatch(dockerfile, /^FROM node:20-/m);
   assert.match(dockerfile, /playwright\/cli\.js install --with-deps --only-shell chromium/);
   assert.match(read('src/services/wscSalesService.ts'),
