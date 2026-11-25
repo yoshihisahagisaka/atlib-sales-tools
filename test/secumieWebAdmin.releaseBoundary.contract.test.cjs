@@ -70,6 +70,11 @@ test('headless PDF image uses maintained Node and only the required browser shel
     'no new build stage may be introduced');
   assert.doesNotMatch(dockerfile, /^FROM node:20-/m);
   assert.match(dockerfile, /playwright\/cli\.js install --with-deps --only-shell chromium/);
+  assert.match(dockerfile, /test -d \/usr\/local\/lib\/node_modules\/npm/);
+  assert.match(dockerfile, /rm -rf \/usr\/local\/lib\/node_modules\/npm/);
+  assert.match(dockerfile, /rm -f \/usr\/local\/bin\/npm \/usr\/local\/bin\/npx/);
+  // Only the runtime stage loses npm. The build stage still runs npm ci.
+  assert.match(dockerfile, /RUN npm ci\s*\n/);
   assert.match(read('src/services/wscSalesService.ts'),
     /chromium\.launch\(\{ headless: true \}\)/,
     'WSC must continue using headless mode without a full Chromium channel');
