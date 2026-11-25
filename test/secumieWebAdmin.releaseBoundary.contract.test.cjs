@@ -100,6 +100,8 @@ test('request-body boundaries constrain Zod inputs without broadening public JSO
   assert.match(mirror, /payload\.safeParse\(json\)/);
   assert.match(canonical, /CVE-2023-54404/);
   assert.match(canonical, /REJECTED/);
-  assert.match(canonical, /adminAuthGateより前/);
+  assert.match(canonical, /cookieParser\(\)/);
+  assert.match(canonical, /requireStaffAuth\(\)/);
+  assert.match(canonical, /大容量parser/);
   assert.match(canonical, /SECURITY_NO_GO/);
 });
