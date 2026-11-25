@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sales Tools | atLIB Admin</title>
+  <link rel="stylesheet" href="/admin/partner-leads.css">
+  <link rel="stylesheet" href="/admin/admin-portal.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">本文へ移動</a>
+  <main id="main-content" class="admin-shell portal-shell">
+    <header class="admin-header portal-header">
+      <div>
+        <p class="eyebrow">atLIB Sales Tools</p>
+        <h1>Sales Tools</h1>
+        <p class="subtitle">共通ダッシュボードと管理機能への入口</p>
+      </div>
+    </header>
+
+    <section class="portal-section" aria-labelledby="common-kpi-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Common dashboard</p>
+          <h2 id="common-kpi-heading">共通ダッシュボード</h2>
+        </div>
+      </div>
+      <div class="availability-panel" role="status">
+        <p class="availability-label">共通KPI</p>
+        <p class="availability-title">表示可能な共通KPIはまだありません</p>
+        <p>意味・期間・母数が一致する実データの接続後に表示します。未連携の値を0件として表示しません。</p>
+      </div>
+    </section>
+
+    <section class="portal-section" aria-labelledby="service-summary-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Services</p>
+          <h2 id="service-summary-heading">サービス別サマリー</h2>
+        </div>
+      </div>
+      <div class="portal-grid service-grid">
+        <article class="portal-card">
+          <div>
+            <p class="card-label">IT_KAIZEN</p>
+            <h3>IT経営KAIZEN</h3>
+            <p class="card-copy">診断・案件管理は既存のIT経営KAIZEN画面で確認します。</p>
+          </div>
+          <p class="kpi-unavailable">サービスKPI：未連携</p>
+          <a class="portal-link" href="/admin/free-diagnosis-v1.html">IT経営KAIZEN管理へ</a>
+        </article>
+        <article class="portal-card">
+          <div>
+            <p class="card-label">BUSINESS_WEB</p>
+            <h3>業務KAIZEN</h3>
+            <p class="card-copy">現時点では既存の相談受付一覧へ移動します。Diagnosis管理との統合は行っていません。</p>
+          </div>
+          <p class="kpi-unavailable">サービスKPI：未連携</p>
+          <a class="portal-link" href="/admin/business-web-consultation-leads.html">業務KAIZEN相談一覧へ</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="portal-section" aria-labelledby="management-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Administration</p>
+          <h2 id="management-heading">管理機能</h2>
+        </div>
+      </div>
+      <nav class="portal-grid management-grid" aria-label="Sales Tools管理機能">
+        <a class="navigation-card" href="/admin/sales-customers.html">
+          <span class="navigation-title">共通顧客管理</span>
+          <span>Company・Contact・Sales Activityを管理</span>
+        </a>
+        <a class="navigation-card" href="/admin/marketing-initiatives.html">
+          <span class="navigation-title">マーケティング施策管理</span>
+          <span>登録済み施策とUTM条件を管理</span>
+        </a>
+        <a class="navigation-card" href="/admin/free-diagnosis-v1.html">
+          <span class="navigation-title">IT経営KAIZEN管理</span>
+          <span>既存の診断・案件一覧を開く</span>
+        </a>
+        <a class="navigation-card" href="/admin/business-web-consultation-leads.html">
+          <span class="navigation-title">業務KAIZEN管理</span>
+          <span>既存の相談受付一覧を開く</span>
+        </a>
+      </nav>
+    </section>
+  </main>
+</body>
+</html>
