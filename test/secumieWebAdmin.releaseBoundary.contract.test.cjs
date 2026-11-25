@@ -89,9 +89,11 @@ test('request-body boundaries constrain Zod inputs without broadening public JSO
     'default JSON parser must retain Express default 100KB limit');
   assert.doesNotMatch(server, /app\.use\(express\.json\(\{\s*limit:/,
     'do not globally increase request size limits');
-  assert.match(server, /app\.use\('\/api\/admin\/estimates\/ai-assist', express\.json\(\{ limit: '15mb' \}\)\)/);
-  assert.match(server, /app\.use\('\/api\/admin\/kaizen-assessment', express\.json\(\{ limit: '2mb' \}\)\)/);
-  assert.match(server, /app\.use\('\/api\/admin\/web-security-check', express\.json\(\{ limit: '2mb' \}\)\)/);
+  assert.match(server, /app\.use\('\/api\/admin\/estimates\/ai-assist', \.\.\.adminAuthGate, express\.json\(\{ limit: '15mb' \}\)\)/);
+  assert.match(server, /app\.use\('\/api\/admin\/kaizen-assessment', \.\.\.adminAuthGate, express\.json\(\{ limit: '2mb' \}\)\)/);
+  assert.match(server, /app\.use\('\/api\/admin\/web-security-check', \.\.\.adminAuthGate, express\.json\(\{ limit: '2mb' \}\)\)/);
+  assert.ok(server.indexOf('const adminAuthGate') < server.indexOf("express.json({ limit: '15mb' })"),
+    'staff auth must precede the larger JSON parser');
   assert.match(server, /express\.raw\(\{ type: 'application\/json', limit: '8kb' \}\)/);
   assert.match(mirror, /payload\.safeParse\(json\)/);
   assert.match(canonical, /CVE-2023-54404/);

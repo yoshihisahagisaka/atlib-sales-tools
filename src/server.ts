@@ -153,17 +153,23 @@ async function main(): Promise<void> {
   // req.ipが正しいクライアントIPを指すようにtrust proxyを有効化する（IPレート制限で使用）。
   app.set('trust proxy', true);
   app.use(pinoHttp({ logger, serializers: { req: safeAccessRequest, res: safeAccessResponse } }));
+  // Authenticate staff before parsing the few intentionally larger JSON bodies.
+  // Public routes retain Express's default 100KB JSON limit below.
+  const adminAuthGate = [
+    createIpRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 300 }),
+    requireStaffAuth(staffAuthService),
+  ];
   // AI提案機能はbase64 PDFを受け取るためデフォルトの100KB上限では足りない。グローバルlimitを
   // 上げると公開・無認証のisms-diagnostic等のDoS耐性を弱めるため、このパスだけ個別に
   // 大きめのexpress.json()を先にマウントする（body-parserは同一リクエストの二重パースを
   // no-opにするため、下のグローバルexpress.json()と共存してよい。msp-customer-portalと同じ対応）。
-  app.use('/api/admin/estimates/ai-assist', express.json({ limit: '15mb' }));
+  app.use('/api/admin/estimates/ai-assist', ...adminAuthGate, express.json({ limit: '15mb' }));
   // 60分診断の文字起こし貼り付けはデフォルトの100KB上限を超えることがある。
   // グローバルより前に、このパスだけ大きめのexpress.json()を先にマウントする（見積AIと同じ対応）。
-  app.use('/api/admin/kaizen-assessment', express.json({ limit: '2mb' }));
+  app.use('/api/admin/kaizen-assessment', ...adminAuthGate, express.json({ limit: '2mb' }));
   // Staff-only WSC CSV validation sends the source once, while actual
   // diagnostics remain individual requests. Keep the larger body scope narrow.
-  app.use('/api/admin/web-security-check', express.json({ limit: '2mb' }));
+  app.use('/api/admin/web-security-check', ...adminAuthGate, express.json({ limit: '2mb' }));
   // Corporate-site may mirror only an already-accepted email via a signed
   // internal request. Raw body must be verified before ordinary JSON parsing.
   const mirrorSecret = process.env.SECUMIE_WEB_MIRROR_SECRET?.trim();
@@ -214,10 +220,6 @@ async function main(): Promise<void> {
 
   // 管理画面（Google Workspace認証保護、2026-08-25にBasic Authから移行）。
   // ブルートフォース対策として同じIPレート制限を認証チェックの前段にも適用する。
-  const adminAuthGate = [
-    createIpRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 300 }),
-    requireStaffAuth(staffAuthService),
-  ];
   app.use('/api/admin/it-management-diagnosis', ...adminAuthGate,
     createAdminItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted, preparation, workspace, review, report, assessment));
   app.use('/api/admin/isms-diagnostic', ...adminAuthGate, createAdminIsmsDiagnosticRouter(ismsDiagnosticRepo));
@@ -233,11 +235,10 @@ async function main(): Promise<void> {
   );
   app.use(
     '/api/admin/kaizen-assessment',
-    ...adminAuthGate,
     createAdminKaizenAssessmentRouter(kaizenAssessmentRepo, kaizenAssessmentAiService),
   );
   app.use('/api/admin/market-rates', ...adminAuthGate, createAdminMarketRatesRouter(marketRateRepo));
-  app.use('/api/admin/web-security-check', ...adminAuthGate, createAdminWebSecurityCheckRouter(wscSalesService));
+  app.use('/api/admin/web-security-check', createAdminWebSecurityCheckRouter(wscSalesService));
   if (webRequests) app.use('/api/admin/secumie-web/v1',
     ...adminAuthGate, createAdminSecumieWebRouter(webRequests));
   app.use(
@@ -249,7 +250,6 @@ async function main(): Promise<void> {
   // （逆順だとadminEstimatesRouter側で該当ルートが見つからずフォールスルーする挙動に依存してしまうため）。
   app.use(
     '/api/admin/estimates/ai-assist',
-    ...adminAuthGate,
     createAdminEstimateAiAssistRouter(aiAssistService),
   );
   app.use('/api/admin/estimates', ...adminAuthGate, createAdminEstimatesRouter(estimateRepo));
