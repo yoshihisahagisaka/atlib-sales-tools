@@ -54,7 +54,9 @@ test('SELF and PROXY sales activity can be recorded safely on one detail screen'
     await page.reload();
     await page.locator('#stage').selectOption('ACCEPTED');
     await page.locator('#stage-save').click();
-    await expect(page.locator('#stage-status')).toContainText('受付への再到達');
+    await expect(page.locator('#stage-status')).toContainText('保存しました');
+    await expect(page.locator('#stage-history li')).toHaveCount(4);
+    assert.equal((await h.pool.query(`SELECT current_stage FROM business_kaizen_diagnoses WHERE id=$1`, [proxy.diagnosisId])).rows[0].current_stage, 'ACCEPTED');
 
     let scheduleRequests = 0;
     await page.route('**/schedule', async route => { scheduleRequests++; await new Promise(resolve => setTimeout(resolve, 120)); await route.continue(); });

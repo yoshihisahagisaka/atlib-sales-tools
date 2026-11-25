@@ -44,7 +44,7 @@ Read-only HTTP evidence on 2026-11-24:
 | Diagnosis SELF | Public Consultation Lead, Diagnosis and initial `ACCEPTED` history are saved atomically; 201/200 idempotency and commit-after notification behavior are preserved. | Production Diagnosis schema is absent until the unnumbered draft is formally released. |
 | Diagnosis PROXY | Existing `BUSINESS_WEB` Sales Activity is authoritative; draft/create/resume/revision/complete/consent audit reuse the B1 calculation and do not create CRM or Public Lead records. | Production schema/config and real staff Human Acceptance remain. |
 | Diagnosis list/detail | SELF/PROXY read API, list/detail UI, question-contract reuse, safe rendering and draft-resume route are implemented. | Production migration and candidate-environment acceptance remain. |
-| Stage / Outcome / schedule | Explicit staff writes, optimistic revision, actual timestamps and append-only audit are implemented. | `ACCEPTED` re-entry behavior is unresolved and is a code/schema contract gate. |
+| Stage / Outcome / schedule | Explicit staff writes, optimistic revision, actual timestamps and append-only audit are implemented. F2a subsequently approves repeat Stage arrival while retaining the first ACCEPTED as entry. | F2a resolves the lifecycle gate; numbered migration/release verification remains. |
 | Commercial Event | Explicit PROPOSED/WON facts, idempotency, NULL/zero distinction and append-only behavior are implemented. | Common `serviceCode` mapping is not approved. Free-text `service_name` cannot satisfy the final Common Contract by inference. |
 | D2 sales UI | Existing detail screen supports the four explicit operations, history, safe unknown-result retry and mobile behavior. | Real staff workflow acceptance remains. |
 | E1 sales KPI | Business-specific cohort/activity read model and staff API are implemented, including JST/FY, NULL and data-quality semantics. | No Production query has been run; this is not a Common Dashboard. |
@@ -62,8 +62,10 @@ Two and only two Business KAIZEN SQL drafts are unnumbered at the reviewed HEAD:
 
 | Draft | SHA-256 / bytes | Direct prerequisites | Runtime dependency |
 | --- | --- | --- | --- |
-| `UNNUMBERED_business_kaizen_diagnosis_package_a.sql` | `7dc5405eaeba25ac969161ba12ab0992820c0aa68256fc5f3ec568736391442c` / 7,864 | Business Web Lead table (025); Company/Contact/Sales Activity tables (027) | Sales Activity attribution (030) for PROXY read projection; app/runtime roles and Production default ACL must be verified. |
+| `UNNUMBERED_business_kaizen_diagnosis_package_a.sql` | `239da79789346ec01afadd9e58f445a8389af667450f3364f6ede7b2467933c0` / 8,021 | Business Web Lead table (025); Company/Contact/Sales Activity tables (027) | Sales Activity attribution (030) for PROXY read projection; app/runtime roles and Production default ACL must be verified. |
 | `UNNUMBERED_business_kaizen_anonymous_kpi_daily.sql` | `e5fa76b55c5feacbb3e3149e75a7e686e2f8bc9015c3db78b29634569bb14a77` / 2,050 | PostgreSQL 16 for `UNIQUE NULLS NOT DISTINCT` | Marketing Initiative table (034) is queried by E2b classification; runtime roles need SELECT/INSERT/UPDATE and must not have DELETE/ownership. |
+
+The Diagnosis identity above is the current Release-preparation identity after F2a. It was recalculated from the working-tree file on 2026-11-24 and matches the F2a Source Evidence. At the original F1 audit point, before ACCEPTED re-entry was implemented, the same unnumbered filename had SHA-256 `7dc5405eaeba25ac969161ba12ab0992820c0aa68256fc5f3ec568736391442c` and 7,864 bytes. That old identity is historical evidence only and must not be used to build, allowlist or verify the Release artifact.
 
 Required order is: confirmed prerequisites → Diagnosis schema → Anonymous daily aggregate. The two drafts must become separate immutable migration artifacts and ledger entries. Applying both as an unreviewed combined script is prohibited.
 
@@ -80,7 +82,7 @@ That preflight must record PostgreSQL/database identity, every ledger filename/c
 
 | Gate | Classification | Required closure |
 | --- | --- | --- |
-| `ACCEPTED` re-entry blocked by `business_kaizen_initial_accepted_unique` | **修正必須** | Lock the lifecycle decision. If re-entry is valid, change the event/history contract and tests; if it is forbidden, remove/disable that UI transition and Canonically define the 409 behavior. Do not release the current ambiguous operation. |
+| `ACCEPTED` re-entry blocked by `business_kaizen_initial_accepted_unique` | **修正必須 — F2aで解決** | `business-kaizen-accepted-reentry-decision-20261124.md` approves re-entry, preserves append-only history and fixes entry at the earliest ACCEPTED. Production release still requires the final numbered SQL and verifier. |
 | E3a free-text Commercial `service_name` vs required common `serviceCode` | **修正必須** for Common KPI consumption | Approve a stable mapping/source contract or exclude unmappable Commercial Events from the final common interface with a Canonical rule. Do not invent codes. Core Business KAIZEN may release only if E3 common consumption stays disabled. |
 | Corporate baseline regression: 3 existing failures | **受入判断のみ** | Record named owner and either fix in its own lane or approve a time-bounded release waiver proving the same three failures on PR #74. Any new failure is No-Go. |
 | Production/Test Turnstile widgets, secrets, actions and hostname lists | **設定確認** | Separate widgets/secrets; exact `diagnosis_start`/`diagnosis_complete` actions; Production must not accept test configuration. Secret stays only in Sales Tools. |
@@ -96,7 +98,7 @@ That preflight must record PostgreSQL/database identity, every ledger filename/c
 
 The order below preserves current service availability and separates irreversible database work from reversible runtime/traffic changes.
 
-1. Close the two required code/contract gates: ACCEPTED lifecycle and E3a serviceCode consumption boundary. Re-run focused PostgreSQL and browser regressions.
+1. Apply the approved F2a ACCEPTED lifecycle resolution and close the remaining E3a serviceCode consumption boundary. Re-run focused PostgreSQL and browser regressions.
 2. Resolve or formally waive the three Corporate baseline failures. Rebase/review the complete Sales Tools and Corporate PR stacks in dependency order and establish final clean reviewed SHAs on the intended integration branches/main.
 3. Decide official/legacy Origins, Turnstile Production/Test policy, privacy presentation, access-log IP policy and anonymous-outage acceptance.
 4. Run the approved Production `BEGIN READ ONLY` ledger/identity/ACL preflight. STOP on any mismatch. Only then allocate two unused consecutive or otherwise approved migration numbers according to the observed ledger.
@@ -125,7 +127,7 @@ No step requires stopping the current public diagnosis. Database migrations are 
 
 ## 7. Human Acceptance
 
-- SELF: initial 201, replay 200, one Diagnosis/ACCEPTED, Original preservation, notification only after commit and only once.
+- SELF: initial 201 and replay 200 produce one Diagnosis and exactly one initial ACCEPTED history row, preserve Original, and notify only after commit and only once. Later explicit Stage operations may append further ACCEPTED history rows; they must not change the first accepted timestamp or increase the E1/Common entry count.
 - PROXY: authoritative Activity identity, draft/resume/revision conflict, consent, completion, no CRM/Lead creation and no automatic ACCEPTED.
 - Diagnosis list/detail: SELF/PROXY source separation, safe rendering, stable paging, mobile use and draft resume.
 - Sales operations: explicit Stage/schedule/Outcome/Event changes, history/audit, NULL vs zero, unknown-result retry and no inferred events.
@@ -145,7 +147,7 @@ Release is prohibited while any of the following is true:
 1. Production ledger or database identity is unavailable/unconfirmed, or a higher/unexpected migration exists.
 2. Either SQL draft is still unnumbered, mutable, combined with another migration, or lacks an immutable reviewed artifact and post-verifier.
 3. Backup/PITR restore evidence, migration ownership or Production-equivalent ACL evidence is missing.
-4. The ACCEPTED lifecycle remains ambiguous in code/UI/schema.
+4. The approved F2a ACCEPTED lifecycle resolution is absent from the final reviewed code/UI/schema or its numbered migration artifact.
 5. E3a is exposed to a Common KPI consumer while `serviceCode` is unresolved.
 6. The stacked PRs are not integrated/reviewed from their exact bases, or the release SHA is not reproducible from the Production Canonical.
 7. Corporate has new regression failures, or the three existing failures have neither remediation nor an explicit recorded waiver.
@@ -155,4 +157,4 @@ Release is prohibited while any of the following is true:
 11. Any migration Job has an unknown result. Resolve it from Job history and `schema_migrations`; do not rerun.
 12. A candidate requires direct Production traffic, DNS or destructive database change to be tested.
 
-Current conclusion: **NO-GO for Production release.** The implementation stack is substantially complete and isolated tests exist, but ledger/migration identity, two contract gates, Production configuration, Corporate acceptance and real-environment E2E are not closed.
+Current conclusion at the F1 review point: **NO-GO for Production release.** The implementation stack is substantially complete and isolated tests exist, but ledger/migration identity, two contract gates, Production configuration, Corporate acceptance and real-environment E2E are not closed. The ACCEPTED lifecycle gate is subsequently resolved by `business-kaizen-accepted-reentry-decision-20261124.md`; the other gates remain.

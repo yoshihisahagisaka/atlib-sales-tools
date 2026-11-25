@@ -223,17 +223,11 @@ export class BusinessKaizenProxyService {
           WHERE id=$1 RETURNING current_stage AS "currentStage",revision,updated_at AS "updatedAt"`,
         [diagnosisId, stage],
       );
-      let history;
-      try {
-        history = await client.query(
-          `INSERT INTO business_kaizen_diagnosis_stage_history(id,diagnosis_id,stage,changed_by_user_email)
-           VALUES($1,$2,$3,$4) RETURNING id,stage,reached_at AS "reachedAt",changed_by_user_email AS "changedByUserEmail"`,
-          [randomUUID(), diagnosisId, stage, actor],
-        );
-      } catch (error) {
-        if ((error as { code?: string }).code === '23505') throw new BusinessKaizenProxyError(409, 'STAGE_ALREADY_RECORDED');
-        throw error;
-      }
+      const history = await client.query(
+        `INSERT INTO business_kaizen_diagnosis_stage_history(id,diagnosis_id,stage,changed_by_user_email)
+         VALUES($1,$2,$3,$4) RETURNING id,stage,reached_at AS "reachedAt",changed_by_user_email AS "changedByUserEmail"`,
+        [randomUUID(), diagnosisId, stage, actor],
+      );
       await this.audit(client, diagnosisId, 'STAGE_CHANGED', actor, {
         from: diagnosis.current_stage, to: stage, fromRevision: expectedRevision, toRevision: expectedRevision + 1,
       });
