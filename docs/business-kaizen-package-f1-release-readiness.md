@@ -50,7 +50,7 @@ Read-only HTTP evidence on 2026-11-24:
 | E1 sales KPI | Business-specific cohort/activity read model and staff API are implemented, including JST/FY, NULL and data-quality semantics. | No Production query has been run; this is not a Common Dashboard. |
 | E2 anonymous KPI Backend | Strict public endpoint, dedicated Turnstile verification, fail-closed config, atomic daily aggregation, TEST/PRODUCTION separation, staff read API and least-privilege draft SQL are implemented. | Migration, Production config, real Turnstile, Origin decision and operational monitoring remain. |
 | E2 Corporate measurement | Q01-valid-answer start and rendered-result complete hooks are asynchronous, non-blocking and once-per-screen-attempt; event-specific tokens and minimal CSP changes are implemented in PR #80. | PR #74/#80 are not merged/deployed; real Invisible widget, CSP, privacy presentation and E2E remain. |
-| E3 Common KPI Adapter | Accepted Diagnosis projection, source-separated identity/attribution, fact milestones, Commercial Events and drill-down are implemented as read-only code. | No common aggregation/dashboard is in scope. Nullable `serviceCode` is an explicit GAP and blocks final Common Contract consumption. |
+| E3 Common KPI Adapter | Accepted Diagnosis projection, source-separated identity/attribution, fact milestones, Commercial Events and drill-down are implemented as read-only code. | No common aggregation/dashboard is in scope. F2b classifies the nullable `serviceCode` projection as internal and incomplete: it may remain only while disconnected from every Common API/dashboard/consumer. The GAP does not block the Business KAIZEN core or E1, but it blocks Common Commercial connection. |
 | Common CRM boundary | Existing Company/Contact/Activity are reused for PROXY; SELF does not manufacture CRM identity; list handoff does not auto-create a Diagnosis. | CRM PR #54–#72 stack is also Draft and must precede Business KAIZEN integration. |
 | Marketing Initiative boundary | E2b performs active `BUSINESS_WEB` exact-UTM read-only classification; unregistered raw UTM becomes OTHER without raw storage. | E3a does not claim an intake-time `marketingInitiativeId`, because no immutable reference snapshot exists. No mutable read-time match or backfill is allowed. |
 
@@ -83,7 +83,7 @@ That preflight must record PostgreSQL/database identity, every ledger filename/c
 | Gate | Classification | Required closure |
 | --- | --- | --- |
 | `ACCEPTED` re-entry blocked by `business_kaizen_initial_accepted_unique` | **修正必須 — F2aで解決** | `business-kaizen-accepted-reentry-decision-20261124.md` approves re-entry, preserves append-only history and fixes entry at the earliest ACCEPTED. Production release still requires the final numbered SQL and verifier. |
-| E3a free-text Commercial `service_name` vs required common `serviceCode` | **修正必須** for Common KPI consumption | Approve a stable mapping/source contract or exclude unmappable Commercial Events from the final common interface with a Canonical rule. Do not invent codes. Core Business KAIZEN may release only if E3 common consumption stays disabled. |
+| E3a free-text Commercial `service_name` vs required common `serviceCode` | **Common Commercial接続時の必須Gate**（業務KAIZEN本体のRelease阻害ではない） | `business-kaizen-package-f2b-common-commercial-boundary-decision.md` requires E3a to remain disconnected from Common API/dashboard/consumers. A future separate slice must approve a stable mapping/source contract or a Canonical exclusion rule. Do not invent codes. |
 | Corporate baseline regression: 3 existing failures | **受入判断のみ** | Record named owner and either fix in its own lane or approve a time-bounded release waiver proving the same three failures on PR #74. Any new failure is No-Go. |
 | Production/Test Turnstile widgets, secrets, actions and hostname lists | **設定確認** | Separate widgets/secrets; exact `diagnosis_start`/`diagnosis_complete` actions; Production must not accept test configuration. Secret stays only in Sales Tools. |
 | Official Origin and legacy www | **受入判断のみ** | Decide service-only vs dual-host support. Both hosts currently return 200. Then configure Corporate allowlist, Backend CORS/Origin-hostname pairing, Turnstile hostname and redirects consistently. |
@@ -98,7 +98,7 @@ That preflight must record PostgreSQL/database identity, every ledger filename/c
 
 The order below preserves current service availability and separates irreversible database work from reversible runtime/traffic changes.
 
-1. Apply the approved F2a ACCEPTED lifecycle resolution and close the remaining E3a serviceCode consumption boundary. Re-run focused PostgreSQL and browser regressions.
+1. Apply the approved F2a ACCEPTED lifecycle resolution and enforce the F2b E3a containment boundary: no Common API/dashboard/consumer wiring until a mapping is approved. Re-run focused PostgreSQL and browser regressions for the release code; a future Common Commercial connection remains a separate slice.
 2. Resolve or formally waive the three Corporate baseline failures. Rebase/review the complete Sales Tools and Corporate PR stacks in dependency order and establish final clean reviewed SHAs on the intended integration branches/main.
 3. Decide official/legacy Origins, Turnstile Production/Test policy, privacy presentation, access-log IP policy and anonymous-outage acceptance.
 4. Run the approved Production `BEGIN READ ONLY` ledger/identity/ACL preflight. STOP on any mismatch. Only then allocate two unused consecutive or otherwise approved migration numbers according to the observed ledger.
@@ -148,7 +148,7 @@ Release is prohibited while any of the following is true:
 2. Either SQL draft is still unnumbered, mutable, combined with another migration, or lacks an immutable reviewed artifact and post-verifier.
 3. Backup/PITR restore evidence, migration ownership or Production-equivalent ACL evidence is missing.
 4. The approved F2a ACCEPTED lifecycle resolution is absent from the final reviewed code/UI/schema or its numbered migration artifact.
-5. E3a is exposed to a Common KPI consumer while `serviceCode` is unresolved.
+5. E3a is exposed to a Common KPI API, dashboard, export, job, or other consumer while `serviceCode` is unresolved, or an unapproved code is inferred from free text.
 6. The stacked PRs are not integrated/reviewed from their exact bases, or the release SHA is not reproducible from the Production Canonical.
 7. Corporate has new regression failures, or the three existing failures have neither remediation nor an explicit recorded waiver.
 8. Official/legacy Origin, Turnstile hostname/action/widget separation, CSP or privacy presentation is unresolved.
@@ -157,4 +157,4 @@ Release is prohibited while any of the following is true:
 11. Any migration Job has an unknown result. Resolve it from Job history and `schema_migrations`; do not rerun.
 12. A candidate requires direct Production traffic, DNS or destructive database change to be tested.
 
-Current conclusion at the F1 review point: **NO-GO for Production release.** The implementation stack is substantially complete and isolated tests exist, but ledger/migration identity, two contract gates, Production configuration, Corporate acceptance and real-environment E2E are not closed. The ACCEPTED lifecycle gate is subsequently resolved by `business-kaizen-accepted-reentry-decision-20261124.md`; the other gates remain.
+Current conclusion at the F1 review point: **NO-GO for Production release.** The implementation stack is substantially complete and isolated tests exist, but ledger/migration identity, Production configuration, Corporate acceptance and real-environment E2E are not closed. The ACCEPTED lifecycle gate is resolved by `business-kaizen-accepted-reentry-decision-20261124.md`. F2b records the Commercial `serviceCode` GAP as a mandatory gate for future Common Commercial connection, not a blocker for the Business KAIZEN core or E1 while E3a remains disconnected. All other gates remain.
