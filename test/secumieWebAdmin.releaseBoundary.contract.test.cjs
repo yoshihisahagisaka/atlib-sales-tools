@@ -80,3 +80,22 @@ test('headless PDF image uses maintained Node and only the required browser shel
     /chromium\.launch\(\{ headless: true \}\)/,
     'WSC must continue using headless mode without a full Chromium channel');
 });
+
+test('request-body boundaries constrain Zod inputs without broadening public JSON limits', () => {
+  const server = read('src/server.ts');
+  const mirror = read('src/routes/internalSecumieWebMirror.ts');
+  const canonical = read('docs/secumie-web-admin-interim.md');
+  assert.match(server, /app\.use\(express\.json\(\)\);/,
+    'default JSON parser must retain Express default 100KB limit');
+  assert.doesNotMatch(server, /app\.use\(express\.json\(\{\s*limit:/,
+    'do not globally increase request size limits');
+  assert.match(server, /app\.use\('\/api\/admin\/estimates\/ai-assist', express\.json\(\{ limit: '15mb' \}\)\)/);
+  assert.match(server, /app\.use\('\/api\/admin\/kaizen-assessment', express\.json\(\{ limit: '2mb' \}\)\)/);
+  assert.match(server, /app\.use\('\/api\/admin\/web-security-check', express\.json\(\{ limit: '2mb' \}\)\)/);
+  assert.match(server, /express\.raw\(\{ type: 'application\/json', limit: '8kb' \}\)/);
+  assert.match(mirror, /payload\.safeParse\(json\)/);
+  assert.match(canonical, /CVE-2023-54404/);
+  assert.match(canonical, /REJECTED/);
+  assert.match(canonical, /adminAuthGateより前/);
+  assert.match(canonical, /SECURITY_NO_GO/);
+});
