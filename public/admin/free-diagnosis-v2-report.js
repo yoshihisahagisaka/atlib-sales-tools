@@ -4,6 +4,8 @@
   const caseId = params.get('caseId');
   const reportId = params.get('reportId');
   const apiBase = '/api/admin/free-diagnosis-v1/cases/';
+  const handoffBase = '/api/admin/it-management-kaizen/assessment-source-handoffs/';
+  let feedbackState = null;
   let report;
   let postHearingWorkspace;
   const byId = id => document.querySelector(`#${id}`);
@@ -43,14 +45,19 @@
   function renderApprovalState() {
     const status = byId('approvalStatus'); const notice = byId('approvalNotice'); const approve = byId('approveReport'); const pdf = byId('viewPdf');
     const approved = report.status === 'APPROVED';
-    setReadonly(approved);
-    status.textContent = approved ? '承認済み' : '';
-    hidden(status, !approved);
+    const delivered = report.status === 'DELIVERED';
+    setReadonly(approved || delivered);
+    status.textContent = delivered ? '送付済み' : approved ? '承認済み' : '';
+    hidden(status, !approved && !delivered);
     if (approved) {
       pdf.href = `${apiBase}${encodeURIComponent(caseId)}/design-v2/reports/${encodeURIComponent(reportId)}/pdf`;
       notice.textContent = 'このレポートの内容は確定されています。'; hidden(notice, false); hidden(approve, true); hidden(pdf, false); return;
     }
     hidden(pdf, true);
+    if (delivered) {
+      notice.textContent = '送付済みのレポートです。内容は変更できません。';
+      hidden(notice, false); hidden(approve, true); return;
+    }
     if (report.status === 'REVIEW_REQUIRED' && approvalCurrent()) {
       notice.textContent = '承認すると、このレポートの内容が確定されます。'; hidden(notice, false); hidden(approve, false);
     } else if (report.status === 'REVIEW_REQUIRED') {
@@ -193,6 +200,82 @@
     );
   }
 
+  function workflowMessage(text, isError = false) {
+    const node = byId('assessmentWorkflowStatus');
+    node.textContent = text;
+    node.className = isError ? 'status error' : 'status';
+  }
+
+  async function loadWorkflow() {
+    feedbackState = null;
+    hidden(byId('assessmentNextStep'), true);
+    hidden(byId('deliveryAction'), true);
+    hidden(byId('feedbackEntry'), true);
+    hidden(byId('handoffAction'), true);
+    hidden(byId('returnToAnalysis'), true);
+    if (!['APPROVED', 'DELIVERED'].includes(report.status)) return;
+    hidden(byId('assessmentNextStep'), false);
+    workflowMessage('');
+    const prefix = `${apiBase}${encodeURIComponent(caseId)}`;
+    try {
+      const stateResponse = await fetch(`${prefix}/feedback/state`);
+      if (!stateResponse.ok) throw new Error('feedback state unavailable');
+      const state = await stateResponse.json();
+      feedbackState = state;
+      if (report.status === 'APPROVED') {
+        if (state.caseStatus === 'REPORT_APPROVED') {
+          hidden(byId('deliveryAction'), false);
+          workflowMessage('実際に顧客へ送付した後に「送付済みとして記録」を押してください。');
+        } else workflowMessage('このレポートの送付状態を確認してください。', true);
+        return;
+      }
+      if (state.feedbackReportId !== reportId) {
+        workflowMessage('過去のレポートです。現在のフィードバック対象ではありません。');
+        return;
+      }
+      if (state.caseStatus === 'FEEDBACK_PENDING') {
+        hidden(byId('feedbackEntry'), false);
+        workflowMessage('経営者との対話後に、判断と次の行動を記録してください。');
+        return;
+      }
+      if (state.latestDecision?.route === 'FOCUSED_CONFIRMATION') {
+        byId('returnToAnalysis').href = `/admin/free-diagnosis-v2-analysis.html?caseId=${encodeURIComponent(caseId)}`;
+        hidden(byId('returnToAnalysis'), false);
+        workflowMessage('追加確認を行う判断が記録されています。');
+        return;
+      }
+      if (state.caseStatus === 'CLOSED' && state.latestDecision?.route === 'DESIGN_ASSESSMENT') {
+        hidden(byId('handoffAction'), false);
+        const hResponse = await fetch(`${handoffBase}${encodeURIComponent(caseId)}/latest`);
+        if (!hResponse.ok) throw new Error('handoff read unavailable');
+        const saved = (await hResponse.json()).handoff;
+        const current = saved && saved.feedbackDecisionId === state.latestDecision.id;
+        byId('createHandoff').disabled = Boolean(current);
+        byId('handoffStatus').textContent = current
+          ? `引継ぎ済み（第${saved.version}版）`
+          : saved ? '過去の引継ぎがあります。最新の判断を引き継いでください。' : '';
+        workflowMessage(current ? '設計Assessmentへの引継ぎを記録済みです。' : '設計Assessmentへ引継ぐことができます。');
+        return;
+      }
+      workflowMessage('経営フィードバックは記録済みです。');
+    } catch {
+      feedbackState = null;
+      hidden(byId('deliveryAction'), true);
+      hidden(byId('feedbackEntry'), true);
+      hidden(byId('handoffAction'), true);
+      workflowMessage('現在の状態を確認できませんでした。再読み込みしてください。', true);
+    }
+  }
+
+  async function postWorkflow(url, body) {
+    const response = await fetch(url, {
+      method: 'POST',
+      ...(body === undefined ? {} : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.status === 204 ? null : response.json();
+  }
+
   async function load() {
     if (!caseId || !reportId) { hidden(unavailable, false); return; }
     byId('backToAnalysis').href = `/admin/free-diagnosis-v2-analysis.html?caseId=${encodeURIComponent(caseId)}`;
@@ -203,6 +286,7 @@
     if (!response.ok) { hidden(unavailable, false); return; }
     report = await response.json(); postHearingWorkspace = workspaceResponse.ok ? await workspaceResponse.json() : null;
     renderForm(); renderPreview(); renderApprovalState(); hidden(workspace, false);
+    await loadWorkflow();
   }
   async function save() {
     const content = editedContent();
@@ -223,6 +307,60 @@
       await load(); showMessage('レポートを承認しました。');
     } finally { button.disabled = false; }
   }
+  byId('markDelivered').addEventListener('click', async () => {
+    if (report?.status !== 'APPROVED' || feedbackState?.caseStatus !== 'REPORT_APPROVED') return;
+    if (!window.confirm('このPDFを実際に顧客へ送付しましたか？送付済みとして記録します。')) return;
+    const button = byId('markDelivered'); button.disabled = true;
+    try {
+      await postWorkflow(`${apiBase}${encodeURIComponent(caseId)}/reports/${encodeURIComponent(reportId)}/deliver`);
+      await load();
+      showMessage('送付済みとして記録しました。');
+    } catch { workflowMessage('送付を記録できませんでした。現在の状態を確認してください。', true); }
+    finally { button.disabled = false; }
+  });
+
+  byId('recordFeedback').addEventListener('click', async () => {
+    if (report?.status !== 'DELIVERED' || feedbackState?.caseStatus !== 'FEEDBACK_PENDING'
+        || feedbackState?.feedbackReportId !== reportId) return;
+    const route = byId('feedbackRoute').value;
+    const materialDecision = byId('feedbackDecision').value.trim();
+    const nextAction = byId('feedbackNextAction').value.trim();
+    if (!materialDecision || !nextAction) { workflowMessage('今回の判断と次の行動を入力してください。', true); return; }
+    const button = byId('recordFeedback'); button.disabled = true;
+    try {
+      if (!feedbackState.feedbackStarted) {
+        await postWorkflow(`${apiBase}${encodeURIComponent(caseId)}/feedback/start`);
+        feedbackState.feedbackStarted = true;
+      }
+      await postWorkflow(`${apiBase}${encodeURIComponent(caseId)}/feedback/decision`, {
+        route, materialDecision, nextAction,
+      });
+      await load();
+      showMessage('経営フィードバックを記録しました。');
+    } catch {
+      await loadWorkflow();
+      workflowMessage('経営フィードバックを記録できませんでした。状態を確認してから再試行してください。', true);
+    } finally { button.disabled = false; }
+  });
+
+  byId('createHandoff').addEventListener('click', async () => {
+    if (report?.status !== 'DELIVERED' || feedbackState?.caseStatus !== 'CLOSED'
+        || feedbackState?.feedbackReportId !== reportId
+        || feedbackState?.latestDecision?.route !== 'DESIGN_ASSESSMENT') return;
+    if (!window.confirm('最新の経営判断を設計Assessmentへ引き継ぎますか？')) return;
+    const button = byId('createHandoff'); button.disabled = true;
+    try {
+      const result = await postWorkflow(`${handoffBase}${encodeURIComponent(caseId)}`);
+      if (!result?.handoff || result.handoff.feedbackDecisionId !== feedbackState.latestDecision.id) {
+        throw new Error('handoff response mismatch');
+      }
+      await loadWorkflow();
+      showMessage('設計Assessmentへの引継ぎを記録しました。');
+    } catch {
+      workflowMessage('引継ぎに失敗しました。現在の判断と提出レポートを確認してください。', true);
+    } finally { button.disabled = false; }
+  });
+
   byId('reportForm').addEventListener('submit', event => { event.preventDefault(); save(); });
   byId('saveReport').addEventListener('click', save);
   byId('approveReport').addEventListener('click', approve);

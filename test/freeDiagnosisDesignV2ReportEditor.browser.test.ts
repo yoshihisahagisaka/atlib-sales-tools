@@ -159,6 +159,168 @@ test('stale Draft shows the refresh guidance and cannot be approved from the edi
   expect(approvalCalls).toBe(0);
 });
 
+test('approved report records a real send only after confirmation and restores readonly delivery', async ({ page }) => {
+  let data: any = { ...draft(), status: 'APPROVED' }; let sends = 0;
+  const state: any = { caseId, caseStatus: 'REPORT_APPROVED', feedbackStarted: false,
+    feedbackReportId: null, latestDecision: null };
+  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, route => route.fulfill({ json: data }));
+  await page.route(`**/cases/${caseId}/feedback/state`, route => route.fulfill({ json: state }));
+  await page.route(`**/cases/${caseId}/reports/${reportId}/deliver`, async route => {
+    sends++; data = { ...data, status: 'DELIVERED' };
+    state.caseStatus = 'FEEDBACK_PENDING'; state.feedbackReportId = reportId;
+    await route.fulfill({ status: 204, body: '' });
+  });
+  await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
+  await expect(page.getByRole('button', { name: '送付済みとして記録' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'PDFで表示' })).toBeVisible();
+  page.once('dialog', dialog => dialog.dismiss());
+  await page.getByRole('button', { name: '送付済みとして記録' }).click();
+  expect(sends).toBe(0);
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: '送付済みとして記録' }).click();
+  await expect.poll(() => sends).toBe(1);
+  await expect(page.getByRole('button', { name: '提案情報を保存' })).toBeHidden();
+  await expect(page.getByRole('link', { name: 'PDFで表示' })).toBeHidden();
+  await expect(page.locator('#recipientCompany')).toBeDisabled();
+  await page.reload();
+  await expect(page.locator('#feedbackEntry')).toBeVisible();
+  await expect(page.locator('#deliveryAction')).toBeHidden();
+  expect(sends).toBe(1);
+});
+
+test('feedback reuses start and decision in order and handoff survives reload', async ({ page }) => {
+  const data: any = { ...draft(), status: 'DELIVERED' };
+  const state: any = { caseId, caseStatus: 'FEEDBACK_PENDING', feedbackStarted: false,
+    feedbackReportId: reportId, latestDecision: null };
+  const calls: string[] = [];
+  let saved: any = null;
+  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, route => route.fulfill({ json: data }));
+  await page.route(`**/cases/${caseId}/feedback/state`, route => route.fulfill({ json: state }));
+  await page.route(`**/cases/${caseId}/feedback/start`, async route => {
+    calls.push('start'); state.feedbackStarted = true;
+    await route.fulfill({ status: 204, body: '' });
+  });
+  await page.route(`**/cases/${caseId}/feedback/decision`, async route => {
+    calls.push('decision');
+    expect(route.request().postDataJSON()).toEqual({
+      route: 'DESIGN_ASSESSMENT', materialDecision: '設計Assessmentを検討する', nextAction: '資料を確認する',
+    });
+    state.caseStatus = 'CLOSED';
+    state.latestDecision = { id: 'decision-latest', version: 1, route: 'DESIGN_ASSESSMENT' };
+    await route.fulfill({ json: { status: 'CLOSED' } });
+  });
+  await page.route(`**/assessment-source-handoffs/${caseId}/latest`, route => route.fulfill({ json: { handoff: saved } }));
+  await page.route(`**/assessment-source-handoffs/${caseId}`, async route => {
+    calls.push('handoff');
+    saved = { id: 'handoff-latest', version: 1, feedbackDecisionId: state.latestDecision.id };
+    await route.fulfill({ status: 201, json: { created: true, handoff: saved } });
+  });
+  await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
+  await expect(page.locator('#feedbackEntry')).toBeVisible();
+  await page.locator('#feedbackRoute').selectOption('DESIGN_ASSESSMENT');
+  await page.locator('#feedbackDecision').fill('設計Assessmentを検討する');
+  await page.locator('#feedbackNextAction').fill('資料を確認する');
+  await page.locator('#recordFeedback').click();
+  await expect.poll(() => calls).toEqual(['start', 'decision']);
+  await expect(page.locator('#createHandoff')).toBeVisible();
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('#createHandoff').click();
+  await expect.poll(() => calls).toEqual(['start', 'decision', 'handoff']);
+  await page.reload();
+  await expect(page.locator('#createHandoff')).toBeDisabled();
+  await expect(page.locator('#handoffStatus')).toContainText('引継ぎ済み');
+});
+
+test('prestarted feedback is not started twice and historical report cannot submit', async ({ page }) => {
+  const data: any = { ...draft(), status: 'DELIVERED' };
+  const state: any = { caseId, caseStatus: 'FEEDBACK_PENDING', feedbackStarted: true,
+    feedbackReportId: reportId, latestDecision: null };
+  let startCalls = 0; let decisionCalls = 0;
+  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, route => route.fulfill({ json: data }));
+  await page.route(`**/cases/${caseId}/feedback/state`, route => route.fulfill({ json: state }));
+  await page.route(`**/cases/${caseId}/feedback/start`, async route => {
+    startCalls++; await route.fulfill({ status: 409, json: { error: 'FEEDBACK_NOT_STARTABLE' } });
+  });
+  await page.route(`**/cases/${caseId}/feedback/decision`, async route => {
+    decisionCalls++; state.caseStatus = 'CLOSED';
+    state.latestDecision = { id: 'decision-stop', version: 1, route: 'STOP_HOLD' };
+    await route.fulfill({ json: { status: 'CLOSED' } });
+  });
+  await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
+  await page.locator('#feedbackDecision').fill('今回は対応を見送る');
+  await page.locator('#feedbackNextAction').fill('経過を見る');
+  await page.locator('#recordFeedback').click();
+  await expect.poll(() => decisionCalls).toBe(1);
+  expect(startCalls).toBe(0);
+  await expect(page.locator('#handoffAction')).toBeHidden();
+  state.feedbackReportId = 'other-report';
+  state.caseStatus = 'FEEDBACK_PENDING';
+  await page.reload();
+  await expect(page.locator('#feedbackEntry')).toBeHidden();
+  await expect(page.locator('#handoffAction')).toBeHidden();
+  await expect(page.locator('#assessmentWorkflowStatus')).toContainText('過去のレポート');
+});
+
+test('unavailable feedback status does not allow writes or indicate success', async ({ page }) => {
+  const data: any = { ...draft(), status: 'DELIVERED' };
+  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, route => route.fulfill({ json: data }));
+  await page.route(`**/cases/${caseId}/feedback/state`, route => route.fulfill({ status: 500, json: { error: 'FAILED' } }));
+  await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
+  await expect(page.locator('#assessmentWorkflowStatus')).toContainText('確認できませんでした');
+  await expect(page.locator('#feedbackEntry')).toBeHidden();
+  await expect(page.locator('#handoffAction')).toBeHidden();
+  await expect(page.locator('#deliveryAction')).toBeHidden();
+});
+
+test('feedback partially fails after start and retries without starting twice', async ({ page }) => {
+  const data: any = { ...draft(), status: 'DELIVERED' };
+  const state: any = { caseId, caseStatus: 'FEEDBACK_PENDING', feedbackStarted: false,
+    feedbackReportId: reportId, latestDecision: null };
+  let starts = 0; let decisions = 0;
+  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, route => route.fulfill({ json: data }));
+  await page.route(`**/cases/${caseId}/feedback/state`, route => route.fulfill({ json: state }));
+  await page.route(`**/cases/${caseId}/feedback/start`, async route => {
+    starts++; state.feedbackStarted = true; await route.fulfill({ status: 204, body: '' });
+  });
+  await page.route(`**/cases/${caseId}/feedback/decision`, async route => {
+    decisions++;
+    if (decisions === 1) { await route.fulfill({ status: 409, json: { error: 'CONFLICT' } }); return; }
+    state.caseStatus = 'CLOSED';
+    state.latestDecision = { id: 'stop-after-retry', version: 1, route: 'STOP_HOLD' };
+    await route.fulfill({ json: { status: 'CLOSED' } });
+  });
+  await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
+  await page.locator('#feedbackDecision').fill('経営判断を保留する');
+  await page.locator('#feedbackNextAction').fill('後日確認する');
+  await page.locator('#recordFeedback').click();
+  await expect.poll(() => decisions).toBe(1);
+  await expect(page.locator('#assessmentWorkflowStatus')).toContainText('記録できませんでした');
+  await page.locator('#recordFeedback').click();
+  await expect.poll(() => decisions).toBe(2);
+  expect(starts).toBe(1);
+  await expect(page.locator('#feedbackEntry')).toBeHidden();
+});
+
+test('handoff rejection never appears as successful or disables retry permanently', async ({ page }) => {
+  const data: any = { ...draft(), status: 'DELIVERED' };
+  const state = { caseId, caseStatus: 'CLOSED', feedbackStarted: true, feedbackReportId: reportId,
+    latestDecision: { id: 'decision-current', version: 1, route: 'DESIGN_ASSESSMENT' } };
+  let attempted = 0;
+  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, route => route.fulfill({ json: data }));
+  await page.route(`**/cases/${caseId}/feedback/state`, route => route.fulfill({ json: state }));
+  await page.route(`**/assessment-source-handoffs/${caseId}/latest`, route => route.fulfill({ json: { handoff: null } }));
+  await page.route(`**/assessment-source-handoffs/${caseId}`, async route => {
+    attempted++; await route.fulfill({ status: 409, json: { error: 'HANDOFF_SOURCE_CONFLICT' } });
+  });
+  await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('#createHandoff').click();
+  await expect.poll(() => attempted).toBe(1);
+  await expect(page.locator('#assessmentWorkflowStatus')).toContainText('引継ぎに失敗');
+  await expect(page.locator('#createHandoff')).toBeEnabled();
+  await expect(page.locator('#handoffStatus')).not.toContainText('引継ぎ済み');
+});
+
 test('Post-Hearing opens the reusable Draft without creating a report version per click', async ({ page }) => {
   let ensureCalls = 0; await page.route('**/design-v2/post-hearing-analysis', route => route.fulfill({ json: { originalSurvey: { answers: { q1CompanyContext: { employeeRange: 'EMP_21_50', siteRange: 'SITE_1' }, q2Future: ['BUSINESS_GROWTH'], q3ItExpectations: ['PRODUCTIVITY'], q4CurrentInterest: 'MANAGEMENT_DECISION', q5Visibility: 'VISIBLE_PARTIAL', q6ManagementConnection: 'REPORTED_NOT_DECISION_USABLE', q7InterestThemes: ['AI'] } }, hearingRecords: [], currentCompanyContext: { employeeRange: 'EMP_21_50', siteRange: 'SITE_1' }, currentStructuredState: { q2Future: ['BUSINESS_GROWTH'], q3ItExpectations: ['PRODUCTIVITY'], q4CurrentInterest: 'MANAGEMENT_DECISION', q5Visibility: 'VISIBLE_PARTIAL', q6ManagementConnection: 'REPORTED_NOT_DECISION_USABLE', q7InterestThemes: ['AI'] }, currentStateRevision: { id: 'state-1', revisionNo: 1 }, currentStateDiffFromOriginal: {}, latestAnalysisResult: { analysis: { futureUnderstanding: [], currentUnderstanding: [], lensFindings: [], unknowns: [], hearingViewpoints: [], factCandidates: [] } }, latestGeneratedNarrative: { id: 'generated', content: { future: { heading: '未来', entries: [] }, currentUnderstanding: { heading: '現在', entries: [] }, confirmationAndImprovement: { heading: '改善', entries: [] }, unknowns: { heading: '未確認', entries: [] }, nextFacts: { heading: '次', entries: [] } } }, latestHumanEditedNarrative: null, humanEditedNarrativeStatus: 'NONE', analysisFreshness: 'CURRENT', traceability: { viewpoints: [], analysisItemThemes: {}, narrativeSectionThemes: {} } } }));
   await page.route('**/report-drafts/ensure', async route => { ensureCalls++; await route.fulfill({ json: { id: reportId, version: 1 } }); }); await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${caseId}`); await page.getByRole('button', { name: 'レポートを確認' }).click(); await expect(page).toHaveURL(new RegExp(`reportId=${reportId}`)); expect(ensureCalls).toBe(1);

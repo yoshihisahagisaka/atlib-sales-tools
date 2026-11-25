@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
+import { z } from 'zod';
 import { contentHash, manualReport, storeReport, type ReportContext } from '../domain/diagnosisReport';
 import { intakeAnswerEnvelopeSchema } from '../domain/freeDiagnosisRuleBasedV1';
 import { projectIntakeSemantics } from '../domain/intakeSemanticProjection';
@@ -21,8 +22,60 @@ const focusLabel = (unitCode: string) => ({
 } as Record<string,string>)[unitCode] ?? '今回確認したテーマ';
 const currentUnderstandingText = (unitCode: string, value: unknown) => `${focusLabel(unitCode)}について、${hearingAnswerDisplayLabel(value)}と伺いました。`;
 const remainingUnknownText = (unitCode: string) => `今回の60分では、${focusLabel(unitCode)}について判断に必要な状況を十分に確認できていません。`;
+export type DesignV2FeedbackRoute = 'DIRECT_ACT' | 'FOCUSED_CONFIRMATION' | 'DESIGN_ASSESSMENT' | 'STOP_HOLD';
+
+export interface DesignV2FeedbackState {
+  caseId: string;
+  caseStatus: string;
+  feedbackStarted: boolean;
+  feedbackReportId: string | null;
+  latestDecision: { id: string; version: number; route: DesignV2FeedbackRoute } | null;
+}
+
 export class Vs1ReviewReportFeedbackRepo {
   constructor(private readonly pool: Pool) {}
+
+  /** Source-of-truth read for the Design v2 report workflow; no mutations or eligibility claims. */
+  async feedbackState(caseId: string): Promise<DesignV2FeedbackState> {
+    if (!z.string().uuid().safeParse(caseId).success) throw new RuleBasedV1Error(404, 'CASE_NOT_FOUND');
+    const { rows } = await this.pool.query<{
+      case_id: string; case_status: string; feedback_report_id: string | null;
+      feedback_started_at: Date | null; decision_id: string | null;
+      decision_version: number | null; decision_route: string | null;
+    }>(`SELECT c.id AS case_id, c.status AS case_status,
+              c.feedback_report_id, c.feedback_started_at,
+              d.id AS decision_id, d.version AS decision_version, d.route_code AS decision_route
+         FROM it_management_diagnosis_case_v2 c
+         LEFT JOIN LATERAL (
+           SELECT id, version, route_code FROM management_feedback_decisions
+            WHERE it_management_diagnosis_case_v2_id=c.id
+            ORDER BY version DESC LIMIT 1
+         ) d ON TRUE
+        WHERE c.id=$1`, [caseId]);
+    const row = rows[0];
+    if (!row) throw new RuleBasedV1Error(404, 'CASE_NOT_FOUND');
+    const routes = new Set<DesignV2FeedbackRoute>([
+      'DIRECT_ACT', 'FOCUSED_CONFIRMATION', 'DESIGN_ASSESSMENT', 'STOP_HOLD',
+    ]);
+    const hasDecision = row.decision_id !== null;
+    if ((hasDecision && (
+      !row.decision_id || !Number.isInteger(row.decision_version)
+      || Number(row.decision_version) <= 0
+      || !routes.has(row.decision_route as DesignV2FeedbackRoute)
+    )) || (!hasDecision && (row.decision_version !== null || row.decision_route !== null))) {
+      throw new RuleBasedV1Error(409, 'FEEDBACK_STATE_INVALID');
+    }
+    return {
+      caseId: row.case_id,
+      caseStatus: row.case_status,
+      feedbackStarted: row.feedback_started_at !== null,
+      feedbackReportId: row.feedback_report_id,
+      latestDecision: hasDecision ? {
+        id: row.decision_id as string, version: row.decision_version as number,
+        route: row.decision_route as DesignV2FeedbackRoute,
+      } : null,
+    };
+  }
   private async audit(caseId:string, actor:string, command:string, detail:unknown){await this.pool.query(`INSERT INTO it_management_diagnosis_case_v2_audit(id,case_id,command,actor_user_id,detail_json) VALUES($1,$2,$3,$4,$5)`,[randomUUID(),caseId,command,actor,JSON.stringify(detail)]);}
   async project(caseId:string, executionId:string, actor:string){
     const {rows}=await this.pool.query<any>('SELECT input_snapshot_json FROM rule_analysis_execution WHERE id=$1 AND case_id=$2 AND analysis_stage=\'FINAL\'',[executionId,caseId]); if(!rows[0]) throw new RuleBasedV1Error(404,'FINAL_RULE_EXECUTION_NOT_FOUND');
