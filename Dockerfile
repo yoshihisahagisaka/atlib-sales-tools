@@ -31,7 +31,7 @@ COPY migrations/*.sql ./migrations/
 USER node
 CMD ["node", "dist/db/migrateCli.js"]
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:24-trixie-slim AS runtime
 WORKDIR /app
 ARG SOURCE_REVISION
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
