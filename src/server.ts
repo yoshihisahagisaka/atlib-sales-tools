@@ -71,6 +71,8 @@ import { FreeDiagnosisDesignV2EntryAdapter } from './services/freeDiagnosisDesig
 import { StaffProxyDesignV2SubmissionService } from './services/staffProxyDesignV2SubmissionService';
 import { FreeDiagnosisDesignV2ApiService } from './services/freeDiagnosisDesignV2ApiService';
 import { createAdminFreeDiagnosisDesignV2Router } from './routes/adminFreeDiagnosisDesignV2';
+import { PaidAssessmentSourceHandoffRepo } from './services/paidAssessmentSourceHandoffRepo';
+import { createAdminPaidAssessmentSourceHandoffRouter } from './routes/adminPaidAssessmentSourceHandoff';
 import { FreeDiagnosisDesignV2ReportPdfService } from './services/freeDiagnosisDesignV2ReportPdf';
 import { MarketingInitiativeRepo } from './services/marketingInitiativeRepo';
 import { createAdminMarketingInitiativeRouter } from './routes/adminMarketingInitiative';
@@ -102,6 +104,7 @@ async function main(): Promise<void> {
   const staffProxyDesignV2SubmissionService = new StaffProxyDesignV2SubmissionService(pool, freeDiagnosisDesignV2EntryAdapter);
   const freeDiagnosisDesignV2ReportPdfService = new FreeDiagnosisDesignV2ReportPdfService(pool);
   const freeDiagnosisDesignV2ApiService = new FreeDiagnosisDesignV2ApiService(freeDiagnosisRuleBasedCaseRepo, freeDiagnosisDesignV2PersistenceRepo, vs1ReviewReportFeedbackRepo, freeDiagnosisDesignV2ReportPdfService);
+  const paidAssessmentSourceHandoffRepo = new PaidAssessmentSourceHandoffRepo(pool);
   const kaizenAssessmentRepo = new KaizenAssessmentRepo(pool);
   const kaizenAssessmentAiService = new KaizenAssessmentAiService(config.aiAssist.anthropicApiKey);
   const marketRateRepo = new MarketRateRepo(pool);
@@ -257,6 +260,8 @@ async function main(): Promise<void> {
     ...adminAuthGate,
     createAdminFreeDiagnosisDesignV2Router(freeDiagnosisDesignV2ApiService),
   );
+  app.use('/api/admin/it-management-kaizen/assessment-source-handoffs', ...adminAuthGate,
+    createAdminPaidAssessmentSourceHandoffRouter(paidAssessmentSourceHandoffRepo));
   // 静的HTML側もスタッフ認証で保護する。この行は下の一般static配信より前に置くこと
   // （逆順だと未認証で/admin/*.htmlが一般static経由で読めてしまう）。
   app.use('/admin', ...adminAuthGate, express.static(path.join(__dirname, '../public/admin')));
