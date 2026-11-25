@@ -15,6 +15,8 @@
     "test:business-web-consultation:api": "node -r ts-node/register --test test/businessWebConsultation.api.test.ts",
     "test:business-web-consultation:browser": "playwright test --config=test/businessWebConsultation.playwright.config.ts",
     "test:admin-portal:browser": "playwright test --config=test/adminPortal.playwright.config.ts",
+    "test:admin-portal:kpi": "node -r ts-node/register --test test/adminPortalKpis.api.test.ts",
+    "test:admin-portal:kpi:postgres": "node -r ts-node/register --test test/adminPortalKpis.postgres.test.ts",
     "test:diagnosis:browser": "playwright test --config=test/diagnosis.playwright.config.ts",
     "migrate": "node --env-file=.env -r ts-node/register migrations/runner.ts",
     "import:market-rates": "node --env-file=.env -r ts-node/register scripts/cost_estimation/import_market_rates.ts",
