@@ -47,7 +47,7 @@ test('release remains unapproved while current source is not reconciled with dep
   assert.match(record, /SECURITY_NO_GO/);
   assert.match(record, /sales-tools-bks-20261122040419/);
   assert.match(record, /Staging DB構築済み/, 'Staging DB and migration were completed');
-  assert.match(record, /隔離0% Staging Revision.*未実施/, 'Staging revision is still not deployed');
+  assert.match(record, /\*\*未実施\*\*：隔離0% Staging Revision/, 'Staging revision is still not deployed');
 });
 
 test('Cloud Build upload ignores local npm cache without excluding app sources', () => {
