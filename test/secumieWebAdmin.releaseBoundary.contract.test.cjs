@@ -87,6 +87,8 @@ test('request-body boundaries constrain Zod inputs without broadening public JSO
   const canonical = read('docs/secumie-web-admin-interim.md');
   assert.match(server, /app\.use\(express\.json\(\)\);/,
     'default JSON parser must retain Express default 100KB limit');
+  assert.ok(server.indexOf('app.use(cookieParser())') < server.indexOf('const adminAuthGate'),
+    'Cookie parsing must precede staff authentication');
   assert.doesNotMatch(server, /app\.use\(express\.json\(\{\s*limit:/,
     'do not globally increase request size limits');
   assert.match(server, /app\.use\('\/api\/admin\/estimates\/ai-assist', \.\.\.adminAuthGate, express\.json\(\{ limit: '15mb' \}\)\)/);

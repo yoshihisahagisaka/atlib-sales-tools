@@ -153,6 +153,8 @@ async function main(): Promise<void> {
   // req.ipが正しいクライアントIPを指すようにtrust proxyを有効化する（IPレート制限で使用）。
   app.set('trust proxy', true);
   app.use(pinoHttp({ logger, serializers: { req: safeAccessRequest, res: safeAccessResponse } }));
+  // Cookie parsing must precede requireStaffAuth(), which reads staff_session.
+  app.use(cookieParser());
   // Authenticate staff before parsing the few intentionally larger JSON bodies.
   // Public routes retain Express's default 100KB JSON limit below.
   const adminAuthGate = [
@@ -180,7 +182,6 @@ async function main(): Promise<void> {
       createInternalSecumieWebMirrorRouter(webRequests, mirrorSecret));
   }
   app.use(express.json());
-  app.use(cookieParser());
 
   app.get('/healthz', (_req, res) => res.status(200).send('ok'));
   app.use('/api/it-management-diagnosis', createItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted));
