@@ -19,14 +19,17 @@ test.beforeAll(async () => {
   app.set('trust proxy', 'loopback');
   app.use(cookieParser());
   app.get('/api/admin/portal-kpis', requireStaffAuth(auth), (req, res) => {
-    if (req.get('referer')?.includes('simulateKpiFailure=1')) {
+    const referer = req.get('referer') ?? '';
+    if (referer.includes('simulateKpiFailure=1')) {
       res.status(503).json({ error: 'PORTAL_KPI_UNAVAILABLE' });
       return;
     }
+    const serviceStatus = referer.includes('simulateInvalidServiceStatus=1') ? 'UNAVAILABLE' : 'AVAILABLE';
+    const metricStatus = referer.includes('simulateInvalidMetricStatus=1') ? 'ERROR' : 'AVAILABLE';
     res.json({
       period: { kind: 'FISCAL_YEAR', fiscalYear: 2026, timeZone: 'Asia/Tokyo', from: '2026-02-01T00:00:00+09:00', toExclusive: '2027-02-01T00:00:00+09:00' },
       common: { acceptedCount: { value: null, status: 'PARTIAL' } },
-      services: { IT_KAIZEN: { status: 'AVAILABLE', acceptedCount: { value: 12, status: 'AVAILABLE' } }, BUSINESS_KAIZEN: { status: 'UNCONNECTED' } },
+      services: { IT_KAIZEN: { status: serviceStatus, acceptedCount: { value: 12, status: metricStatus } }, BUSINESS_KAIZEN: { status: 'UNCONNECTED' } },
     });
   });
   app.use('/admin', createIpRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 300 }), requireStaffAuth(auth), express.static(path.resolve(__dirname, '../public/admin')));
@@ -84,4 +87,14 @@ test('admin portal distinguishes KPI retrieval failure from zero', async ({ cont
   await expect(page.getByText('0件', { exact: true })).toHaveCount(0);
   await expect(page.getByText('表示可能な共通KPIはまだありません')).toBeVisible();
   await expect(page.getByText('サービスKPI：未連携')).toBeVisible();
+});
+
+test('admin portal rejects numeric values unless service and metric are both available', async ({ context, page }) => {
+  await context.addCookies([{ name: 'staff_session', value: sessionToken, url: baseUrl, httpOnly: true, sameSite: 'Lax' }]);
+  for (const query of ['simulateInvalidServiceStatus=1', 'simulateInvalidMetricStatus=1']) {
+    await page.goto(`${baseUrl}/admin/?${query}`);
+    await expect(page.getByText('12件', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('—', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('取得できませんでした')).toBeVisible();
+  }
 });
