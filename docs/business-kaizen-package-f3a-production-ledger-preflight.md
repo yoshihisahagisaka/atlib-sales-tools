@@ -119,7 +119,8 @@ An authorized operator may use **Cloud SQL Studio** against instance `msp-custom
 BEGIN READ ONLY;
 
 SELECT current_database() AS database,
-       current_user AS session_user,
+       session_user AS session_user_name,
+       current_user AS current_user_name,
        current_setting('server_version') AS server_version,
        current_setting('transaction_read_only') AS transaction_read_only,
        pg_get_userbyid(d.datdba) AS database_owner
@@ -177,8 +178,36 @@ FROM pg_roles
 WHERE rolname IN ('sales_tools_app','sales_tools_runtime','sales_tools_migration')
 ORDER BY rolname;
 
+SELECT member_role.rolname AS member_role,
+       granted_role.rolname AS granted_role,
+       grantor_role.rolname AS grantor_role,
+       m.admin_option,
+       m.inherit_option,
+       m.set_option
+FROM pg_auth_members m
+JOIN pg_roles member_role ON member_role.oid = m.member
+JOIN pg_roles granted_role ON granted_role.oid = m.roleid
+JOIN pg_roles grantor_role ON grantor_role.oid = m.grantor
+WHERE member_role.rolname IN ('sales_tools_app','sales_tools_runtime','sales_tools_migration')
+   OR granted_role.rolname IN ('sales_tools_app','sales_tools_runtime','sales_tools_migration')
+ORDER BY member_role.rolname, granted_role.rolname, grantor_role.rolname;
+
+WITH relevant_owners AS (
+  SELECT DISTINCT c.relowner AS role_oid
+  FROM pg_class c
+  WHERE c.relnamespace = 'public'::regnamespace
+    AND c.relname IN (
+      'business_web_consultation_leads','company','contact','sales_activity','marketing_initiative',
+      'business_kaizen_diagnoses','business_kaizen_diagnosis_stage_history',
+      'business_kaizen_diagnosis_audit','business_kaizen_commercial_events',
+      'business_kaizen_anonymous_kpi_daily'
+    )
+  UNION
+  SELECT oid FROM pg_roles
+  WHERE rolname IN ('sales_tools_app','sales_tools_runtime','sales_tools_migration')
+)
 SELECT owner_role.rolname AS owner_role,
-       grantee_role.rolname AS grantee_role,
+       COALESCE(grantee_role.rolname, 'PUBLIC') AS grantee_role,
        d.defaclobjtype AS object_type,
        n.nspname AS schema_name,
        a.privilege_type,
@@ -187,10 +216,73 @@ FROM pg_default_acl d
 JOIN pg_roles owner_role ON owner_role.oid = d.defaclrole
 LEFT JOIN pg_namespace n ON n.oid = d.defaclnamespace
 CROSS JOIN LATERAL aclexplode(d.defaclacl) a
-JOIN pg_roles grantee_role ON grantee_role.oid = a.grantee
-WHERE owner_role.rolname IN ('sales_tools_migration')
-  AND grantee_role.rolname IN ('sales_tools_app','sales_tools_runtime')
+LEFT JOIN pg_roles grantee_role ON grantee_role.oid = a.grantee
+WHERE d.defaclrole IN (SELECT role_oid FROM relevant_owners)
 ORDER BY owner_role, grantee_role, object_type, schema_name, privilege_type;
+
+SELECT n.nspname AS schema_name,
+       c.relname AS object_name,
+       CASE c.relkind
+         WHEN 'r' THEN 'table'
+         WHEN 'i' THEN 'index'
+         WHEN 'S' THEN 'sequence'
+         WHEN 'v' THEN 'view'
+         WHEN 'm' THEN 'materialized_view'
+         WHEN 'c' THEN 'composite_type'
+         WHEN 'f' THEN 'foreign_table'
+         WHEN 'p' THEN 'partitioned_table'
+         WHEN 'I' THEN 'partitioned_index'
+         ELSE c.relkind::text
+       END AS object_kind,
+       pg_get_userbyid(c.relowner) AS owner
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname NOT IN ('pg_catalog','information_schema')
+  AND n.nspname !~ '^pg_toast'
+  AND c.relname LIKE 'business_kaizen_%'
+ORDER BY n.nspname, c.relname, c.relkind;
+
+SELECT n.nspname AS schema_name,
+       p.proname AS function_name,
+       pg_get_function_identity_arguments(p.oid) AS identity_arguments,
+       pg_get_function_result(p.oid) AS result_type,
+       pg_get_userbyid(p.proowner) AS owner
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname NOT IN ('pg_catalog','information_schema')
+  AND n.nspname !~ '^pg_toast'
+  AND p.proname LIKE 'business_kaizen_%'
+ORDER BY n.nspname, p.proname, identity_arguments;
+
+SELECT n.nspname AS schema_name,
+       c.relname AS table_name,
+       con.conname AS constraint_name,
+       con.contype AS constraint_type,
+       pg_get_constraintdef(con.oid, true) AS definition
+FROM pg_constraint con
+JOIN pg_namespace n ON n.oid = con.connamespace
+LEFT JOIN pg_class c ON c.oid = con.conrelid
+WHERE n.nspname NOT IN ('pg_catalog','information_schema')
+  AND n.nspname !~ '^pg_toast'
+  AND (con.conname LIKE 'business_kaizen_%' OR c.relname LIKE 'business_kaizen_%')
+ORDER BY n.nspname, c.relname, con.conname;
+
+SELECT n.nspname AS schema_name,
+       c.relname AS table_name,
+       t.tgname AS trigger_name,
+       t.tgenabled,
+       pn.nspname AS function_schema,
+       p.proname AS function_name
+FROM pg_trigger t
+JOIN pg_class c ON c.oid = t.tgrelid
+JOIN pg_namespace n ON n.oid = c.relnamespace
+JOIN pg_proc p ON p.oid = t.tgfoid
+JOIN pg_namespace pn ON pn.oid = p.pronamespace
+WHERE NOT t.tgisinternal
+  AND n.nspname NOT IN ('pg_catalog','information_schema')
+  AND n.nspname !~ '^pg_toast'
+  AND (t.tgname LIKE 'business_kaizen_%' OR c.relname LIKE 'business_kaizen_%')
+ORDER BY n.nspname, c.relname, t.tgname;
 
 WITH target_tables AS (
   SELECT c.oid, c.relname
@@ -218,20 +310,12 @@ SELECT r.rolname, t.relname,
 FROM runtime_roles r CROSS JOIN target_tables t
 ORDER BY r.rolname, t.relname;
 
-SELECT c.relname AS table_name, t.tgname AS trigger_name, t.tgenabled,
-       pg_get_userbyid(p.proowner) AS function_owner
-FROM pg_trigger t
-JOIN pg_class c ON c.oid = t.tgrelid
-JOIN pg_proc p ON p.oid = t.tgfoid
-WHERE c.relnamespace = 'public'::regnamespace
-  AND NOT t.tgisinternal
-  AND c.relname LIKE 'business_kaizen_%'
-ORDER BY c.relname, t.tgname;
-
 ROLLBACK;
 ```
 
 The operator must independently confirm the UI/session shows read-only execution. If `BEGIN READ ONLY`, `schema_migrations`, or any catalog query fails, stop and preserve only the non-secret error classification. Do not retry with a more privileged identity without separate authorization.
+
+The complete SQL block above was syntax-checked on 2026-11-25 against a disposable, non-Production PostgreSQL 16.16 instance. It completed inside `BEGIN READ ONLY`/`ROLLBACK`. This confirms PostgreSQL 16 syntax and catalog-column compatibility only; it does not supply or imply any Production result.
 
 ## 8. Migration numbering decision
 
