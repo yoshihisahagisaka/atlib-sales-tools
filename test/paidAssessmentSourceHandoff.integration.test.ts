@@ -205,6 +205,9 @@ test('REST API enforces staff cookie, strict empty body, POST status and GET lat
     const cookie = `staff_session=${staffAuth.issueSessionToken({ email: actor })}`;
     assert.equal((await fetch(`${base}/${source.caseId}`, { method: 'POST' })).status, 401);
     assert.equal((await fetch(`${base}/${source.caseId}`, { method: 'POST', headers: { authorization: 'Bearer ignored' } })).status, 401);
+    assert.equal((await fetch(`${base}/${source.caseId}`, {
+      method: 'POST', headers: { cookie: 'staff_session=invalid-token' },
+    })).status, 401);
     const invalid = await fetch(`${base}/${source.caseId}`, { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: '{"extra":true}' });
     assert.equal(invalid.status, 400);
     const created = await fetch(`${base}/${source.caseId}`, { method: 'POST', headers: { cookie } });
@@ -229,6 +232,83 @@ test('latest returns null without cross-case leakage and requires a staff actor'
     await repo.create(a.caseId, actor);
     assert.equal(await repo.latest(b.caseId, actor), null);
     await assert.rejects(repo.latest(a.caseId, ''), error => code(error, 403, 'STAFF_REQUIRED'));
+  } finally { await h.close(); }
+});
+
+test('E1 rejects a changed latest feedback route without handoff or audit writes', async () => {
+  const h = await setup();
+  try {
+    const source = await eligibleCase(h);
+    const decision = { route: 'STOP_HOLD', materialDecision: '今回は見送る', nextAction: '現状維持' };
+    const snapshot = {
+      report: {
+        id: source.reportId,
+        version: 1,
+        content_hash: contentHash(source.content),
+        approval_snapshot_hash: contentHash(source.approval),
+      },
+      decision,
+    };
+    await h.pool.query(
+      `INSERT INTO management_feedback_decisions
+        (id,it_management_diagnosis_case_v2_id,version,route_code,
+         material_decision,next_action,context_snapshot_json,context_hash,decided_by_user_id)
+       VALUES($1,$2,2,'STOP_HOLD',$3,$4,$5,$6,$7)`,
+      [randomUUID(), source.caseId, decision.materialDecision, decision.nextAction,
+        JSON.stringify(snapshot), contentHash(snapshot), actor],
+    );
+    await assert.rejects(
+      new PaidAssessmentSourceHandoffRepo(h.pool).create(source.caseId, actor),
+      error => code(error, 409, 'ASSESSMENT_ROUTE_NOT_SELECTED'),
+    );
+    assert.equal((await h.pool.query(
+      'SELECT id FROM paid_assessment_source_handoff_v2 WHERE source_case_id=$1',
+      [source.caseId],
+    )).rowCount, 0);
+    assert.equal((await h.pool.query(
+      `SELECT id FROM it_management_diagnosis_case_v2_audit
+         WHERE case_id=$1 AND command='CreatePaidAssessmentSourceHandoff'`,
+      [source.caseId],
+    )).rowCount, 0);
+  } finally { await h.close(); }
+});
+
+test('E1 rejects a divergent but internally consistent snapshot for the same decision', async () => {
+  const h = await setup();
+  try {
+    const source = await eligibleCase(h);
+    const repo = new PaidAssessmentSourceHandoffRepo(h.pool);
+    const first = await repo.create(source.caseId, actor);
+    const divergent = structuredClone(first.handoff.snapshot);
+    divergent.eligibility.feedbackDecision.decidedAt = '2026-11-24T02:00:00.000Z';
+    // Disposable PGlite fixture only: simulate corrupted historical state.
+    await h.pool.query(
+      'DROP TRIGGER paid_assessment_source_handoff_v2_immutable ON paid_assessment_source_handoff_v2',
+    );
+    await h.pool.query(
+      `UPDATE paid_assessment_source_handoff_v2
+          SET snapshot_json=$2::jsonb,snapshot_hash=$3
+        WHERE id=$1`,
+      [first.handoff.id, JSON.stringify(divergent), contentHash(divergent)],
+    );
+    await h.pool.query(
+      `CREATE TRIGGER paid_assessment_source_handoff_v2_immutable BEFORE UPDATE OR DELETE
+         ON paid_assessment_source_handoff_v2 FOR EACH ROW
+         EXECUTE FUNCTION prevent_paid_assessment_source_handoff_v2_mutation()`,
+    );
+    await assert.rejects(
+      repo.create(source.caseId, actor),
+      error => code(error, 409, 'HANDOFF_SOURCE_CONFLICT'),
+    );
+    assert.equal((await h.pool.query(
+      'SELECT id FROM paid_assessment_source_handoff_v2 WHERE source_case_id=$1',
+      [source.caseId],
+    )).rowCount, 1);
+    assert.equal((await h.pool.query(
+      `SELECT id FROM it_management_diagnosis_case_v2_audit
+         WHERE case_id=$1 AND command='CreatePaidAssessmentSourceHandoff'`,
+      [source.caseId],
+    )).rowCount, 1);
   } finally { await h.close(); }
 });
 
