@@ -27,9 +27,13 @@
 - **現行本番の既存WSC稼働確認済み**：ユーザーがGoogle Workspaceログイン、自社URL診断、PDF生成を実ブラウザでPASS。ただし本番100% Revision（当時 `sales-tools-bks-20261122040419`）は旧mainの単純再ビルドでは完全に再現できないため、本番置換は不可。
 - **PR #51の最小構成の実スキャン**：Build `7e998815-2694-4d2c-a146-594616293200`／digest `sha256:45bfc4bf8f23f734e2a373743bf99fbd219c4b1930357ccb8d31d008ac4a975c`（HEAD `87b68f1abb07a7b7e5f8ac82a3f9555eb7b5a442`）。合計254件、CRITICAL 0／HIGH 14／UNKNOWN 5。前段のDebian13切替後にCRITICALは0。npm/npx除去で前候補HIGH20→14、`undici`・`brace-expansion`は検出から消えた。
 - **PDF試験**：既存`renderWscPdf`に合成日本語HTMLを渡した実Chromium PDFは`%PDF-`、11,802 bytesで成功。ただし**最終image digest内部の実行・0%隔離Staging Revision・実認証DB結合テストは未実施**。モックPDF APIのブラウザ4件PASSと区別する。
-- **残存リスク**：HIGH14（`openssl`3/`expat`2/`acl`2/`nodemailer`2/`zod`1等）、UNKNOWN5（`libxfont`2/`libzstd`1/`shadow`1/`libfontenc`1）。一部npmメジャー移行は互換性試験が必要。2026-11-25時点で**SECURITY_NO_GO／Production No-Go**、未承認例外0。危険なCVEの一括除外はしない。
+- **最新のNodemailer候補Scan**：Source Git `bbd863bcc4d32bbe2ddef3fdd2846cf674e971f7`／Build `0bc923e5-a6e4-4ed4-b96e-d3c38ac897d8`／digest `sha256:dd60791ab0f327231b7ef53e378df947cbd32d2cf420732c6c03d2da9ddeacfa`。実測242件、**CRITICAL0/HIGH12/UNKNOWN5**。Nodemailer 9.1.1→10.6.1、`@types/nodemailer`削除、Mailer全10経路モック回帰。GitHub PR HEADも上記SHAへ通常Push済みで受入CI3件SUCCESS。ひとつ前の254件（HIGH14）の数値は履歴。
+- **残存リスク**：HIGH12はDebian13 OS／Chromium依存（`openssl`3/`expat`2/`acl`2/`cups`/`xorg-server`/`attr`/`perl`等）および`zod`3.25.76 1件。UNKNOWN5（`libxfont`2/`libzstd`1/`shadow`1/`libfontenc`1）。`libzstd`はScanned package 1.5.7+dfsg-1、fixed候補1.5.7+dfsg-1+deb13u1（スキャン結果での提示）であり導入・解消は未確認。
+- **Zod Advisory不一致（2026-11-25確認）**：`CVE-2023-54404`はCVE/NVD側で2026-10-28に**REJECTED**（JSON.parseが保持した入力サイズに比例し、HTTP入力制限がない場合の問題である旨）。GitHub Reviewed Advisory `GHSA-mrhx-c7xc-m3w5`は**HIGH / <4.6.6**のまま、GitLab側は取り下げ済み。この不一致をもって無断の例外承認やScan結果からの除外をしない。根拠URL：`https://nvd.nist.gov/vuln/detail/CVE-2023-54404`／`https://github.com/advisories/GHSA-mrhx-c7xc-m3w5`／`https://advisories.gitlab.com/npm/zod/CVE-2023-54404/`。
+- **Zod入力経路の実コード**：`src/server.ts`の通常`express.json()`はExpress既定の100KB制限、署名ミラーは`express.raw({limit:'8kb'})`、スタッフの見積AIは15MB／KAIZEN AssessmentとWSCはそれぞれ2MBの個別制限。**個別の大容量JSON parserはadminAuthGateより前で実行される**ため、スタッフ認証前のリソース消費に関する別の検証課題がある。サイズ上限の存在を「到達不可」や「全リスク解消」と誤認しない。
+- **Zod移行判断**：v3→v4は`.shape`/`.element`やAI JSON Schemaの連動、KAIZEN/診断APIに影響するため一括更新しない。まず公開/スタッフの大容量入力と配列を扱う各ルートの到達性・デフォルト入力制限・認証前のJSON処理を小さな回帰テストで検証する。恒久対応とGate判定は別途審査し、未承認例外は0のまま。2026-11-25時点で**SECURITY_NO_GO／Production No-Go**を維持。
 - **未実施**：隔離0% Staging Revision、コーポレートLP→DB署名転記・スタッフ一覧→WSC PDF→ステータス更新の実環境E2E、本番公開。PR #51／コーポレートPR #75はDraft。既存本番Traffic・DNS・WSC・Insight/SG・DB Migrationは変更禁止。
-- **次の最短工程**：Scan `sha256:45bfc...`を正とし、残存のnpm（`nodemailer`9系／`zod`3系）はアプリ全体の型・SMTP・フォーム回帰を分けて評価。OS側HIGH/UNKNOWNは個別CVEと実到達性／Debian公式修正状況を集約。修正済みと誤認せず、次候補image build/scanは意味のある差分が固まってから1回。なおCloud SQL既存資産保全期限は2026-12-04 10:12 JSTでありWeb追加分の長期保持承認と混同しない。
+- **次の最短工程**：最新スキャンは`sha256:dd60791...`を正とし、Zod Advisoryの不一致・アプリの入力制限と到達性を先に検証。OS側HIGH/UNKNOWNは最新ScanのCVE ID・fixedVersion・実行時の依存経路を照合し、修正可能な`libzstd`等を個別に検討。新Build/Scanは意味のある修正をまとめてから1回。Cloud SQL既存資産保全期限（2026-12-04 10:12 JST）とWeb追加分の長期保持承認を混同しない。
 
 ## 停止・復旧
 
