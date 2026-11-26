@@ -35,6 +35,15 @@
 - **未実施**：隔離0% Staging Revision、コーポレートLP→DB署名転記・スタッフ一覧→WSC PDF→ステータス更新の実環境E2E、本番公開。PR #51／コーポレートPR #75はDraft。既存本番Traffic・DNS・WSC・Insight/SG・DB Migrationは変更禁止。
 - **次の最短工程**：最新スキャンは`sha256:dd60791...`を正とし、Zod Advisoryの不一致・アプリの入力制限と到達性を先に検証。OS側HIGH/UNKNOWNは最新ScanのCVE ID・fixedVersion・実行時の依存経路を照合し、修正可能な`libzstd`等を個別に検討。新Build/Scanは意味のある修正をまとめてから1回。Cloud SQL既存資産保全期限（2026-12-04 10:12 JST）とWeb追加分の長期保持承認を混同しない。
 
+## 2026-11-26 実測Scanと最小パッチ（最新版）
+
+- **評価済みの固定ソース／イメージ**：PR #51 HEAD `f38401756d6a1a0d297796795551714c9f90bb03`、Cloud Build `01a81995-7efd-45e5-b6c3-3a06b5a17508` SUCCESS、digest `sha256:210f56cc71de4db2bb4ef2619840d0f11760c9f27c67d125b680a15d62d3e656`、Cloud Shell remote Scan `projects/msp-zabbix/locations/asia/scans/d15fc2b0-620e-43aa-97b4-8252d0333949`。
+- **スキャン結果**：242件（CRITICAL 0、HIGH 12、MEDIUM 27、LOW 102、MINIMAL 96、UNKNOWN 5）。HIGHは`openssl`3、`acl`2、`expat`2、`attr`／`cups`／`perl`／`xorg-server`／`zod`各1。UNKNOWNは`libxfont`2、`libfontenc`／`libzstd`／`shadow`各1。**この評価は上記digest専用であり、その後のDockerfile修正を評価済みとはしない**。
+- Debian公式 `DSA-6657-1`／`CVE-2026-124851`：Debian 13 `libzstd` の修正版`1.5.7+dfsg-1+deb13u1`提供済み（`https://security-tracker.debian.org/tracker/DSA-6657-1`）。既存Dockerfileの**runtimeのみ**で`apt-get install --only-upgrade libzstd1`し、`dpkg --compare-versions`で修正版以上を要求する最小パッチを追加。新HEADのCloud Buildと新digestのScanがPASSするまで`libzstd`解消とは判定しない。
+- `shadow`：Scannerは`1:4.17.4-2+deb13u1`を修正版として提示するが、Debian公式 `https://security-tracker.debian.org/tracker/source-package/shadow` のTrixie sourceバージョンは現在`1:4.17.4-2`で、CVE-2026-135901はTrixie vulnerable。**情報不一致につきshadowの変更は保留**。未確認パッケージの追加やunstable版の強制導入はしない。
+- Zod `CVE-2023-54404`：GitHub Advisory HIGHとNVD REJECTEDの不一致、v3→v4の大規模スキーマ影響、リクエスト入力上限、認証前JSON解析是正の合意を維持。独断で除外せず`SECURITY_NO_GO`を維持する。
+- **環境境界**：PR #51 Draft、Production No-Go、隔離0% Staging Revision未作成。Staging Web専用DB／2ロール／Migration1件／2テーブル／Secret/IAMは構築済みで再実施禁止。実行用イメージ更新は新Cloud Build＋digest固定Scan＋実Chromium PDFの確認後に評価する。本番Traffic／DNS／Insight／Secure Guard／WSC既存公開は変更しない。
+
 ## 停止・復旧
 
 対象DB/roleの既存検出、Git/SQL差分、未承認操作、CVE公開Gate、他サービスの性能悪化はSTOP。実DBへの自動再試行や自動DROPはしない。故障時も既存メール正本とWSCの手動PDF作成で業務を継続する。
