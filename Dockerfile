@@ -38,12 +38,22 @@ LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 ENV NODE_ENV=production
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 COPY --from=production-deps /app/node_modules ./node_modules
-# DSA-6657-1 (CVE-2026-124851): upgrade only runtime libzstd1 and verify patched version.
+# Debian 13: only installed runtime packages (DSA-6657-1 libzstd; DSA-6661-1 shadow).
 RUN mkdir -p /ms-playwright \
     && apt-get update \
     && apt-get install -y --no-install-recommends fonts-noto-cjk fontconfig \
     && apt-get install -y --only-upgrade --no-install-recommends libzstd1 \
     && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libzstd1)" ge '1.5.7+dfsg-1+deb13u1' \
+    && shadow_installed=0 \
+    && for pkg in passwd uidmap libsubid5 login.defs; do \
+         status="$(dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null || true)"; \
+         if [ "$status" = 'install ok installed' ]; then \
+           shadow_installed=$((shadow_installed + 1)); \
+           apt-get install -y --only-upgrade --no-install-recommends "$pkg" || exit 1; \
+           dpkg --compare-versions "$(dpkg-query -W -f='${Version}' "$pkg")" ge '1:4.17.4-2+deb13u1' || exit 1; \
+         fi; \
+       done \
+    && test "$shadow_installed" -gt 0 \
     && rm -rf /var/lib/apt/lists/* \
     && node ./node_modules/playwright/cli.js install --with-deps --only-shell chromium \
     && fc-cache -f \
