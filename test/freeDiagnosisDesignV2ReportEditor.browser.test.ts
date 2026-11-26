@@ -391,7 +391,33 @@ test('E4 preparation editor stays hidden for historical/blocked source and fails
   await page.reload();
   await expect.poll(() => getCalls).toBe(1);
   await expect(page.locator('#preparationSelection')).toBeHidden();
-  await expect(page.locator('#assessmentWorkflowStatus')).toContainText('引継ぎを記録済み');
+  await expect(page.locator('#assessmentWorkflowStatus')).toContainText('Assessment準備の状態を確認できません');
+});
+
+test('E4 failed preparation POST preserves staff choices and does not show a saved state', async ({ page }) => {
+  const data: any = { ...draft(), status: 'DELIVERED' };
+  const state = { caseId, caseStatus: 'CLOSED', feedbackStarted: true, feedbackReportId: reportId,
+    latestDecision: { id: 'decision-e4', version: 1, route: 'DESIGN_ASSESSMENT' } };
+  const handoff = { id: 'handoff-e4', sourceCaseId: caseId, reportId, feedbackDecisionId: 'decision-e4', version: 1 };
+  let postCount = 0;
+  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, route => route.fulfill({ json: data }));
+  await page.route(`**/cases/${caseId}/feedback/state`, route => route.fulfill({ json: state }));
+  await page.route(`**/assessment-source-handoffs/${caseId}/latest`, route => route.fulfill({ json: { handoff } }));
+  await page.route(`**/assessment-source-handoffs/${caseId}/preparation`, route => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: { view: {
+      saved: null, preparation: null, agenda: null,
+    } } });
+    postCount++;
+    return route.fulfill({ status: 409, json: { error: 'HANDOFF_STALE' } });
+  });
+  await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
+  await expect(page.locator('#preparationSelection')).toBeVisible();
+  await page.locator('#preparationFuture').selectOption('0');
+  await page.locator('#savePreparation').click();
+  await expect(page.locator('#preparationStatus')).toContainText('保存を確認できませんでした');
+  await expect(page.locator('#preparationFuture')).toHaveValue('0');
+  await expect(page.locator('#preparationSummary')).not.toContainText('保存済み');
+  expect(postCount).toBe(1);
 });
 
 test('Post-Hearing opens the reusable Draft without creating a report version per click', async ({ page }) => {

@@ -388,7 +388,11 @@
         workflowMessage(current ? '設計Assessmentへの引継ぎを記録済みです。' : '設計Assessmentへ引継ぐことができます。');
         if (current && saved.reportId === reportId) {
           try { await loadPreparationFor(saved); }
-          catch { resetPreparationPanel(); prepStatus('Assessment準備の状態を確認できません。画面を更新してください。', true); }
+          catch {
+            resetPreparationPanel();
+            // The preparation panel is hidden after failure, so use the visible workflow status.
+            workflowMessage('Assessment準備の状態を確認できません。画面を更新してください。', true);
+          }
         }
         return;
       }
