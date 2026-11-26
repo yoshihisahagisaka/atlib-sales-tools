@@ -16,7 +16,7 @@ steps:
           -c "GRANT ALL ON DATABASE sales_tools TO sales_tools_migration;" \
           -c "GRANT ALL ON SCHEMA public TO sales_tools_migration;"
         docker run --rm --network test-case-035 -v /workspace:/workspace -w /workspace \
-          -e PGHOST=test-case-035-pg -e PGPORT=5432 -e RUN_TEST_CASE_MANAGEMENT_PG=1 node:20-bookworm \
+          -e PGHOST=test-case-035-pg -e PGPORT=5432 -e RUN_TEST_CASE_MANAGEMENT_PG=1 node:24-bookworm \
           bash -ceu "npm ci --no-audit --no-fund && node -r ts-node/register --test test/testCaseManagementReleasePackage.postgres.test.ts"
         docker rm -f test-case-035-pg
 timeout: 1200s
