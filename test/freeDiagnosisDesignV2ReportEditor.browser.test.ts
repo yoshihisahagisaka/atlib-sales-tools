@@ -321,6 +321,105 @@ test('handoff rejection never appears as successful or disables retry permanentl
   await expect(page.locator('#handoffStatus')).not.toContainText('引継ぎ済み');
 });
 
+test('E4 preparation selection requires human choice and resumes the saved draft', async ({ page }) => {
+  const data: any = { ...draft(), status: 'DELIVERED' };
+  data.content.assessmentProposal.selectedCandidateIds = ['fact-1'];
+  const state = { caseId, caseStatus: 'CLOSED', feedbackStarted: true, feedbackReportId: reportId,
+    latestDecision: { id: 'decision-e4', version: 1, route: 'DESIGN_ASSESSMENT' } };
+  const handoff = { id: 'handoff-e4', sourceCaseId: caseId, reportId, feedbackDecisionId: 'decision-e4', version: 1 };
+  let stored: any = null;
+  const posts: unknown[] = [];
+  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, route => route.fulfill({ json: data }));
+  await page.route(`**/cases/${caseId}/feedback/state`, route => route.fulfill({ json: state }));
+  await page.route(`**/assessment-source-handoffs/${caseId}/latest`, route => route.fulfill({ json: { handoff } }));
+  await page.route(`**/assessment-source-handoffs/${caseId}/preparation`, route => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: { view: {
+      saved: stored, preparation: null,
+      agenda: stored ? { counts: { verified: 0, toConfirm: 1, pendingWithoutQuestion: 0 },
+        nextActions: [{ topic: '共有内容', question: '台帳を確認できますか' }] } : null,
+    } } });
+    const selection: any = route.request().postDataJSON(); posts.push(selection);
+    stored = { id: 'draft-e4', version: 1, handoffId: handoff.id, sourceCaseId: caseId, selection };
+    return route.fulfill({ status: 201, json: { created: true, view: { saved: stored } } });
+  });
+  await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
+  await expect(page.locator('#preparationSelection')).toBeVisible();
+  await expect(page.locator('#preparationFuture')).toHaveValue('');
+  await expect(page.locator('.preparation-check:checked')).toHaveCount(0);
+  await page.locator('#preparationFuture').selectOption('1');
+  const first = page.locator('.preparation-candidate').first();
+  await first.locator('.preparation-check').check();
+  await first.locator('.preparation-area').selectOption('MANAGEMENT');
+  await first.locator('.preparation-question').fill('台帳を確認できますか');
+  await first.locator('.preparation-recipient').fill('情報システム責任者');
+  await page.locator('#savePreparation').click();
+  await expect.poll(() => posts).toEqual([{ futureEntryIndex: 1, candidates: [{
+    candidateId: 'fact-1', area: 'MANAGEMENT',
+    confirmationQuestion: '台帳を確認できますか', requestedFrom: '情報システム責任者',
+  }] }]);
+  await expect(page.locator('#preparationSummary')).toContainText('第1版');
+  await expect(page.locator('#preparationSummary')).toContainText('未確認');
+  await page.reload();
+  await expect(page.locator('#preparationFuture')).toHaveValue('1');
+  await expect(page.locator('.preparation-candidate').first().locator('.preparation-check')).toBeChecked();
+  await expect(page.locator('.preparation-candidate').first().locator('.preparation-area')).toHaveValue('MANAGEMENT');
+  expect(posts).toHaveLength(1);
+});
+
+test('E4 preparation editor stays hidden for historical/blocked source and fails closed on GET', async ({ page }) => {
+  const data: any = { ...draft(), status: 'DELIVERED' };
+  const state: any = { caseId, caseStatus: 'CLOSED', feedbackStarted: true, feedbackReportId: reportId,
+    latestDecision: { id: 'decision-e4', version: 1, route: 'STOP_HOLD' } };
+  let getCalls = 0;
+  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, route => route.fulfill({ json: data }));
+  await page.route(`**/cases/${caseId}/feedback/state`, route => route.fulfill({ json: state }));
+  await page.route(`**/assessment-source-handoffs/${caseId}/latest`, route => route.fulfill({ json: { handoff: {
+    id: 'handoff-e4', feedbackDecisionId: 'decision-e4', reportId,
+  } } }));
+  await page.route(`**/assessment-source-handoffs/${caseId}/preparation`, route => {
+    getCalls++; return route.fulfill({ status: 409, json: { error: 'HANDOFF_STALE' } });
+  });
+  await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
+  await expect(page.locator('#preparationSelection')).toBeHidden();
+  expect(getCalls).toBe(0);
+  state.latestDecision.route = 'DESIGN_ASSESSMENT';
+  state.feedbackReportId = 'different-report';
+  await page.reload();
+  await expect(page.locator('#preparationSelection')).toBeHidden();
+  expect(getCalls).toBe(0);
+  state.feedbackReportId = reportId;
+  await page.reload();
+  await expect.poll(() => getCalls).toBe(1);
+  await expect(page.locator('#preparationSelection')).toBeHidden();
+  await expect(page.locator('#assessmentWorkflowStatus')).toContainText('Assessment準備の状態を確認できません');
+});
+
+test('E4 failed preparation POST preserves staff choices and does not show a saved state', async ({ page }) => {
+  const data: any = { ...draft(), status: 'DELIVERED' };
+  const state = { caseId, caseStatus: 'CLOSED', feedbackStarted: true, feedbackReportId: reportId,
+    latestDecision: { id: 'decision-e4', version: 1, route: 'DESIGN_ASSESSMENT' } };
+  const handoff = { id: 'handoff-e4', sourceCaseId: caseId, reportId, feedbackDecisionId: 'decision-e4', version: 1 };
+  let postCount = 0;
+  await page.route(`**/cases/${caseId}/design-v2/report-drafts/${reportId}`, route => route.fulfill({ json: data }));
+  await page.route(`**/cases/${caseId}/feedback/state`, route => route.fulfill({ json: state }));
+  await page.route(`**/assessment-source-handoffs/${caseId}/latest`, route => route.fulfill({ json: { handoff } }));
+  await page.route(`**/assessment-source-handoffs/${caseId}/preparation`, route => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: { view: {
+      saved: null, preparation: null, agenda: null,
+    } } });
+    postCount++;
+    return route.fulfill({ status: 409, json: { error: 'HANDOFF_STALE' } });
+  });
+  await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
+  await expect(page.locator('#preparationSelection')).toBeVisible();
+  await page.locator('#preparationFuture').selectOption('0');
+  await page.locator('#savePreparation').click();
+  await expect(page.locator('#preparationStatus')).toContainText('保存を確認できませんでした');
+  await expect(page.locator('#preparationFuture')).toHaveValue('0');
+  await expect(page.locator('#preparationSummary')).not.toContainText('保存済み');
+  expect(postCount).toBe(1);
+});
+
 test('Post-Hearing opens the reusable Draft without creating a report version per click', async ({ page }) => {
   let ensureCalls = 0; await page.route('**/design-v2/post-hearing-analysis', route => route.fulfill({ json: { originalSurvey: { answers: { q1CompanyContext: { employeeRange: 'EMP_21_50', siteRange: 'SITE_1' }, q2Future: ['BUSINESS_GROWTH'], q3ItExpectations: ['PRODUCTIVITY'], q4CurrentInterest: 'MANAGEMENT_DECISION', q5Visibility: 'VISIBLE_PARTIAL', q6ManagementConnection: 'REPORTED_NOT_DECISION_USABLE', q7InterestThemes: ['AI'] } }, hearingRecords: [], currentCompanyContext: { employeeRange: 'EMP_21_50', siteRange: 'SITE_1' }, currentStructuredState: { q2Future: ['BUSINESS_GROWTH'], q3ItExpectations: ['PRODUCTIVITY'], q4CurrentInterest: 'MANAGEMENT_DECISION', q5Visibility: 'VISIBLE_PARTIAL', q6ManagementConnection: 'REPORTED_NOT_DECISION_USABLE', q7InterestThemes: ['AI'] }, currentStateRevision: { id: 'state-1', revisionNo: 1 }, currentStateDiffFromOriginal: {}, latestAnalysisResult: { analysis: { futureUnderstanding: [], currentUnderstanding: [], lensFindings: [], unknowns: [], hearingViewpoints: [], factCandidates: [] } }, latestGeneratedNarrative: { id: 'generated', content: { future: { heading: '未来', entries: [] }, currentUnderstanding: { heading: '現在', entries: [] }, confirmationAndImprovement: { heading: '改善', entries: [] }, unknowns: { heading: '未確認', entries: [] }, nextFacts: { heading: '次', entries: [] } } }, latestHumanEditedNarrative: null, humanEditedNarrativeStatus: 'NONE', analysisFreshness: 'CURRENT', traceability: { viewpoints: [], analysisItemThemes: {}, narrativeSectionThemes: {} } } }));
   await page.route('**/report-drafts/ensure', async route => { ensureCalls++; await route.fulfill({ json: { id: reportId, version: 1 } }); }); await page.goto(`${url}/admin/free-diagnosis-v2-analysis.html?caseId=${caseId}`); await page.getByRole('button', { name: 'レポートを確認' }).click(); await expect(page).toHaveURL(new RegExp(`reportId=${reportId}`)); expect(ensureCalls).toBe(1);
