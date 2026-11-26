@@ -14,13 +14,13 @@ jobs:
   application-regression:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ env.CANDIDATE_SHA }}
       - name: Verify reviewed head identity
         run: test "$(git rev-parse HEAD)" = "${CANDIDATE_SHA}"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -88,12 +88,12 @@ jobs:
           --health-timeout 5s
           --health-retries 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ env.CANDIDATE_SHA }}
       - name: Verify reviewed head identity
         run: test "$(git rev-parse HEAD)" = "${CANDIDATE_SHA}"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -107,7 +107,7 @@ jobs:
   runtime-image-security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ env.CANDIDATE_SHA }}
       - name: Verify reviewed head identity

@@ -13,7 +13,7 @@ R4b changes only the supported Node.js runtime and the validation required for t
 
 - Every application Docker stage uses Node.js 24 on Debian 12.
 - The migration and cleanup release helper images use the corresponding Node.js 24 Alpine image; their existing OS family is unchanged.
-- GitHub Actions Node.js execution uses Node.js 24.
+- GitHub Actions Node.js execution uses Node.js 24. The changed workflows use the Node.js 24-based `checkout@v5` and `setup-node@v5` actions rather than retaining the deprecated Node.js 20 action runtime.
 - Runtime remains `USER node`.
 - npm and npx remain absent from the final runtime image.
 - The R4a Debian package pins remain in force.
