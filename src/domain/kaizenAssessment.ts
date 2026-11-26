@@ -497,7 +497,7 @@ export function buildPreSurveySchema() {
   return z.object(shape).extend({
     // Q2 の人数（任意）と、各設問の「その他」自由記述（任意・500字まで）
     q2Count: z.coerce.number().int().min(0).max(10000).optional(),
-    otherTexts: z.record(z.string().max(500)).optional(),
+    otherTexts: z.record(z.string(), z.string().max(500)).optional(),
   });
 }
 

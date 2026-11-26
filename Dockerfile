@@ -49,6 +49,8 @@ RUN apt-get update \
     && apt-get install -y \
        --no-install-recommends \
        --only-upgrade \
+       apt=2.6.2 \
+       libapt-pkg6.0=2.6.2 \
        dpkg=1.21.23 \
        perl-base=5.36.0-7+deb12u4 \
        libc6:amd64=2.36-9+deb12u14 \
