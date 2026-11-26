@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>共通顧客管理 | atLIB Sales Tools</title>
+  <link rel="stylesheet" href="/admin/partner-leads.css">
+  <style>
+    .workflow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.panel{background:#fff;border:1px solid #d9e1ea;border-radius:12px;padding:20px}.panel-wide{grid-column:1/-1}.field{display:grid;gap:6px;margin:12px 0}.field input,.field select{width:100%;padding:11px;border:1px solid #9daaba;border-radius:8px;background:#fff;font:inherit}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.actions button{padding:10px 16px;border:0;border-radius:8px;background:#176b5b;color:#fff;font:inherit;font-weight:700;cursor:pointer}.actions button.secondary{border:1px solid #8fa0b2;background:#fff;color:#1f3556}.actions button:disabled{cursor:not-allowed;opacity:.5}.result-list{display:grid;gap:8px;margin:14px 0}.choice{width:100%;padding:12px;text-align:left;border:1px solid #cbd5df;border-radius:9px;background:#fff;color:#24364b;cursor:pointer}.choice[aria-pressed="true"]{border-color:#176b5b;background:#edf8f5}.selection{padding:12px;border-left:4px solid #2dbe9d;background:#f1faf8;overflow-wrap:anywhere}.muted{color:#667085}.status{min-height:1.5em;margin:10px 0 0}.status.error{color:#a32626}.status.success{color:#176a3b}.service-choice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.service-choice label{display:flex;gap:8px;align-items:flex-start;padding:12px;border:1px solid #cbd5df;border-radius:9px}.activity-result{margin-top:14px;padding:14px;border:1px solid #9ed7ca;border-radius:10px;background:#f1faf8;overflow-wrap:anywhere}.skip-link{position:absolute;left:-9999px}.skip-link:focus{left:12px;top:12px;background:#fff;padding:8px;z-index:10}@media(max-width:760px){.workflow{grid-template-columns:1fr}.panel-wide{grid-column:auto}.service-choice{grid-template-columns:1fr}.admin-shell{padding:20px 14px 40px}.actions button{width:100%}}
+  </style>
+</head>
+<body>
+<a class="skip-link" href="#customer-workflow">操作へ移動</a>
+<main class="admin-shell">
+  <header class="admin-header">
+    <div><p class="eyebrow">atLIB Sales Tools</p><h1>共通顧客管理</h1><p class="subtitle">既存のCompanyとContactを再利用して、サービス別のSales Activityを登録します。</p></div>
+    <nav class="admin-nav" aria-label="関連画面"><a href="/admin/free-diagnosis-v1.html">IT経営KAIZEN一覧</a><a href="/admin/business-web-consultation-leads.html">業務KAIZEN一覧</a></nav>
+  </header>
+
+  <div id="customer-workflow" class="workflow">
+    <section class="panel panel-wide" aria-labelledby="company-heading">
+      <h2 id="company-heading">1. Companyを検索・選択</h2>
+      <form id="company-search-form" class="actions">
+        <label class="field" style="flex:1;min-width:220px">会社名または法人番号（2文字以上）<input id="company-query" maxlength="100" autocomplete="off" required></label>
+        <button id="company-search" type="submit">検索</button>
+      </form>
+      <p id="company-search-status" class="status" role="status"></p>
+      <div id="company-results" class="result-list" aria-live="polite"></div>
+      <details id="company-create-details">
+        <summary>検索結果にないCompanyを新規登録</summary>
+        <form id="company-create-form">
+          <label class="field">会社名<input id="company-name" maxlength="200" required></label>
+          <label class="field">法人番号（任意）<input id="corporate-number" maxlength="50"></label>
+          <p class="muted">同名企業は自動統合しません。検索結果を確認してから登録してください。</p>
+          <div class="actions"><button id="company-create" type="submit" disabled>Companyを登録</button></div>
+          <p id="company-create-status" class="status" role="status"></p>
+        </form>
+      </details>
+      <div id="selected-company" class="selection" hidden></div>
+    </section>
+
+    <section class="panel" aria-labelledby="contact-heading">
+      <h2 id="contact-heading">2. Contactを選択</h2>
+      <p id="contact-guidance" class="muted">先にCompanyを選択してください。</p>
+      <div id="contact-results" class="result-list"></div>
+      <details id="contact-create-details" hidden>
+        <summary>Contactを新規登録</summary>
+        <form id="contact-create-form">
+          <label class="field">氏名<input id="contact-name" maxlength="200" required></label>
+          <label class="field">メール（任意）<input id="contact-email" type="email" maxlength="320"></label>
+          <label class="field">電話（任意）<input id="contact-phone" maxlength="50"></label>
+          <label class="field">役職（任意）<input id="contact-job-title" maxlength="100"></label>
+          <div class="actions"><button id="contact-create" type="submit">Contactを登録</button></div>
+          <p id="contact-create-status" class="status" role="status"></p>
+        </form>
+      </details>
+      <div id="selected-contact" class="selection" hidden></div>
+    </section>
+
+    <section class="panel" aria-labelledby="activity-heading">
+      <h2 id="activity-heading">3. Sales Activityを登録</h2>
+      <form id="activity-form">
+        <fieldset><legend>対象サービス</legend><div class="service-choice">
+          <label><input type="radio" name="service" value="IT_KAIZEN" checked><span><strong>IT経営KAIZEN</strong><br><span class="muted">Activityのみ登録</span></span></label>
+          <label><input type="radio" name="service" value="BUSINESS_WEB"><span><strong>業務KAIZEN</strong><br><span class="muted">Activityのみ登録</span></span></label>
+        </div></fieldset>
+        <p class="muted">この操作ではサービス固有Caseや診断を開始しません。</p>
+        <div class="actions"><button id="activity-create" type="submit" disabled>Sales Activityを登録</button></div>
+        <p id="activity-status" class="status" role="status"></p>
+      </form>
+      <div id="activity-result" class="activity-result" hidden></div>
+    </section>
+  </div>
+</main>
+<script>
+(() => {
+  const api = '/api/admin/sales-customers';
+  const byId = id => document.getElementById(id);
+  const state = { company: null, contact: null, lastCompanyQuery: '', companySearchSequence: 0, contactSequence: 0, activityPending: false };
+  const text = value => String(value ?? '');
+  const trimmed = id => byId(id).value.trim();
+  const setStatus = (id, message, kind = '') => { const node = byId(id); node.className = `status${kind ? ` ${kind}` : ''}`; node.textContent = message; };
+  async function request(path, options = {}) {
+    const response = await fetch(api + path, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) { const error = new Error(body.error || 'REQUEST_FAILED'); error.status = response.status; throw error; }
+    return body;
+  }
+  function button(label, pressed, onClick) {
+    const node = document.createElement('button'); node.type = 'button'; node.className = 'choice'; node.textContent = label; node.setAttribute('aria-pressed', String(pressed)); node.addEventListener('click', onClick); return node;
+  }
+  function updateCompanyCreateEligibility() {
+    byId('company-create').disabled = trimmed('company-name') !== state.lastCompanyQuery || state.lastCompanyQuery.length < 2;
+  }
+  function updateActivityEligibility() { byId('activity-create').disabled = !state.company || !state.contact || state.activityPending; }
+  function renderSelectedCompany() {
+    const node = byId('selected-company'); node.hidden = !state.company; node.textContent = state.company ? `選択中のCompany: ${text(state.company.name)} (${text(state.company.id)})` : '';
+  }
+  function renderSelectedContact() {
+    const node = byId('selected-contact'); node.hidden = !state.contact; node.textContent = state.contact ? `選択中のContact: ${text(state.contact.name)} (${text(state.contact.id)})` : '';
+  }
+  async function selectCompany(company) {
+    state.company = company; state.contact = null; state.contactSequence += 1;
+    renderSelectedCompany(); renderSelectedContact(); updateActivityEligibility();
+    byId('contact-results').replaceChildren(); byId('contact-create-details').hidden = true;
+    setStatus('contact-create-status', ''); byId('contact-guidance').textContent = 'Contactを読み込んでいます。';
+    const sequence = state.contactSequence;
+    try {
+      const { items } = await request(`/companies/${encodeURIComponent(company.id)}/contacts`);
+      if (sequence !== state.contactSequence || state.company?.id !== company.id) return;
+      byId('contact-guidance').textContent = items.length ? 'Contactを選択してください。' : '登録済みContactはありません。新規登録できます。';
+      const list = byId('contact-results'); list.replaceChildren();
+      for (const contact of items) {
+        const choice = button(`${text(contact.name)}${contact.email ? ` / ${text(contact.email)}` : ''}`, state.contact?.id === contact.id, () => selectContact(contact));
+        choice.dataset.contactId = contact.id;
+        list.append(choice);
+      }
+      byId('contact-create-details').hidden = false;
+    } catch (_) { if (sequence === state.contactSequence) byId('contact-guidance').textContent = 'Contactを読み込めませんでした。自動再試行はしていません。'; }
+  }
+  function selectContact(contact) {
+    state.contact = contact; renderSelectedContact(); updateActivityEligibility();
+    for (const choice of byId('contact-results').querySelectorAll('.choice')) choice.setAttribute('aria-pressed', String(choice.dataset.contactId === contact.id));
+  }
+  byId('company-query').addEventListener('input', () => {
+    state.companySearchSequence += 1; state.lastCompanyQuery = '';
+    byId('company-results').replaceChildren(); setStatus('company-search-status', '');
+    byId('company-name').value = trimmed('company-query'); updateCompanyCreateEligibility();
+  });
+  byId('company-name').addEventListener('input', updateCompanyCreateEligibility);
+  byId('company-search-form').addEventListener('submit', async event => {
+    event.preventDefault(); const query = trimmed('company-query'); if (query.length < 2) return;
+    const sequence = ++state.companySearchSequence; state.lastCompanyQuery = ''; updateCompanyCreateEligibility();
+    setStatus('company-search-status', '検索しています。'); byId('company-results').replaceChildren();
+    try {
+      const { items } = await request(`/companies?q=${encodeURIComponent(query)}`);
+      if (sequence !== state.companySearchSequence) return;
+      state.lastCompanyQuery = query; byId('company-name').value = query; updateCompanyCreateEligibility();
+      setStatus('company-search-status', `${items.length}件見つかりました。検索結果を確認してください。`);
+      const list = byId('company-results');
+      for (const company of items) list.append(button(`${text(company.name)}${company.corporateNumber ? ` / ${text(company.corporateNumber)}` : ''}`, state.company?.id === company.id, () => selectCompany(company)));
+    } catch (_) { if (sequence === state.companySearchSequence) setStatus('company-search-status', '検索結果を確認できません。自動再試行はしていません。', 'error'); }
+  });
+  byId('company-create-form').addEventListener('submit', async event => {
+    event.preventDefault(); const submit = byId('company-create'); if (submit.disabled) return; submit.disabled = true;
+    setStatus('company-create-status', '登録しています。');
+    try {
+      const company = await request('/companies', { method: 'POST', body: JSON.stringify({ name: trimmed('company-name'), corporateNumber: trimmed('corporate-number') || undefined }) });
+      setStatus('company-create-status', 'Companyを登録しました。', 'success'); await selectCompany(company);
+    } catch (_) { setStatus('company-create-status', '通信結果を確認できません。自動再送はしていません。検索して登録状態を確認してください。', 'error'); }
+    updateCompanyCreateEligibility();
+  });
+  byId('contact-create-form').addEventListener('submit', async event => {
+    event.preventDefault(); if (!state.company) return; const submit = byId('contact-create'); submit.disabled = true;
+    const companyId = state.company.id; const contactSequence = state.contactSequence;
+    setStatus('contact-create-status', '登録しています。'); const optional = id => trimmed(id) || undefined;
+    try {
+      const contact = await request(`/companies/${encodeURIComponent(companyId)}/contacts`, { method: 'POST', body: JSON.stringify({ name: trimmed('contact-name'), email: optional('contact-email'), phone: optional('contact-phone'), jobTitle: optional('contact-job-title') }) });
+      if (state.company?.id !== companyId || state.contactSequence !== contactSequence) return;
+      setStatus('contact-create-status', 'Contactを登録しました。', 'success'); selectContact(contact);
+    } catch (_) {
+      if (state.company?.id === companyId && state.contactSequence === contactSequence) setStatus('contact-create-status', '通信結果を確認できません。自動再送はしていません。Contact一覧を確認してください。', 'error');
+    } finally { submit.disabled = false; }
+  });
+  byId('activity-form').addEventListener('submit', async event => {
+    event.preventDefault(); if (!state.company || !state.contact || state.activityPending) return;
+    state.activityPending = true; updateActivityEligibility(); byId('activity-result').hidden = true; setStatus('activity-status', '登録しています。');
+    const selectedService = document.querySelector('input[name="service"]:checked').value;
+    try {
+      const result = await request('/activities', { method: 'POST', body: JSON.stringify({ companyId: state.company.id, contactId: state.contact.id, selectedService }) });
+      const output = byId('activity-result'); output.replaceChildren();
+      for (const line of [`Sales Activity ID: ${text(result.salesActivityId)}`, `Company ID: ${text(result.companyId)}`, `Contact ID: ${text(result.contactId)}`, `Service: ${text(result.selectedService)}`]) { const p = document.createElement('p'); p.textContent = line; output.append(p); }
+      if (result.selectedService === 'IT_KAIZEN') {
+        const link = document.createElement('a'); link.className = 'button';
+        link.href = `/admin/free-diagnosis-v1.html?salesActivityId=${encodeURIComponent(result.salesActivityId)}`;
+        link.textContent = 'このActivityからIT代理入力を開始'; output.append(link);
+      }
+      output.hidden = false; setStatus('activity-status', 'Sales Activityを登録しました。サービス固有Caseは作成していません。', 'success');
+    } catch (_) { setStatus('activity-status', '通信結果を確認できません。自動再送はしていません。再登録前にActivityの状態を確認してください。', 'error'); }
+    state.activityPending = false; updateActivityEligibility();
+  });
+  updateActivityEligibility(); updateCompanyCreateEligibility();
+})();
+</script>
+</body>
+</html>

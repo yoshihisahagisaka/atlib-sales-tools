@@ -6,6 +6,8 @@ import cookieParser from 'cookie-parser';
 import { PGlite } from '@electric-sql/pglite';
 import type { Pool } from 'pg';
 import { FreeDiagnosisSalesLauncherRepo } from '../../src/services/freeDiagnosisSalesLauncherRepo';
+import { SalesCustomerRepo } from '../../src/services/salesCustomerRepo';
+import { createAdminSalesCustomersRouter } from '../../src/routes/adminSalesCustomers';
 import { FreeDiagnosisRuleBasedCaseRepo } from '../../src/services/freeDiagnosisRuleBasedCaseRepo';
 import { Vs1ReviewReportFeedbackRepo } from '../../src/services/vs1ReviewReportFeedbackRepo';
 import { createAdminFreeDiagnosisRuleBasedV1Router } from '../../src/routes/adminFreeDiagnosisRuleBasedV1';
@@ -58,6 +60,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDe
   } as unknown as Pool;
 
   const launcher = new FreeDiagnosisSalesLauncherRepo(pool);
+  const salesCustomers = new SalesCustomerRepo(pool);
   const initiatives = new MarketingInitiativeRepo(pool);
   const testCases = new TestCaseManagementRepo(pool);
   const cases = new FreeDiagnosisRuleBasedCaseRepo(pool);
@@ -76,6 +79,7 @@ export async function createFreeDiagnosisRuleBasedV1Harness(options: { includeDe
   app.use('/api/public/it-management-kaizen/free-diagnosis-v1', createPublicCustomerSelfFreeDiagnosisRouter(publicSelf, true));
   app.use('/api/admin/free-diagnosis-v1', requireStaffAuth(staffAuth), createAdminFreeDiagnosisRuleBasedV1Router(launcher, cases, vs1, staffProxyDesignV2, testCases, new Set(['operator@atlib.jp'])));
   app.use('/api/admin/marketing-initiatives', requireStaffAuth(staffAuth), createAdminMarketingInitiativeRouter(initiatives, launcher));
+  app.use('/api/admin/sales-customers', requireStaffAuth(staffAuth), createAdminSalesCustomersRouter(salesCustomers));
   app.use('/api/admin/free-diagnosis-v1', requireStaffAuth(staffAuth), createAdminFreeDiagnosisDesignV2Router(designV2Api));
   app.use('/admin', requireStaffAuth(staffAuth), express.static(path.join(root, 'public/admin')));
   app.use(express.static(path.join(root, 'public')));

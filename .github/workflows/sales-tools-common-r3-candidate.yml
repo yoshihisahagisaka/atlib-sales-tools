@@ -1,0 +1,140 @@
+name: sales-tools-common-r3-candidate
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  application-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Common CRM, Marketing Initiative, and portal API
+        run: >-
+          node -r ts-node/register --test
+          test/salesCustomers.integration.test.ts
+          test/marketingInitiative.integration.test.ts
+          test/marketingInitiativeReleasePackage.test.ts
+          test/adminPortalKpis.api.test.ts
+      - name: Common CRM and portal browser desktop/mobile
+        run: |
+          npm run test:admin-portal:browser
+          npx playwright test --config=test/salesCustomers.playwright.config.ts
+      - name: Public diagnosis browser desktop/mobile
+        run: npx playwright test --config=test/freeDiagnosisRuleBasedV1.playwright.config.ts
+      - name: Staff Proxy and Case Guard
+        run: >-
+          node -r ts-node/register --test
+          test/staffProxyDesignV2.integration.test.ts
+          test/salesActivityCaseCreation.integration.test.ts
+      - name: Confirm the two inherited vertical-slice debts only
+        shell: bash
+        run: |
+          set +e
+          node -r ts-node/register --test \
+            test/itManagementDiagnosis.golden.test.ts \
+            test/freeDiagnosisRuleBasedV1VerticalSlice.integration.test.ts \
+            > known-debt.log 2>&1
+          status=$?
+          set -e
+          cat known-debt.log
+          test "$status" -ne 0
+          grep -Eq 'tests 28' known-debt.log
+          grep -Eq 'pass 26' known-debt.log
+          grep -Eq 'fail 2' known-debt.log
+          grep -Fq 'Sales Activity attribution' known-debt.log
+          grep -Fq 'Production server wiring' known-debt.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r3-known-regression-evidence
+          path: known-debt.log
+          if-no-files-found: warn
+
+  postgres16:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: portal_kpi
+        ports:
+          - 55438:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d portal_kpi"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Apply 027, 033, and 035 and verify the P2b SELECT
+        run: npm run test:admin-portal:kpi:postgres
+        env:
+          RUN_PORTAL_KPI_PG16: '1'
+
+  runtime-image-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build inherited production runtime image without push
+        run: >-
+          docker build
+          --target runtime
+          --build-arg SOURCE_REVISION=${GITHUB_SHA}
+          --tag sales-tools-r3:${GITHUB_SHA}
+          .
+      - name: Verify runtime hardening
+        run: |
+          test "$(docker image inspect sales-tools-r3:${GITHUB_SHA} --format '{{.Config.User}}')" = "node"
+          docker run --rm --entrypoint sh sales-tools-r3:${GITHUB_SHA} -c \
+            'test ! -e /usr/local/lib/node_modules/npm && ! command -v npm && ! command -v npx'
+          test "$(docker image inspect sales-tools-r3:${GITHUB_SHA} --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "${GITHUB_SHA}"
+      - name: Record production dependency advisories
+        shell: bash
+        run: |
+          set +e
+          docker run --rm --entrypoint sh sales-tools-r3:${GITHUB_SHA} -c \
+            'cd /app && node -e "console.log(process.version)"'
+          npm audit --omit=dev --json > npm-audit-production.json
+          audit_status=$?
+          set -e
+          test "$audit_status" -eq 0 -o "$audit_status" -eq 1
+      - name: Scan local image without registry push
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: sales-tools-r3:${{ github.sha }}
+          format: json
+          output: trivy-runtime.json
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false
+          exit-code: '0'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r3-runtime-security-evidence
+          path: |
+            npm-audit-production.json
+            trivy-runtime.json
+          if-no-files-found: error

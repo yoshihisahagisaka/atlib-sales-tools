@@ -13,6 +13,42 @@ test.beforeEach(async ({ context }) => {
   await context.addCookies([{ name: 'staff_session', value: h.staffCookie.slice('staff_session='.length), url: h.url, httpOnly: true, sameSite: 'Lax' }]);
 });
 
+async function assertPublicDiagnosisLayout(page: Page, screen: string, expectedWidth?: number) {
+  await expect(page.locator('body')).toHaveAttribute('data-screen', screen);
+  await expect(page.locator('#app')).toBeVisible();
+
+  const layout = await page.evaluate(() => {
+    const main = document.querySelector('main')!.getBoundingClientRect();
+    const card = document.querySelector('#app')!.getBoundingClientRect();
+    const viewportWidth = document.documentElement.clientWidth;
+    return {
+      viewportWidth,
+      innerWidth: window.innerWidth,
+      devicePixelRatio: window.devicePixelRatio,
+      mainWidth: main.width,
+      cardWidth: card.width,
+      centerDelta: Math.abs(card.left + card.width / 2 - viewportWidth / 2),
+      horizontalOverflow: document.documentElement.scrollWidth - viewportWidth,
+      touchPoints: navigator.maxTouchPoints,
+    };
+  });
+
+  expect(layout.centerDelta).toBeLessThanOrEqual(1);
+  expect(layout.horizontalOverflow).toBeLessThanOrEqual(0);
+  expect(layout.cardWidth).toBeLessThanOrEqual(820);
+  expect(Math.abs(layout.mainWidth - layout.cardWidth)).toBeLessThanOrEqual(1);
+  if (expectedWidth !== undefined) expect(Math.abs(layout.cardWidth - expectedWidth)).toBeLessThanOrEqual(1);
+  return layout;
+}
+
+async function capturePublicDiagnosisEvidence(page: Page, project: string, screen: string): Promise<void> {
+  if (!process.env.FREE_DIAGNOSIS_UI_EVIDENCE_DIR) return;
+  await page.screenshot({
+    path: `${process.env.FREE_DIAGNOSIS_UI_EVIDENCE_DIR}/${project}-${screen}.png`,
+    fullPage: true,
+  });
+}
+
 async function createCase(page: Page, name: string): Promise<void> {
   await page.goto(h.url + '/admin/free-diagnosis-v1.html');
   const caseId = await page.evaluate(async companyName => {
@@ -101,12 +137,68 @@ test('施策管理でUTM条件をカード表示し、登録・集計・無効�
   await expect(current).toContainText('無効');
 });
 
-test('Public Customer Selfは事前アンケートから申込み・予約導線へ進み、送信前には永続化しない', async ({ browser }) => {
-  const context = await browser.newContext(); const page = await context.newPage();
+test('Public Customer Selfは全画面で中央配置と共通幅・7問の進捗バーを維持する', async ({ page, context }, testInfo) => {
+  await context.clearCookies();
+  await page.goto(h.url + '/it-management-kaizen/free-diagnosis/');
+
+  const initial = await assertPublicDiagnosisLayout(page, 'role');
+  const expectedWidth = initial.cardWidth;
+  await capturePublicDiagnosisEvidence(page, testInfo.project.name, 'role');
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+  if (testInfo.project.name === 'mobile') expect(viewport!.width).toBeLessThanOrEqual(640);
+  else expect(viewport!.width).toBeGreaterThanOrEqual(1024);
+  await testInfo.attach('viewport-evidence', {
+    body: JSON.stringify({ project: testInfo.project.name, viewport, layout: initial }, null, 2),
+    contentType: 'application/json',
+  });
+
+  await page.keyboard.press('Tab');
+  const focused = page.locator(':focus');
+  await expect(focused).toBeVisible();
+  expect(await focused.evaluate(element => getComputedStyle(element).outlineStyle)).not.toBe('none');
+  await page.locator('input[name="respondent-role"]').first().check();
+  await page.click('#start-questions');
+
+  for (let step = 1; step <= 7; step += 1) {
+    await expect(page.locator('.survey-progress')).toHaveAttribute('max', '7');
+    await expect(page.locator('.survey-progress')).toHaveAttribute('value', String(step));
+    await expect(page.locator('.survey-progress')).toHaveAttribute('aria-label', `事前アンケート ${step} / 7`);
+    await assertPublicDiagnosisLayout(page, 'questions', expectedWidth);
+    if (step === 1 || step === 7) await capturePublicDiagnosisEvidence(page, testInfo.project.name, `question-${step}`);
+    if (step === 1) {
+      for (const select of await page.locator('#app select').all()) await select.selectOption({ index: 1 });
+    } else {
+      await page.locator('input[name="answer"]').first().check();
+    }
+    await page.click('#next');
+  }
+
+  await assertPublicDiagnosisLayout(page, 'conversion', expectedWidth);
+  await page.click('#to-application');
+  await assertPublicDiagnosisLayout(page, 'application', expectedWidth);
+  await capturePublicDiagnosisEvidence(page, testInfo.project.name, 'application');
+  await expect(page.locator('#back')).toHaveClass(/secondary/);
+  await expect(page.locator('#submit')).toHaveCSS('background-color', 'rgb(23, 59, 99)');
+  expect(await page.locator('#submit').evaluate(element => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+});
+
+test('Public Customer Selfは事前アンケートから申込み・予約導線へ進み、送信前には永続化しない', async ({ page, context }, testInfo) => {
+  await context.clearCookies();
   const before = Number((await h.pool.query('SELECT count(*)::int AS count FROM it_management_public_self_submission')).rows[0].count);
   await page.goto(h.url + '/it-management-kaizen/free-diagnosis/?acquisition_source_type=EVENT&acquisition_source_name=SHINSEIKAI&utm_source=shinseikai&utm_medium=flyer_qr&utm_campaign=it_management_kaizen_free_diagnosis');
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex,follow');
   await expect(page.getByText('今回の回答者のお立場を教えてください', { exact: true })).toBeVisible();
+  const initial = await assertPublicDiagnosisLayout(page, 'role');
+  const expectedWidth = initial.cardWidth;
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+  if (testInfo.project.name === 'mobile') expect(viewport!.width).toBeLessThanOrEqual(640);
+  else expect(viewport!.width).toBeGreaterThanOrEqual(1024);
+  await testInfo.attach('viewport-evidence', {
+    body: JSON.stringify({ project: testInfo.project.name, viewport, layout: initial }, null, 2),
+    contentType: 'application/json',
+  });
   await page.getByLabel('経営者・役員').check(); await page.click('#start-questions');
   await expect(page.getByText('事前アンケート 1 / 7', { exact: true })).toBeVisible();
   await expect(page.locator('.service-intro')).toBeHidden(); await expect(page.locator('.service-steps')).toBeHidden();
@@ -136,12 +228,23 @@ test('Public Customer Selfは事前アンケートから申込み・予約導線
   expect(await page.locator('#company').evaluate((element, email) => getComputedStyle(element).borderColor === getComputedStyle(document.querySelector(email)!).borderColor, '#email')).toBe(true);
   await page.fill('#company', '公開UI株式会社'); await page.fill('#name', '経営者'); await page.fill('#email', 'public-ui@example.test');
   await page.fill('#referralPersonName', '紹介 太郎');
-  await expect(page.getByRole('link', { name: 'プライバシーポリシー' })).toHaveAttribute('href', 'https://www.atlib.jp/policy/');
+  await expect(page.getByRole('link', { name: 'プライバシーポリシー' })).toHaveAttribute('href', 'https://www.atlib.jp/privacy-policy/');
+  const appJsResponse = await page.request.get(h.url + '/it-management-kaizen/free-diagnosis/app.js');
+  expect(appJsResponse.status()).toBe(200);
+  const appJsSource = await appJsResponse.text();
+  expect(appJsSource).toContain('https://www.atlib.jp/privacy-policy/');
+  expect(appJsSource).not.toContain('https://www.atlib.jp/policy/');
   await page.check('#privacy'); await page.check('#use'); await page.click('#submit');
   await expect(page.getByText('無料IT経営診断のお申込みを受け付けました')).toBeVisible();
+  await assertPublicDiagnosisLayout(page, 'complete', expectedWidth);
+  await capturePublicDiagnosisEvidence(page, testInfo.project.name, 'complete');
   const timerex = page.locator('#timerex-link');
   await expect(timerex).toHaveAttribute('href', 'https://timerex.net/s/yoshihisa.hagisaka_e611/446dce29');
   await expect(timerex).toHaveAttribute('target', '_blank'); await expect(timerex).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(timerex).toHaveClass(/button-link/);
+  await expect(timerex).toHaveCSS('background-color', 'rgb(23, 59, 99)');
+  await expect(timerex).toBeVisible();
+  expect(await timerex.evaluate(element => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
   await expect(page).toHaveURL(/\/it-management-kaizen\/free-diagnosis\//); expect(await page.locator('iframe').count()).toBe(0);
   await expect(page.locator('body')).not.toContainText('48時間'); await expect(page.locator('body')).not.toContainText('14日間');
   const saved: any = (await h.pool.query(`SELECT c.id,c.status,s.referral_person_name FROM it_management_public_self_submission p JOIN it_management_diagnosis_case_v2 c ON c.id=p.it_management_diagnosis_case_v2_id JOIN sales_activity s ON s.id=p.sales_activity_id WHERE p.contact_id=(SELECT id FROM contact WHERE email='public-ui@example.test')`)).rows[0];
@@ -150,7 +253,6 @@ test('Public Customer Selfは事前アンケートから申込み・予約導線
   await page.goto(h.url + '/admin/free-diagnosis-v1.html'); await page.click('#btnLoadCases');
   const listed = page.locator('#caseList tbody tr').filter({ hasText: '公開UI株式会社' });
   await expect(listed).toContainText('本人回答'); await expect(listed).toContainText('日程調整');
-  await context.close();
 });
 
 test.skip('V1 response-state Public UI is superseded by the canonical Design v2 survey', async ({ browser }) => {
