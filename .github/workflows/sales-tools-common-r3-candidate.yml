@@ -1,10 +1,11 @@
-name: sales-tools-common-r3-candidate
+name: sales-tools-common-r4a-security
 
 on:
   workflow_dispatch:
   pull_request:
-    branches:
-      - main
+
+env:
+  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 permissions:
   contents: read
@@ -16,6 +17,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ env.CANDIDATE_SHA }}
+      - name: Verify reviewed head identity
+        run: test "$(git rev-parse HEAD)" = "${CANDIDATE_SHA}"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -30,6 +34,8 @@ jobs:
           test/marketingInitiative.integration.test.ts
           test/marketingInitiativeReleasePackage.test.ts
           test/adminPortalKpis.api.test.ts
+          test/mailer.nodemailer10.test.ts
+          test/freeDiagnosisDesignV2ReportPdf.test.ts
       - name: Common CRM and portal browser desktop/mobile
         run: |
           npm run test:admin-portal:browser
@@ -61,7 +67,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: r3-known-regression-evidence
+          name: r4a-known-regression-evidence
           path: known-debt.log
           if-no-files-found: warn
 
@@ -83,6 +89,10 @@ jobs:
           --health-retries 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+      - name: Verify reviewed head identity
+        run: test "$(git rev-parse HEAD)" = "${CANDIDATE_SHA}"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -98,24 +108,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+      - name: Verify reviewed head identity
+        run: test "$(git rev-parse HEAD)" = "${CANDIDATE_SHA}"
       - name: Build inherited production runtime image without push
-        run: >-
-          docker build
-          --target runtime
-          --build-arg SOURCE_REVISION=${GITHUB_SHA}
-          --tag sales-tools-r3:${GITHUB_SHA}
-          .
+        run: |
+          docker pull node:20-bookworm-slim
+          docker image inspect node:20-bookworm-slim --format 'BASE_DIGEST={{index .RepoDigests 0}}'
+          docker build \
+            --pull \
+            --target runtime \
+            --build-arg SOURCE_REVISION=${CANDIDATE_SHA} \
+            --tag sales-tools-r4a:${CANDIDATE_SHA} \
+            .
       - name: Verify runtime hardening
         run: |
-          test "$(docker image inspect sales-tools-r3:${GITHUB_SHA} --format '{{.Config.User}}')" = "node"
-          docker run --rm --entrypoint sh sales-tools-r3:${GITHUB_SHA} -c \
-            'test ! -e /usr/local/lib/node_modules/npm && ! command -v npm && ! command -v npx'
-          test "$(docker image inspect sales-tools-r3:${GITHUB_SHA} --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "${GITHUB_SHA}"
+          test "$(docker image inspect sales-tools-r4a:${CANDIDATE_SHA} --format '{{.Config.User}}')" = "node"
+          docker run --rm --entrypoint sh sales-tools-r4a:${CANDIDATE_SHA} -c \
+            'test ! -e /usr/local/lib/node_modules/npm && ! command -v npm && ! command -v npx && test "$(dpkg-query -W -f="\${Version}" apt)" = "2.6.2" && test "$(dpkg-query -W -f="\${Version}" libapt-pkg6.0)" = "2.6.2"'
+          test "$(docker image inspect sales-tools-r4a:${CANDIDATE_SHA} --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "${CANDIDATE_SHA}"
+      - name: Launch Chromium and render a real PDF
+        run: >-
+          docker run --rm --entrypoint node sales-tools-r4a:${CANDIDATE_SHA} -e
+          "const{chromium}=require('playwright');(async()=>{const b=await chromium.launch({headless:true});const p=await b.newPage();await p.setContent('<h1>R4a PDF smoke</h1>');const pdf=await p.pdf();if(pdf.subarray(0,5).toString()!=='%PDF-')throw new Error('PDF_MAGIC_INVALID');await b.close();console.log('CHROMIUM_PDF_OK',pdf.length)})().catch(e=>{console.error(e);process.exit(1)})"
       - name: Record production dependency advisories
         shell: bash
         run: |
           set +e
-          docker run --rm --entrypoint sh sales-tools-r3:${GITHUB_SHA} -c \
+          docker run --rm --entrypoint sh sales-tools-r4a:${CANDIDATE_SHA} -c \
             'cd /app && node -e "console.log(process.version)"'
           npm audit --omit=dev --json > npm-audit-production.json
           audit_status=$?
@@ -124,16 +145,20 @@ jobs:
       - name: Scan local image without registry push
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: sales-tools-r3:${{ github.sha }}
+          image-ref: sales-tools-r4a:${{ env.CANDIDATE_SHA }}
           format: json
           output: trivy-runtime.json
           severity: CRITICAL,HIGH
           ignore-unfixed: false
           exit-code: '0'
+      - name: Verify remediated findings and report residual counts
+        run: >-
+          node -e
+          "const r=require('./trivy-runtime.json');const v=r.Results.flatMap(x=>x.Vulnerabilities||[]);const ids=new Set(v.map(x=>x.VulnerabilityID));if(ids.has('CVE-2026-109518'))throw new Error('APT_CVE_REMAINS');if(v.some(x=>x.PkgName==='nodemailer'&&(x.Severity==='HIGH'||x.Severity==='CRITICAL')))throw new Error('NODEMAILER_HIGH_REMAINS');console.log(JSON.stringify({critical:v.filter(x=>x.Severity==='CRITICAL').length,high:v.filter(x=>x.Severity==='HIGH').length,fixedAvailable:v.filter(x=>x.FixedVersion).length}))"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: r3-runtime-security-evidence
+          name: r4a-runtime-security-evidence
           path: |
             npm-audit-production.json
             trivy-runtime.json
