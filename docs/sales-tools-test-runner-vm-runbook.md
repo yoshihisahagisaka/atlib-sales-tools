@@ -151,6 +151,24 @@ Final `sudo -n docker ps -a` output showed **zero containers**. These are execut
 
 Use the already installed `postgres:16` image, `--pull=never`, `--network=none`, a run-owned name, a RAM-backed ephemeral data directory, and the image's bundled `pg_isready`/`psql` tools. A temporary `POSTGRES_HOST_AUTH_METHOD=trust` is appropriate **only inside a strictly network-disabled disposable smoke container**, without a published host port or host-mounted data, and must never be reused for production or shared services. Check for name conflicts before starting, and remove **only** the named run-owned container. An engine/SQL response is not a migration test; actual repository Migration tests remain a separate action.
 
+### Disposable PostgreSQL 16 server boot smoke — PASS (2026-11-26 JST)
+
+The operator executed the prescribed ephemeral, network-disabled `postgres:16` container check using `sudo -n docker`. Terminal evidence:
+
+- Container name: `atlib-pg16-bootcheck`
+- Image: preloaded `postgres:16`, `--pull=never`
+- Isolation: `--network=none`, no host port, no persistent volume, 512 MB tmpfs PGDATA, 1 GB memory cap, run-owned `--rm` container
+- Authentication: `POSTGRES_HOST_AUTH_METHOD=trust` **only inside the network-disabled disposable smoke test**
+- Readiness: `pg_isready` succeeded
+- `psql` output: `current_database=postgres`, `server_version=16.16 (Debian 16.16-1.pgdg13+1)`, `transaction_read_only=on`
+- `BEGIN READ ONLY` / `ROLLBACK`: PASS
+- Completion: `PostgreSQL boot smoke PASS`
+- Final `sudo -n docker ps -a`: **zero containers**; test DB and tmpfs removed
+
+This proves a disposable PostgreSQL 16 server and read-only SQL run on the VM. It does **not** prove that application migrations or E2E have run on this VM. The existing GitHub Actions PostgreSQL 16 checks for the R4b candidate remain valid and should not be re-executed without a specific verification gap.
+
+**VM readiness decision:** basic access, image execution, disposable PostgreSQL server, and cleanup are verified. Use this VM for new, bounded integration verification; no VM recreation, permission/group change, host-level Node/psql installation, or repeated boot smoke required.
+
 ## 4. Repeatable verification procedure
 
 1. Confirm the reviewed PR, HEAD SHA, and source lineage in GitHub. Fetch only that revision to a fresh run-specific workspace under the configured home. Verify `git rev-parse HEAD` equals the intended SHA and that `git status --porcelain` is empty. Never run an arbitrary branch tip as the reviewed candidate.
