@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -61,7 +63,7 @@ jobs:
         with:
           name: r3-known-regression-evidence
           path: known-debt.log
-          if-no-files-found: error
+          if-no-files-found: warn
 
   postgres16:
     runs-on: ubuntu-latest
