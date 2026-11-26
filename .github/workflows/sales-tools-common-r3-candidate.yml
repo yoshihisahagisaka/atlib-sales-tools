@@ -1,4 +1,4 @@
-name: sales-tools-common-r4a-security
+name: sales-tools-common-r4b-node24
 
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ jobs:
         run: test "$(git rev-parse HEAD)" = "${CANDIDATE_SHA}"
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run build
@@ -67,7 +67,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: r4a-known-regression-evidence
+          name: r4b-known-regression-evidence
           path: known-debt.log
           if-no-files-found: warn
 
@@ -95,7 +95,7 @@ jobs:
         run: test "$(git rev-parse HEAD)" = "${CANDIDATE_SHA}"
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run build
@@ -114,29 +114,29 @@ jobs:
         run: test "$(git rev-parse HEAD)" = "${CANDIDATE_SHA}"
       - name: Build inherited production runtime image without push
         run: |
-          docker pull node:20-bookworm-slim
-          docker image inspect node:20-bookworm-slim --format 'BASE_DIGEST={{index .RepoDigests 0}}'
+          docker pull node:24-bookworm-slim
+          docker image inspect node:24-bookworm-slim --format 'BASE_DIGEST={{index .RepoDigests 0}}'
           docker build \
             --pull \
             --target runtime \
             --build-arg SOURCE_REVISION=${CANDIDATE_SHA} \
-            --tag sales-tools-r4a:${CANDIDATE_SHA} \
+            --tag sales-tools-r4b:${CANDIDATE_SHA} \
             .
       - name: Verify runtime hardening
         run: |
-          test "$(docker image inspect sales-tools-r4a:${CANDIDATE_SHA} --format '{{.Config.User}}')" = "node"
-          docker run --rm --entrypoint sh sales-tools-r4a:${CANDIDATE_SHA} -c \
-            'test ! -e /usr/local/lib/node_modules/npm && ! command -v npm && ! command -v npx && test "$(dpkg-query -W -f="\${Version}" apt)" = "2.6.2" && test "$(dpkg-query -W -f="\${Version}" libapt-pkg6.0)" = "2.6.2"'
-          test "$(docker image inspect sales-tools-r4a:${CANDIDATE_SHA} --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "${CANDIDATE_SHA}"
+          test "$(docker image inspect sales-tools-r4b:${CANDIDATE_SHA} --format '{{.Config.User}}')" = "node"
+          docker run --rm --entrypoint sh sales-tools-r4b:${CANDIDATE_SHA} -c \
+            'test "$(node --version | cut -d. -f1)" = "v24" && test ! -e /usr/local/lib/node_modules/npm && ! command -v npm && ! command -v npx && ! dpkg-query -W xvfb >/dev/null 2>&1 && test "$(dpkg-query -W -f="\${Version}" apt)" = "2.6.2" && test "$(dpkg-query -W -f="\${Version}" libapt-pkg6.0)" = "2.6.2"'
+          test "$(docker image inspect sales-tools-r4b:${CANDIDATE_SHA} --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "${CANDIDATE_SHA}"
       - name: Launch Chromium and render a real PDF
         run: >-
-          docker run --rm --entrypoint node sales-tools-r4a:${CANDIDATE_SHA} -e
-          "const{chromium}=require('playwright');(async()=>{const b=await chromium.launch({headless:true});const p=await b.newPage();await p.setContent('<h1>R4a PDF smoke</h1>');const pdf=await p.pdf();if(pdf.subarray(0,5).toString()!=='%PDF-')throw new Error('PDF_MAGIC_INVALID');await b.close();console.log('CHROMIUM_PDF_OK',pdf.length)})().catch(e=>{console.error(e);process.exit(1)})"
+          docker run --rm --entrypoint node sales-tools-r4b:${CANDIDATE_SHA} -e
+          "const{chromium}=require('playwright');(async()=>{const b=await chromium.launch({headless:true});const p=await b.newPage();await p.setContent('<h1>R4b Node 24 PDF smoke</h1>');const pdf=await p.pdf();if(pdf.subarray(0,5).toString()!=='%PDF-')throw new Error('PDF_MAGIC_INVALID');await b.close();console.log('CHROMIUM_PDF_OK',process.version,pdf.length)})().catch(e=>{console.error(e);process.exit(1)})"
       - name: Record production dependency advisories
         shell: bash
         run: |
           set +e
-          docker run --rm --entrypoint sh sales-tools-r4a:${CANDIDATE_SHA} -c \
+          docker run --rm --entrypoint sh sales-tools-r4b:${CANDIDATE_SHA} -c \
             'cd /app && node -e "console.log(process.version)"'
           npm audit --omit=dev --json > npm-audit-production.json
           audit_status=$?
@@ -145,7 +145,7 @@ jobs:
       - name: Scan local image without registry push
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: sales-tools-r4a:${{ env.CANDIDATE_SHA }}
+          image-ref: sales-tools-r4b:${{ env.CANDIDATE_SHA }}
           format: json
           output: trivy-runtime.json
           severity: CRITICAL,HIGH
@@ -158,7 +158,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: r4a-runtime-security-evidence
+          name: r4b-runtime-security-evidence
           path: |
             npm-audit-production.json
             trivy-runtime.json
