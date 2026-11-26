@@ -64,7 +64,7 @@ jobs:
           grep -Eq 'fail 2' known-debt.log
           grep -Fq 'Sales Activity attribution' known-debt.log
           grep -Fq 'Production server wiring' known-debt.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: r4b-known-regression-evidence
@@ -155,7 +155,7 @@ jobs:
         run: >-
           node -e
           "const r=require('./trivy-runtime.json');const v=r.Results.flatMap(x=>x.Vulnerabilities||[]);const ids=new Set(v.map(x=>x.VulnerabilityID));if(ids.has('CVE-2026-109518'))throw new Error('APT_CVE_REMAINS');if(v.some(x=>x.PkgName==='nodemailer'&&(x.Severity==='HIGH'||x.Severity==='CRITICAL')))throw new Error('NODEMAILER_HIGH_REMAINS');console.log(JSON.stringify({critical:v.filter(x=>x.Severity==='CRITICAL').length,high:v.filter(x=>x.Severity==='HIGH').length,fixedAvailable:v.filter(x=>x.FixedVersion).length}))"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: r4b-runtime-security-evidence
