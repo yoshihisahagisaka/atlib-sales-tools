@@ -38,9 +38,12 @@ LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 ENV NODE_ENV=production
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 COPY --from=production-deps /app/node_modules ./node_modules
+# DSA-6657-1 (CVE-2026-124851): upgrade only runtime libzstd1 and verify patched version.
 RUN mkdir -p /ms-playwright \
     && apt-get update \
     && apt-get install -y --no-install-recommends fonts-noto-cjk fontconfig \
+    && apt-get install -y --only-upgrade --no-install-recommends libzstd1 \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libzstd1)" ge '1.5.7+dfsg-1+deb13u1' \
     && rm -rf /var/lib/apt/lists/* \
     && node ./node_modules/playwright/cli.js install --with-deps --only-shell chromium \
     && fc-cache -f \
