@@ -103,6 +103,38 @@ df -h "$HOME"
 
 Never stop or remove any unrelated container. For future VM Docker commands, use `sudo -n docker` (not bare `docker`), and name/local-tag resources per verification run. For commands requiring Docker Compose, use `sudo -n docker compose` after checking that it runs through the same daemon.
 
+## 3B. Docker inventory (2026-11-26 JST)
+
+The operator subsequently ran `sudo -n docker ps -a`, `docker image ls`, and `docker system df` on the VM. Recorded observations:
+
+- Containers: **0**; no running or stopped containers at this checkpoint.
+- Local images:
+  - `node:24-bookworm` — 1.65 GB
+  - `postgres:16` — 667 MB
+  - `postgres:17` — 671 MB
+  - `mcr.microsoft.com/playwright:v1.63.0-noble` — 3.55 GB
+- Docker storage: 4 images, 0 active, 6.413 GB image usage (6.296 GB shown reclaimable), one unused local volume of 48.35 MB, build cache 0 B.
+
+**Decision:** Existing image inventory supports a minimal container startup smoke without provisioning a new VM or host-level Node/psql installation. Do **not** infer the installed images are the exact `node:24-bookworm-slim` or `postgres:16-alpine` images used by current Release CI. Those variants may require an approved pull only if a specific test needs them. The Docker “reclaimable” figure is not permission to delete images/volumes. Do not run `docker system prune`, remove unknown volumes, or alter existing images.
+
+### Next bounded smoke: existing local images only
+
+After checking the command purpose and authorization, these commands start ephemeral **network-disabled** containers. They make no Production connections and do not pull new images:
+
+```bash
+sudo -n docker run --rm --pull=never --network=none \
+  --read-only node:24-bookworm node --version
+
+sudo -n docker run --rm --pull=never --network=none \
+  --read-only postgres:16 postgres --version
+
+sudo -n docker run --rm --pull=never --network=none \
+  --read-only --entrypoint node \
+  mcr.microsoft.com/playwright:v1.63.0-noble --version
+```
+
+Successful version responses prove only that the relevant container executable starts. They do **not** prove PostgreSQL server startup, browser launch/PDF generation, or that the candidate Git SHA was built. Those are separate, reviewed tests.
+
 ## 4. Repeatable verification procedure
 
 1. Confirm the reviewed PR, HEAD SHA, and source lineage in GitHub. Fetch only that revision to a fresh run-specific workspace under the configured home. Verify `git rev-parse HEAD` equals the intended SHA and that `git status --porcelain` is empty. Never run an arbitrary branch tip as the reviewed candidate.
