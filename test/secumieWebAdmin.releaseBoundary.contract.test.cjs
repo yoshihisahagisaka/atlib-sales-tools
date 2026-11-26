@@ -75,6 +75,14 @@ test('headless PDF image uses maintained Node and only the required browser shel
     'only patched runtime libzstd1 is upgraded');
   assert.match(dockerfile, /dpkg --compare-versions .*ge '1\.5\.7\+dfsg-1\+deb13u1'/,
     'build must reject libzstd1 older than Debian 13 DSA-6657-1 fix');
+  assert.match(dockerfile, /for pkg in passwd uidmap libsubid5 login\.defs; do/,
+    'Debian shadow source is upgraded through only installed binary packages');
+  assert.match(dockerfile, /apt-get install -y --only-upgrade --no-install-recommends "\$pkg"/,
+    'shadow binary updates must not install additional packages');
+  assert.match(dockerfile, /dpkg --compare-versions .*ge '1:4\.17\.4-2\+deb13u1'/,
+    'build must reject installed shadow binaries older than DSA-6661-1');
+  assert.match(dockerfile, /test "\$shadow_installed" -gt 0/,
+    'runtime must contain at least one tracked shadow binary for validation');
   assert.doesNotMatch(dockerfile, /apt-get (?:dist-)?upgrade(?:\s|$)/,
     'do not broaden runtime OS upgrades');
   assert.match(dockerfile, /test -d \/usr\/local\/lib\/node_modules\/npm/);
