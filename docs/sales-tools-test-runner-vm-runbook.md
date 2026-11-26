@@ -1,6 +1,6 @@
 # atLIB Test Runner VM — Sales Tools Verification Runbook
 
-Status: OPERATOR-PROVIDED VM IDENTITY / HOST CAPABILITIES NOT YET VERIFIED
+Status: VM LOGIN/TOOLCHAIN PARTIALLY VERIFIED / DOCKER DAEMON ACCESS BLOCKED
 Date: 2026-11-26 JST
 Scope: Sales Tools Common Foundation and service-isolated verification; no Production changes.
 
@@ -15,7 +15,7 @@ Scope: Sales Tools Common Foundation and service-isolated verification; no Produ
 | Home | `/home/yoshihisa_hagisaka_atlib_jp` |
 | Access | IAP-tunneled SSH |
 
-These values are provided by the operator. This document does **not** claim that SSH, Docker, PostgreSQL, Node, Playwright, network egress, or permissions were tested on the VM.
+These identity values were provided by the operator. Subsequent operator-supplied terminal output confirms effective login and client-tool versions, but not usable Docker daemon access, PostgreSQL, Node, Playwright, network egress, or elevated permissions; see §3A.
 
 Default: reuse this VM before requesting another VM, Cloud SQL instance, or other GCP resource.
 
@@ -70,6 +70,44 @@ node --version 2>/dev/null || true
 ```
 
 Share availability/version results, not credentials, tokens, environment dumps, or metadata-service responses. Verify access and the installed toolchain before choosing any test method.
+
+## 3A. Verified operator inventory (2026-11-26 JST)
+
+The operator ran the inventory on `atlib-test-runner` and supplied the following terminal evidence; these are **operator-observed facts**, not independently executed by this document author.
+
+| Check | Result |
+| --- | --- |
+| Effective login | `yoshihisa_hagisaka_atlib_jp` |
+| Home | `/home/yoshihisa_hagisaka_atlib_jp` |
+| Git | `2.43.0` |
+| Docker client | `29.10.1` |
+| Docker Compose | `v5.8.0` |
+| Docker daemon | `permission denied` accessing `unix:///var/run/docker.sock`; server version **not confirmed** |
+| Node.js / npm / psql | Host executables not installed; no host install required if container workflow becomes usable |
+| Home filesystem | 96 GB total, 11 GB used, 86 GB available (11% used) |
+
+**Current blocker:** Docker **client** is installed, but the current user lacks access to the daemon socket, or the socket's permissions prevent access. Do not infer that the daemon is healthy from the client version. No VM packages, groups, permissions, systemd services, or infrastructure were changed.
+
+### Next read-only diagnostic
+
+```bash
+echo '=== Docker identity ==='
+id
+id -nG
+echo '=== Socket permissions ==='
+ls -l /var/run/docker.sock
+stat -c '%A %U %G %n' /var/run/docker.sock
+echo '=== docker group ==='
+getent group docker || true
+echo '=== Docker service (read-only) ==='
+systemctl is-active docker || true
+echo '=== Non-interactive sudo access test (no mutation) ==='
+sudo -n docker info --format 'ServerVersion={{.ServerVersion}}' 2>&1 || true
+```
+
+`sudo -n` never prompts for a password. A denied result is evidence of missing authorization, **not** permission to modify sudoers or add the account to `docker`. Docker access is effectively root-equivalent; select any persistent permission change separately under host-owner approval. If pre-authorized sudo-based Docker operation is available, isolate all test containers and confirm cleanup ownership before use.
+
+Until the access gate passes, do not attempt PostgreSQL/Node Docker builds or launch E2E runs on this VM. The already passing GitHub Actions evidence remains valid.
 
 ## 4. Repeatable verification procedure
 
