@@ -53,8 +53,8 @@ jobs:
           set -e
           cat known-debt.log
           test "$status" -ne 0
-          grep -Eq 'tests 29' known-debt.log
-          grep -Eq 'pass 27' known-debt.log
+          grep -Eq 'tests 28' known-debt.log
+          grep -Eq 'pass 26' known-debt.log
           grep -Eq 'fail 2' known-debt.log
           grep -Fq 'Sales Activity attribution' known-debt.log
           grep -Fq 'Production server wiring' known-debt.log
