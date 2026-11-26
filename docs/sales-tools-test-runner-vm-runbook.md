@@ -135,6 +135,22 @@ sudo -n docker run --rm --pull=never --network=none \
 
 Successful version responses prove only that the relevant container executable starts. They do **not** prove PostgreSQL server startup, browser launch/PDF generation, or that the candidate Git SHA was built. Those are separate, reviewed tests.
 
+## 3C. Existing-image smoke results (2026-11-26 JST)
+
+The operator ran the isolated `--rm --pull=never --network=none --read-only` executable checks in §3B. Terminal evidence:
+
+| Image | Observed response | Result |
+| --- | --- | --- |
+| `node:24-bookworm` | `v24.22.3` | PASS |
+| `postgres:16` | `postgres (PostgreSQL) 16.16 (Debian 16.16-1.pgdg13+1)` | PASS |
+| `mcr.microsoft.com/playwright:v1.63.0-noble` | `node --version`: `v24.20.0` | PASS |
+
+Final `sudo -n docker ps -a` output showed **zero containers**. These are executable-start checks only: the Playwright container returned its **Node.js version**, not a browser test; PostgreSQL returned the **binary version**, not a running server. No image was pulled and no resource remained.
+
+### Next VM gate: disposable PostgreSQL server start
+
+Use the already installed `postgres:16` image, `--pull=never`, `--network=none`, a run-owned name, a RAM-backed ephemeral data directory, and the image's bundled `pg_isready`/`psql` tools. A temporary `POSTGRES_HOST_AUTH_METHOD=trust` is appropriate **only inside a strictly network-disabled disposable smoke container**, without a published host port or host-mounted data, and must never be reused for production or shared services. Check for name conflicts before starting, and remove **only** the named run-owned container. An engine/SQL response is not a migration test; actual repository Migration tests remain a separate action.
+
 ## 4. Repeatable verification procedure
 
 1. Confirm the reviewed PR, HEAD SHA, and source lineage in GitHub. Fetch only that revision to a fresh run-specific workspace under the configured home. Verify `git rev-parse HEAD` equals the intended SHA and that `git status --porcelain` is empty. Never run an arbitrary branch tip as the reviewed candidate.
