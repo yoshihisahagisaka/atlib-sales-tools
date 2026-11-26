@@ -73,9 +73,9 @@ test('headless PDF image uses maintained Node and only the required browser shel
   assert.match(dockerfile, /playwright\/cli\.js install --with-deps --only-shell chromium/);
   assert.match(dockerfile, /apt-get install -y --only-upgrade --no-install-recommends libzstd1/,
     'only patched runtime libzstd1 is upgraded');
-  assert.match(dockerfile, /dpkg --compare-versions .*ge '1\\.5\\.7\\+dfsg-1\\+deb13u1'/,
+  assert.match(dockerfile, /dpkg --compare-versions .*ge '1\.5\.7\+dfsg-1\+deb13u1'/,
     'build must reject libzstd1 older than Debian 13 DSA-6657-1 fix');
-  assert.doesNotMatch(dockerfile, /apt-get (?:dist-)?upgrade(?:\\s|$)/,
+  assert.doesNotMatch(dockerfile, /apt-get (?:dist-)?upgrade(?:\s|$)/,
     'do not broaden runtime OS upgrades');
   assert.match(dockerfile, /test -d \/usr\/local\/lib\/node_modules\/npm/);
   assert.match(dockerfile, /rm -rf \/usr\/local\/lib\/node_modules\/npm/);
