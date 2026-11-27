@@ -4,6 +4,7 @@ import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import { configurePublicRuntime, publicPageCsp } from './runtimeSecurity';
 import { SecumieGeneralLimits, GeneralLimitError } from './secumieGeneralLimits';
+import { consultationSchema, type ConsultationHandoff } from '../services/secumieConsultationHandoff';
 import type { WscHtmlService } from '../services/wscHtmlService';
 
 type Kind = 'WEB' | 'INSIGHT';
@@ -37,6 +38,7 @@ export function createSecumieGeneralRuntime(options: {
   verify: Verify;
   wsc?: Pick<WscHtmlService, 'diagnose'>;
   limits?: SecumieGeneralLimits;
+  handoff?: ConsultationHandoff;
   assets?: { pageDir: string; insightDir: string; siteKey: string };
 }): Express {
   const app = express();
@@ -71,14 +73,29 @@ export function createSecumieGeneralRuntime(options: {
         res.status(403).json({ code: 'TURNSTILE_DENIED' }); return;
       }
       release = limits.admit(options.kind, ip, target);
-      if (options.kind === 'INSIGHT') { res.json({ ok: true }); return; }
+      if (options.kind === 'INSIGHT') { const receipt = options.handoff?.issue({kind:'INSIGHT', companyName:data.companyName,registeredAddress:data.registeredAddress}); res.json({ ok: true, ...(receipt ? {receipt}: {}) }); return; }
       if (!options.wsc || !target) { res.status(503).json({ code: 'NOT_READY' }); return; }
       const result = await options.wsc.diagnose({ name: data.companyName, url: target, executor: 'general-web' });
-      res.json({ ok: true, html: result.html.replace('<div class="review-banner">内部デザインレビュー用｜対外配布不可</div>', ''), normalizedUrl: result.normalizedUrl });
+      const receipt = options.handoff?.issue({kind:'WEB',companyName:data.companyName,registeredAddress:data.registeredAddress,targetUrl:result.normalizedUrl,report:result.report});
+      res.json({ ok: true, ...(receipt ? {receipt}: {}), html: result.html.replace('<div class="review-banner">内部デザインレビュー用｜対外配布不可</div>', ''), normalizedUrl: result.normalizedUrl });
     } catch (error) {
       if (error instanceof GeneralLimitError) { res.status(429).json({ code: error.code }); return; }
       res.status(422).json({ code: 'DIAGNOSIS_UNAVAILABLE' });
     } finally { release?.(); }
+  });
+  app.post(prefix + '/api/consultation', express.json({limit:'16kb',strict:true}), async (req,res) => {
+    if (req.get('origin') !== 'https://' + options.hostname || !req.is('application/json')) { res.sendStatus(403); return; }
+    if (!options.handoff) { res.status(503).json({code:'NOT_READY'}); return; }
+    const parsed = consultationSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(422).json({code:'INVALID_REQUEST'}); return; }
+    try { const scheduleUrl = await options.handoff.submit(parsed.data); res.json({ok:true,scheduleUrl}); }
+    catch (error) {
+      const code = error instanceof Error ? error.message : '';
+      if (code === 'RECEIPT_EXPIRED') { res.status(410).json({code}); return; }
+      if (code === 'ALREADY_SUBMITTED') { res.status(409).json({code}); return; }
+      if (code === 'INVALID_ANSWERS') { res.status(422).json({code}); return; }
+      res.status(503).json({code:'NOTIFICATION_FAILED'});
+    }
   });
   if (options.assets) {
     const assets = options.assets;
