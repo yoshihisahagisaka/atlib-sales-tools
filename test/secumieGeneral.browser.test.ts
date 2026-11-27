@@ -62,6 +62,7 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
   for(let i=0;i<8;i++){await page.locator('[data-answer]').first().click();await page.locator('#next').click();}
   await page.locator('#v7-print').waitFor({state:'visible'});
  }
+ if(kind==='INSIGHT')assert.equal(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'),true,'Insight result must fit mobile viewport');
  await capture('03-result');
  if(evidence){
    if(kind==='WEB'){
@@ -73,6 +74,7 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
  }
  await page.locator('.consult-guide-trigger').first().click();
  await page.locator('#consultation-guide').waitFor({state:'visible'});
+ if(kind==='WEB')assert.equal(await page.evaluate("Boolean(document.querySelector('#consultation-guide').compareDocumentPosition(document.querySelector('body > footer')) & Node.DOCUMENT_POSITION_FOLLOWING) && document.querySelector('body > main').hidden"),true,'WEB consultation must precede footer and hide inactive main');
  await capture('04-consult-guide');
  await page.locator('#consult-back').click();
  await page.locator('.consult-guide-trigger').first().click();
