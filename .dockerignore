@@ -1,5 +1,6 @@
 **
 !Dockerfile
+!Dockerfile.secumie
 !package.json
 !package-lock.json
 !tsconfig.json
@@ -9,6 +10,13 @@
 !public/**
 !migrations/
 !migrations/*.sql
+!migration-manifests/
+!migration-manifests/secumie-insight-staging-037-041.json
+!scripts/
+!scripts/readiness/
+!scripts/readiness/verifySecumieMigrationManifest.cjs
+!prototypes/pira-union-diagnosis-v2/
+!prototypes/pira-union-diagnosis-v2/**
 **/.env*
 **/*.pem
 **/*.key

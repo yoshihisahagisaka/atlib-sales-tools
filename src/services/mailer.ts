@@ -36,6 +36,11 @@ export class Mailer {
     });
   }
 
+  /** Public-service OTP: code appears only in this email body. */
+  async sendPublicServiceOtp(to:string, serviceName:string, code:string):Promise<void>{
+    await this.transporter.sendMail({from:this.config.from,to,subject:'【atLIB】認証コードのご案内',text:`${serviceName}の認証コードをお知らせします。\n\n認証コード：${code}\n\n有効期限は発行から10分です。\n\nこのメールに心当たりがない場合は、操作の必要はありません。\n\natLIB株式会社`});
+  }
+
   async sendBusinessWebConsultationNotification(to:string, params:{company:string;name:string;email:string;detailUrl:string}):Promise<void>{await this.transporter.sendMail({from:this.config.from,to,subject:`【Business Web 無料相談】新規申込: ${params.company} 様`,text:`Business Web無料相談の申込がありました。\n\n会社名: ${params.company}\nお名前: ${params.name}\nメール: ${params.email}\n\n詳細: ${params.detailUrl}`});}
   async sendBusinessWebConsultationThanks(to:string,name:string):Promise<void>{await this.transporter.sendMail({from:this.config.from,to,subject:'無料相談のお申し込みを受け付けました - atLIB株式会社',text:`${name} 様\n\n無料相談のお申し込みを受け付けました。\n今回のセルフチェックの回答・診断結果を確認したうえで、相談時にお話を伺います。\n担当者よりご連絡します。\n\n提供：atLIB株式会社`});}
 
