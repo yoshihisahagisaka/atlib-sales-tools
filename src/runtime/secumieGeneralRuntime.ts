@@ -48,6 +48,8 @@ export function createSecumieGeneralRuntime(options: {
   app.get('/healthz', (_req, res) => res.json({ status: 'ok' }));
   app.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
+    // Only canonical public guides may be indexed. Non-guide routes stay out of search.
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     res.setHeader('Content-Security-Policy', publicPageCsp);
     if (!options.enabled || req.hostname !== options.hostname) { res.sendStatus(404); return; }
     next();
@@ -102,6 +104,7 @@ export function createSecumieGeneralRuntime(options: {
     app.get(prefix + '/', (_req, res) => {
       if (!/^[A-Za-z0-9_-]+$/.test(assets.siteKey)) { res.sendStatus(503); return; }
       const html = readFileSync(path.join(assets.pageDir, options.kind === 'WEB' ? 'web.html' : 'insight.html'), 'utf8');
+      if (options.hostname === 'service.atlib.jp' && _req.path === prefix + '/') res.removeHeader('X-Robots-Tag');
       res.type('html').send(html.replaceAll('__GENERAL_SITE_KEY__', assets.siteKey));
     });
     for (const file of ['general.css','general.js', options.kind === 'WEB' ? 'secumie-web.png' : 'secumie-insight.png']) app.get(prefix + '/' + file, (_req,res)=>res.sendFile(path.resolve(assets.pageDir,file)));
