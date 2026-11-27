@@ -3,13 +3,14 @@ import { pathToFileURL } from 'node:url';
 type WscModule = {
   normalizeDiagnosisUrl(value: string): string;
   evaluate(input: unknown, options: { rulesPath: string; explanationsPath: string }): unknown;
-  render(report: unknown, company: { name: string; url: string }): string;
+  render(report: unknown, company: { name: string; url: string }, options?: { technicalHeadings?: boolean }): string;
 };
 type ProbeModule = {
   createRestrictedNetworkProbe(options: Record<string, unknown>): (input: Record<string, unknown>) => Promise<{ diagnosis: unknown }>;
 };
 
 export interface WscHtmlServiceOptions {
+  technicalHeadings?: boolean;
   /** Test-only transport injection. Production leaves this undefined. */
   networkExchange?: (input: Record<string, unknown>) => Promise<{ diagnosis: unknown }>;
   /** Test-only DNS injections keep the regression suite off the network. */
@@ -54,7 +55,7 @@ export class WscHtmlService {
       rulesPath: vendor('wsc-vs1', 'rules.json'),
       explanationsPath: vendor('wsc-vs1', 'explanations.json'),
     });
-    const html = engine.render(report, { name, url: normalizedUrl });
+    const html = engine.render(report, { name, url: normalizedUrl }, { technicalHeadings: this.options.technicalHeadings === true });
     return { html, report, normalizedUrl };
   }
 }
