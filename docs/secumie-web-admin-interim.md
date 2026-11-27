@@ -65,6 +65,29 @@
 - **次のread-only監査**：既存VM `atlib-test-runner`、案件専用 `~/atlib-tests/secumie-web/`、既存Docker daemonの**完全一致digestのローカルimage**を使用。VMを停止しない。追加トークン・Pull・Build・Scan・VM/DB/Secret/IAM設定変更なし。ネットワーク無効／read-only／cap-drop／非root／リソース制限付き一時コンテナでインストール済みpackages、Xvfb・cupsd・Perlバイナリ、WSC Chromium起動コード、Node権限を読み取り、案件専用`artifacts/runtime-risk-audit-*.json`へ保管。**監査コンテナは本番アプリの常駐プロセスではないため、プロセス不在だけで影響ゼロとは判定しない**。
 - 監査出力・既存PDF/ScanとDebian trackerを照合した**個別リスク判定表**を完成してから、残存リスクと隔離Staging検証可否の**明示的なセキュリティ判断**を行う。それまでは0%隔離Revisionを作成しない。既存Staging DB・Migration・Secret／IAM／Traffic／本番環境は不変。自動的なCVEの除外やパッケージ削除は禁止。
 
+## 2026-11-27 残存CVE個別リスク評価・runtime監査証跡
+
+- **評価対象の固定**：アプリソースは`458525768fbef1bdaea1cb49a8e122ecba8d85bf`、評価記録HEADは`755e236683e4bb08ccf7d6a24d1403401c047551`、imageは`sha256:744b481602a6538883939824a6baeff7321d01a003df700efc4ed7942a91861f`、Scanは`1d683242-5254-4876-a7ec-2c34c6b38feb`（CRITICAL0/HIGH12/UNKNOWN3）。異なるdigest又は後続ソースへこの評価を流用しない。
+- **既存read-only監査の結果**：`secumie_runtime_risk_audit_v1.sh`のWindows SHA-256 `19cc1add3b8e355e13717796a7feee625ab185552f7ad213b1cbf4276442d4cc`とVM転送後の値は一致（`SCRIPT_HASH_MATCH=PASS`）。`DIGEST_MATCH=PASS`、`RUNTIME_AUDIT_PASS=PASS`。成果物`~/atlib-tests/secumie-web/artifacts/runtime-risk-audit-20261127T030040Z.json`のSHA-256は`aef77d17b451e667de68069a94b2c5c62b46b250e071d44e10e01eed8dbaa08b`。監査一時コンテナはUID/GID 1000、`CapEff=0000000000000000`、`NoNewPrivs=1`で、既存`sudo -n docker`のみを利用し、`--pull never --network none --read-only --cap-drop ALL --pids-limit 96 --memory 512m --cpus 1`を適用した。これは監査コンテナの条件であり、本番常駐プロセスの実測ではない。
+- **接続ナレッジ**：IAP/OS Loginの障害と`plink` return codeだけを同一視しない。PowerShellがリモート用`$HOME`を展開すると、リモートpath判定失敗が`plink` return code 1として返る。リモートコマンドは単一引用符で保護するか、確認済み絶対path `/home/yoshihisa_hagisaka_atlib_jp/atlib-tests/secumie-web/`を使用する。今回の既存OS Loginユーザーは`yoshihisa_hagisaka_atlib_jp`であり、鍵・IAM・VM設定は変更していない。
+
+|CVE / Scan|source・監査導入版|成立条件と既存到達性の証拠|修正版・未確認事項|評価区分案|
+|---|---|---|---|---|
+|CVE-2023-5574 / HIGH|xorg-server、`xvfb=2:21.1.16-1.3+deb13u4`|Debianの条件はXvfbのZaphod複数screen構成。監査では`/usr/bin/Xvfb`あり、`Xorg`なし。WSCは`chromium.launch({headless:true})`でありXvfbを明示起動しない（`src/services/wscSalesService.ts:36-40`）。|Chromium内部／起動引数の完全実測とDebian13修正版は未確認。Tracker: `https://security-tracker.debian.org/tracker/CVE-2023-5574`。|UNDETERMINED（直接起動の証拠なし、除外不可）|
+|CVE-2026-34980 / HIGH|cups、`libcups2t64=2.4.10-3+deb13u2`|公開`cupsd`と共有PostScriptキューが成立条件。監査で`cupsd`/`lpadmin`は不存在、WSCコードにcupsd参照なし。|印刷ライブラリ経由の完全なChromium到達性とDebian13修正版は未確認。`https://security-tracker.debian.org/tracker/CVE-2026-34980`。|UNDETERMINED|
+|CVE-2026-54369, CVE-2026-54370 / HIGH|acl、`libacl1=2.3.2-2+b1`|特権callerが攻撃者制御path成分に対し`acl_*_file()`を使いsymlink置換されることが条件。既存TS/JSにacl API、setfacl、直接の特権処理参照は確認できない。|監査のCapEff=0は本番の根拠にできない。Trixieはvulnerable、2.4.0はunstable。`https://security-tracker.debian.org/tracker/CVE-2026-54369`。|PATCH_PENDING / UNDETERMINED|
+|CVE-2026-54371 / HIGH|attr、`libattr1=1:2.5.2-3`|特権caller・攻撃者制御path・拡張属性操作が前提。既存TS/JSにxattr/setxattr/lsetxattrの直接参照は確認できない。|native/Chromium間接経路とTrixie修正版提供は未確認。|PATCH_PENDING / UNDETERMINED|
+|CVE-2026-9538 / HIGH|perl、`perl-base=5.40.1-6+deb13u1`、`/usr/bin/perl`あり|Archive::Tar 3.10未満で攻撃者制御tar entry sizeを読み込むとメモリ枯渇が成立。アプリTS/JSにPerl又はArchive::Tar呼出しは確認できない。|モジュール実在・OS/Chromium保守経路・Trixie修正版は未確認。`https://security-tracker.debian.org/tracker/CVE-2026-9538`。|PATCH_PENDING / UNDETERMINED|
+|CVE-2026-117610, CVE-2026-118370 / HIGH|expat、`libexpat1=2.9.0-1~deb13u1`|攻撃者制御XMLが対象parserへ到達することが前提。アプリが直接XMLを扱う証拠はないが、Chromium headless-shellは実在しPDF作成で使用する。|Chromium/間接依存のXML到達性とTrixie修正版は未確認。`https://security-tracker.debian.org/tracker/CVE-2026-117610`。|PATCH_PENDING / UNDETERMINED|
+|CVE-2026-107496 / HIGH|openssl、`libssl3t64=3.5.9-1~deb13u1`|CMS_encrypt*へ攻撃者制御のEC受領者証明書を渡すことが条件。TLS/QUICは当該pathを使わない。WSCはHTTPS URLのみ許可（`src/services/wscSalesService.ts:64-66`）、SMTPはSTARTTLS（`src/services/mailer.ts:27-31`）だがCMS呼出しは確認できない。|Node組込OpenSSLとOS libsslは別。Trixieはvulnerable。`https://security-tracker.debian.org/tracker/CVE-2026-107496`。|PATCH_PENDING / UNDETERMINED|
+|CVE-2026-107493 / HIGH|openssl、`libssl3t64=3.5.9-1~deb13u1`|既存stackを渡した`PEM_X509_INFO_read_bio_ex()`が失敗後も再利用されることが条件。既存TS/JSにOpenSSL PEM API直接呼出しは確認できない。|Node/Chromium/SMTPネイティブ実装の個別到達性とTrixie修正版は未確認。`https://security-tracker.debian.org/tracker/CVE-2026-107493`。|PATCH_PENDING / UNDETERMINED|
+|CVE-2026-84786 / HIGH|openssl、`libssl3t64=3.5.9-1~deb13u1`|Scanner検出のみ。TLS利用一般だけで成立条件は断定しない。WSC HTTPS、SMTP STARTTLS、DB/TLS設定は別経路として扱う。|CVE固有条件と各native consumerの到達性、Trixie修正版は未確認。`https://security-tracker.debian.org/tracker/CVE-2026-84786`。|PATCH_PENDING / UNDETERMINED|
+|CVE-2023-54404 / HIGH|zod、`zod=3.25.76`|GitHub AdvisoryはHIGH/<4.6.6、NVDはREJECTED。`src/server.ts:157-184`でCookie→IP制限→staff認証→15MB/2MB parser、通常JSONは既定上限。HTTP 401/413回帰あり。|容量上限だけで解消とはしない。配列schemaはKAIZEN/診断に存在し、v4一括更新は未確認の互換リスク。`https://nvd.nist.gov/vuln/detail/CVE-2023-54404`、`https://github.com/advisories/GHSA-mrhx-c7xc-m3w5`。|UNDETERMINED（緩和策あり、例外なし）|
+|CVE-2026-109909, CVE-2026-109920 / UNKNOWN|libxfont、`libxfont2=1:2.0.6-1+deb13u1`|Xvfbは存在するがXorgは不存在。WSCはheadless Chromiumで、Xvfb直接起動は確認できない。|依存元・当該font処理到達性・修正版はいずれも未確認。|UNDETERMINED|
+|CVE-2026-109908 / UNKNOWN|libfontenc、`libfontenc1=1:1.1.8-1+b2`|font関連依存として存在する事実のみ。Chromium/PDF経路との個別リンクは未確認。|Scannerが具体的fixedVersionを提示しない。|UNDETERMINED|
+
+- **結論の境界**：上表はCVE例外承認、スキャン除外、または公開可否の決定ではない。HIGH12／UNKNOWN3を維持し、修正版提供・ネイティブ依存の実行条件・Cloud Run常駐時の構成は統括側で別途判断する。既存WSC/PDF、DB、Migration、Secret、IAM、Traffic、Cloud Run Revision、本番は変更していない。
+
 ## 停止・復旧
 
 対象DB/roleの既存検出、Git/SQL差分、未承認操作、CVE公開Gate、他サービスの性能悪化はSTOP。実DBへの自動再試行や自動DROPはしない。故障時も既存メール正本とWSCの手動PDF作成で業務を継続する。
