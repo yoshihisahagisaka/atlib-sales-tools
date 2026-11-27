@@ -55,3 +55,10 @@ button[type=submit]{width:100%;padding:17px;border:0;background:#dc782d;color:#f
 
 .general-brand h1{font-size:clamp(28px,5vw,46px);margin:0}.general-brand p{font-weight:700;border-left:4px solid #dc782d;padding-left:10px}.general-brand{margin-bottom:28px}#secumie-guide-heading{font-size:clamp(24px,4vw,36px)}[hidden]{display:none!important}#general-status{min-height:1.5em}
 .general-brand .service-logo{display:block;width:min(100%,440px);height:auto;object-fit:contain}
+
+/* General consultation form: same field style and responsive sizing. */
+#consultation-form .field textarea{width:100%;max-width:100%;border:1px solid #adc2bb;border-radius:9px;padding:13px;font:inherit;font-size:16px;color:#17324c;background:#fff;resize:vertical}
+#consultation-form button[type=submit]{margin-top:18px}
+#consultation-guide .guide-steps li{min-width:0}
+#app .v7-toolbar{display:flex;flex-wrap:wrap;gap:8px}
+@media print{#consultation-guide,#consultation-form-view,.consult-guide-trigger{display:none!important}#app .v7-toolbar{display:none!important}}
