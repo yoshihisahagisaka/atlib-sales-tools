@@ -516,3 +516,9 @@ Owner指示: 両サービスともサービス名を主タイトルにし、診�
 Status: OWNER APPROVED VISUAL DESIGN / ASSET INTEGRATION PENDING
 
 Ownerは最終提示の2段文字ロゴ（WEB: green shield/globe、Insight: blue shield/ascending chart、両方orange swoosh）を正式採用した。共通SECU:MIEはdeep navy、下段WEB/Insightは大きく表示する。診断名称は画像に含めず、HTMLテキストで表示する。採用した生成画像を視覚正本とし、旧PR #130 SVG候補をそのまま正式採用しない。最終画像の資産登録・SVG等への忠実な変換が必要な場合の同等性確認・画面組み込みは未実施。既存公開ページ、診断仕様、GCPは変更しない。Production No-Go維持。
+
+## 21. 一般向けSECU:MIE 診断情報一時保持 Decision（2026-11-28）
+
+Status: OWNER APPROVED / IMPLEMENTATION VERIFICATION PENDING
+
+Ownerは相談受付引継ぎの一時保持要件を承認した。一般向けWEB・Insightの各Runtimeでインメモリ保持、発行から2時間、最大500件。未申込の診断情報は期限経過後に破棄し、相談受付通知成功時は診断情報を直ちに破棄する。重複受付抑止に必要な最小状態のみ期限内保持。再起動時は消失する。診断結果永続保管DB・PDF保管は新設しない。相談時のみ明示同意のうえ必要情報を通知する。実装上、期限経過時の物理削除（次回issue時だけの掃除では不足）、容量上限、通知失敗時の再試行、重複抑止、保持情報のログ非出力を検証する。通知先での業務情報保持は別契約。既存団体向け保持契約は変更しない。Production No-Go維持。
