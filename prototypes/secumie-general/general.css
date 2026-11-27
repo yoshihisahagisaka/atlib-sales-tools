@@ -62,3 +62,23 @@ button[type=submit]{width:100%;padding:17px;border:0;background:#dc782d;color:#f
 #consultation-guide .guide-steps li{min-width:0}
 #app .v7-toolbar{display:flex;flex-wrap:wrap;gap:8px}
 @media print{#consultation-guide,#consultation-form-view,.consult-guide-trigger{display:none!important}#app .v7-toolbar{display:none!important}}
+
+/* General-only responsive report and print corrections. Preserve union CSS. */
+@media screen and (max-width:600px){
+ #app .v7-prototype{width:100%;min-width:0}
+ #app .v7-page{min-width:0;max-width:100%;overflow-wrap:anywhere}
+ #app .result-page table{table-layout:fixed;width:100%}
+ #app .result-page th,#app .result-page td{padding:5px;overflow-wrap:anywhere}
+ #app .result-page th:first-child,#app .result-page td:first-child{width:32px}
+ #app .result-page th:last-child,#app .result-page td:last-child{width:30%}
+ #app .v7-impact-cards,#app .v7-management-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+ #app .v7-title-content{min-width:0;overflow-wrap:anywhere}
+ #app img{max-width:100%}
+ #app .v7-reference-card a,#app .v7-tools-page a{overflow-wrap:anywhere}
+}
+@media print{
+ #app .v7-reference-card p{line-height:1.3;margin:2px 0}
+ #app .v7-reference-card{padding:6px 8px;margin:5px 0}
+ #app .v7-page{padding:12mm 16mm}
+ #app .v7-page h2{margin:14px 0 6px}
+}
