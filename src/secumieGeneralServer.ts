@@ -12,7 +12,7 @@ if (enabled && (!siteKey || !secret)) throw new Error('TURNSTILE_CONFIG_REQUIRED
 const app = createSecumieGeneralRuntime({
   kind, hostname, enabled,
   verify: createGeneralTurnstileVerifier(secret, hostname),
-  ...(kind === 'WEB' ? { wsc: new WscHtmlService() } : {}),
+  ...(kind === 'WEB' ? { wsc: new WscHtmlService({technicalHeadings:true}) } : {}),
   assets: {
     pageDir: path.resolve(process.cwd(), 'prototypes/secumie-general'),
     insightDir: path.resolve(process.cwd(), 'prototypes/pira-union-diagnosis-v2'),
