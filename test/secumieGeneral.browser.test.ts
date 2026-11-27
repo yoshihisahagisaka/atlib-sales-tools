@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import {mkdirSync} from 'node:fs';
 import { chromium } from 'playwright';
 import { createSecumieGeneralRuntime } from '../src/runtime/secumieGeneralRuntime';
 import { ConsultationHandoff, SECUMIE_SCHEDULE_URLS, type ConsultationNotice } from '../src/services/secumieConsultationHandoff';
@@ -20,6 +21,17 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
  const browser=await chromium.launch({headless:true});
  try{
  const page=await browser.newPage({viewport:{width:390,height:844}});
+ const evidence=process.env.SECUMIE_REVIEW_DIR;
+ if(evidence)mkdirSync(evidence,{recursive:true});
+ const capture=async (state:string)=>{
+   if(!evidence)return;
+   for(const [size,width,height] of [['mobile',390,844],['desktop',1440,1000]] as const){
+     await page.setViewportSize({width,height});
+     await page.evaluate(async()=>{await document.fonts.ready;});
+     await page.screenshot({path:path.join(evidence,kind.toLowerCase()+'-'+state+'-'+size+'.png'),fullPage:true,animations:'disabled'});
+   }
+   await page.setViewportSize({width:390,height:844});
+ };
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',async route=>{
   const req=route.request(),u=new URL(req.url());
@@ -35,7 +47,9 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
   });await route.fulfill(response);
  });
  await page.goto(origin+'/secumie-'+kind.toLowerCase()+'/');
+ await capture('01-guide');
  await page.locator('[data-secumie-open-form]').first().click();
+ await capture('02-intake');
  await page.locator('#companyName').fill('Synthetic Company');
  await page.locator('#registeredAddress').fill('Tokyo');
  if(kind==='WEB')await page.locator('#targetUrl').fill('https://example.org/');
@@ -48,12 +62,23 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
   for(let i=0;i<8;i++){await page.locator('[data-answer]').first().click();await page.locator('#next').click();}
   await page.locator('#v7-print').waitFor({state:'visible'});
  }
+ await capture('03-result');
+ if(evidence){
+   if(kind==='WEB'){
+     const frame=page.frameLocator('#report-frame');
+     const html=await frame.locator('html').evaluate(e=>e.outerHTML);
+     const printPage=await browser.newPage();
+     try{await printPage.route('**/*',route=>route.abort());await printPage.setContent('<!doctype html>'+html);await printPage.pdf({path:path.join(evidence,'web-report.pdf'),format:'A4',printBackground:true,preferCSSPageSize:true});}finally{await printPage.close();}
+   }else await page.pdf({path:path.join(evidence,'insight-report.pdf'),format:'A4',printBackground:true,preferCSSPageSize:true});
+ }
  await page.locator('.consult-guide-trigger').first().click();
  await page.locator('#consultation-guide').waitFor({state:'visible'});
+ await capture('04-consult-guide');
  await page.locator('#consult-back').click();
  await page.locator('.consult-guide-trigger').first().click();
  await page.locator('#consult-apply').click();
  assert.match(await page.locator('#consult-company').innerText(),/Synthetic Company/);
+ await capture('05-consult-form');
  await page.locator('#consult-name').fill('Synthetic Person');
  await page.locator('#consult-email').fill('synthetic@example.org');
  await page.locator('#consult-phone').fill('000');
