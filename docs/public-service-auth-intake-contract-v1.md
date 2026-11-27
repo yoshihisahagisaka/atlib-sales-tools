@@ -451,3 +451,28 @@ Owner実行 SECUMIE_RUNTIME_LIMIT_AUDIT: 正常終了 / NO CONFIGURATION CHANGES
 | sales-tools-staging | 1000m / 512Mi | 20 | 2 / 0 | 80 / 300s | sales-tools-staging-p228 |
 
 注意: Service Templateの取得値であり、配信中Revision固有の設定を再取得した証跡ではない。他project/regionの存在確認ではない。既存Sales Toolsの設定変更は不要。一般向けの診断開始回数・ドメイン別制限・同時実行数の数値は未承認。実環境確認はProduction Goを意味しない。
+
+---
+
+## 17. 一般向けSECU:MIE 診断実行制限 Decision（2026-11-28）
+
+Status: USER APPROVED / IMPLEMENTATION AND PRODUCTION RELEASE GATED
+
+Ownerは第16節の実環境確認後に提示された初期公開時の制限案を承認した。一般向けWEB/Insightのみに適用する。
+
+| 項目 | WEB | Insight |
+| --- | --- | --- |
+| メールOTP | なし | なし |
+| Turnstile | 必須 | 必須 |
+| IP別診断開始 | 10分5回 | 10分20回 |
+| 同一ドメイン診断 | 10分3回 | 対象外 |
+| 診断専用同時実行上限（インスタンス単位） | 3件 | 専用制限なし |
+| Cloud Run min instances | 0 | 0 |
+| Cloud Run max instances | 1 | 1 |
+| Cloud Run concurrency | 20 | 20 |
+| Cloud Run timeout | 60秒 | 60秒 |
+| 一般向けCSV一括診断 | 提供しない | 対象外 |
+
+既存createIpRateLimiterを流用し、WEBのみ対象ドメイン別のインメモリ制限と実行中件数制御を追加する。上限超過時はアプリ内待ち行列を作らず再試行を案内する。Redis・専用管理DB・ジョブキューは新設しない。インメモリ制限はインスタンス再起動でリセットされ、Revision切替等をまたぐ厳密な全体制限ではない。既存WSCの通信安全対策（公開IP、HTTPS、DNS再検証、TLS、タイムアウト、サイズ制限等）と社内WSCの既存機能は維持する。Turnstileはサーバ側で検証する。数値は初期公開時の承認値であり、運用実績に基づく変更は別途判断する。
+
+実装時の具体的なキー正規化、信頼可能なクライアントIP取得、期限切れカウントの掃除、同時実行枠の例外時解放、エラー応答、検証契約は既存資産のFit/Gapに基づき確定する。国連協向け受付、団体向けOTP/JWT、公開済みKAIZEN、既存Sales Tools設定は変更しない。本DecisionはMerge、DB/GCP変更、GENERAL有効化、本番公開、CVE例外の承認ではない。
