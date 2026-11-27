@@ -1,0 +1,56 @@
+:root{font-family:"Noto Sans JP","Hiragino Kaku Gothic ProN",Meiryo,system-ui,sans-serif;color:#17324c;background:#f5f8f6}
+*{box-sizing:border-box}body{margin:0}a{color:#135078}a:focus-visible,input:focus-visible,button:focus-visible{outline:3px solid #ed9c55;outline-offset:3px}
+.site-header{background:#fff;border-bottom:1px solid #dce5e4}.header-inner{max-width:920px;margin:auto;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:15px}
+.brand{font-size:27px;letter-spacing:.03em;color:#153957;text-decoration:none;font-weight:850}.brand span{color:#248267}.back-link{font-size:13px;text-decoration:none}
+.page{max-width:880px;margin:0 auto;padding:45px 20px 70px}.eyebrow{display:inline-block;padding:8px 15px;border-radius:40px;background:#e5f3ed;color:#24765c;font-size:13px;font-weight:700}
+h1{font-size:clamp(30px,5vw,43px);line-height:1.4;letter-spacing:-.03em;margin:16px 0}h1 span{color:#248267}#secumie-guide-heading span{display:block}.lead{font-size:17px;line-height:1.9;margin:0 0 28px}
+.form-card{background:#fff;border:1px solid #d9e5e1;border-radius:18px;padding:clamp(20px,5vw,36px);box-shadow:0 10px 32px #17324c0a}h2{font-size:23px;margin:0 0 12px}
+.field{margin:0 0 20px}.field label{display:block;font-weight:700;font-size:15px;margin-bottom:8px}.field label span{display:inline-block;background:#f7e9dd;color:#a25318;font-size:11px;padding:2px 6px;border-radius:3px;margin-left:5px;vertical-align:middle}
+.field input{width:100%;border:1px solid #adc2bb;border-radius:9px;padding:13px;font:inherit;font-size:16px;color:#17324c;background:#fff;min-height:49px}.field input::placeholder{color:#84949a}
+.privacy-box{background:#f4f8f7;padding:16px;border-radius:11px;border:1px solid #d8e4df;margin-top:24px}.privacy-box p{font-size:13px;line-height:1.85;margin:0 0 12px;color:#4b6067}
+.privacy-label{display:flex;align-items:flex-start;gap:10px;font-size:14px;line-height:1.7;font-weight:600}.privacy-label input{flex:none;width:19px;height:19px;margin-top:3px;accent-color:#248267}.bot-check{margin:24px 0 12px}.bot-check p{font-size:14px;margin:0 0 8px}
+button[type=submit]{width:100%;padding:17px;border:0;background:#dc782d;color:#fff;border-radius:10px;font:inherit;font-size:17px;font-weight:800;cursor:pointer}button[type=submit]:disabled{opacity:.45;cursor:not-allowed}
+#intake-status{font-size:14px;line-height:1.7;min-height:24px;color:#536776}.success{background:#edf8f1;border-radius:10px;padding:23px;border:1px solid #b6dbca}.success h2{color:#267356}
+.contact-note{text-align:center;font-size:14px;margin-top:26px;line-height:1.8}footer{text-align:center;background:#173b56;color:#f5f8f6;padding:23px;font-size:13px}.honeypot{position:absolute!important;left:-9999px!important;width:1px;height:1px;overflow:hidden}
+@media(max-width:480px){.header-inner{padding:16px}.brand{font-size:22px}.page{padding:28px 15px 52px}.lead{font-size:15px}.form-card{padding:20px 16px}.back-link{font-size:12px}}
+
+/* SECU:MIE Web two-screen introduction. Keep intake fields and submission styles unchanged. */
+.guide-screen[hidden],.form-card[hidden]{display:none!important}
+.guide-description{font-size:15px;line-height:1.9;color:#455e69;margin:0 0 18px}
+.guide-actions{margin:0 0 30px}
+.guide-actions p{font-size:13px;color:#597078;margin:9px 0 0}
+.primary-action{display:inline-flex;align-items:center;justify-content:center;gap:14px;min-height:52px;padding:13px 26px;border:0;border-radius:10px;background:#dc782d;color:#fff;font:inherit;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 6px 15px #17324c12}
+.primary-action:hover{background:#c6641e}
+.guide-section{margin-top:28px}
+.guide-section h2{font-size:21px;line-height:1.5;margin:0 0 15px}
+.guide-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.guide-item{padding:17px 15px;border:1px solid #d9e5e1;border-radius:14px;background:#fff}
+.guide-item h3{font-size:15px;line-height:1.6;margin:0 0 8px;color:#1c5c4f}
+.guide-item p,.guide-why p{font-size:14px;line-height:1.8;margin:0;color:#455e69}
+.guide-disclaimer{color:#597078;font-size:12px;line-height:1.75;margin:12px 0 0}
+.guide-why{border-left:4px solid #248267;padding:5px 0 5px 18px}
+.guide-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;list-style:none;margin:0;padding:0}
+.guide-steps li{display:flex;flex-direction:column;gap:6px;padding:16px 13px;background:#e8f2ed;border-radius:12px}
+.step-number{font-size:12px;font-weight:800;color:#248267}
+.guide-steps strong{font-size:14px;line-height:1.5}
+.guide-steps li>span:last-child{font-size:12px;line-height:1.6;color:#455e69}
+.guide-followup{font-size:13px;color:#455e69;line-height:1.8;margin:12px 0 0}
+.guide-bottom-action{margin-top:30px;padding:24px 18px;background:#e8f2ed;border-radius:15px;text-align:center}
+.guide-bottom-action p{margin:0 0 14px;line-height:1.7;font-weight:700}
+.back-to-guide{display:inline-block;margin:0 0 17px;padding:8px 0;border:0;background:transparent;color:#135078;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.back-to-guide:hover{text-decoration:underline}
+.form-card h2{line-height:1.5;margin:0 0 22px}
+@media(max-width:640px){
+  .guide-grid,.guide-steps{grid-template-columns:1fr;gap:10px}
+  .guide-item{padding:14px 16px}
+  .guide-item h3{margin:0 0 4px}
+  .guide-steps li{display:grid;grid-template-columns:32px minmax(0,1fr);gap:3px 10px;align-items:center;padding:12px 15px}
+  .guide-steps li .step-number{grid-row:span 2}
+  .guide-section{margin-top:23px}
+  .guide-section h2{font-size:19px}
+  .primary-action{width:100%}
+  .guide-bottom-action{padding:20px 15px}
+}
+@media(max-width:360px){#secumie-guide-heading{font-size:28px}}
+
+.general-brand h1{font-size:clamp(28px,5vw,46px);margin:0}.general-brand p{font-weight:700;border-left:4px solid #dc782d;padding-left:10px}.general-brand{margin-bottom:28px}#secumie-guide-heading{font-size:clamp(24px,4vw,36px)}[hidden]{display:none!important}#general-status{min-height:1.5em}
