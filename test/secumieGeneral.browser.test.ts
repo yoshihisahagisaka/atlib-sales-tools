@@ -47,6 +47,11 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
   });await route.fulfill(response);
  });
  await page.goto(origin+'/secumie-'+kind.toLowerCase()+'/');
+ assert.equal(await page.locator('#secumie-guide .aio-faq details').count(),6);
+ await page.locator('#secumie-guide .aio-faq summary').first().click();
+ assert.equal(await page.locator('#secumie-guide .aio-faq details[open]').count(),1);
+ assert.equal(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'),true,'public guide must fit mobile viewport');
+ await page.locator('#secumie-guide .aio-faq summary').first().click();
  await capture('01-guide');
  await page.locator('[data-secumie-open-form]').first().click();
  await capture('02-intake');
