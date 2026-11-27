@@ -55,3 +55,12 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: node -r ts-node/register --test test/secumieGeneral.browser.test.ts
+        env:
+          SECUMIE_REVIEW_DIR: review-evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: secumie-general-review
+          path: review-evidence/
+          if-no-files-found: error
+          retention-days: 7
