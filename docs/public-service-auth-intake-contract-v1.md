@@ -413,3 +413,30 @@ Status: USER APPROVED / IMPLEMENTATION AND PRODUCTION RELEASE NOT APPROVED BY TH
 共通OTPの第12節の認証・保持・JWT audience・jti消費・メモリ保持契約は維持する。同一公開Originになってもサービス識別子と受け手の分離を緩めない。相談申込では既存の同意・利用目的を確認し、診断のみの利用者を自動的に営業案件化しない。診断情報の保存対象・期間、相談との関連付け方法、既存API/DBへの具体的な接続はコードFit/Gapと既存保持契約の照合後に確定する。クライアントから渡された診断結果・メールを無条件に信頼しない。既存Insightの保持契約を無断変更しない。
 
 次工程: PR #47のGENERAL実装、PR #19のWSC HTML生成、PR #50の公開受付、PR #51の管理資産、既存相談受付とTimeRex連携の実コードを照合する。一般向けに必要な差分だけを設計し、国連協向け機能と分離する。既存固定imageの検証証跡はそのdigestに限定する。SECURITY_NO_GO、Production No-Go、Draft、GENERAL無効を維持し、本記録はMerge、Build、Migration、GCP設定変更、公開、CVE例外の承認ではない。
+
+
+---
+
+## 16. 一般向けSECU:MIE メールOTP不採用 Decision（2026-11-28）
+
+Status: USER APPROVED (GENERAL ONLY) / IMPLEMENTATION AND RELEASE GATED
+
+Owner決定: コーポレートサイトから一般公開するSECU:MIE WEB・InsightはメールOTPを外す。第15節D03およびD04のOTP前提、D07の認証済みメール引継ぎを一般向けに限って本節で置き換える。公開URLの共有は抑止対象ではない。既存の団体向けOTP/JWT実装・Contract・検証証跡・国連協暫定受付は削除・変更しない。
+
+- 一般向け導線: 既存案内ページ → 0問目（企業名・本店所在地、WEBは対象URL）・同意・Turnstile → 診断 → HTML即時結果・ブラウザ印刷/PDF保存 → 希望者のみ相談（入力済み企業情報・診断結果を引継ぎ、担当者名・メール・電話・任意相談内容を追加入力）→ TimeRex。
+- OTP送信・認証済みメールclaim・OTP専用Runtime/DB/JWKSへの依存は一般向け経路では要求しない。既存の団体向け認証境界を弱めず、GENERAL専用の入口と安全な診断状態引継ぎをFit/Gapで設計する。
+- WEB開始画面はCorporate PR #75の既存案内HTML/CSSを原則再利用し、団体向け文言、組合名、後日送付文言と確定導線に必要な差分のみ変更。国連協公開URL・受付APIは変更しない。
+- Turnstileのサーバ側検証、実行回数制限、同時実行制御、WSCの公開IP/HTTPS/DNS再検証/TLS/通信上限等は一般公開前の必須確認事項。数値は今回未承認。
+
+### 実行数制限 Read-only Fit/Gap
+
+確認対象: PR #19 head 61f66e72be14c62b7cbc13c968e24dfd7f4f7365, PR #51 head 3d73fa22bc268c911b7c478c06cfbab190f65ac9, PR #47 previous head 5acf18e638cb3b25744e1e28ca452c3ac5085c6d.
+- adminWebSecurityCheck.ts の /diagnose はスタッフ用。ルート内に回数制限/同時実行セマフォなし。ブラウザCSVは逐次実行、サーバ側バッチAPIなし。WscSalesService の一回消費許可はリクエスト内で生成され、利用者別回数制限ではない。
+- Phase2C DNS 5秒、HTTPS通信15秒、HTTP応答上限1,000,000 bytes。Phase2B取得上限既定15秒。既存防御は維持する。
+- publicOtp.ts のIP制限10分20回はOTP経路専用。一般診断の制限値として流用確定しない。
+- piraPublicRuntime.ts / publicPiraIntake.ts に診断受付固有のIP制限は確認できない。JSON上限32kb。既存JWT前提のGENERALは無効のまま。
+- Corporate PR #75 siteContactApi.ts のIP制限15分5回は既存問い合わせ・国連協受付用。一般診断の制限ではない。
+- 既存B5-2B設計の専用OTP/PIRA Cloud Runは max instances=1, min=0, concurrency=20, timeout=60s（設計値、稼働実測ではない）。2026-11-04時点のSales Tools記録はconcurrency=80, max instances=20。現行GCP設定は別途read-only取得する。
+- 一般向け診断APIのIP別・対象ドメイン別・同時実行上限は未確定。既存全体middlewareと実環境の確認後に最小限の数値案を提示する。新規Redis等を前提にしない。
+
+本決定は本番公開・GENERAL有効化・DB/IAM/Secret/DNS/Cloud Run変更・CVE例外・既存OTP資産削除の承認ではない。
