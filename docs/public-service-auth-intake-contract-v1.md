@@ -491,3 +491,22 @@ Evidence: PR #47 HEAD 8a670068a8802d987b013d25f2769787c4b1ba0f.
 - v7-prototype-app.js は browser memory state.draft → V.envelope → M.model → HTML report、window.print、回答修正、pira:v7-report-rendered event を実装済み。質問/回答ID・評価・優先テーマ・固定文・資料・印刷CSSを維持する。一般向け開始・戻る導線と相談ボタンのみの差分を検討する。印刷時に操作部を隠す既存 .v7-toolbar を流用。既存「回答は外部へ送信されません」の絶対表現は相談時の明示的な結果引継ぎと矛盾するためGENERAL表示のみ変更候補。
 - GENERAL専用経路のTurnstile server verification、10分20回/IP、既存 runtimeSecurity/CSP を流用候補とする。既存 trust proxy=1 は新LB経路で実測確認。GENERAL開始/相談連携の状態管理と保存期間は既存相談API/DBとの照合後に決定する。診断回答を相談なしで外部送信する設計にしない。
 - 次工程は共通相談受付/TimeRex の実コード照合、WEB HTML境界、GENERAL専用開始/状態/相談接続のコード契約を具体化。既存UNION・OTP・WSC・国連協受付・KAIZEN変更なし。Production No-Go、GENERAL無効、Draft維持。本記録はコード変更・配備承認ではない。
+
+---
+
+## 19. SECU:MIE ブランド表示 Decision（2026-11-28）
+
+Status: OWNER APPROVED TITLE HIERARCHY / LOGO DESIGN DIRECTION / FINAL ASSET AND UI REVIEW PENDING
+
+Owner指示: 両サービスともサービス名を主タイトルにし、診断名称をサブタイトルにする。SECU:MIE InsightとSECU:MIE WEBのロゴ制作を進める。直前の生成画像はブランド方向性の参考であり、画像内の全文章や画面レイアウトを実装正本にしない。
+
+| 要素 | WEB | Insight |
+| --- | --- | --- |
+| 主タイトル | SECU:MIE WEB | SECU:MIE Insight |
+| サブタイトル | Webセキュリティ診断 | 情報管理セルフチェック |
+| 既存キャッチコピー | 御社のWebサイト、本当に大丈夫ですか？ | 日常業務を振り返る 8つの質問 |
+| ロゴ方向案 | 盾＋地球、エメラルドグリーン | 盾＋グラフ、ブルー |
+
+共通SECU:MIEロゴタイプ、ディープネイビーを基本とする方向。上記ロゴモチーフ・具体的色・最終形状は制作/ヒューマンレビュー対象。WEBのサブタイトルはWebとメール設定を対象とする既存診断範囲に合わせる。画像案の「URLを入力するだけ」等を0問目の必須項目と矛盾するまま採用しない。既存キャッチコピー、診断紹介文、質問、評価、解説、固定文、資料、印刷構造は維持。開始画面、0問目、診断画面、結果/印刷、相談画面でタイトル階層を統一する候補。既存UNION/国連協公開ページやコーポレートサイトの変更は別承認で行う。ロゴは再利用可能な独立資産（SVGを優先）とし、本文やフォームを画像化しない。既存CSS・印刷CSSを流用し、画面組み込みのPC/スマートフォン/印刷レビュー後に最終確定する。
+
+第15〜18節の承認済み一般向け導線、OTP不採用、実行制限を変更しない。Production No-Go、GENERAL無効、Draft維持。本記録はコード変更・配備・既存公開画面変更の承認ではない。
