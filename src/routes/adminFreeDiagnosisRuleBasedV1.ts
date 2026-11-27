@@ -202,6 +202,10 @@ export function createAdminFreeDiagnosisRuleBasedV1Router(
   r.patch('/cases/:id/reports/:reportId', (req,res)=>handle(res,async()=>{if(!vs1){res.status(501).end();return;}const p=z.object({blocks:z.array(z.object({blockId:z.string().uuid(),text:z.string().trim().min(1).max(20_000)}).strict()).min(1).max(100)}).strict().safeParse(req.body);if(!p.success){res.status(400).json({error:'INVALID_REQUEST'});return;}res.json(await vs1.editDraft(req.params.id,req.params.reportId,staffEmail(req),p.data.blocks));}));
   r.post('/cases/:id/reports/:reportId/approve', (req,res)=>handle(res,async()=>{if(!vs1){res.status(501).end();return;}await vs1.approve(req.params.id,req.params.reportId,staffEmail(req));res.status(204).end();}));
   r.post('/cases/:id/reports/:reportId/deliver', (req,res)=>handle(res,async()=>{if(!vs1){res.status(501).end();return;}await vs1.deliver(req.params.id,req.params.reportId,staffEmail(req));res.status(204).end();}));
+  r.get('/cases/:id/feedback/state', (req,res)=>handle(res,async()=>{
+    if (!vs1) { res.status(501).json({error:'VS1_NOT_CONFIGURED'}); return; }
+    res.json(await vs1.feedbackState(req.params.id));
+  }));
   r.post('/cases/:id/feedback/start', (req,res)=>handle(res,async()=>{if(!vs1){res.status(501).end();return;}await vs1.startFeedback(req.params.id,staffEmail(req));res.status(204).end();}));
   r.post('/cases/:id/feedback/decision', (req,res)=>handle(res,async()=>{if(!vs1){res.status(501).end();return;}const p=z.object({route:z.enum(['DIRECT_ACT','FOCUSED_CONFIRMATION','DESIGN_ASSESSMENT','STOP_HOLD']),materialDecision:z.string().min(1),nextAction:z.string().min(1)}).safeParse(req.body);if(!p.success){res.status(400).end();return;}res.json(await vs1.decide(req.params.id,staffEmail(req),p.data));}));
 
