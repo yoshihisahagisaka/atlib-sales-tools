@@ -54,3 +54,4 @@ button[type=submit]{width:100%;padding:17px;border:0;background:#dc782d;color:#f
 @media(max-width:360px){#secumie-guide-heading{font-size:28px}}
 
 .general-brand h1{font-size:clamp(28px,5vw,46px);margin:0}.general-brand p{font-weight:700;border-left:4px solid #dc782d;padding-left:10px}.general-brand{margin-bottom:28px}#secumie-guide-heading{font-size:clamp(24px,4vw,36px)}[hidden]{display:none!important}#general-status{min-height:1.5em}
+.general-brand .service-logo{display:block;width:min(100%,440px);height:auto;object-fit:contain}

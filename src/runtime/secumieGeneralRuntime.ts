@@ -104,7 +104,7 @@ export function createSecumieGeneralRuntime(options: {
       const html = readFileSync(path.join(assets.pageDir, options.kind === 'WEB' ? 'web.html' : 'insight.html'), 'utf8');
       res.type('html').send(html.replaceAll('__GENERAL_SITE_KEY__', assets.siteKey));
     });
-    for (const file of ['general.css','general.js']) app.get(prefix + '/' + file, (_req,res)=>res.sendFile(path.resolve(assets.pageDir,file)));
+    for (const file of ['general.css','general.js', options.kind === 'WEB' ? 'secumie-web.png' : 'secumie-insight.png']) app.get(prefix + '/' + file, (_req,res)=>res.sendFile(path.resolve(assets.pageDir,file)));
     if (options.kind === 'INSIGHT') {
       const allowed = ['data.js','diagnosis.js','resources.js','phase3-content.js','phase3-report.js','v6-content.js','v6.js','v6-demos.js','v7-fixed-content.js','v7-prototype.js','v7-prototype-app.js','v7-prototype.css','v7-tail-pages.css','pira-e2.css'];
       for (const file of allowed) app.get(prefix + '/engine/' + file, (_req,res)=>res.sendFile(path.resolve(assets.insightDir,file)));
