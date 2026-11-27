@@ -389,3 +389,27 @@ OTPメール本文では、当該challengeの6桁OTPを表示する。OTPはメ�
 | 2026-10-31 | OTP/セッション24時間削除、安全ログ30日保持、Turnstile fail closed、固定CORS allowlist | 承認済み |
 
 本書は実装承認、Migration承認、Cloud Runデプロイ承認、Secret/DNS承認を意味しない。
+
+
+---
+
+## 15. SECU:MIE 一般向け公開・診断結果・相談導線 Decision（2026-11-28）
+
+Status: USER APPROVED / IMPLEMENTATION AND PRODUCTION RELEASE NOT APPROVED BY THIS RECORD
+
+本節はSECU:MIE WEB・Insightの一般企業向け公開に限る。既存の国連協向け暫定受付（www.atlib.jp/secumie-web/ 等の配布済み導線）は別レーンで保全する。公開済みKAIZENの仕様は変更しない。PR #50/#51の組合向け受付・後日提出の業務契約を一般向けに強制しない。
+
+| ID | 決定 |
+| --- | --- |
+| D01 | 一般向け診断はWEBとInsightの2サービス。コーポレートサイトからリンクする。 |
+| D02 | 全社確定済み公開方針に従い、正式URLは https://service.atlib.jp/secumie-web/ と https://service.atlib.jp/secumie-insight/ 。以前の個別公開Host案は一般向け正式URLとして採用しない。 |
+| D03 | 既存メールOTP・Turnstileを継承する。本人確認・会員登録の追加はしない。 |
+| D04 | OTP後、診断開始前（0問目）に企業名・本店所在地を入力し、WEBは診断対象URLも入力する。一般向けに所属組合名は要求しない。 |
+| D05 | WEBは既存WSC、Insightは承認済み診断エンジン・質問・レポートを再利用し、HTMLで結果を即時表示する。 |
+| D06 | 結果画面にブラウザ標準印刷（window.print）を設け、利用者の環境でPDF保存できるようにする。印刷CSSで操作ボタンを除外する。一般向け専用のサーバーPDF生成・自動メール送付・レポートファイル永続保管を追加しない。社内WSCの既存PDFは保全する。 |
+| D07 | 相談希望者だけが結果画面から相談申込へ進む。診断前のメール・企業情報・WEB URLおよび診断結果を引き継ぎ、再入力やPDF添付を要求しない。担当者名・電話番号を追加入力し、相談内容は任意。申込受付後に既存TimeRex日程調整へ遷移する。 |
+| D08 | 既存相談受付・スタッフ管理資産をFit/Gapの上で再利用する。新規CRM、共通会員DB、不要な二重保存を追加しない。 |
+
+共通OTPの第12節の認証・保持・JWT audience・jti消費・メモリ保持契約は維持する。同一公開Originになってもサービス識別子と受け手の分離を緩めない。相談申込では既存の同意・利用目的を確認し、診断のみの利用者を自動的に営業案件化しない。診断情報の保存対象・期間、相談との関連付け方法、既存API/DBへの具体的な接続はコードFit/Gapと既存保持契約の照合後に確定する。クライアントから渡された診断結果・メールを無条件に信頼しない。既存Insightの保持契約を無断変更しない。
+
+次工程: PR #47のGENERAL実装、PR #19のWSC HTML生成、PR #50の公開受付、PR #51の管理資産、既存相談受付とTimeRex連携の実コードを照合する。一般向けに必要な差分だけを設計し、国連協向け機能と分離する。既存固定imageの検証証跡はそのdigestに限定する。SECURITY_NO_GO、Production No-Go、Draft、GENERAL無効を維持し、本記録はMerge、Build、Migration、GCP設定変更、公開、CVE例外の承認ではない。
