@@ -17,6 +17,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: node --check prototypes/secumie-general/general.js
+      - run: node --test test/wscPublicDestination.test.mjs
       - run: node -r ts-node/register --test test/secumieGeneralLimits.test.ts test/secumieGeneralRuntime.test.ts test/secumieConsultationHandoff.test.ts test/wscSalesService.test.ts
   image:
     runs-on: ubuntu-latest
