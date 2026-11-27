@@ -82,3 +82,12 @@ button[type=submit]{width:100%;padding:17px;border:0;background:#dc782d;color:#f
  #app .v7-page{padding:12mm 16mm}
  #app .v7-page h2{margin:14px 0 6px}
 }
+
+/* Public guide only: semantic service definition, FAQ and related links. */
+#secumie-guide .aio-definition{margin:18px 0 24px}
+#secumie-guide .aio-definition p,#secumie-guide .aio-related p{font-size:15px;line-height:1.85;color:#455e69;margin:8px 0;overflow-wrap:anywhere}
+#secumie-guide .aio-faq details{background:#fff;border:1px solid #d9e5e1;border-radius:10px;margin:8px 0;padding:13px 16px}
+#secumie-guide .aio-faq summary{font-size:15px;font-weight:700;line-height:1.65;cursor:pointer;color:#17324c}
+#secumie-guide .aio-faq summary:focus-visible{outline:3px solid #ed9c55;outline-offset:3px}
+#secumie-guide .aio-faq details p{font-size:14px;line-height:1.85;color:#455e69;margin:10px 0 0;overflow-wrap:anywhere}
+#secumie-guide .aio-related a{font-weight:700}
