@@ -14,7 +14,7 @@ const calendarLink=document.querySelector('.theme-page .v7-tool-label');if(calen
 document.querySelectorAll('.v7-tools-page article a').forEach(a=>{if(/\.xlsx$/i.test(a.getAttribute('href')))a.textContent='Excel資料をダウンロード';});
 document.querySelectorAll('.v7-reference h3').forEach(h=>{const card=document.createElement('section');card.className='v7-reference-card';h.before(card);card.append(h);while(card.nextSibling&&card.nextSibling.tagName==='P')card.append(card.nextSibling);});
 const management=[...document.querySelectorAll('.v7-reference h2')].find(h=>h.textContent==='セキュリティは「技術 × 運用 × 管理」');if(management){const grid=document.createElement('div');grid.className='v7-management-grid';grid.setAttribute('aria-hidden','true');grid.innerHTML='<span>技術</span><span>運用</span><span>管理</span>';management.after(grid);}}
-function render(){if(state.screen==='start')startPage();else if(state.screen==='question')questionPage();else {reportPage();document.dispatchEvent(new CustomEvent('pira:v7-report-rendered'));}}
+function render(){if(state.screen==='start')startPage();else if(state.screen==='question')questionPage();else {reportPage();document.dispatchEvent(new CustomEvent('pira:v7-report-rendered',globalThis.__SECUMIE_GENERAL__===true?{detail:{answers:V.envelope(state.draft).answers}}:undefined));}}
 globalThis.PiraV7PublicApp={start:()=>{state.screen='start';render();},reset:()=>{state.screen='start';state.index=0;state.draft={};render();}};
 if(!globalThis.__PIRA_E2_DEFER_START__)render();
 })();
