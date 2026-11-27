@@ -522,3 +522,11 @@ Ownerは最終提示の2段文字ロゴ（WEB: green shield/globe、Insight: blu
 Status: OWNER APPROVED / IMPLEMENTATION VERIFICATION PENDING
 
 Ownerは相談受付引継ぎの一時保持要件を承認した。一般向けWEB・Insightの各Runtimeでインメモリ保持、発行から2時間、最大500件。未申込の診断情報は期限経過後に破棄し、相談受付通知成功時は診断情報を直ちに破棄する。重複受付抑止に必要な最小状態のみ期限内保持。再起動時は消失する。診断結果永続保管DB・PDF保管は新設しない。相談時のみ明示同意のうえ必要情報を通知する。実装上、期限経過時の物理削除（次回issue時だけの掃除では不足）、容量上限、通知失敗時の再試行、重複抑止、保持情報のログ非出力を検証する。通知先での業務情報保持は別契約。既存団体向け保持契約は変更しない。Production No-Go維持。
+
+## 22. 一般向けSECU:MIE 相談案内・WEB技術用語表示 Decision（2026-11-28）
+
+Status: OWNER APPROVED / IMPLEMENTATION CANDIDATE / VERIFICATION PENDING
+
+- WEB/Insightとも診断結果→相談案内画面→相談申込フォーム→受付成功→TimeRex。案内画面は共通構成、サービス固有の相談内容のみ切替。診断結果へ戻れる。診断のみ利用することを妨げず、不安を煽らず、atLIBの具体的な支援価値を説明する。保持期間・容量・受付APIの基本契約は変更しない。
+- 一般向けWEBレポートは診断概要・詳細見出し・確認推奨項目一覧に技術用語を追加し、既存の平易な説明と結果・判定を維持する。TLS_VALID: HTTPS・TLS暗号化通信、TLS_EXPIRING/INVALID: TLS証明書、HSTS: HSTS、CSP: CSP（Content-Security-Policy）、FRAME_HEADER_ABSENT: クリックジャック対策（X-Frame-Options／CSP frame-ancestors）、NOSNIFF_ENABLED: MIMEスニッフィング対策（X-Content-Type-Options: nosniff）、SPF: SPF、DMARC: DMARC。既存14判定IDに対応する8表示分類であり、新しい判定項目は増やさない。CSPの存在だけで埋め込み制御の有効性を認定しない。未確認の技術項目は追加表示しない。社内WSCの従来表示を維持する。
+- 実装候補 commit cb7fcdb716a4c7089a8a13eb6803bc896d6f37ee, 61e64cba2e029b36f83ccb55590ebdce63078697, 5a50d72e5979b9c1f04a2d418c70bb98e35ac8b4, 4b11d8d75dd8bda902878d7f5d91f868de3f1b63。相談案内画面の申込ボタンは受付接続が未完成のため現時点で無効。最終フォーム・Mailer・TimeRex・ブラウザ・印刷・回帰検証未完了。本番公開しない。
