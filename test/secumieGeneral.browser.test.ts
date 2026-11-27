@@ -27,7 +27,7 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
    if(!evidence)return;
    for(const [size,width,height] of [['mobile',390,844],['desktop',1440,1000]] as const){
      await page.setViewportSize({width,height});
-     await page.evaluate(async()=>{await document.fonts.ready;});
+     await page.evaluate('document.fonts.ready.then(() => true)');
      await page.screenshot({path:path.join(evidence,kind.toLowerCase()+'-'+state+'-'+size+'.png'),fullPage:true,animations:'disabled'});
    }
    await page.setViewportSize({width:390,height:844});
