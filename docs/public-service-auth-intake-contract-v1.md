@@ -476,3 +476,18 @@ Ownerは第16節の実環境確認後に提示された初期公開時の制限�
 既存createIpRateLimiterを流用し、WEBのみ対象ドメイン別のインメモリ制限と実行中件数制御を追加する。上限超過時はアプリ内待ち行列を作らず再試行を案内する。Redis・専用管理DB・ジョブキューは新設しない。インメモリ制限はインスタンス再起動でリセットされ、Revision切替等をまたぐ厳密な全体制限ではない。既存WSCの通信安全対策（公開IP、HTTPS、DNS再検証、TLS、タイムアウト、サイズ制限等）と社内WSCの既存機能は維持する。Turnstileはサーバ側で検証する。数値は初期公開時の承認値であり、運用実績に基づく変更は別途判断する。
 
 実装時の具体的なキー正規化、信頼可能なクライアントIP取得、期限切れカウントの掃除、同時実行枠の例外時解放、エラー応答、検証契約は既存資産のFit/Gapに基づき確定する。国連協向け受付、団体向けOTP/JWT、公開済みKAIZEN、既存Sales Tools設定は変更しない。本DecisionはMerge、DB/GCP変更、GENERAL有効化、本番公開、CVE例外の承認ではない。
+
+---
+
+## 18. Insight 一般向け開始画面・既存受付 Fit/Gap（2026-11-28）
+
+Status: READ-ONLY FIT/GAP RECORDED / IMPLEMENTATION DESIGN CANDIDATE
+Evidence: PR #47 HEAD 8a670068a8802d987b013d25f2769787c4b1ba0f.
+
+- pira-e2.html の「情報管理セルフチェック」「日常業務を振り返る 8つの質問」、既存紹介文・全8問選択式・点数/危険度評価なしを流用する。pira-e2.css の既存カード・モバイル対応と v7 CSS を流用。新規LPやUI framework不要。
+- GENERAL専用入口では email/code/success のOTP画面と public-service-auth.js の依存を外し、0問目へ直接遷移。企業名・本店所在地のみを必須とする承認済み第16節を反映。既存画面は企業名・担当者名・認証済みemail・URL必須、電話任意、UNIONのみ組合名/住所であり、単純なOTP UI削除では動かない。
+- docs/pira-consent-ui-decision-20261101.md の全文表示＋「同意して診断に進む」による同意操作を流用する候補。GENERAL同意版 ATLIB-GENERAL-CONSENT-DRAFT-V0.1 は未承認、既存の「支援・サービスのご案内に利用」文は今回の希望者のみ相談方針と照合が必要。新しい一般向け同意文/版は未確定。UNION文言は変更しない。
+- pira-e2-integration.js は受付生成、ANSWERING/COMPLETED 状態更新のたびにJWTを要求する。PiraIntakeService は認証済みemailによる所有権照合・24時間完了再診断制限を持つ。migration 038 は contact_name/verified_email/website_url NOT NULL、GENERAL address IS NULL を要求する。新GENERALの0問目と非互換。ダミーemail、空文字埋め、UNION制約緩和、既存JWT検証の無効化を行わない。既存受付DBを一般向けに強制利用しない。
+- v7-prototype-app.js は browser memory state.draft → V.envelope → M.model → HTML report、window.print、回答修正、pira:v7-report-rendered event を実装済み。質問/回答ID・評価・優先テーマ・固定文・資料・印刷CSSを維持する。一般向け開始・戻る導線と相談ボタンのみの差分を検討する。印刷時に操作部を隠す既存 .v7-toolbar を流用。既存「回答は外部へ送信されません」の絶対表現は相談時の明示的な結果引継ぎと矛盾するためGENERAL表示のみ変更候補。
+- GENERAL専用経路のTurnstile server verification、10分20回/IP、既存 runtimeSecurity/CSP を流用候補とする。既存 trust proxy=1 は新LB経路で実測確認。GENERAL開始/相談連携の状態管理と保存期間は既存相談API/DBとの照合後に決定する。診断回答を相談なしで外部送信する設計にしない。
+- 次工程は共通相談受付/TimeRex の実コード照合、WEB HTML境界、GENERAL専用開始/状態/相談接続のコード契約を具体化。既存UNION・OTP・WSC・国連協受付・KAIZEN変更なし。Production No-Go、GENERAL無効、Draft維持。本記録はコード変更・配備承認ではない。
