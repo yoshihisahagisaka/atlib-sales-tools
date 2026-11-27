@@ -34,6 +34,7 @@ jobs:
           test/marketingInitiative.integration.test.ts
           test/marketingInitiativeReleasePackage.test.ts
           test/adminPortalKpis.api.test.ts
+          test/healthRoute.contract.test.ts
           test/mailer.nodemailer10.test.ts
           test/freeDiagnosisDesignV2ReportPdf.test.ts
       - name: Common CRM and portal browser desktop/mobile
