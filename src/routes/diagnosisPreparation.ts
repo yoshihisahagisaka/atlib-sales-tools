@@ -12,7 +12,7 @@ const uuid = (value: unknown) => {
   const result = z.string().uuid().safeParse(value);
   if (!result.success) throw new DiagnosisError(400,'IDを確認してください。'); return result.data;
 };
-function parse<T>(schema: z.ZodType<T,any,any>, input: unknown): T {
+function parse<T extends z.ZodType>(schema: T, input: unknown): z.infer<T> {
   const result = schema.safeParse(input);
   if (!result.success) throw new DiagnosisError(422,'入力内容を確認してください。'); return result.data;
 }

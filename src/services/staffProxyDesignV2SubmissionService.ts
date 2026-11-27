@@ -10,13 +10,17 @@ export class StaffProxyDesignV2SubmissionError extends Error {
   constructor(public readonly status: number, public readonly code: string) { super(code); this.name = 'StaffProxyDesignV2SubmissionError'; }
 }
 
-export interface StaffProxyDesignV2SubmissionInput {
+interface StaffProxyDesignV2SubmissionBase {
   idempotencyKey: string;
-  activity: CreateCompanyInput;
   survey: CurrentStructuredStateV2;
   respondentRole: (typeof RESPONDENT_ROLE)[number];
   consentConfirmed: true;
 }
+
+export type StaffProxyDesignV2SubmissionInput = StaffProxyDesignV2SubmissionBase & (
+  | { activity: CreateCompanyInput; salesActivityId?: never }
+  | { salesActivityId: string; activity?: never }
+);
 
 export const STAFF_PROXY_CONSENT_WORDING_VERSION = 'STAFF_PROXY_CONSENT_V1';
 
@@ -51,7 +55,9 @@ export class StaffProxyDesignV2SubmissionService {
       }
       const launcher = new FreeDiagnosisSalesLauncherRepo(client as unknown as Pool);
       const cases = new FreeDiagnosisRuleBasedCaseRepo(client as unknown as Pool);
-      const activity = await launcher.createSalesActivity(input.activity, authenticatedStaff);
+      const activity = input.salesActivityId !== undefined
+        ? await this.lockExistingActivity(client, input.salesActivityId)
+        : await launcher.createSalesActivity(input.activity, authenticatedStaff);
       const kase = await cases.createCase(activity.companyId, activity.contactId, activity.salesActivityId, authenticatedStaff, false);
       await client.query(
         `INSERT INTO it_management_diagnosis_case_v2_audit(id,case_id,command,actor_user_id,detail_json)
@@ -79,5 +85,25 @@ export class StaffProxyDesignV2SubmissionService {
       await client.query('ROLLBACK').catch(() => undefined);
       throw error;
     } finally { client.release(); }
+  }
+
+  private async lockExistingActivity(client: import('pg').PoolClient, salesActivityId: string): Promise<{
+    salesActivityId: string; companyId: string; contactId: string;
+  }> {
+    const locked = await client.query<{ id: string; company_id: string; primary_contact_id: string | null; selected_service: string }>(
+      `SELECT id,company_id,primary_contact_id,selected_service
+         FROM sales_activity WHERE id=$1 FOR UPDATE`, [salesActivityId],
+    );
+    const activity = locked.rows[0];
+    if (!activity) throw new StaffProxyDesignV2SubmissionError(404, 'SALES_ACTIVITY_NOT_FOUND');
+    if (activity.selected_service !== 'IT_KAIZEN') throw new StaffProxyDesignV2SubmissionError(409, 'SERVICE_MISMATCH');
+    if (!activity.primary_contact_id) throw new StaffProxyDesignV2SubmissionError(409, 'CONTACT_COMPANY_MISMATCH');
+    const membership = await client.query(
+      'SELECT id FROM contact WHERE id=$1 AND company_id=$2', [activity.primary_contact_id, activity.company_id],
+    );
+    if (!membership.rows[0]) throw new StaffProxyDesignV2SubmissionError(409, 'CONTACT_COMPANY_MISMATCH');
+    const existingCase = await client.query('SELECT id FROM it_management_diagnosis_case_v2 WHERE sales_activity_id=$1 LIMIT 1', [activity.id]);
+    if (existingCase.rows[0]) throw new StaffProxyDesignV2SubmissionError(409, 'SALES_ACTIVITY_CASE_ALREADY_EXISTS');
+    return { salesActivityId: activity.id, companyId: activity.company_id, contactId: activity.primary_contact_id };
   }
 }

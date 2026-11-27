@@ -1,4 +1,4 @@
-﻿FROM node:20-bookworm-slim AS build
+﻿FROM node:24-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -14,13 +14,13 @@ RUN npm run build \
     && cp -R src/wsc/vendor/tools/wsc-phase2b dist/wsc/vendor/tools/ \
     && cp -R src/wsc/vendor/tools/wsc-phase2c dist/wsc/vendor/tools/
 
-FROM node:20-bookworm-slim AS production-deps
+FROM node:24-bookworm-slim AS production-deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 # Dedicated deploy job/CI step; never run migrations at service startup.
-FROM node:20-bookworm-slim AS migration
+FROM node:24-bookworm-slim AS migration
 WORKDIR /app
 ARG SOURCE_REVISION
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
@@ -31,7 +31,7 @@ COPY migrations/*.sql ./migrations/
 USER node
 CMD ["node", "dist/db/migrateCli.js"]
 
-FROM node:20-bookworm-slim AS runtime
+FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 ARG SOURCE_REVISION
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
@@ -43,8 +43,29 @@ RUN mkdir -p /ms-playwright \
     && apt-get install -y --no-install-recommends fonts-noto-cjk fontconfig \
     && rm -rf /var/lib/apt/lists/* \
     && node ./node_modules/playwright/cli.js install --with-deps chromium \
+    && apt-get purge -y xvfb \
     && fc-cache -f \
     && chmod -R a+rX /ms-playwright
+RUN apt-get update \
+    && apt-get install -y \
+       --no-install-recommends \
+       --only-upgrade \
+       apt=2.6.2 \
+       libapt-pkg6.0=2.6.2 \
+       dpkg=1.21.23 \
+       perl-base=5.36.0-7+deb12u4 \
+       libc6:amd64=2.36-9+deb12u14 \
+       libc-bin=2.36-9+deb12u14 \
+       libcap2:amd64=1:2.66-4+deb12u3+b1 \
+       libgnutls30:amd64=3.7.9-2+deb12u7 \
+       libpcre2-8-0:amd64=10.42-1+deb12u2 \
+    && rm -rf /var/lib/apt/lists/*
+RUN rm -rf /usr/local/lib/node_modules/npm \
+    && rm -f /usr/local/bin/npm \
+             /usr/local/bin/npx \
+    && test ! -e /usr/local/lib/node_modules/npm \
+    && ! command -v npm \
+    && ! command -v npx
 COPY --from=build /app/dist ./dist
 COPY public ./public
 USER node

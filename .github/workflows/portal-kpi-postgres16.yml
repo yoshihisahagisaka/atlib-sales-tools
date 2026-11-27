@@ -1,0 +1,41 @@
+name: portal-kpi-postgres16
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'src/services/itKaizenPortalKpiAdapter.ts'
+      - 'test/adminPortalKpis.postgres.test.ts'
+      - 'migrations/027_free_diagnosis_rule_based_v1.sql'
+      - 'migrations/033_free_diagnosis_design_v2_persistence.sql'
+      - 'migrations/035_it_management_test_case_designation.sql'
+      - '.github/workflows/portal-kpi-postgres16.yml'
+
+jobs:
+  postgres16:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: portal_kpi
+        ports:
+          - 55438:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d portal_kpi"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:admin-portal:kpi:postgres
+        env:
+          RUN_PORTAL_KPI_PG16: '1'

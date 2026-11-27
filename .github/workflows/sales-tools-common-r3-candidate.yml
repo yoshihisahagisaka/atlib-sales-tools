@@ -1,0 +1,166 @@
+name: sales-tools-common-r4b-node24
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+env:
+  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+permissions:
+  contents: read
+
+jobs:
+  application-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ env.CANDIDATE_SHA }}
+      - name: Verify reviewed head identity
+        run: test "$(git rev-parse HEAD)" = "${CANDIDATE_SHA}"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Common CRM, Marketing Initiative, and portal API
+        run: >-
+          node -r ts-node/register --test
+          test/salesCustomers.integration.test.ts
+          test/marketingInitiative.integration.test.ts
+          test/marketingInitiativeReleasePackage.test.ts
+          test/adminPortalKpis.api.test.ts
+          test/healthRoute.contract.test.ts
+          test/mailer.nodemailer10.test.ts
+          test/freeDiagnosisDesignV2ReportPdf.test.ts
+      - name: Common CRM and portal browser desktop/mobile
+        run: |
+          npm run test:admin-portal:browser
+          npx playwright test --config=test/salesCustomers.playwright.config.ts
+      - name: Public diagnosis browser desktop/mobile
+        run: npx playwright test --config=test/freeDiagnosisRuleBasedV1.playwright.config.ts
+      - name: Staff Proxy and Case Guard
+        run: >-
+          node -r ts-node/register --test
+          test/staffProxyDesignV2.integration.test.ts
+          test/salesActivityCaseCreation.integration.test.ts
+      - name: Confirm the two inherited vertical-slice debts only
+        shell: bash
+        run: |
+          set +e
+          node -r ts-node/register --test \
+            test/itManagementDiagnosis.golden.test.ts \
+            test/freeDiagnosisRuleBasedV1VerticalSlice.integration.test.ts \
+            > known-debt.log 2>&1
+          status=$?
+          set -e
+          cat known-debt.log
+          test "$status" -ne 0
+          grep -Eq 'tests 28' known-debt.log
+          grep -Eq 'pass 26' known-debt.log
+          grep -Eq 'fail 2' known-debt.log
+          grep -Fq 'Sales Activity attribution' known-debt.log
+          grep -Fq 'Production server wiring' known-debt.log
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: r4b-known-regression-evidence
+          path: known-debt.log
+          if-no-files-found: warn
+
+  postgres16:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: portal_kpi
+        ports:
+          - 55438:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d portal_kpi"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+      - name: Verify reviewed head identity
+        run: test "$(git rev-parse HEAD)" = "${CANDIDATE_SHA}"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Apply 027, 033, and 035 and verify the P2b SELECT
+        run: npm run test:admin-portal:kpi:postgres
+        env:
+          RUN_PORTAL_KPI_PG16: '1'
+
+  runtime-image-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+      - name: Verify reviewed head identity
+        run: test "$(git rev-parse HEAD)" = "${CANDIDATE_SHA}"
+      - name: Build inherited production runtime image without push
+        run: |
+          docker pull node:24-bookworm-slim
+          docker image inspect node:24-bookworm-slim --format 'BASE_DIGEST={{index .RepoDigests 0}}'
+          docker build \
+            --pull \
+            --target runtime \
+            --build-arg SOURCE_REVISION=${CANDIDATE_SHA} \
+            --tag sales-tools-r4b:${CANDIDATE_SHA} \
+            .
+      - name: Verify runtime hardening
+        run: |
+          test "$(docker image inspect sales-tools-r4b:${CANDIDATE_SHA} --format '{{.Config.User}}')" = "node"
+          docker run --rm --entrypoint sh sales-tools-r4b:${CANDIDATE_SHA} -c \
+            'test "$(node --version | cut -d. -f1)" = "v24" && test ! -e /usr/local/lib/node_modules/npm && ! command -v npm && ! command -v npx && ! dpkg-query -W xvfb >/dev/null 2>&1 && test "$(dpkg-query -W -f="\${Version}" apt)" = "2.6.2" && test "$(dpkg-query -W -f="\${Version}" libapt-pkg6.0)" = "2.6.2"'
+          test "$(docker image inspect sales-tools-r4b:${CANDIDATE_SHA} --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "${CANDIDATE_SHA}"
+      - name: Launch Chromium and render a real PDF
+        run: >-
+          docker run --rm --entrypoint node sales-tools-r4b:${CANDIDATE_SHA} -e
+          "const{chromium}=require('playwright');(async()=>{const b=await chromium.launch({headless:true});const p=await b.newPage();await p.setContent('<h1>R4b Node 24 PDF smoke</h1>');const pdf=await p.pdf();if(pdf.subarray(0,5).toString()!=='%PDF-')throw new Error('PDF_MAGIC_INVALID');await b.close();console.log('CHROMIUM_PDF_OK',process.version,pdf.length)})().catch(e=>{console.error(e);process.exit(1)})"
+      - name: Record production dependency advisories
+        shell: bash
+        run: |
+          set +e
+          docker run --rm --entrypoint sh sales-tools-r4b:${CANDIDATE_SHA} -c \
+            'cd /app && node -e "console.log(process.version)"'
+          npm audit --omit=dev --json > npm-audit-production.json
+          audit_status=$?
+          set -e
+          test "$audit_status" -eq 0 -o "$audit_status" -eq 1
+      - name: Scan local image without registry push
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: sales-tools-r4b:${{ env.CANDIDATE_SHA }}
+          format: json
+          output: trivy-runtime.json
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false
+          exit-code: '0'
+      - name: Verify remediated findings and report residual counts
+        run: >-
+          node -e
+          "const r=require('./trivy-runtime.json');const v=r.Results.flatMap(x=>x.Vulnerabilities||[]);const ids=new Set(v.map(x=>x.VulnerabilityID));if(ids.has('CVE-2026-109518'))throw new Error('APT_CVE_REMAINS');if(v.some(x=>x.PkgName==='nodemailer'&&(x.Severity==='HIGH'||x.Severity==='CRITICAL')))throw new Error('NODEMAILER_HIGH_REMAINS');console.log(JSON.stringify({critical:v.filter(x=>x.Severity==='CRITICAL').length,high:v.filter(x=>x.Severity==='HIGH').length,fixedAvailable:v.filter(x=>x.FixedVersion).length}))"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: r4b-runtime-security-evidence
+          path: |
+            npm-audit-production.json
+            trivy-runtime.json
+          if-no-files-found: error

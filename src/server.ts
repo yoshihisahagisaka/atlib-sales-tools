@@ -61,6 +61,8 @@ import { BusinessWebConsultationLeadRepo } from './services/businessWebConsultat
 import { createBusinessWebConsultationLeadRouter } from './routes/businessWebConsultationLead';
 import { createAdminBusinessWebConsultationLeadRouter } from './routes/adminBusinessWebConsultationLead';
 import { FreeDiagnosisSalesLauncherRepo } from './services/freeDiagnosisSalesLauncherRepo';
+import { SalesCustomerRepo } from './services/salesCustomerRepo';
+import { createAdminSalesCustomersRouter } from './routes/adminSalesCustomers';
 import { FreeDiagnosisRuleBasedCaseRepo } from './services/freeDiagnosisRuleBasedCaseRepo';
 import { Vs1ReviewReportFeedbackRepo } from './services/vs1ReviewReportFeedbackRepo';
 import { createAdminFreeDiagnosisRuleBasedV1Router } from './routes/adminFreeDiagnosisRuleBasedV1';
@@ -77,6 +79,8 @@ import { createAdminMarketingInitiativeRouter } from './routes/adminMarketingIni
 import { TestCaseManagementRepo } from './services/testCaseManagementRepo';
 import { WscSalesService } from './services/wscSalesService';
 import { createAdminWebSecurityCheckRouter } from './routes/adminWebSecurityCheck';
+import { ItKaizenPortalKpiAdapter } from './services/itKaizenPortalKpiAdapter';
+import { createAdminPortalKpisRouter } from './routes/adminPortalKpis';
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -92,8 +96,10 @@ async function main(): Promise<void> {
   const webDevelopmentPartnerLeadRepo = new WebDevelopmentPartnerLeadRepo(pool);
   const businessWebConsultationLeadRepo = new BusinessWebConsultationLeadRepo(pool);
   const freeDiagnosisSalesLauncherRepo = new FreeDiagnosisSalesLauncherRepo(pool);
+  const salesCustomerRepo = new SalesCustomerRepo(pool);
   const marketingInitiativeRepo = new MarketingInitiativeRepo(pool);
   const testCaseManagementRepo = new TestCaseManagementRepo(pool);
+  const itKaizenPortalKpiAdapter = new ItKaizenPortalKpiAdapter(pool);
   const freeDiagnosisRuleBasedCaseRepo = new FreeDiagnosisRuleBasedCaseRepo(pool);
   const vs1ReviewReportFeedbackRepo = new Vs1ReviewReportFeedbackRepo(pool);
   const freeDiagnosisDesignV2PersistenceRepo = new FreeDiagnosisDesignV2PersistenceRepo(pool);
@@ -159,6 +165,7 @@ async function main(): Promise<void> {
   app.use(express.json());
   app.use(cookieParser());
 
+  app.get('/health', (_req, res) => res.status(200).send('ok'));
   app.get('/healthz', (_req, res) => res.status(200).send('ok'));
   app.use('/api/it-management-diagnosis', createItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted));
 
@@ -252,6 +259,10 @@ async function main(): Promise<void> {
   );
   app.use('/api/admin/marketing-initiatives', ...adminAuthGate,
     createAdminMarketingInitiativeRouter(marketingInitiativeRepo, freeDiagnosisSalesLauncherRepo));
+  app.use('/api/admin/sales-customers', ...adminAuthGate,
+    createAdminSalesCustomersRouter(salesCustomerRepo));
+  app.use('/api/admin/portal-kpis', ...adminAuthGate,
+    createAdminPortalKpisRouter(itKaizenPortalKpiAdapter));
   app.use(
     '/api/admin/free-diagnosis-v1',
     ...adminAuthGate,
