@@ -10,7 +10,7 @@ WORKDIR /app
 # Only packages reached by the dedicated runtime. Lockfile resolution is preserved.
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts
-FROM node:24-trixie-slim AS runtime
+FROM gcr.io/distroless/nodejs24-debian13@sha256:24bc0fe0225c7518f202a822587dad74fe143b96326b81fe5cc08c1df8bed03e AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ARG SOURCE_REVISION
@@ -19,6 +19,6 @@ COPY --from=runtime-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY prototypes/secumie-general ./prototypes/secumie-general
 COPY prototypes/pira-union-diagnosis-v2 ./prototypes/pira-union-diagnosis-v2
-USER node
+USER nonroot
 EXPOSE 8080
-CMD ["node","dist/secumieGeneralServer.js"]
+CMD ["dist/secumieGeneralServer.js"]
