@@ -440,3 +440,14 @@ Owner決定: コーポレートサイトから一般公開するSECU:MIE WEB・I
 - 一般向け診断APIのIP別・対象ドメイン別・同時実行上限は未確定。既存全体middlewareと実環境の確認後に最小限の数値案を提示する。新規Redis等を前提にしない。
 
 本決定は本番公開・GENERAL有効化・DB/IAM/Secret/DNS/Cloud Run変更・CVE例外・既存OTP資産削除の承認ではない。
+
+### 2026-11-28 Cloud Run read-only 実環境確認
+
+Owner実行 SECUMIE_RUNTIME_LIMIT_AUDIT: 正常終了 / NO CONFIGURATION CHANGES。project=msp-zabbix, region=asia-northeast1。サービス一覧: atlib-cashflow, msp-customer-portal, ppap-download-service, ppap-upload-service, ppap-virus-scan, sales-tools, sales-tools-staging。SECU:MIE/OTP/PIRA/WSC専用サービスは当該一覧に存在しない。
+
+| Service | CPU / memory | Service max | Template revision max/min | Template concurrency / timeout | 100% traffic |
+| --- | --- | --- | --- | --- | --- |
+| sales-tools | 1 / 1Gi | 20 | 20 / 未明示 | 80 / 300s | sales-tools-fds-20261124-01 |
+| sales-tools-staging | 1000m / 512Mi | 20 | 2 / 0 | 80 / 300s | sales-tools-staging-p228 |
+
+注意: Service Templateの取得値であり、配信中Revision固有の設定を再取得した証跡ではない。他project/regionの存在確認ではない。既存Sales Toolsの設定変更は不要。一般向けの診断開始回数・ドメイン別制限・同時実行数の数値は未承認。実環境確認はProduction Goを意味しない。
