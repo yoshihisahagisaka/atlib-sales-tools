@@ -13,7 +13,7 @@ export const consultationSchema = z.object({
 export type ConsultationInput = z.infer<typeof consultationSchema>;
 export type DiagnosisContext = { kind: 'WEB' | 'INSIGHT'; companyName: string; registeredAddress: string; targetUrl?: string; report?: unknown };
 export type ConsultationNotice = DiagnosisContext & { personName: string; email: string; phone: string; note?: string; answers?: ConsultationInput['answers']; receivedAt: string; reference: string };
-type Entry = { context: DiagnosisContext; expires: number; state: 'ready' | 'sending' | 'sent'; fingerprint?: string };
+type Entry = { context: DiagnosisContext; expires: number; state: 'ready' | 'sending' | 'sent'; fingerprint?: string; timer?: NodeJS.Timeout };
 
 export function validateScheduleUrl(value: string): string {
   const u = new URL(value);
@@ -27,15 +27,24 @@ export class ConsultationHandoff {
   }
   issue(context: DiagnosisContext): string {
     const now = this.now();
-    for (const [key, e] of this.entries) if (e.expires <= now && e.state !== 'sending') this.entries.delete(key);
+    for (const [key, e] of this.entries) if (e.expires <= now) this.remove(key);
     if (this.entries.size >= this.capacity) throw Error('HANDOFF_CAPACITY');
     const receipt = randomBytes(32).toString('base64url');
-    this.entries.set(receipt, { context, expires: now + this.ttl, state: 'ready' });
+    const timer = setTimeout(() => this.remove(receipt), this.ttl);
+    timer.unref();
+    this.entries.set(receipt, { context, expires: now + this.ttl, state: 'ready', timer });
     return receipt;
   }
+  private remove(key: string): void {
+    const entry = this.entries.get(key);
+    if (entry?.timer) clearTimeout(entry.timer);
+    if (entry) entry.context = {kind:entry.context.kind,companyName:'',registeredAddress:''};
+    this.entries.delete(key);
+  }
+  close(): void { for (const key of this.entries.keys()) this.remove(key); }
   async submit(input: ConsultationInput): Promise<string> {
     const entry = this.entries.get(input.receipt);
-    if (!entry || entry.expires <= this.now()) throw Error('RECEIPT_EXPIRED');
+    if (!entry || entry.expires <= this.now()) { this.remove(input.receipt); throw Error('RECEIPT_EXPIRED'); }
     if (entry.context.kind === 'INSIGHT' ? !input.answers || new Set(input.answers.map(a=>a.questionId)).size !== 8 : input.answers !== undefined) throw Error('INVALID_ANSWERS');
     const fingerprint = createHash('sha256').update(JSON.stringify(input)).digest('hex');
     if (entry.state === 'sent' && entry.fingerprint === fingerprint) return this.scheduleUrl;
