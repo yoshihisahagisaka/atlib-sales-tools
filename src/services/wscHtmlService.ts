@@ -55,7 +55,8 @@ export class WscHtmlService {
       rulesPath: vendor('wsc-vs1', 'rules.json'),
       explanationsPath: vendor('wsc-vs1', 'explanations.json'),
     });
-    const html = engine.render(report, { name, url: normalizedUrl }, { technicalHeadings: this.options.technicalHeadings === true });
+    let html = engine.render(report, { name, url: normalizedUrl }, { technicalHeadings: this.options.technicalHeadings === true });
+    if (this.options.technicalHeadings) html = html.replace('</head>', '<style>@media print{.overview .ov-item{padding:1mm 0}.overview .technical-heading{margin-bottom:1px}.overview .ov-head{padding:2mm}.overview .ov-list{padding:0 2mm}.overview .ov-item b{font-size:9pt}.overview .attention{margin-top:2mm;padding:2mm 3mm}.overview .attention li{margin:0;line-height:1.35}.overview .attention h3{margin:0 0 1mm}}</style></head>');
     return { html, report, normalizedUrl };
   }
 }
