@@ -1,5 +1,7 @@
 import express, { type Express, type Request } from 'express';
 import { z } from 'zod';
+import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import { configurePublicRuntime, publicPageCsp } from './runtimeSecurity';
 import { SecumieGeneralLimits, GeneralLimitError } from './secumieGeneralLimits';
 import type { WscHtmlService } from '../services/wscHtmlService';
@@ -35,6 +37,7 @@ export function createSecumieGeneralRuntime(options: {
   verify: Verify;
   wsc?: Pick<WscHtmlService, 'diagnose'>;
   limits?: SecumieGeneralLimits;
+  assets?: { pageDir: string; insightDir: string; siteKey: string };
 }): Express {
   const app = express();
   configurePublicRuntime(app);
@@ -71,12 +74,29 @@ export function createSecumieGeneralRuntime(options: {
       if (options.kind === 'INSIGHT') { res.json({ ok: true }); return; }
       if (!options.wsc || !target) { res.status(503).json({ code: 'NOT_READY' }); return; }
       const result = await options.wsc.diagnose({ name: data.companyName, url: target, executor: 'general-web' });
-      res.json({ ok: true, html: result.html, normalizedUrl: result.normalizedUrl });
+      res.json({ ok: true, html: result.html.replace('<div class="review-banner">内部デザインレビュー用｜対外配布不可</div>', ''), normalizedUrl: result.normalizedUrl });
     } catch (error) {
       if (error instanceof GeneralLimitError) { res.status(429).json({ code: error.code }); return; }
       res.status(422).json({ code: 'DIAGNOSIS_UNAVAILABLE' });
     } finally { release?.(); }
   });
+  if (options.assets) {
+    const assets = options.assets;
+    app.get(prefix + '/', (_req, res) => {
+      if (!/^[A-Za-z0-9_-]+$/.test(assets.siteKey)) { res.sendStatus(503); return; }
+      const html = readFileSync(path.join(assets.pageDir, options.kind === 'WEB' ? 'web.html' : 'insight.html'), 'utf8');
+      res.type('html').send(html.replaceAll('__GENERAL_SITE_KEY__', assets.siteKey));
+    });
+    for (const file of ['general.css','general.js']) app.get(prefix + '/' + file, (_req,res)=>res.sendFile(path.resolve(assets.pageDir,file)));
+    if (options.kind === 'INSIGHT') {
+      const allowed = ['data.js','diagnosis.js','resources.js','phase3-content.js','phase3-report.js','v6-content.js','v6.js','v6-demos.js','v7-fixed-content.js','v7-prototype.js','v7-prototype-app.js','v7-prototype.css','v7-tail-pages.css','pira-e2.css'];
+      for (const file of allowed) app.get(prefix + '/engine/' + file, (_req,res)=>res.sendFile(path.resolve(assets.insightDir,file)));
+      for (const dir of ['assets','materials']) {
+        app.use(prefix + '/' + dir, express.static(path.resolve(assets.insightDir,dir),{index:false,dotfiles:'deny'}));
+        app.use(prefix + '/engine/' + dir, express.static(path.resolve(assets.insightDir,dir),{index:false,dotfiles:'deny'}));
+      }
+    }
+  }
   app.use((_req, res) => res.sendStatus(404));
   return app;
 }
