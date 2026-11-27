@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import type { Locator } from '@playwright/test';
 import express from 'express';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
@@ -19,6 +20,38 @@ const sections = [
 const diagnosisMap = sections.map(section => ({ ...section, entries: section.entries.slice(0, 2), overflowCount: Math.max(0, section.entries.length - 2) }));
 const facts = ['共有内容', '業務の流れ', 'ITの使われ方', '運用の状況', '管理の状況'].map((whatToVerify, index) => ({ id: `fact-${index + 1}`, whatToVerify, whyItMattersToFuture: '成長を支えるため', whatMayBecomeKnowable: '改善可能性', lenses: ['MANAGEMENT'], sourceRuleIds: ['rule-1'] }));
 function draft() { return { id: reportId, version: 1, contentVersion: 1, status: 'REVIEW_REQUIRED', context: { currentState: { id: 'state-1' }, analysisResult: { id: 'analysis-1' }, generatedNarrative: { id: 'narrative-1' }, adoptedNarrative: { source: 'HUMAN_EDITED', id: 'edit-1' } }, content: { formatVersion: 'free-diagnosis-design-v2-report-2', recipient: { organizationDisplayName: 'テスト株式会社' }, diagnosisDate: '2026-10-12T00:00:00.000Z', issuer: { displayName: 'atLIB株式会社' }, sections, diagnosisMap, factCandidates: facts, assessmentProposal: { status: 'NOT_SELECTED', source: 'ANALYSIS_FACT_CANDIDATES', candidates: facts } } }; }
+
+async function expectPreparationLayout(candidate: Locator): Promise<void> {
+  const details = candidate.locator('.preparation-details');
+  await expect(details).toBeVisible();
+  const layout = await details.evaluate(node => {
+    const parent = node.getBoundingClientRect();
+    const fields = Array.from(node.querySelectorAll('select, textarea, input')).map(element => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+    });
+    return { parent: { left: parent.left, right: parent.right, width: parent.width }, fields };
+  });
+  expect(layout.fields).toHaveLength(3);
+  for (const field of layout.fields) {
+    expect(field.left).toBeGreaterThanOrEqual(layout.parent.left - 1);
+    expect(field.right).toBeLessThanOrEqual(layout.parent.right + 1);
+    expect(field.width).toBeGreaterThanOrEqual(layout.parent.width - 2);
+    expect(field.height).toBeGreaterThanOrEqual(44);
+  }
+  for (let i = 1; i < layout.fields.length; i++) {
+    expect(layout.fields[i].top).toBeGreaterThanOrEqual(layout.fields[i - 1].bottom + 6);
+  }
+}
+
+async function expectUnobstructed(control: Locator): Promise<void> {
+  await control.scrollIntoViewIfNeeded();
+  await expect.poll(() => control.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const target = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    return target === element || element.contains(target);
+  })).toBe(true);
+}
 
 test('Report Presentation renders the fixed introduction, independent customer-result pages, and static next-decision page', async ({ page }) => {
   let data: any = draft(); let patchBody: any;
@@ -349,6 +382,15 @@ test('E4 preparation selection requires human choice and resumes the saved draft
   await page.locator('#preparationFuture').selectOption('1');
   const first = page.locator('.preparation-candidate').first();
   await first.locator('.preparation-check').check();
+  await expect(page.locator('.report-action-bar')).toHaveCSS('position', 'static');
+  await expectPreparationLayout(first);
+  for (const selector of ['.preparation-area', '.preparation-question', '.preparation-recipient']) {
+    await expectUnobstructed(first.locator(selector));
+  }
+  await first.locator('.preparation-check').uncheck();
+  await expect(first.locator('.preparation-details')).toBeHidden();
+  await first.locator('.preparation-check').check();
+  await expectPreparationLayout(first);
   await first.locator('.preparation-area').selectOption('MANAGEMENT');
   await first.locator('.preparation-question').fill('台帳を確認できますか');
   await first.locator('.preparation-recipient').fill('情報システム責任者');
@@ -363,6 +405,11 @@ test('E4 preparation selection requires human choice and resumes the saved draft
   await expect(page.locator('#preparationFuture')).toHaveValue('1');
   await expect(page.locator('.preparation-candidate').first().locator('.preparation-check')).toBeChecked();
   await expect(page.locator('.preparation-candidate').first().locator('.preparation-area')).toHaveValue('MANAGEMENT');
+  const restored = page.locator('.preparation-candidate').first();
+  await expect(restored.locator('.preparation-question')).toHaveValue('台帳を確認できますか');
+  await expect(restored.locator('.preparation-recipient')).toHaveValue('情報システム責任者');
+  await expectPreparationLayout(restored);
+  await expect(page.locator('#handoffStatus')).toHaveText('引継ぎ済み（第1版）');
   expect(posts).toHaveLength(1);
 });
 
@@ -392,6 +439,8 @@ test('E4 preparation editor stays hidden for historical/blocked source and fails
   await expect.poll(() => getCalls).toBe(1);
   await expect(page.locator('#preparationSelection')).toBeHidden();
   await expect(page.locator('#assessmentWorkflowStatus')).toContainText('Assessment準備の状態を確認できません');
+  await expect(page.locator('#handoffStatus')).toHaveText('引継ぎ済み');
+  await expect(page.locator('.report-action-bar')).toHaveCSS('position', 'sticky');
 });
 
 test('E4 failed preparation POST preserves staff choices and does not show a saved state', async ({ page }) => {
@@ -413,10 +462,23 @@ test('E4 failed preparation POST preserves staff choices and does not show a sav
   await page.goto(`${url}/admin/free-diagnosis-v2-report.html?caseId=${caseId}&reportId=${reportId}`);
   await expect(page.locator('#preparationSelection')).toBeVisible();
   await page.locator('#preparationFuture').selectOption('0');
+  const first = page.locator('.preparation-candidate').first();
+  await first.locator('.preparation-check').check();
+  await first.locator('.preparation-area').selectOption('OPERATION');
+  await first.locator('.preparation-question').fill('運用手順を確認できますか');
+  await first.locator('.preparation-recipient').fill('運用担当者');
+  await expectPreparationLayout(first);
+  await expectUnobstructed(page.locator('#savePreparation'));
   await page.locator('#savePreparation').click();
   await expect(page.locator('#preparationStatus')).toContainText('保存を確認できませんでした');
   await expect(page.locator('#preparationFuture')).toHaveValue('0');
   await expect(page.locator('#preparationSummary')).not.toContainText('保存済み');
+  await expect(first.locator('.preparation-check')).toBeChecked();
+  await expect(first.locator('.preparation-area')).toHaveValue('OPERATION');
+  await expect(first.locator('.preparation-question')).toHaveValue('運用手順を確認できますか');
+  await expect(first.locator('.preparation-recipient')).toHaveValue('運用担当者');
+  await expect(page.locator('#savePreparation')).toBeEnabled();
+  await expectPreparationLayout(first);
   expect(postCount).toBe(1);
 });
 

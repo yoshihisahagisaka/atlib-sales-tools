@@ -38,3 +38,35 @@
 @media(max-width:700px){.assessment-flow{flex-direction:column}.flow-arrow{align-self:center;transform:rotate(90deg)}.flow-step{width:100%}.introduction-paragraph{font-size:10pt}.report-concept-diagram{max-width:100%}.report-concept-label{font-size:clamp(6.5pt,2.25vw,9.5pt)}.diagram-context{font-size:clamp(5.5pt,1.8vw,7.5pt)}}
 .approval-status{display:inline-flex;align-items:center;padding:7px 10px;border:1px solid #8db49b;border-radius:4px;background:#f1f8f2;color:#245b36;font-size:.84rem;font-weight:700}.approval-notice{margin:0 0 16px;padding:10px 12px;border-left:3px solid #7890a7;background:#f6f8fb;color:#35485a;font-size:.9rem}.report-form.is-readonly{background:#f8fafc}.report-form.is-readonly input,.report-form.is-readonly textarea{background:#f1f5f9;color:#4b5563}.report-form.is-readonly .editor-save-bar{display:none}
 .report-action-bar{position:sticky;top:0;z-index:20;margin:0 0 16px;padding:9px 12px;background:#fff;border:1px solid #d7e0eb;border-radius:8px;box-shadow:0 3px 10px #0f172a12}.report-action-row{display:flex;align-items:center;justify-content:space-between;gap:10px}.report-action-context{font-size:.82rem;font-weight:700;color:#334155;white-space:nowrap}.report-action-bar .nav{justify-content:flex-end}.report-action-bar .status{margin:9px 0 0}.report-action-bar .approval-notice{margin:9px 0 0}@media(max-width:1000px){.report-action-row{align-items:flex-start;flex-direction:column}.report-action-bar .nav{justify-content:flex-start}}@media print{.report-action-bar{display:none!important}}
+
+/* E4-R1: Assessment preparation editor */
+@media screen {
+  #preparationSelection { min-width: 0; margin: 16px 0; overflow-wrap: anywhere; }
+  #preparationSelection > label { display: block; font-weight: 700; }
+  #preparationCandidates { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  #preparationSelection .preparation-candidate { min-width: 0; padding: 16px; box-shadow: none; }
+  #preparationSelection .preparation-candidate:has(.preparation-check:checked) { border-color: #93c5fd; background: #f8fafc; }
+  #preparationSelection .preparation-candidate > label { display: flex; align-items: flex-start; gap: 8px; font-weight: 700; line-height: 1.5; }
+  #preparationSelection .preparation-check { flex: 0 0 auto; margin: 3px 0 0; width: 18px; height: 18px; }
+  #preparationSelection .preparation-candidate > p { margin: 8px 0; font-size: .88rem; line-height: 1.6; color: #475569; }
+  #preparationSelection .preparation-details[hidden] { display: none; }
+  #preparationSelection .preparation-details:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #dde5ef; }
+  #preparationSelection .preparation-details label { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; min-width: 0; font-size: .88rem; font-weight: 700; line-height: 1.5; }
+  #preparationFuture,
+  #preparationSelection .preparation-area,
+  #preparationSelection .preparation-question,
+  #preparationSelection .preparation-recipient {
+    display: block; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; min-height: 44px;
+    padding: 10px 12px; border: 1px solid #aebdce; border-radius: 5px; background: #fff;
+    color: #172033; font: inherit; font-size: 1rem; font-weight: 400; line-height: 1.5;
+  }
+  #preparationFuture { margin-top: 6px; }
+  #preparationSelection .preparation-question { min-height: 96px; resize: vertical; }
+  #savePreparation { display: block; margin-top: 16px; max-width: 100%; min-height: 44px; }
+  #preparationSummary:not(:empty) { margin-top: 16px; padding: 12px; border: 1px solid #dde5ef; border-radius: 8px; }
+  .report-editor-shell:has(> #preparationSelection:not(.hidden)) > .report-action-bar { position: static; }
+}
+@media screen and (max-width: 700px) {
+  #preparationSelection .preparation-candidate { padding: 12px; }
+  #savePreparation { width: 100%; }
+}

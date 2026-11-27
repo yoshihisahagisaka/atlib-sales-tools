@@ -279,7 +279,10 @@
     const summary = byId('preparationSummary'); summary.replaceChildren();
     if (!view.saved) return;
     const header = document.createElement('p');
-    header.textContent = `準備下書き保存済み（第${view.saved.version}版）`;
+    const version = view.saved.version;
+    header.textContent = Number.isSafeInteger(version) && version > 0
+      ? `準備下書き保存済み（第${version}版）`
+      : '準備下書き保存済み';
     summary.append(header);
     const counts = view.agenda?.counts;
     if (counts) {
@@ -383,7 +386,9 @@
         const current = saved && saved.feedbackDecisionId === state.latestDecision.id;
         byId('createHandoff').disabled = Boolean(current);
         byId('handoffStatus').textContent = current
-          ? `引継ぎ済み（第${saved.version}版）`
+          ? (Number.isSafeInteger(saved.version) && saved.version > 0
+            ? `引継ぎ済み（第${saved.version}版）`
+            : '引継ぎ済み')
           : saved ? '過去の引継ぎがあります。最新の判断を引き継いでください。' : '';
         workflowMessage(current ? '設計Assessmentへの引継ぎを記録済みです。' : '設計Assessmentへ引継ぐことができます。');
         if (current && saved.reportId === reportId) {
