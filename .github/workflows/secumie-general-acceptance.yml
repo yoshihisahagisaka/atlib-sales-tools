@@ -1,0 +1,44 @@
+name: SECU:MIE general acceptance
+on:
+  pull_request:
+    branches: [release/secumie-insight-production]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node --check prototypes/secumie-general/general.js
+      - run: node -r ts-node/register --test test/secumieGeneralLimits.test.ts test/secumieGeneralRuntime.test.ts test/secumieConsultationHandoff.test.ts test/wscSalesService.test.ts
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build dedicated image without publishing
+        run: docker build -f Dockerfile.secumie-general --build-arg SOURCE_REVISION="$GITHUB_SHA" -t secumie-general:ci .
+      - name: Verify nonroot and disabled-by-default runtime
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(docker image inspect secumie-general:ci --format '{{.Config.User}}')" = node
+          for kind in WEB INSIGHT; do
+            cid="$(docker run -d -p 127.0.0.1::8080 -e SECUMIE_GENERAL_KIND="$kind" secumie-general:ci)"
+            trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
+            port="$(docker port "$cid" 8080/tcp | sed 's/.*://')"
+            for n in {1..30}; do
+              if curl -fsS "http://127.0.0.1:$port/healthz"; then break; fi
+              sleep 1
+            done
+            curl -fsS "http://127.0.0.1:$port/healthz"
+            test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: service.atlib.jp' "http://127.0.0.1:$port/secumie-${kind,,}/")" = 404
+            docker rm -f "$cid"
+            trap - EXIT
+          done
