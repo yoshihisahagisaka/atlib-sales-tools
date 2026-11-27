@@ -36,6 +36,22 @@ export class Mailer {
     });
   }
 
+  async sendSecumieConsultationNotification(to: string, notice: import('./secumieConsultationHandoff').ConsultationNotice): Promise<void> {
+    const service = notice.kind === 'WEB' ? 'SECU:MIE WEB' : 'SECU:MIE Insight';
+    await this.transporter.sendMail({
+      from: this.config.from, to, subject: `【${service}】無料相談申込 ${notice.reference}`,
+      text: [
+        `受付番号: ${notice.reference}`, `受付日時: ${notice.receivedAt}`,
+        `企業名: ${notice.companyName}`, `本店所在地: ${notice.registeredAddress}`,
+        `担当者名: ${notice.personName}`, `メール: ${notice.email}`, `電話番号: ${notice.phone}`,
+        ...(notice.targetUrl ? [`対象URL: ${notice.targetUrl}`] : []),
+        `相談内容: ${notice.note ?? ''}`, '', '診断結果（相談対応用）',
+        JSON.stringify(notice.report ?? {}, null, 2),
+      ].join('\n'),
+      disableFileAccess: true, disableUrlAccess: true,
+    });
+  }
+
   /** Public-service OTP: code appears only in this email body. */
   async sendPublicServiceOtp(to:string, serviceName:string, code:string):Promise<void>{
     await this.transporter.sendMail({from:this.config.from,to,subject:'【atLIB】認証コードのご案内',text:`${serviceName}の認証コードをお知らせします。\n\n認証コード：${code}\n\n有効期限は発行から10分です。\n\nこのメールに心当たりがない場合は、操作の必要はありません。\n\natLIB株式会社`});
