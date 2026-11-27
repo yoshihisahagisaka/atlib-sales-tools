@@ -47,6 +47,59 @@ test('Report map projection is deterministic, preserves source order, and report
   assert.equal(first[1]?.key, 'CURRENT_UNDERSTANDING');
 });
 
+test('Design v2 feedback state GET is scoped, readonly, reloadable and staff-only', async () => {
+  const h = await createFreeDiagnosisRuleBasedV1Harness();
+  try {
+    const act = await h.launcher.createSalesActivity({
+      name: 'feedback state integration', contact: { name: 'Manager' }, selectedService: 'IT_KAIZEN',
+    }, 'operator@atlib.jp');
+    const kase = await h.cases.createCase(act.companyId, act.contactId, act.salesActivityId, 'operator@atlib.jp');
+    const url = `${h.url}/api/admin/free-diagnosis-v1/cases/${kase.id}/feedback/state`;
+    assert.equal((await fetch(url)).status, 401);
+    const read = async () => {
+      const response = await fetch(url, { headers: { cookie: h.staffCookie } });
+      assert.equal(response.status, 200);
+      return response.json() as Promise<{
+        caseId: string; caseStatus: string; feedbackStarted: boolean; feedbackReportId: string | null;
+        latestDecision: { id: string; version: number; route: string } | null;
+      }>;
+    };
+    assert.deepEqual(await read(), {
+      caseId: kase.id, caseStatus: 'INTAKE_IN_PROGRESS', feedbackStarted: false,
+      feedbackReportId: null, latestDecision: null,
+    });
+    const reportId = randomUUID();
+    await h.pool.query(
+      `UPDATE it_management_diagnosis_case_v2
+          SET status='FEEDBACK_PENDING', feedback_report_id=$2, feedback_started_at=now()
+        WHERE id=$1`, [kase.id, reportId],
+    );
+    const savedIds: string[] = [];
+    for (const [index, route] of ['DESIGN_ASSESSMENT', 'STOP_HOLD'].entries()) {
+      const id = randomUUID(); savedIds.push(id);
+      const context = { report: { id: reportId }, decision: { route } };
+      await h.pool.query(
+        `INSERT INTO management_feedback_decisions
+          (id,it_management_diagnosis_case_v2_id,version,route_code,material_decision,next_action,
+           context_snapshot_json,context_hash,decided_by_user_id)
+         VALUES($1,$2,$3,$4,'担当者が記録','次に確認する',$5,$6,$7)`,
+        [id, kase.id, index + 1, route, JSON.stringify(context), contentHash(context), 'operator@atlib.jp'],
+      );
+      if (index === 0) assert.equal((await read()).latestDecision?.route, 'DESIGN_ASSESSMENT');
+    }
+    const latest = await read();
+    assert.equal(latest.feedbackStarted, true);
+    assert.equal(latest.feedbackReportId, reportId);
+    assert.deepEqual(latest.latestDecision, { id: savedIds[1], version: 2, route: 'STOP_HOLD' });
+    assert.equal((await fetch(`${h.url}/api/admin/free-diagnosis-v1/cases/${randomUUID()}/feedback/state`,
+      { headers: { cookie: h.staffCookie } })).status, 404);
+    const auditBefore = await h.pool.query(`SELECT count(*)::int AS count FROM it_management_diagnosis_case_v2_audit WHERE case_id=$1`, [kase.id]);
+    assert.deepEqual(await read(), latest);
+    const auditAfter = await h.pool.query(`SELECT count(*)::int AS count FROM it_management_diagnosis_case_v2_audit WHERE case_id=$1`, [kase.id]);
+    assert.deepEqual(auditAfter.rows, auditBefore.rows);
+  } finally { await h.close(); }
+});
+
 test('E1 Design v2 Report Draft uses only latest canonical sources and creates a VS1-owned version', async t => {
   const h = await createFreeDiagnosisRuleBasedV1Harness();
   const persistence = new FreeDiagnosisDesignV2PersistenceRepo(h.pool);
