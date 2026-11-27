@@ -1,0 +1,36 @@
+name: SECU MIE Web staff browser acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'package-lock.json'
+      - 'Dockerfile'
+      - '.github/workflows/secumie-web-admin-browser-acceptance.yml'
+      - 'public/admin/secumie-web.html'
+      - 'public/admin/secumie-web.js'
+      - 'public/css/style.css'
+      - 'test/secumieWebAdmin.browser.test.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staff-browser:
+    name: Existing Chromium browser test (no live GCP, no customer data)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      REQUIRE_BROWSER: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Install only Playwright Chromium dependencies
+        run: npx playwright install --with-deps --only-shell chromium
+      - name: Exercise application list, fallback, WSC PDF and delivery confirmation
+        run: node --test test/secumieWebAdmin.browser.test.cjs

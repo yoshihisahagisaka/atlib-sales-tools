@@ -1,0 +1,35 @@
+name: SECU MIE Web release boundary contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Dockerfile'
+      - '.github/workflows/secumie-web-admin-contract.yml'
+      - 'src/server.ts'
+      - 'src/config.ts'
+      - 'src/routes/adminSecumieWeb.ts'
+      - 'src/routes/internalSecumieWebMirror.ts'
+      - 'src/secumieWeb/**'
+      - 'design/secumie-web/migrations/**'
+      - 'public/admin/secumie-web.html'
+      - 'public/admin/secumie-web.js'
+      - 'docs/secumie-web-admin-interim.md'
+      - 'test/secumieWebAdmin.contract.test.cjs'
+      - 'test/secumieWebAdmin.releaseBoundary.contract.test.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test test/secumieWebAdmin.releaseBoundary.contract.test.cjs test/secumieWebAdmin.contract.test.cjs
+      - run: node --check public/admin/secumie-web.js

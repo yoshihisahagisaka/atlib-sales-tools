@@ -1,0 +1,57 @@
+name: SECU MIE Web existing admin intake acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'package-lock.json'
+      - 'Dockerfile'
+      - '.github/workflows/secumie-web-admin-db-acceptance.yml'
+      - 'src/config.ts'
+      - 'src/db/pool.ts'
+      - 'src/server.ts'
+      - 'src/routes/adminSecumieWeb.ts'
+      - 'src/routes/internalSecumieWebMirror.ts'
+      - 'src/secumieWeb/assemblyAdminService.ts'
+      - 'design/secumie-web/**'
+      - 'test/secumieWebAdminDb.acceptance.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-intake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # GitHub Actions disposable container only; never GCP Cloud SQL.
+      SECUMIE_TEST_POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+      SECUMIE_TEST_EPHEMERAL_ONLY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      # This PR updates Zod compatibility imports shared with KAIZEN/Business Web.
+      # Guard existing business logic against regressions without GCP or API keys.
+      - run: npm run test:kaizen
+      - run: npm run test:business-web-consultation
+      - run: node --test test/secumieWebAdminDb.acceptance.cjs test/secumieWebAdmin.contract.test.cjs
