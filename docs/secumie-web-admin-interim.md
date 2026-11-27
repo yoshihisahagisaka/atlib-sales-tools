@@ -54,6 +54,17 @@
 - **リリース判定は不変**：セキュリティ上の未解決15件（HIGH12/UNKNOWN3）は未承認例外0。**SECURITY_NO_GO／Production No-Go／Draft維持**。隔離0% Staging Revision未作成、コーポレート署名ミラー→Web専用Staging DB→管理一覧→診断→提出状態の実環境E2E未実施。既存DB／Migration／Secrets／IAM／Traffic／Production変更なし。
 - **次工程**：新イメージの再Build・再Scanは不要。残存OS CVEと実ランタイムの`Xvfb`・`cupsd`・`perl`等の**実際の起動・到達経路を読み取り専用で確認**し、修正版提供を追跡する。未承認のパッケージ削除・unstable導入・CVE除外はしない。技術的に解消できない項目について、根拠と暫定防御・運用上の扱いを整理した後に独立したセキュリティ承認を求める。承認なしに隔離Revisionへ進まない。
 
+## 2026-11-27 残存リスクの実行経路評価Gate
+
+**目的**：最終固定image `sha256:744b481602a6538883939824a6baeff7321d01a003df700efc4ed7942a91861f` の**HIGH12／UNKNOWN3**を、実際の実行条件に即して判断する。検出件数だけで「実行可能」「影響なし」「例外承認」と判定しない。現時点では例外承認0、**SECURITY_NO_GO／Production No-Go／Draft**。
+
+- **確認できた静的事実**：runtime `Dockerfile`は`node:24-trixie-slim`、`USER node`、`CMD ["node","dist/server.js"]`。WSC `src/services/wscSalesService.ts`はPlaywright `chromium.launch({ headless: true })`を使用し、`Xvfb`や`cupsd`を明示起動しない。ただし依存ライブラリとしてインストールされていることは別であり、プロセスの有無・実到達性の確認が必要。
+- **OS HIGH11の検証区分**：`xorg-server` CVE-2023-5574はXvfbの特殊なZaphod複数スクリーン条件、`cups` CVE-2026-34980は公開`cupsd`と共有PostScriptキューが前提（Debian公式：`https://security-tracker.debian.org/tracker/CVE-2023-5574`、`https://security-tracker.debian.org/tracker/CVE-2026-34980`）。`acl`2／`attr`1は特権プロセスと攻撃者制御path成分、`expat`2は攻撃者制御XML入力、`openssl`3はCVE別の処理、`perl`1は特定アーカイブ処理に関わる。これらの実行条件を**確認できた／確認できない／非該当の証拠あり**に区別し、修正済みとは扱わない。
+- **NPM HIGH1の評価**：`zod@3.25.76` `CVE-2023-54404`はNVD REJECTED（`https://nvd.nist.gov/vuln/detail/CVE-2023-54404`）、GitHub Advisory HIGH（`https://github.com/advisories/GHSA-mrhx-c7xc-m3w5`）。JSON容量制限、スタッフCookie認証前の大容量解析禁止とHTTP 401/413回帰は既存実装でPASS。**CVEの情報不一致は無断の除外承認ではない**。Zod v4一括導入は現行KAIZEN／診断のスキーマ互換リスクにより保留。
+- **UNKNOWN3**：`libxfont`2／`libfontenc`1、Scan時の具体的な修正版未提供。Chromiumで要求される依存を安全性未確認のまま削除しない。
+- **次のread-only監査**：既存VM `atlib-test-runner`、案件専用 `~/atlib-tests/secumie-web/`、既存Docker daemonの**完全一致digestのローカルimage**を使用。VMを停止しない。追加トークン・Pull・Build・Scan・VM/DB/Secret/IAM設定変更なし。ネットワーク無効／read-only／cap-drop／非root／リソース制限付き一時コンテナでインストール済みpackages、Xvfb・cupsd・Perlバイナリ、WSC Chromium起動コード、Node権限を読み取り、案件専用`artifacts/runtime-risk-audit-*.json`へ保管。**監査コンテナは本番アプリの常駐プロセスではないため、プロセス不在だけで影響ゼロとは判定しない**。
+- 監査出力・既存PDF/ScanとDebian trackerを照合した**個別リスク判定表**を完成してから、残存リスクと隔離Staging検証可否の**明示的なセキュリティ判断**を行う。それまでは0%隔離Revisionを作成しない。既存Staging DB・Migration・Secret／IAM／Traffic／本番環境は不変。自動的なCVEの除外やパッケージ削除は禁止。
+
 ## 停止・復旧
 
 対象DB/roleの既存検出、Git/SQL差分、未承認操作、CVE公開Gate、他サービスの性能悪化はSTOP。実DBへの自動再試行や自動DROPはしない。故障時も既存メール正本とWSCの手動PDF作成で業務を継続する。
