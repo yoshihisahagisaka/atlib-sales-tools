@@ -1,6 +1,5 @@
 import dns from 'node:dns/promises';
 import https from 'node:https';
-import tls from 'node:tls';
 import { isPublicAddress, validatePublicTarget } from '../wsc-phase2a/safe-executor.mjs';
 
 const headers = ['strict-transport-security', 'content-security-policy', 'x-content-type-options', 'x-frame-options', 'referrer-policy', 'permissions-policy', 'location'];
@@ -46,7 +45,8 @@ export function createRestrictedNetworkProbe({ approvalStore, clock = () => Date
       const uri = new URL(url); let settled = false; let timer; let socketEvidence; const sameIp = (expected, actual) => actual === expected || (actual?.startsWith('::ffff:') && actual.slice(7) === expected);
       const finish = (callback, value) => { if (settled) return; settled = true; clearTimeout(timer); signal?.removeEventListener('abort', abort); callback(value); };
       const fail = (error) => finish(reject, error);
-      const req = https.request({ protocol: 'https:', host: uri.hostname, port: 443, path: `${uri.pathname}${uri.search}`, method: 'GET', headers: { Host: connection.hostHeader, 'User-Agent': 'atLIB-public-security-check/2.0' }, agent: false, servername: connection.servername, rejectUnauthorized: true, createConnection: () => tls.connect(connection) }, async (res) => {
+      // Use the numeric validated address as the actual socket destination; SNI and Host retain the original hostname. No third DNS lookup.
+      const req = https.request({ protocol: 'https:', host: ip, port: 443, path: `${uri.pathname}${uri.search}`, method: 'GET', headers: { Host: connection.hostHeader, 'User-Agent': 'atLIB-public-security-check/2.0' }, agent: false, servername: connection.servername, rejectUnauthorized: true }, async (res) => {
         const chunks = []; let total = 0; res.on('data', chunk => { total += chunk.length; if (total > maxResponseBytes) { req.destroy(new Error('HTTP_RESPONSE_BODY_SIZE_LIMIT')); } else chunks.push(chunk); });
         res.on('error', fail); res.on('end', async () => { if (settled) return; try { if (!socketEvidence || !sameIp(ip, socketEvidence.remoteAddress)) throw new Error('CONNECTION_IP_MISMATCH'); if (!socketEvidence.authorized || socketEvidence.authorizationError) throw new Error('TLS_VALIDATION_FAILED'); const cert = socketEvidence.cert; const mapped = Object.fromEntries(headers.map(name => [name.split('-').map(part => part[0].toUpperCase() + part.slice(1)).join('-'), res.headers[name] ? String(res.headers[name]) : null])); const diagnosis = { schemaVersion: '2.0', targetUrl: url, mailDomain: mailDomain ?? null, checkedAt: new Date().toISOString(), http: { status: 'OK', statusCode: res.statusCode, headers: mapped, redirectNotFollowed: true }, tls: { status: 'VALIDATED', negotiatedProtocol: socketEvidence.protocol, subject: cert.subject?.CN ? `CN=${cert.subject.CN}` : null, issuer: cert.issuer?.CN ? `CN=${cert.issuer.CN}` : null, notAfter: cert.valid_to ? new Date(cert.valid_to).toISOString() : null, policyErrors: 'None', chainStatus: [] }, dns: await collectMailDns(mailDomain, resolveTxt, { timeoutMs: dnsTimeoutMs, signal }) }; finish(resolve, { remoteAddress: socketEvidence.remoteAddress, responseBytes: Number(res.headers['content-length'] || total), bodyChunks: chunks, redirectUrl: mapped.Location, diagnosis }); } catch (error) { fail(error); } });
       });
