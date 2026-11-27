@@ -44,6 +44,16 @@
 - Zod `CVE-2023-54404`：GitHub Advisory HIGHとNVD REJECTEDの不一致、v3→v4の大規模スキーマ影響、リクエスト入力上限、認証前JSON解析是正の合意を維持。独断で除外せず`SECURITY_NO_GO`を維持する。
 - **環境境界**：PR #51 Draft、Production No-Go、隔離0% Staging Revision未作成。Staging Web専用DB／2ロール／Migration1件／2テーブル／Secret/IAMは構築済みで再実施禁止。実行用イメージ更新は新Cloud Build＋digest固定Scan＋実Chromium PDFの確認後に評価する。本番Traffic／DNS／Insight／Secure Guard／WSC既存公開は変更しない。
 
+## 2026-11-27 最新・最終runtime実測（セキュリティ評価継続）
+
+- **評価した不変イメージ**：PR #51ソース `458525768fbef1bdaea1cb49a8e122ecba8d85bf`／Cloud Build `42a8a1a0-8479-4eaf-aca3-0661717c5ee7` SUCCESS／digest `sha256:744b481602a6538883939824a6baeff7321d01a003df700efc4ed7942a91861f`。Cloud Shell On-Demand Scan `projects/msp-zabbix/locations/asia/scans/1d683242-5254-4876-a7ec-2c34c6b38feb` のresourceUriが同一digestと一致：**SCAN_IMAGE_MATCH=PASS**。この記録だけの更新はimageを変更しない。
+- **最終スキャン**：全**248件**、CRITICAL **0**／HIGH **12**／MEDIUM **34**／LOW **103**／MINIMAL **96**／UNKNOWN **3**。前回241件、CRITICAL0/HIGH12/UNKNOWN4から、影響度の高いUNKNOWNは4→3に減少。総数はMEDIUM+7/LOW+1/UNKNOWN-1で+7。Scan結果を前digestや別ソースへ流用しない。
+- **残存HIGH12件**：Debian OS11（`openssl`3、`acl`2、`expat`2、`xorg-server`／`cups`／`attr`／`perl`各1）とnpm `zod`3.25.76のCVE-2023-54404（1）。今回のScanではOS側の具体的なfixedVersionは未提示。NVD REJECTEDとGitHub Advisory HIGHの相違を維持し、Zod v4への無条件移行・例外・除外をしない。
+- **残存UNKNOWN3件**：`libxfont`2（CVE-2026-109909／109920、1:2.0.6-1+deb13u1）、`libfontenc`1（CVE-2026-109908、1:1.1.8-1）。いずれもScan時にfixedVersion未提示。`shadow`のCVE-2026-135901は今回検出されなくなった。`libzstd`も前回までに検出解消。
+- **VMでの同digest実測**：既存`atlib-test-runner`の案件専用Docker network／一時bind mount、顧客情報なし。Artifact Registry短期トークン認証とdigest一致PASS。runtimeの`libzstd1=1.5.7+dfsg-1+deb13u1`、`passwd=1:4.17.4-2+deb13u1`、`login.defs=1:4.17.4-2+deb13u1`を確認。既存WSC`renderWscPdf`による合成日本語HTMLの**実Chromium PDF生成・ファイル回収・ハッシュ一致すべてPASS**（66,870 bytes、SHA-256 `e428bcfee329a324e67f386533fd97672b147f568f4641ea67820795ebe52407`）。成果物 `~/atlib-tests/secumie-web/artifacts/wsc-pdf-smoke-20261127T010228Z.pdf`。
+- **リリース判定は不変**：セキュリティ上の未解決15件（HIGH12/UNKNOWN3）は未承認例外0。**SECURITY_NO_GO／Production No-Go／Draft維持**。隔離0% Staging Revision未作成、コーポレート署名ミラー→Web専用Staging DB→管理一覧→診断→提出状態の実環境E2E未実施。既存DB／Migration／Secrets／IAM／Traffic／Production変更なし。
+- **次工程**：新イメージの再Build・再Scanは不要。残存OS CVEと実ランタイムの`Xvfb`・`cupsd`・`perl`等の**実際の起動・到達経路を読み取り専用で確認**し、修正版提供を追跡する。未承認のパッケージ削除・unstable導入・CVE除外はしない。技術的に解消できない項目について、根拠と暫定防御・運用上の扱いを整理した後に独立したセキュリティ承認を求める。承認なしに隔離Revisionへ進まない。
+
 ## 停止・復旧
 
 対象DB/roleの既存検出、Git/SQL差分、未承認操作、CVE公開Gate、他サービスの性能悪化はSTOP。実DBへの自動再試行や自動DROPはしない。故障時も既存メール正本とWSCの手動PDF作成で業務を継続する。
