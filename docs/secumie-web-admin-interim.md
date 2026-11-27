@@ -88,6 +88,13 @@
 
 - **結論の境界**：上表はCVE例外承認、スキャン除外、または公開可否の決定ではない。HIGH12／UNKNOWN3を維持し、修正版提供・ネイティブ依存の実行条件・Cloud Run常駐時の構成は統括側で別途判断する。既存WSC/PDF、DB、Migration、Secret、IAM、Traffic、Cloud Run Revision、本番は変更していない。
 
+## 2026-11-27 隔離Staging限定承認・Preflight STOP
+
+- **承認境界**：統括の`STAGING_E2E=CONDITIONAL_GO`は固定image `sha256:744b481602a6538883939824a6baeff7321d01a003df700efc4ed7942a91861f`を使う隔離Staging検証だけを対象とする。`SECURITY_NO_GO`、Production No-Go、Draft、未承認CVE例外0を維持し、公開Ingress／allUsers権限／本番Trafficを承認しない。
+- **read-only Preflight実測**：既存`atlib-test-runner`等とは別に、Cloud Run `sales-tools-staging`を確認した。100% Revisionは`sales-tools-staging-p228`、SAは`sales-tools-staging-sa@msp-zabbix.iam.gserviceaccount.com`、minScale=0/maxScale=2、既存参照Cloud SQLは`msp-zabbix:asia-northeast1:sales-tools-staging-db`である。Web専用DB `secumie_web_staging` は別の`secumie-sg-shared-staging-db`に存在する。アプリのWeb専用poolは`src/server.ts:91-94`でmax=2、共通poolの上限は`src/db/pool.ts:9-20`でmax=5までだが、共有DB接続余力の継続監視は今回未確認。
+- **STOP根拠**：既存serviceのIngress annotationは`all`で、匿名HEAD実測はベースURLと既存tag URLの両方がHTTP **200**だった。一般利用者からの遮断というPreflight必須条件を満たさない。加えて、既存100% RevisionはWeb専用DB/role用のCloud SQL/Secret参照ではない。この差異を埋めるにはservice全体に影響するIngress/IAM又は既存接続設定の変更可否を新たに判断する必要があり、今回の承認範囲外である。
+- **未実施**：候補Revision・tag・Traffic変更、固定imageの新規デプロイ、E01〜E14、PDF生成、DB書込み、コーポレートPR #75検証、候補アクセス停止はすべて未実施。E15はPreflight前後で本番`sales-tools`と既存Staging Trafficを変更していない。DB、Migration、role、Secret、IAM、Cloud Run設定、Build、Scan、Traffic、Productionへの書込みはない。
+
 ## 停止・復旧
 
 対象DB/roleの既存検出、Git/SQL差分、未承認操作、CVE公開Gate、他サービスの性能悪化はSTOP。実DBへの自動再試行や自動DROPはしない。故障時も既存メール正本とWSCの手動PDF作成で業務を継続する。
