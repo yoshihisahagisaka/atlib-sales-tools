@@ -26,7 +26,7 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
   if(u.hostname==='challenges.cloudflare.com'){await route.fulfill({contentType:'application/javascript',body:"window.turnstile={getResponse:()=> 'synthetic-token',reset:()=>{}};"});return;}
   if(u.hostname==='timerex.net'){await route.fulfill({contentType:'text/html',body:'synthetic schedule'});return;}
   if(u.origin!==origin){await route.abort();return;}
-  const headers={...req.headers(),host:'service.atlib.jp'};delete headers['content-length'];
+  const headers:Record<string,string>={...req.headers(),host:'service.atlib.jp'};delete headers['content-length'];
   const http=require('node:http') as typeof import('node:http');
   const response=await new Promise<{status:number;headers:Record<string,string>;body:Buffer}>((resolve,reject)=>{
     const q=http.request({host:'127.0.0.1',port:address.port,path:u.pathname+u.search,method:req.method(),headers},res=>{
