@@ -165,6 +165,7 @@ async function main(): Promise<void> {
   app.use(express.json());
   app.use(cookieParser());
 
+  app.get('/health', (_req, res) => res.status(200).send('ok'));
   app.get('/healthz', (_req, res) => res.status(200).send('ok'));
   app.use('/api/it-management-diagnosis', createItManagementDiagnosisRouter(itManagementDiagnosisRepo, notifySurveyCompleted));
 

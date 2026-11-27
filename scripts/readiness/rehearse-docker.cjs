@@ -34,9 +34,9 @@ let started = false;
  try {
   docker('run','-d','--name',runtime,'--label','purpose=diagnosis-readiness','--network',`container:${pg}`,...envArgs({...env,DB_NAME:'readiness_restore',SMTP_HOST:'127.0.0.1',SMTP_PASSWORD:'synthetic-only',SMTP_USER:'synthetic',SMTP_FROM:'synthetic@example.test',DIAGNOSTIC_NOTIFY_EMAIL:'synthetic@example.test',GOOGLE_OAUTH_CLIENT_ID:'synthetic',GOOGLE_OAUTH_CLIENT_SECRET:'synthetic-only',STAFF_JWT_SECRET:'synthetic-readiness-signing-key-only-123456',PORTAL_BASE_URL:'https://example.test'}),'diagnosis-readiness:runtime'); started=true;
   const probe = `const assert=require('node:assert/strict'),fs=require('node:fs'); (async()=>{
-    assert.equal(process.getuid(),1000);assert.match(process.version,/^v20\\./);
+    assert.equal(process.getuid(),1000);assert.match(process.version,/^v24\\./);
     assert.equal(fs.existsSync('/app/node_modules/ts-node'),false);assert.equal(fs.existsSync('/app/.env'),false);assert.equal(fs.existsSync('/app/migrations'),false);
-    for(const [url,status] of [['/healthz',200],['/auth/login',302],['/it-management-diagnosis.html',200],['/admin/it-management-diagnosis-detail.html',302],['/api/admin/it-management-diagnosis/cases',401]]){const r=await fetch('http://127.0.0.1:8080'+url,{redirect:'manual'});assert.equal(r.status,status,url);}
+    for(const [url,status] of [['/health',200],['/healthz',200],['/auth/login',302],['/it-management-diagnosis.html',200],['/admin/it-management-diagnosis-detail.html',302],['/api/admin/it-management-diagnosis/cases',401]]){const r=await fetch('http://127.0.0.1:8080'+url,{redirect:'manual'});assert.equal(r.status,status,url);if(url==='/health'||url==='/healthz')assert.equal(await r.text(),'ok',url);}
     const pool=new (require('/app/node_modules/pg').Pool)({host:process.env.DB_HOST,user:process.env.DB_USER,database:process.env.DB_NAME,password:process.env.DB_PASSWORD});assert.equal((await pool.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,12);await pool.end();
     console.log(JSON.stringify({event:'runtime_smoke_pass',node:process.version,uid:process.getuid(),restoredDatabase:true,aiKeyConfigured:!!process.env.ANTHROPIC_API_KEY}));
   })().catch(error=>{console.error(JSON.stringify({event:'runtime_probe_failed',code:error.code,message:error.message}));process.exitCode=1;});`;

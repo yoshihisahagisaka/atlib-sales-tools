@@ -69,7 +69,7 @@ provider timeout60秒、worker timeout65秒、lease2分。中断は次回同proc
 
 ## 5. 監視 / incident
 
-`scripts/readiness/observe.sql` はREAD ONLYでledger、Case状態件数、queue滞留、FAILED reason、lease失効、audit command件数、DB接続数のみ取得する。本文/連絡先/token/AI outputを監視へ出さない。`/healthz`はlivenessでありDB/AI正常の証明ではない。
+`scripts/readiness/observe.sql` はREAD ONLYでledger、Case状態件数、queue滞留、FAILED reason、lease失効、audit command件数、DB接続数のみ取得する。本文/連絡先/token/AI outputを監視へ出さない。`/health`はlivenessでありDB/AI正常の証明ではない。`/healthz`は移行期間の互換経路としてのみ維持する。
 
 | Signal | 検出と初動 | 責任者 |
 |---|---|---|
