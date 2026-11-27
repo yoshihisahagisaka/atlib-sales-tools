@@ -42,3 +42,14 @@ jobs:
             docker rm -f "$cid"
             trap - EXIT
           done
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node -r ts-node/register --test test/secumieGeneral.browser.test.ts
