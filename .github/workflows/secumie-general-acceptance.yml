@@ -28,7 +28,8 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          test "$(docker image inspect secumie-general:ci --format '{{.Config.User}}')" = node
+          test "$(docker image inspect secumie-general:ci --format '{{.Config.User}}')" = nonroot
+          docker run --rm secumie-general:ci -e 'const fs=require("node:fs"); if(process.getuid()===0)process.exit(1); for(const p of ["/bin/sh","/usr/bin/npm","/usr/local/bin/npm","/usr/local/lib/node_modules/npm","/usr/bin/chromium","/ms-playwright"])if(fs.existsSync(p))throw Error("unexpected runtime tool: "+p); console.log("DISTROLESS_NONROOT=PASS")'
           for kind in WEB INSIGHT; do
             cid="$(docker run -d -p 127.0.0.1::8080 -e SECUMIE_GENERAL_KIND="$kind" secumie-general:ci)"
             trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
