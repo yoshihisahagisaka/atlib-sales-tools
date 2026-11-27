@@ -10,7 +10,7 @@ WORKDIR /app
 # Only packages reached by the dedicated runtime. Lockfile resolution is preserved.
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts
-FROM gcr.io/distroless/nodejs24-debian13@sha256:24bc0fe0225c7518f202a822587dad74fe143b96326b81fe5cc08c1df8bed03e AS runtime
+FROM gcr.io/distroless/nodejs24-debian13@sha256:774b396818c5dbc4d9aba312b84d548045939ca6efdadc840a928f205116fc74 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ARG SOURCE_REVISION
