@@ -110,3 +110,94 @@ button[type=submit]{width:100%;padding:17px;border:0;background:#dc782d;color:#f
 @keyframes general-progress{0%{transform:translateX(-100%)}100%{transform:translateX(270%)}}
 @media(prefers-reduced-motion:reduce){.diagnosis-progress-track span{animation:none;width:100%;opacity:.65}}
 @media print{#diagnosis-progress{display:none!important}}
+
+/* General Insight report only: use existing content, distinguish facts from support. */
+.general-insight-report .v7-page{line-height:1.65}
+.general-insight-report .v7-title-content{padding:18px 22px}
+.general-insight-report .v7-greeting{font-size:15px}
+.general-insight-report .v7-theme-list{grid-template-columns:repeat(3,minmax(0,1fr))}
+.general-insight-report .v7-theme-list li{border-radius:5px;padding:10px;min-width:0}
+.general-insight-report .result-page td,.general-insight-report .result-page th{padding:9px}
+.general-insight-report .result-page th:last-child,.general-insight-report .result-page td:last-child{width:39%}
+.general-insight-report .insight-question-theme{display:block;color:#1f3556;font-size:13px;margin-bottom:3px}
+.general-insight-report .insight-answer-support{border-top:1px solid #dce5e4;margin-top:5px;padding-top:4px}
+.general-insight-report .insight-support-context,.general-insight-report .insight-small-label{display:block;font-size:11px;color:#52657b;line-height:1.4}
+.general-insight-report .insight-service-link{font-weight:700;color:#155f59;overflow-wrap:anywhere}
+.general-insight-report .insight-own-answer{background:#eff5f8;border-radius:8px;padding:12px 16px;margin:14px 0}
+.general-insight-report .insight-own-answer strong{display:block;font-size:16px;color:#1f3556;margin:3px 0}
+.general-insight-report .insight-own-answer .v7-intro{margin:4px 0 0;font-size:14px;line-height:1.65}
+.general-insight-report .theme-page section p{line-height:1.7;margin:7px 0}
+.general-insight-report .theme-page > section{margin:16px 0}
+.general-insight-report .insight-case{padding:4px 14px 12px;border:1px solid #d9e2ee;border-radius:8px;background:#f8fafc}
+.general-insight-report .v7-impact-cards>div{background:white;border:1px solid #d9e2ee;border-radius:6px;padding:10px}
+.general-insight-report .v7-impact-cards strong{font-size:clamp(17px,3vw,26px)}
+.general-insight-report .v7-principles{padding:8px 12px 12px;border-radius:8px;background:#edf7f3}
+.general-insight-report .v7-principles ol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));list-style:none;padding:0;gap:8px}
+.general-insight-report .v7-principles li{background:white;border:1px solid #d6e7df;border-radius:6px;padding:10px;margin:0;min-width:0}
+.general-insight-report .insight-point-number{display:block;font-size:12px;font-weight:800;color:#248267}
+.general-insight-report .v7-principles li strong,.general-insight-report .insight-point-detail{display:block}
+.general-insight-report .insight-point-detail{font-size:12px;line-height:1.55;margin-top:3px}
+.general-insight-report .insight-action{border-left:3px solid #248267;padding-left:12px}
+.general-insight-report .insight-action h2{border:0;padding-left:0}
+.general-insight-report .insight-related-service{border:1px solid #cddce5;border-left:4px solid #248267;border-radius:7px;padding:12px 15px;margin-top:14px;background:#f7faf9}
+.general-insight-report .insight-related-service a{display:block;font-size:16px;margin:4px 0}
+.general-insight-report .insight-related-service p{font-size:13px;margin:4px 0 8px;line-height:1.6}
+.general-insight-report .v7-management-grid span strong,.general-insight-report .v7-management-grid span small{display:block}
+.general-insight-report .v7-management-grid span small{font-size:11px;font-weight:400}
+.general-insight-report .insight-consulting-lead{font-size:15px;margin:16px 0}
+.general-insight-report .insight-pillars,.general-insight-report .insight-consulting-steps,.general-insight-report .insight-cert-links{display:grid;gap:10px}
+.general-insight-report .insight-pillars{grid-template-columns:repeat(3,minmax(0,1fr))}
+.general-insight-report .insight-pillars>div,.general-insight-report .insight-consulting-steps li{background:#edf5f5;border-top:3px solid #248267;padding:13px;border-radius:6px;min-width:0}
+.general-insight-report .insight-pillars strong,.general-insight-report .insight-pillars span,.general-insight-report .insight-consulting-steps strong,.general-insight-report .insight-consulting-steps li span{display:block}
+.general-insight-report .insight-pillars span,.general-insight-report .insight-consulting-steps li span{font-size:13px}
+.general-insight-report .insight-consulting-steps{grid-template-columns:repeat(2,minmax(0,1fr));list-style:none;padding:0;margin:10px 0}
+.general-insight-report .insight-cert-links{grid-template-columns:repeat(2,minmax(0,1fr))}
+.general-insight-report .insight-cert-links a{border:1px solid #d9e2ee;border-radius:5px;padding:9px;font-size:13px}
+.general-insight-report .insight-consulting-next{margin:20px 0 10px;padding:15px;border:1px solid #d6e7df;border-radius:8px;background:#f1f8f4}
+.general-insight-report .insight-consulting-next h2{margin:0 0 8px}
+.general-insight-report .insight-consulting-next .consult-guide-trigger{display:block;margin-top:12px;max-width:100%;white-space:normal;line-height:1.5}
+.general-insight-report .insight-print-contact{font-size:12px;overflow-wrap:anywhere}
+@media screen and (max-width:600px){
+ .general-insight-report .v7-theme-list,.general-insight-report .v7-principles ol,.general-insight-report .insight-pillars{grid-template-columns:1fr}
+ .general-insight-report .result-page table,.general-insight-report .result-page tbody{display:block}
+ .general-insight-report .result-page thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ .general-insight-report .result-page tr{display:grid;grid-template-columns:34px minmax(0,1fr);border:1px solid #d9e2ee;border-radius:6px;margin:0 0 8px}
+ .general-insight-report .result-page td{border:0;width:auto!important;min-width:0}
+ .general-insight-report .result-page td:last-child{grid-column:2;grid-row:2;border-top:1px solid #d9e2ee}
+ .general-insight-report .result-page td:first-child{grid-row:span 2;background:#f1f5f9}
+ .general-insight-report .v7-impact-cards{grid-template-columns:1fr}
+ .general-insight-report .insight-consulting-steps,.general-insight-report .insight-cert-links{grid-template-columns:1fr}
+ .general-insight-report .v7-management-grid span{min-width:0;overflow-wrap:anywhere}
+}
+@media print{
+ .general-insight-report .v7-page{padding:11mm 14mm;font-size:10.5pt;line-height:1.45}
+ .general-insight-report .v7-title-content{padding:10px 16px}
+ .general-insight-report .v7-title-card h1{font-size:22px}
+ .general-insight-report .v7-greeting{font-size:10.5pt}
+ .general-insight-report .v7-page h2{margin:8px 0 4px;font-size:14px}
+ .general-insight-report .v7-theme-list li{padding:5px 7px;font-size:12px}
+ .general-insight-report .result-page table{font-size:10.5pt}
+ .general-insight-report .result-page td,.general-insight-report .result-page th{padding:4px 5px}
+ .general-insight-report .insight-question-theme{font-size:11px;margin-bottom:2px}
+ .general-insight-report .insight-answer-support{margin-top:3px;padding-top:2px}
+ .general-insight-report .insight-support-context,.general-insight-report .insight-small-label{font-size:10px}
+ .general-insight-report .insight-own-answer{padding:6px 9px;margin:8px 0}
+ .general-insight-report .insight-own-answer strong{font-size:14px;margin:2px 0}
+ .general-insight-report .insight-own-answer .v7-intro,.general-insight-report .theme-page section p{font-size:10.5pt;line-height:1.4;margin:3px 0}
+ .general-insight-report .theme-page > section{margin:8px 0}
+ .general-insight-report .insight-case{padding:3px 8px 5px}
+ .general-insight-report .v7-impact-cards>div{padding:5px}
+ .general-insight-report .v7-impact-cards strong{font-size:20px}
+ .general-insight-report .v7-principles{padding:3px 7px 6px}
+ .general-insight-report .v7-principles ol{gap:5px;margin:4px 0}
+ .general-insight-report .v7-principles li{padding:5px;font-size:11px}
+ .general-insight-report .insight-point-detail{font-size:10px;line-height:1.35}
+ .general-insight-report .insight-related-service{padding:6px 9px;margin-top:6px}
+ .general-insight-report .insight-related-service a{font-size:13px;margin:2px 0}
+ .general-insight-report .insight-related-service p{font-size:11px;line-height:1.35;margin:2px 0 4px}
+ .general-insight-report .insight-pillars>div,.general-insight-report .insight-consulting-steps li{padding:9px}
+ .general-insight-report .insight-consulting-next{margin:12px 0 6px;padding:9px}
+ .general-insight-report .insight-own-answer,.general-insight-report .insight-related-service,.general-insight-report .v7-principles li,.general-insight-report .insight-pillars>div,.general-insight-report .insight-consulting-steps li{break-inside:avoid;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ .general-insight-report .insight-consulting-page{break-after:auto}
+ .general-insight-report .consult-guide-trigger{display:none!important}
+}
