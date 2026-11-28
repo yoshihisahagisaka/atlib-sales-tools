@@ -6,6 +6,7 @@ import { chromium } from 'playwright';
 import { createSecumieGeneralRuntime } from '../src/runtime/secumieGeneralRuntime';
 import { ConsultationHandoff, SECUMIE_SCHEDULE_URLS, type ConsultationNotice } from '../src/services/secumieConsultationHandoff';
 import { WscHtmlService } from '../src/services/wscHtmlService';
+import {SecumieGeneralConsultation} from '../src/services/secumieGeneralConsultation';
 import {syntheticLeadRepo} from './support/secumieGeneralLeadFixture';
 
 const origin='https://service.atlib.jp';
@@ -14,9 +15,9 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
  const root=process.cwd(), insightDir=path.join(root,'prototypes/pira-union-diagnosis-v2');
  const content=require(path.join(insightDir,'v6-content.js'));
  const v6=require(path.join(insightDir,'v6.js'));
- const handoff=new ConsultationHandoff(async n=>{notices.push(n)},SECUMIE_SCHEDULE_URLS[kind],Date.now,7200000,500,answers=>v6.evaluate({answerContractVersion:content.versions.answer,answers}));
+ const consultation=new SecumieGeneralConsultation(leads.repo,async n=>{notices.push(n)});
  const wsc=new WscHtmlService({technicalHeadings:true,lookup:async()=>[{address:'93.184.216.34'}],networkExchange:async()=>({diagnosis:{schemaVersion:'2.0',targetUrl:'https://example.org/',checkedAt:'2026-11-28T00:00:00Z',mailDomain:'example.org',http:{status:'OK',headers:{'Strict-Transport-Security':null,'Content-Security-Policy':null,'X-Content-Type-Options':'nosniff','X-Frame-Options':null}},tls:{status:'VALIDATED',policyErrors:'None',negotiatedProtocol:'Tls13',notAfter:'2027-10-29T00:00:00Z'},dns:{spf:{lookupStatus:'FOUND',records:['v=spf1 -all'],recordCount:1},dmarc:{lookupStatus:'NO_RECORD',records:[],recordCount:0}}}})});
- const app=createSecumieGeneralRuntime({kind,hostname:'service.atlib.jp',enabled:true,verify:async(token,_ip,action)=>token==='synthetic-token'&&action===(kind==='WEB'?'secumie_web':'secumie_insight'),wsc,handoff,leads:leads.repo,evaluateInsight:answers=>v6.evaluate({answerContractVersion:content.versions.answer,answers}),assets:{pageDir:path.join(root,'prototypes/secumie-general'),insightDir,siteKey:'synthetic'}});
+ const app=createSecumieGeneralRuntime({kind,hostname:'service.atlib.jp',enabled:true,verify:async(token,_ip,action)=>token==='synthetic-token'&&action===(kind==='WEB'?'secumie_web':'secumie_insight'),wsc,consultation,leads:leads.repo,evaluateInsight:answers=>v6.evaluate({answerContractVersion:content.versions.answer,answers}),assets:{pageDir:path.join(root,'prototypes/secumie-general'),insightDir,siteKey:'synthetic'}});
  const server=app.listen(0,'127.0.0.1'); await new Promise<void>(resolve=>server.once('listening',resolve));
  const address=server.address();assert.ok(address&&typeof address!=='string');
  const browser=await chromium.launch({headless:true});
@@ -168,6 +169,6 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
  await page.locator('#consult-phone').fill('000');
  await page.locator('[name=consent]').check();
  await Promise.all([page.waitForURL(SECUMIE_SCHEDULE_URLS[kind]),page.locator('#consultation-form button[type=submit]').click()]);
- assert.ok(leads.calls.includes('begin'));assert.ok(leads.calls.includes('complete'));assert.equal(notices.length,1);assert.equal(notices[0]?.companyName,'Synthetic Company');assert.equal(notices[0]?.kind,kind);assert.equal('registeredAddress' in notices[0]!,false);assert.deepEqual(errors,[]);
- }finally{await browser.close();handoff.close();await new Promise<void>(resolve=>server.close(()=>resolve()));}
+ assert.ok(leads.calls.includes('begin'));assert.ok(leads.calls.includes('complete'));assert.ok(leads.calls.includes('claimConsultation'));assert.ok(leads.calls.includes('finishConsultation'));assert.equal(notices.length,1);assert.equal(notices[0]?.companyName,'Synthetic Company');assert.equal(notices[0]?.kind,kind);assert.equal('registeredAddress' in notices[0]!,false);assert.deepEqual(errors,[]);
+ }finally{await browser.close();await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });

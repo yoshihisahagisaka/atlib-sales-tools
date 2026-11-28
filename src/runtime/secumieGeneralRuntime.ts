@@ -4,7 +4,8 @@ import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import { configurePublicRuntime, publicPageCsp } from './runtimeSecurity';
 import { SecumieGeneralLimits, GeneralLimitError } from './secumieGeneralLimits';
-import { consultationSchema, type ConsultationHandoff } from '../services/secumieConsultationHandoff';
+import { consultationSchema } from '../services/secumieConsultationHandoff';
+import {generalConsultationSchema,type SecumieGeneralConsultation} from '../services/secumieGeneralConsultation';
 import type { WscHtmlService } from '../services/wscHtmlService';
 import { generalLeadInputSchema, normalizeGeneralTarget, type SecumieGeneralLeadRepo } from '../services/secumieGeneralLeadRepo';
 
@@ -42,7 +43,7 @@ export function createSecumieGeneralRuntime(options: {
   leads?: Pick<SecumieGeneralLeadRepo,'begin'|'complete'|'fail'|'getCompleted'>;
   evaluateInsight?: (answers:NonNullable<z.infer<typeof consultationSchema>['answers']>)=>unknown;
   limits?: SecumieGeneralLimits;
-  handoff?: ConsultationHandoff;
+  consultation?: Pick<SecumieGeneralConsultation,'submit'>;
   assets?: { pageDir: string; insightDir: string; siteKey: string };
 }): Express {
   const app = express();
@@ -53,7 +54,6 @@ export function createSecumieGeneralRuntime(options: {
   const pendingWeb=new Map<string,{result:WebResult;expires:number}>();
   const activeWeb=new Set<string>();
   const sweep=()=>{for(const [key,value] of pendingWeb)if(value.expires<=Date.now())pendingWeb.delete(key);};
-  const issue=(context:Parameters<ConsultationHandoff['issue']>[0])=>{try{return options.handoff?.issue(context);}catch{return undefined;}};
   app.get('/healthz', (_req, res) => res.json({ status: 'ok' }));
   app.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -89,8 +89,7 @@ export function createSecumieGeneralRuntime(options: {
       }
       leadReceipt=lead.receipt;
       if(options.kind==='INSIGHT'){
-        const receipt=issue({kind:'INSIGHT',companyName:data.companyName});
-        res.json({ok:true,leadReceipt,...(receipt?{receipt}:{})});return;
+        res.json({ok:true,leadReceipt});return;
       }
       if(activeWeb.has(leadReceipt)){res.status(409).json({code:'DIAGNOSIS_IN_PROGRESS'});return;}
       activeWeb.add(leadReceipt);ownsWeb=true;sweep();
@@ -113,8 +112,7 @@ export function createSecumieGeneralRuntime(options: {
           if(Buffer.byteLength(JSON.stringify(result))<=256*1024)pendingWeb.set(leadReceipt,{result,expires:Date.now()+120_000});
         }
       }
-      const receipt=issue({kind:'WEB',companyName:data.companyName,targetUrl:result.normalizedUrl,report:result.report});
-      res.json({ok:true,leadReceipt,leadSaved:saved,...(receipt?{receipt}:{}),html:html.replace('<div class="review-banner">内部デザインレビュー用｜対外配布不可</div>',''),normalizedUrl:result.normalizedUrl});
+      res.json({ok:true,leadReceipt,leadSaved:saved,html:html.replace('<div class="review-banner">内部デザインレビュー用｜対外配布不可</div>',''),normalizedUrl:result.normalizedUrl});
     }catch(error){
       if(error instanceof GeneralLimitError){res.status(429).json({code:error.code});return;}
       if(ownsWeb&&leadReceipt)try{await options.leads.fail('WEB',leadReceipt);}catch{/* no PII in logs */}
@@ -147,16 +145,15 @@ export function createSecumieGeneralRuntime(options: {
   });
   app.post(prefix + '/api/consultation', express.json({limit:'16kb',strict:true}), async (req,res) => {
     if (req.get('origin') !== 'https://' + options.hostname || !req.is('application/json')) { res.sendStatus(403); return; }
-    if (!options.handoff) { res.status(503).json({code:'NOT_READY'}); return; }
-    const parsed = consultationSchema.safeParse(req.body);
-    if (!parsed.success) { res.status(422).json({code:'INVALID_REQUEST'}); return; }
-    try { const scheduleUrl = await options.handoff.submit(parsed.data); res.json({ok:true,scheduleUrl}); }
-    catch (error) {
-      const code = error instanceof Error ? error.message : '';
-      if (code === 'RECEIPT_EXPIRED') { res.status(410).json({code}); return; }
-      if (code === 'ALREADY_SUBMITTED') { res.status(409).json({code}); return; }
-      if (code === 'INVALID_ANSWERS') { res.status(422).json({code}); return; }
-      res.status(503).json({code:'NOTIFICATION_FAILED'});
+    if (!options.consultation) { res.status(503).json({code:'NOT_READY'}); return; }
+    const parsed=generalConsultationSchema.safeParse(req.body);
+    if(!parsed.success){res.status(422).json({code:'INVALID_REQUEST'});return;}
+    try{const result=await options.consultation.submit(options.kind,parsed.data);res.json({ok:true,...result});}
+    catch(error){
+      const code=error instanceof Error?error.message:'';
+      if(code==='RECEIPT_EXPIRED'){res.status(410).json({code});return;}
+      if(code==='ALREADY_SUBMITTED'||code==='DIAGNOSIS_NOT_SAVED'){res.status(409).json({code});return;}
+      res.status(503).json({code:'CONSULTATION_SAVE_FAILED'});
     }
   });
   if (options.assets) {

@@ -2,7 +2,8 @@ import path from 'node:path';
 import {createPool} from './db/pool';
 import {SecumieGeneralLeadRepo} from './services/secumieGeneralLeadRepo';
 import { Mailer } from './services/mailer';
-import { ConsultationHandoff, SECUMIE_SCHEDULE_URLS, type ConsultationInput } from './services/secumieConsultationHandoff';
+import type { ConsultationInput } from './services/secumieConsultationHandoff';
+import {SecumieGeneralConsultation} from './services/secumieGeneralConsultation';
 import { createGeneralTurnstileVerifier, createSecumieGeneralRuntime } from './runtime/secumieGeneralRuntime';
 import { WscHtmlService } from './services/wscHtmlService';
 
@@ -23,11 +24,6 @@ function evaluateInsight(answers: NonNullable<ConsultationInput['answers']>): un
   const result = engine.evaluate({answerContractVersion:content.versions.answer,answers});
   return {answerContractVersion:result.answerContractVersion,ruleSetVersion:result.ruleSetVersion,answers:result.answers.map(a=>{const q=content.questions.find(q=>q.id===a.questionId)!;return {...a,question:q.text,label:q.options.find(o=>o.id===a.answerId)!.label};}),priorities:result.priorityThemeIds.map(id=>content.themes[id]?.title ?? id)};
 }
-const handoff = enabled ? (() => {
-  const mailer = new Mailer({host:required('SMTP_HOST'),port:587,user:required('SMTP_USER'),password:required('SMTP_PASSWORD'),from:required('SMTP_FROM')});
-  const recipient = required('SECUMIE_CONSULTATION_NOTIFY_EMAIL');
-  return new ConsultationHandoff(notice=>mailer.sendSecumieConsultationNotification(recipient,notice),SECUMIE_SCHEDULE_URLS[kind],Date.now,7200000,500,evaluateInsight);
-})() : undefined;
 const leadPool=enabled?createPool({db:{
   name:required('SECUMIE_GENERAL_DB_NAME'),user:required('SECUMIE_GENERAL_DB_USER'),
   password:required('SECUMIE_GENERAL_DB_PASSWORD'),host:process.env.SECUMIE_GENERAL_DB_HOST??'127.0.0.1',
@@ -35,8 +31,13 @@ const leadPool=enabled?createPool({db:{
 }},{max:1,connectionTimeoutMillis:5000}):undefined;
 leadPool?.on('error',()=>console.error('GENERAL_DB_POOL_ERROR'));
 const leads=leadPool?new SecumieGeneralLeadRepo(leadPool,required('SECUMIE_GENERAL_RECEIPT_SECRET')):undefined;
+const consultation=leads?(()=>{
+ const mailer=new Mailer({host:required('SMTP_HOST'),port:587,user:required('SMTP_USER'),password:required('SMTP_PASSWORD'),from:required('SMTP_FROM')});
+ const recipient=required('SECUMIE_CONSULTATION_NOTIFY_EMAIL');
+ return new SecumieGeneralConsultation(leads,notice=>mailer.sendSecumieConsultationNotification(recipient,notice));
+})():undefined;
 const app = createSecumieGeneralRuntime({
-  kind, hostname, enabled, handoff, leads, evaluateInsight,
+  kind, hostname, enabled, consultation, leads, evaluateInsight,
   verify: createGeneralTurnstileVerifier(secret, hostname),
   ...(kind === 'WEB' ? { wsc: new WscHtmlService({technicalHeadings:true}) } : {}),
   assets: {
