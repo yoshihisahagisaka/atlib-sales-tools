@@ -12,6 +12,7 @@ import yaml
 import secumie_general_production_candidate as c
 import secumie_general_public_release as release
 from secumie_general_public_permission_release import smoke
+from secumie_general_production_candidate_resume import PROXY_MANIFEST
 import secumie_web_diagnosis_build as w
 
 IMAGE=c.BASE+"@sha256:f98843288576903f19e2f3325d3e38e80845a98afa036895bae4ab9417e77502"
@@ -46,6 +47,17 @@ def containers(spec):
     c.require(len(items)==2 and set(result)=={"app","sql-proxy"},"CONTAINER_SET_STOP")
     return result
 
+def template_proxy_matches(template, revision):
+    # Cloud Run resolves the pinned multi-platform index to the previously
+    # verified amd64 manifest. Accept only this exact known pair (or identical
+    # known digests), not arbitrary different images or other settings.
+    a=copy.deepcopy(template)
+    b=copy.deepcopy(revision)
+    if a.get("image") not in (c.PROXY,PROXY_MANIFEST) or b.get("image")!=PROXY_MANIFEST:
+        return False
+    a["image"]=PROXY_MANIFEST
+    return a==b
+
 def verify_revision(old,new):
     c.require(new["metadata"]["name"]==NEW,"CANDIDATE_IDENTITY_STOP")
     c.require(any(x.get("type")=="Ready" and x.get("status")=="True" for x in new.get("status",{}).get("conditions",[])),"CANDIDATE_NOT_READY")
@@ -71,7 +83,8 @@ def prepare(state,old):
     oldapp=containers(old["spec"])["app"]
     c.require(app["image"]==w.BASE_IMAGE and c.envmap(app)==c.envmap(oldapp),"TEMPLATE_DRIFT_STOP")
     c.require(template["spec"]["serviceAccountName"]==old["spec"]["serviceAccountName"],"TEMPLATE_SA_STOP")
-    c.require(containers(template["spec"])["sql-proxy"]==containers(old["spec"])["sql-proxy"],"TEMPLATE_PROXY_STOP")
+    c.require(template_proxy_matches(containers(template["spec"])["sql-proxy"],containers(old["spec"])["sql-proxy"]),"TEMPLATE_PROXY_STOP")
+    print("PROXY_INDEX_MANIFEST_IDENTITY=PASS; PROXY_CONFIG_UNCHANGED",flush=True)
     app["image"]=IMAGE
     template["metadata"]["name"]=NEW
     doc["spec"]["traffic"]=[{"revisionName":w.OLD,"percent":100}]
