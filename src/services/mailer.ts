@@ -1,4 +1,5 @@
 import nodemailer, { type Transporter } from 'nodemailer';
+import { formatSecumieConsultationNotification } from './secumieConsultationNotification';
 import type { Config } from '../config';
 import type { CategoryRecommendation } from '../domain/ismsDiagnostic';
 
@@ -37,17 +38,9 @@ export class Mailer {
   }
 
   async sendSecumieConsultationNotification(to: string, notice: import('./secumieConsultationHandoff').ConsultationNotice): Promise<void> {
-    const service = notice.kind === 'WEB' ? 'SECU:MIE WEB' : 'SECU:MIE Insight';
     await this.transporter.sendMail({
-      from: this.config.from, to, subject: `【${service}】無料相談申込 ${notice.reference}`,
-      text: [
-        `受付番号: ${notice.reference}`, `受付日時: ${notice.receivedAt}`,
-        `企業名: ${notice.companyName}`,
-        `担当者名: ${notice.personName}`, `メール: ${notice.email}`, `電話番号: ${notice.phone}`,
-        ...(notice.targetUrl ? [`対象URL: ${notice.targetUrl}`] : []),
-        `相談内容: ${notice.note ?? ''}`, '', '診断結果（相談対応用）',
-        JSON.stringify(notice.report ?? {}, null, 2),
-      ].join('\n'),
+      from: this.config.from, to,
+      ...formatSecumieConsultationNotification(notice),
       disableFileAccess: true, disableUrlAccess: true,
     });
   }

@@ -18,7 +18,7 @@ jobs:
       - run: npm run build
       - run: python3 test/secumie_general_staging_bootstrap_test.py
       - run: node --check public/admin/secumie-general-leads.js
-      - run: node -r ts-node/register --test test/secumieGeneralAdmin.test.ts test/secumieGeneralLimits.test.ts test/secumieGeneralRuntime.test.ts test/secumieConsultationHandoff.test.ts
+      - run: node -r ts-node/register --test test/secumieGeneralAdmin.test.ts test/secumieGeneralLimits.test.ts test/secumieGeneralRuntime.test.ts test/secumieConsultationHandoff.test.ts test/secumieConsultationNotification.test.ts
   postgres:
     runs-on: ubuntu-latest
     services:
