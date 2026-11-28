@@ -7,24 +7,41 @@ import {runMigrations} from '../src/db/migrate';
 import {SecumieGeneralLeadRepo,GENERAL_CONSENT_VERSION} from '../src/services/secumieGeneralLeadRepo';
 import {SecumieGeneralConsultation} from '../src/services/secumieGeneralConsultation';
 import {SecumieGeneralAdminRepo} from '../src/services/secumieGeneralAdminRepo';
-import {exerciseGeneralStaffBrowser} from './support/secumieGeneralStaffBrowser';
+import {cleanupGeneralAcceptance} from './support/secumieGeneralAcceptanceCleanup';
 
-test('isolated PostgreSQL 16: durable general intake, replay, independent diagnosis and consultation state',async()=>{
- assert.equal(process.env.SECUMIE_GENERAL_ISOLATED_TEST,'1','isolated test service only');
- const cfg={host:'127.0.0.1',port:55439,database:'secumie_general_staging',max:1};
- const owner=new Pool({...cfg,user:'secumie_general_migration_staging',password:'synthetic-migration-password'});
- const writer=new Pool({...cfg,user:'secumie_general_writer_staging',password:'synthetic-writer-password'});
- const staff=new Pool({...cfg,user:'secumie_general_staff_staging',password:'synthetic-staff-password'});
+const tableNames=['lead','staff_change','insight_result_history','company_group','company_group_audit'] as const;
+function required(name:string){const value=process.env[name];assert.ok(value&&value.length>=32,'missing acceptance credential');return value;}
+
+
+test('PostgreSQL 16: durable general intake, replay, independent diagnosis and consultation state',async()=>{
+ const live=process.env.SECUMIE_GENERAL_STAGE_ACCEPTANCE==='msp-zabbix:asia-northeast1:secumie-sg-shared-staging-db/secumie_general_staging';
+ assert.ok(live?process.env.SECUMIE_GENERAL_ISOLATED_TEST!=='1':process.env.SECUMIE_GENERAL_ISOLATED_TEST==='1','explicit isolated/staging mode required');
+ const port=live?Number(process.env.SECUMIE_GENERAL_ACCEPTANCE_PORT):55439;
+ assert.ok(Number.isInteger(port)&&port>0&&port<65536);
+ const cfg={host:'127.0.0.1',port,database:'secumie_general_staging',max:1,idleTimeoutMillis:0,connectionTimeoutMillis:8000,statement_timeout:15000,ssl:live?{rejectUnauthorized:false}:undefined};
+ const owner=new Pool({...cfg,user:'secumie_general_migration_staging',password:live?required('GENERAL_ACCEPTANCE_MIGRATION_PASSWORD'):'synthetic-migration-password'});
+ const writer=new Pool({...cfg,user:'secumie_general_writer_staging',password:live?required('GENERAL_ACCEPTANCE_WRITER_PASSWORD'):'synthetic-writer-password'});
+ const staff=new Pool({...cfg,user:'secumie_general_staff_staging',password:live?required('GENERAL_ACCEPTANCE_STAFF_PASSWORD'):'synthetic-staff-password'});
+ const keys=[randomUUID(),randomUUID(),randomUUID()];
+ const company='Synthetic Co '+keys[0];
+ let safeToCleanup=false;
  try{
-  await runMigrations(owner,path.resolve('design/secumie-general/migrations'));
+  const identity=(await owner.query("SELECT current_database() AS db,current_user AS usr,current_setting('server_version_num')::int AS version,(SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname=current_database()) AS owner")).rows[0];
+  assert.equal(identity.db,'secumie_general_staging');assert.equal(identity.usr,'secumie_general_migration_staging');assert.ok(identity.version>=160000&&identity.version<170000);
+  if(live)assert.equal(identity.owner,'postgres');
+  if(!live)await runMigrations(owner,path.resolve('design/secumie-general/migrations'));
   const ledger=await owner.query('SELECT filename FROM schema_migrations ORDER BY filename');
   assert.deepEqual(ledger.rows.map(x=>x.filename),['001_general_lead_staging.sql','002_general_consultation_staging.sql','003_insight_result_history_staging.sql','004_company_group_staging.sql','005_general_role_acl_staging.sql','006_insight_revision_limit_staging.sql']);
+  assert.equal((await owner.query('SELECT pg_try_advisory_lock(731904,2) AS ok')).rows[0].ok,true);
+  for(const table of tableNames)assert.equal((await owner.query('SELECT count(*)::int AS n FROM secumie_general.'+table)).rows[0].n,0,'acceptance requires empty dedicated DB');
+  safeToCleanup=true;
+  console.log('ACCEPTANCE_PREFLIGHT=PASS');
   for(const column of ['receipt_hash','payload_hash','idempotency_key','receipt_expires_at'])await assert.rejects(staff.query('SELECT '+column+' FROM secumie_general.lead'),/permission denied/);
   await assert.rejects(writer.query('CREATE TABLE secumie_general.forbidden(id int)'),/permission denied/);
   await assert.rejects(staff.query('CREATE TABLE secumie_general.forbidden(id int)'),/permission denied/);
   const repo=new SecumieGeneralLeadRepo(writer,'synthetic-receipt-key-not-for-production-0001');
   const admin=new SecumieGeneralAdminRepo(staff);
-  const input={idempotencyKey:randomUUID(),companyName:'Synthetic Co',personName:'Synthetic Person',email:'synthetic@example.invalid',accepted:true as const};
+  const input={idempotencyKey:keys[0]!,companyName:company,personName:'Synthetic Person',email:'synthetic@example.invalid',accepted:true as const};
   const first=await repo.begin('WEB',input,'https://example.org');
   assert.equal(first.created,true);
   assert.equal(first.status,'RECEIVED');
@@ -32,7 +49,7 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
   assert.deepEqual(replay,{...first,created:false});
   await assert.rejects(repo.begin('WEB',{...input,companyName:'Other'},'https://example.org/'),/LEAD_IDEMPOTENCY_CONFLICT/);
   await assert.rejects(repo.begin('INSIGHT',input),/LEAD_IDEMPOTENCY_CONFLICT/);
-  const insight=await repo.begin('INSIGHT',{...input,idempotencyKey:randomUUID(),salesContactAllowed:true});
+  const insight=await repo.begin('INSIGHT',{...input,idempotencyKey:keys[1]!,salesContactAllowed:true});
   assert.notEqual(insight.id,first.id);
   assert.equal(await repo.complete('INSIGHT',first.receipt,{synthetic:true}),false);
   assert.equal(await repo.fail('WEB',first.receipt),true);
@@ -60,6 +77,7 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
   assert.equal(await admin.updateSales('WEB',first.id,{status:'CONTACTED',note:'synthetic',actor:'staff@example.invalid'}),true);
   assert.equal((await admin.detail('WEB',first.id)).diagnosis_status,'COMPLETED');
   assert.equal((await admin.detail('WEB',first.id)).consultation_status,'NONE');
+  console.log('INTAKE_RESULT_HISTORY=PASS');
   const notices:import('../src/services/secumieConsultationHandoff').ConsultationNotice[]=[];
   const service=new SecumieGeneralConsultation(repo,async notice=>{notices.push(notice);assert.equal((await admin.detail('WEB',first.id)).notification_status,'PENDING');});
   const form={leadReceipt:first.receipt,phone:'000',note:'synthetic consultation',accepted:true as const};
@@ -83,6 +101,7 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
   await assert.rejects(writer.query('SELECT diagnosis_result FROM secumie_general.insight_result_history'),/permission denied/);
   await assert.rejects(staff.query('DELETE FROM secumie_general.insight_result_history'),/permission denied/);
   assert.equal((await admin.list({limit:50,offset:0})).summary.consultations,2);
+  console.log('CONSULTATION_REPLAY_FAILURE=PASS');
   assert.equal((await admin.detail('WEB',first.id))?.company_group_id,null);
   assert.equal((await admin.detail('INSIGHT',insight.id))?.company_group_id,null);
   const linked=await admin.linkCompany('WEB',first.id,{targetKind:'INSIGHT',targetId:insight.id,actor:'staff@example.invalid'});
@@ -108,8 +127,10 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
   await assert.rejects(writer.query("UPDATE secumie_general.lead SET sales_status='WON'"),/permission denied/);
   await assert.rejects(staff.query('DELETE FROM secumie_general.lead'),/permission denied/);
   // Browser uses actual DB-backed repository + signed synthetic staff cookie, not a mock API.
-  await exerciseGeneralStaffBrowser(admin,first.id,insight.id);
-  const bounded=await repo.begin('INSIGHT',{...input,idempotencyKey:randomUUID()});
+  console.log('COMPANY_GROUP_SALES_ACL=PASS');
+  if(!live){const {exerciseGeneralStaffBrowser}=await import('./support/secumieGeneralStaffBrowser');await exerciseGeneralStaffBrowser(admin,first.id,insight.id);}
+  else console.log('STAFF_BROWSER=NOT_RUN_IN_LIVE_DB_CHECK');
+  const bounded=await repo.begin('INSIGHT',{...input,idempotencyKey:keys[2]!});
   assert.equal(await repo.complete('INSIGHT',bounded.receipt,{answers:originalAnswers,version:0}),true);
   for(let i=1;i<=10;i++)assert.equal(await repo.complete('INSIGHT',bounded.receipt,{answers:originalAnswers,version:i}),true);
   assert.equal(await repo.complete('INSIGHT',bounded.receipt,{answers:originalAnswers,version:10}),true);
@@ -122,5 +143,9 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
   await owner.query("UPDATE secumie_general.lead SET receipt_expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",[insight.id]);
   assert.equal(await repo.complete('INSIGHT',insight.receipt,{answers:['synthetic']}),false);
   await assert.rejects(repo.begin('INSIGHT',{...input,idempotencyKey:(await owner.query('SELECT idempotency_key FROM secumie_general.lead WHERE id=$1',[insight.id])).rows[0].idempotency_key,salesContactAllowed:true}),/RECEIPT_EXPIRED/);
- }finally{await Promise.allSettled([owner.end(),writer.end(),staff.end()]);}
+  console.log('REVISION_CAP_EXPIRY=PASS');
+ }finally{
+  try{if(safeToCleanup){await cleanupGeneralAcceptance(owner,keys,company);console.log('SYNTHETIC_RESIDUE=0');}}
+  finally{await Promise.allSettled([owner.end(),writer.end(),staff.end()]);}
+ }
 });

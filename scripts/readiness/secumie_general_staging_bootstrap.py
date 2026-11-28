@@ -290,14 +290,58 @@ def migrate_database(port, migration_dir, apply):
     print(json.dumps({"event": "GENERAL_STAGING_MIGRATION_VERIFIED", **evidence}), flush=True)
     print("GENERAL_STAGING_MIGRATION=PASS; PRODUCTION=UNCHANGED", flush=True)
 
+def accept_database(port, repository, apply):
+    from pathlib import Path
+    from secumie_general_staging_migrate import read_migrations, verify_sql, verify_result
+    root = Path(repository).resolve()
+    read_migrations(root / "design/secumie-general/migrations")
+    passwords = {}
+    for role, (_, name) in ROLES.items():
+        pwd = gc(["secrets", "versions", "access", "1", "--secret=" + name], "ACCEPTANCE_SECRET_ACCESS").decode("utf-8")
+        require(len(pwd) >= 32 and "\n" not in pwd and "\r" not in pwd, "ACCEPTANCE_SECRET_FORMAT_STOP")
+        passwords[role] = pwd
+    migration = "secumie_general_migration_staging"
+    verify_result(json.loads(psql(port, DB, migration, passwords[migration], verify_sql(), "ACCEPTANCE_SCHEMA_VERIFY")))
+    require((root / "node_modules/ts-node/register/index.js").is_file(), "ACCEPTANCE_DEPENDENCIES_MISSING")
+    require(shutil.which("node"), "NODE_MISSING")
+    print("ACCEPTANCE_SCHEMA_PREFLIGHT=PASS", flush=True)
+    if not apply:
+        print("READ_ONLY_PREFLIGHT=PASS; NO_SYNTHETIC_RECORDS_CREATED", flush=True)
+        return
+    check_deadline()
+    env = {k:v for k,v in os.environ.items() if not k.startswith(("PG","SECUMIE_GENERAL_","GENERAL_ACCEPTANCE_","NODE_OPTIONS","NODE_PATH","TS_NODE_"))}
+    env.update(
+        SECUMIE_GENERAL_STAGE_ACCEPTANCE=PROJECT+":"+REGION+":"+INSTANCE+"/"+DB,
+        SECUMIE_GENERAL_ACCEPTANCE_PORT=str(port),
+        GENERAL_ACCEPTANCE_MIGRATION_PASSWORD=passwords[migration],
+        GENERAL_ACCEPTANCE_WRITER_PASSWORD=passwords["secumie_general_writer_staging"],
+        GENERAL_ACCEPTANCE_STAFF_PASSWORD=passwords["secumie_general_staff_staging"],
+    )
+    try:
+        proc = subprocess.run(["node","-r","ts-node/register","--test","test/secumieGeneralLead.postgres.test.ts"], cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180, check=False)
+    except subprocess.TimeoutExpired:
+        raise Stop("ACCEPTANCE_TIMEOUT_CHECK_RESIDUE") from None
+    allowed = {"ACCEPTANCE_PREFLIGHT=PASS","INTAKE_RESULT_HISTORY=PASS","CONSULTATION_REPLAY_FAILURE=PASS","COMPANY_GROUP_SALES_ACL=PASS","STAFF_BROWSER=NOT_RUN_IN_LIVE_DB_CHECK","REVISION_CAP_EXPIRY=PASS","SYNTHETIC_RESIDUE=0"}
+    seen = set()
+    for line in proc.stdout.decode("utf-8",errors="replace").splitlines():
+        marker = line.removeprefix("# ").strip()
+        if marker in allowed:
+            print(marker, flush=True)
+            seen.add(marker)
+    require(proc.returncode == 0 and seen == allowed, "ACCEPTANCE_TEST_FAILED_CHECK_RESIDUE")
+    verify_result(json.loads(psql(port, DB, migration, passwords[migration], verify_sql(), "ACCEPTANCE_FINAL_VERIFY")))
+    print("GENERAL_STAGING_DB_ACCEPTANCE=PASS; PRODUCTION=UNCHANGED", flush=True)
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--apply", action="store_true", help="only after owner-authorized staging bootstrap")
     parser.add_argument("--recover", action="store_true", help="resume after committed secrets and roles; only when target DB absent")
     parser.add_argument("--migrate", metavar="DIRECTORY", help="apply exact fresh staging migrations 001-006; never resume partial ledger")
+    parser.add_argument("--acceptance", metavar="REPOSITORY", help="isolated synthetic acceptance on migrated staging DB")
     args = parser.parse_args()
-    require(not (args.recover and args.migrate), "MODE_CONFLICT_STOP")
-    zone = metadata_preflight(args.recover or bool(args.migrate))
+    require(sum(bool(x) for x in (args.recover,args.migrate,args.acceptance))<=1, "MODE_CONFLICT_STOP")
+    existing = bool(args.migrate or args.acceptance)
+    zone = metadata_preflight(args.recover or existing)
     # Use established IAP route, no network/firewall configuration change.
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -318,8 +362,10 @@ def main():
             raise Stop("IAP_TUNNEL_TIMEOUT")
         bootstrap = gc(["secrets", "versions", "access", "1", "--secret=" + BOOT], "BOOTSTRAP_ACCESS").decode("utf-8")
         require(len(bootstrap) >= 32 and "\n" not in bootstrap and "\r" not in bootstrap, "BOOTSTRAP_SECRET_FORMAT_STOP")
-        db_preflight(port, bootstrap, args.recover or bool(args.migrate), bool(args.migrate))
-        if args.migrate:
+        db_preflight(port, bootstrap, args.recover or existing, existing)
+        if args.acceptance:
+            accept_database(port, args.acceptance, args.apply)
+        elif args.migrate:
             migrate_database(port, args.migrate, args.apply)
         elif args.apply:
             if args.recover:
