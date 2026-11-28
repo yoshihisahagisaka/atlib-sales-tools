@@ -27,8 +27,8 @@ test('reproduces www.atlib.jp NXDOMAIN and apex TXT: same policy as apex, scoped
     assert.equal(dns.spf.checkedDomain,'atlib.jp');
     const report = reportFor(host,dns);
     assert.deepEqual(report.findings.map(f=>f.id),['SPF_PRESENT','DMARC_NONE']);
-    assert.equal(report.ruleVersion,'WSC-R-1.0.1-draft');
-    assert.equal(report.contentVersion,'WSC-C-1.0.1-draft');
+    assert.equal(report.ruleVersion,'WSC-R-1.0.2-draft');
+    assert.equal(report.contentVersion,'WSC-C-1.0.2-draft');
     const finding = report.findings.find(f=>f.id==='DMARC_NONE');
     assert.ok(finding.details.some(d=>d.label==='レコード取得ドメイン' && d.raw==='atlib.jp'));
     if(host !== 'atlib.jp') {
@@ -54,9 +54,12 @@ test('direct subdomain record wins; inherited sp overrides p; SPF never inherits
   assert.equal(override.dmarc.policyTag,'p');
   assert.equal(override.dmarc.effectivePolicy,'reject');
   assert.equal(override.spf.checkedDomain,host);
+  assert.equal(reportFor(host,override).findings.find(f=>f.id.startsWith('SPF')).id,'SPF_ALLOW_ALL');
   assert.deepEqual(override.dmarc.queriedDomains,[host]);
   const noDmarc=await collectMailDns(host,resolver({'example.co.jp':[['v=spf1 -all']]}),{domainExists:true});
-  assert.equal(noDmarc.spf.lookupStatus,'NO_RECORD','do not guess SPF owner without evidence');
+  assert.equal(noDmarc.spf.lookupStatus,'FOUND','SPF discovery is independent of DMARC');
+  assert.equal(noDmarc.spf.checkedDomain,'example.co.jp');
+  assert.equal(reportFor(host,noDmarc).findings.find(f=>f.id.startsWith('SPF')).id,'SPF_PRESENT');
 });
 test('bounded tree walk chooses shortest discovered organization record, honors psd boundaries', async () => {
   const host='a.mail.example.co.jp';
