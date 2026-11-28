@@ -149,7 +149,7 @@ def definition(doc,rev,service,kind,old):
        "run.googleapis.com/network-interfaces":'[{"network":"default","subnetwork":"default"}]',
        "run.googleapis.com/vpc-access-egress":"private-ranges-only",
        "run.googleapis.com/container-dependencies":'{"app":["sql-proxy"]}'})
-    # All original traffic is retained, including any existing zero-percent tags.
+    # The approved baseline has one traffic entry; refuse unexpected tags.
     traffic=doc["spec"].get("traffic",[])
     require(len(traffic)==1,"UNEXPECTED_TRAFFIC_SPEC_"+service)
     doc["spec"]["traffic"]=[{"revisionName":old,"percent":100}]
@@ -223,7 +223,7 @@ def main():
             verify_secret(secret)
         iam=gj(["projects","get-iam-policy",PROJECT],"PROJECT_IAM")
         conditions=[x["condition"] for x in iam.get("bindings",[]) if x.get("role")=="roles/cloudsql.client"
-                    and x.get("condition",{}).get("title")==SQL_TITLE and x["condition"].get("expression")==SQL_EXPR]
+                    and (x.get("condition") or {}).get("title")==SQL_TITLE and x["condition"].get("expression")==SQL_EXPR]
         require(len(conditions)==1,"SQL_IAM_CONDITION_MISMATCH")
         condition=root/"condition.json";condition.write_text(json.dumps(conditions[0]))
         if not args.apply:
