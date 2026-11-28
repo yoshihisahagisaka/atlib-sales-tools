@@ -41,6 +41,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - name: Prepare disposable roles and database
         env:
           PGPASSWORD: postgres
@@ -56,6 +57,13 @@ jobs:
       - run: node -r ts-node/register --test test/secumieGeneralLead.postgres.test.ts
         env:
           SECUMIE_GENERAL_ISOLATED_TEST: '1'
+          SECUMIE_STAFF_REVIEW_DIR: staff-review-evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: secumie-general-staff-review
+          path: staff-review-evidence/
+          retention-days: 7
   browser:
     runs-on: ubuntu-latest
     steps:

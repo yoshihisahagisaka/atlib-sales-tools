@@ -7,6 +7,7 @@ import {runMigrations} from '../src/db/migrate';
 import {SecumieGeneralLeadRepo,GENERAL_CONSENT_VERSION} from '../src/services/secumieGeneralLeadRepo';
 import {SecumieGeneralConsultation} from '../src/services/secumieGeneralConsultation';
 import {SecumieGeneralAdminRepo} from '../src/services/secumieGeneralAdminRepo';
+import {exerciseGeneralStaffBrowser} from './support/secumieGeneralStaffBrowser';
 
 test('isolated PostgreSQL 16: durable general intake, replay, independent diagnosis and consultation state',async()=>{
  assert.equal(process.env.SECUMIE_GENERAL_ISOLATED_TEST,'1','isolated test service only');
@@ -16,18 +17,11 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
  const staff=new Pool({...cfg,user:'secumie_general_staff_staging',password:'synthetic-staff-password'});
  try{
   await runMigrations(owner,path.resolve('design/secumie-general/migrations'));
-  // Isolated acceptance ACL only. Actual deployment grant/role preflight is separate.
-  await owner.query(`GRANT USAGE ON SCHEMA secumie_general TO secumie_general_writer_staging,secumie_general_staff_staging;
-   GRANT INSERT(kind,idempotency_key,payload_hash,receipt_hash,receipt_expires_at,company_name,person_name,email,department,position,phone,target_url,consent_version,sales_contact_allowed),
-   SELECT(id,kind,idempotency_key,payload_hash,receipt_hash,receipt_expires_at,diagnosis_status,diagnosis_result,company_name,person_name,email,target_url,consultation_status,consultation_phone,consultation_note,consultation_requested_at,notification_status,completed_at),
-   UPDATE(diagnosis_status,diagnosis_result,completed_at,updated_at,consultation_status,consultation_phone,consultation_note,consultation_consent_version,consultation_requested_at,notification_status) ON secumie_general.lead TO secumie_general_writer_staging;
-   GRANT SELECT ON secumie_general.lead TO secumie_general_staff_staging;
-   GRANT UPDATE(sales_status,staff_note,updated_at,company_group_id) ON secumie_general.lead TO secumie_general_staff_staging;
-   GRANT INSERT ON secumie_general.staff_change TO secumie_general_staff_staging;
-   GRANT INSERT(lead_id,diagnosis_result,completed_at) ON secumie_general.insight_result_history TO secumie_general_writer_staging;
-   GRANT SELECT ON secumie_general.insight_result_history TO secumie_general_staff_staging;
-   GRANT SELECT,INSERT(company_name,is_test,sales_status,staff_note),UPDATE(sales_status,staff_note,updated_at) ON secumie_general.company_group TO secumie_general_staff_staging;
-   GRANT INSERT(group_id,lead_id,action,actor,detail) ON secumie_general.company_group_audit TO secumie_general_staff_staging;`);
+  const ledger=await owner.query('SELECT filename FROM schema_migrations ORDER BY filename');
+  assert.deepEqual(ledger.rows.map(x=>x.filename),['001_general_lead_staging.sql','002_general_consultation_staging.sql','003_insight_result_history_staging.sql','004_company_group_staging.sql','005_general_role_acl_staging.sql']);
+  for(const column of ['receipt_hash','payload_hash','idempotency_key','receipt_expires_at'])await assert.rejects(staff.query('SELECT '+column+' FROM secumie_general.lead'),/permission denied/);
+  await assert.rejects(writer.query('CREATE TABLE secumie_general.forbidden(id int)'),/permission denied/);
+  await assert.rejects(staff.query('CREATE TABLE secumie_general.forbidden(id int)'),/permission denied/);
   const repo=new SecumieGeneralLeadRepo(writer,'synthetic-receipt-key-not-for-production-0001');
   const admin=new SecumieGeneralAdminRepo(staff);
   const input={idempotencyKey:randomUUID(),companyName:'Synthetic Co',personName:'Synthetic Person',email:'synthetic@example.invalid',accepted:true as const};
@@ -113,6 +107,8 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
   await assert.rejects(writer.query('SELECT staff_note FROM secumie_general.lead'),/permission denied/);
   await assert.rejects(writer.query("UPDATE secumie_general.lead SET sales_status='WON'"),/permission denied/);
   await assert.rejects(staff.query('DELETE FROM secumie_general.lead'),/permission denied/);
+  // Browser uses actual DB-backed repository + signed synthetic staff cookie, not a mock API.
+  await exerciseGeneralStaffBrowser(admin,first.id,insight.id);
   await owner.query("UPDATE secumie_general.lead SET receipt_expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",[insight.id]);
   assert.equal(await repo.complete('INSIGHT',insight.receipt,{answers:['synthetic']}),false);
   await assert.rejects(repo.begin('INSIGHT',{...input,idempotencyKey:(await owner.query('SELECT idempotency_key FROM secumie_general.lead WHERE id=$1',[insight.id])).rows[0].idempotency_key,salesContactAllowed:true}),/RECEIPT_EXPIRED/);
