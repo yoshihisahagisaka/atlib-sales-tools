@@ -11,7 +11,7 @@ RUN set -eu; \
     aptv="$(apt-cache policy apt | awk '/Candidate:/ {print $2}')"; \
     libv="$(apt-cache policy libapt-pkg6.0 | awk '/Candidate:/ {print $2}')"; \
     if [ "$aptv" != "(none)" ] && [ "$libv" != "(none)" ] && dpkg --compare-versions "$aptv" ge 2.6.2 && dpkg --compare-versions "$libv" ge 2.6.2; then \
-      for p in apt libapt-pkg6.0; do current="$(dpkg-query -W -f='\${Version}' "$p")"; candidate="$(apt-cache policy "$p" | awk '/Candidate:/ {print $2}')"; dpkg --compare-versions "$candidate" ge "$current"; done; \
+      for p in apt libapt-pkg6.0; do current="$(dpkg-query -W -f='${Version}' "$p")"; candidate="$(apt-cache policy "$p" | awk '/Candidate:/ {print $2}')"; dpkg --compare-versions "$candidate" ge "$current"; done; \
       apt-get -s install --no-install-recommends --only-upgrade apt libapt-pkg6.0 > /tmp/apt-plan; \
       awk '/^Remv / {bad=1} /^Inst / && $2 !~ /^(apt|libapt-pkg6.0)(:amd64)?$/ {bad=1} END {exit bad}' /tmp/apt-plan; \
       apt-get install -y --no-install-recommends --only-upgrade apt libapt-pkg6.0; \
