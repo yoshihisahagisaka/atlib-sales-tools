@@ -88,6 +88,10 @@ def psql(port, database, user, password, sql, label):
                     "-h", "127.0.0.1", "-p", str(port), "-U", user, "-d", database],
                    label, sql.encode("utf-8"), env, timeout=45).decode("utf-8").strip()
 
+def list_secret_versions(secret_name):
+    # gcloud secrets versions list takes SECRET as a positional argument.
+    return gc_json(["secrets", "versions", "list", secret_name], "RECOVERY_SECRET_VERSIONS_" + secret_name)
+
 def metadata_preflight(recover=False):
     check_deadline()
     for executable in ("gcloud", "psql"):
@@ -117,7 +121,7 @@ def metadata_preflight(recover=False):
     if recover:
         require(new_secrets <= names, "RECOVERY_SECRET_SET_MISMATCH")
         for secret_name in sorted(new_secrets):
-            versions = gc_json(["secrets", "versions", "list", "--secret=" + secret_name], "RECOVERY_SECRET_VERSIONS")
+            versions = list_secret_versions(secret_name)
             require(len(versions) == 1 and versions[0]["name"].endswith("/1") and versions[0]["state"] == "ENABLED",
                     "RECOVERY_SECRET_VERSION_MISMATCH")
     else:

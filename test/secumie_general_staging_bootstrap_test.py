@@ -31,6 +31,14 @@ class TestBootstrap(unittest.TestCase):
         self.assertIn('GRANT CREATE ON DATABASE {DB} TO secumie_general_migration_staging',source)
         self.assertIn('REVOKE ALL ON SCHEMA public FROM PUBLIC',source)
 
+    def test_secret_version_list_cli_contract(self):
+        from unittest.mock import patch
+        name="secumie-general-stg-db-writer-password"
+        with patch.object(bootstrap, "gc_json", return_value=[]) as query:
+            self.assertEqual(bootstrap.list_secret_versions(name), [])
+            query.assert_called_once_with(["secrets", "versions", "list", name],
+                                          "RECOVERY_SECRET_VERSIONS_" + name)
+
     def test_scope(self):
         self.assertEqual(bootstrap.INSTANCE,"secumie-sg-shared-staging-db")
         self.assertEqual(bootstrap.DB,"secumie_general_staging")
