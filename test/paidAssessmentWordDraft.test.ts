@@ -335,3 +335,246 @@ test('does not fabricate dates, prices, actors, scenarios, recommendations or ac
     '作成日', '承認日', '円', 'ROI', '実行担当者', 'Scenario A', '推奨順位', 'Actual Change', 'NEW FACT',
   ]) assert.ok(!xml.includes(forbidden), `fabricated ${forbidden}`);
 });
+
+function futureFitWordFixture(): DeliverableProjectionInput {
+  const value = fixture();
+
+  value.statements[0]!.text =
+    '人員増加だけに頼らず、持続的に成長できる会社';
+
+  value.scenarios = {
+    scenarios: [
+      ['a', '現状活用型'],
+      ['b', '段階的改善型'],
+      ['c', '積極的変革型'],
+    ].map(([id, title]) => ({
+      id: id!,
+      title: title!,
+      managementPriority: {
+        statement: value.statements[0]!.text,
+        source: managementSource,
+      },
+      rationale: '未来を実現する方法を比較する',
+      optionIds: ['option-ok'],
+      expectedDirection: '業務負担の軽減',
+      tradeoffs: [],
+      risks: [],
+      assumptions: [],
+      investmentCharacter: 'NOT_ASSESSED' as const,
+      state: 'REVIEWABLE' as const,
+      reviewReasons: [],
+    })),
+    counts: {
+      REVIEWABLE: 3,
+      NEEDS_CONFIRMATION: 0,
+      BLOCKED_BY_OPTION_EVIDENCE: 0,
+    },
+  };
+
+  value.futureComparison = {
+    criteria: [
+      {
+        id: 'efficiency',
+        futureStatementId: 'statement-1',
+        title: '業務効率化',
+        rationale: '本来の業務に集中する時間を確保する',
+      },
+      {
+        id: 'standardization',
+        futureStatementId: 'statement-1',
+        title: '属人化の解消',
+        rationale: '担当者不在でも業務を継続する',
+      },
+    ],
+    scenarioIds: ['a', 'b', 'c'],
+    evaluations: [
+      {
+        criterionId: 'efficiency',
+        scenarioId: 'a',
+        rating: 'PARTIAL',
+        rationale: '一部の業務で重複作業を減らす',
+        sourceRefs: [coreSource],
+      },
+      {
+        criterionId: 'efficiency',
+        scenarioId: 'b',
+        rating: 'HIGH',
+        rationale: '業務全体の負担軽減を目指す',
+        sourceRefs: [coreSource],
+      },
+      {
+        criterionId: 'efficiency',
+        scenarioId: 'c',
+        rating: 'HIGH',
+        rationale: '業務構造から見直す',
+        sourceRefs: [coreSource],
+      },
+      {
+        criterionId: 'standardization',
+        scenarioId: 'a',
+        rating: 'DIFFICULT',
+        rationale: '現行環境だけでは改善に制約がある',
+        sourceRefs: [coreSource],
+      },
+      {
+        criterionId: 'standardization',
+        scenarioId: 'b',
+        rating: 'SUFFICIENT',
+        rationale: '手順と情報管理を統一する',
+        sourceRefs: [coreSource],
+      },
+      {
+        criterionId: 'standardization',
+        scenarioId: 'c',
+        rating: 'HIGH',
+        rationale: '業務体系を再構築する',
+        sourceRefs: [coreSource],
+      },
+    ],
+    recommendation: {
+      scenarioId: 'b',
+      rationale: '現在の事業運営を維持しながら成長基盤を整える',
+      conditions: ['段階的に改善効果を確認する'],
+      alternativeConditions: ['投資制約に応じて現状活用型も検討する'],
+    },
+  };
+
+  return value;
+}
+
+test('renders a real Word future-fit comparison table with reasons and recommendation', async () => {
+  const value = futureFitWordFixture();
+  const result = await renderPaidAssessmentWordDraft(value);
+  const xml = documentXml(result.bytes);
+
+  for (const text of [
+    '目指す未来への適合度比較',
+    '人員増加だけに頼らず、持続的に成長できる会社',
+    '現状活用型',
+    '段階的改善型',
+    '積極的変革型',
+    '業務効率化',
+    '属人化の解消',
+    '一部の業務で重複作業を減らす',
+    '業務全体の負担軽減を目指す',
+    'atLIBからのご提案（検討案）',
+    '現在の事業運営を維持しながら成長基盤を整える',
+    '段階的に改善効果を確認する',
+    '◎', '○', '△', '×',
+    '比較評価の根拠・社内確認用',
+  ]) {
+    assert.ok(xml.includes(text), `missing ${text}`);
+  }
+
+  assert.match(xml, /<w:tbl>/);
+  assert.equal(result.readiness, 'REVIEWABLE_DRAFT');
+  assert.equal(result.status, 'INTERNAL_REVIEW_DRAFT');
+
+  assert.ok(!xml.includes(coreSource.hash));
+
+  assert.ok(
+    xml.indexOf('目指す未来への適合度比較') <
+    xml.indexOf('atLIBからのご提案（検討案）'),
+  );
+});
+
+test('preserves the old Word layout when no comparison is provided', async () => {
+  const xml = documentXml(
+    (await renderPaidAssessmentWordDraft(fixture())).bytes,
+  );
+
+  assert.ok(!xml.includes('目指す未来への適合度比較'));
+  assert.ok(!xml.includes('atLIBからのご提案（検討案）'));
+});
+
+test('renders missing and unknown evaluations without fabricating ratings', async () => {
+  const value = futureFitWordFixture();
+  const comparison = value.futureComparison!;
+
+  value.futureComparison = {
+    ...comparison,
+    evaluations: [{
+      ...comparison.evaluations[0]!,
+      rating: 'NEEDS_CONFIRMATION',
+      rationale: '業務工数の追加調査が必要',
+      sourceRefs: [],
+    }],
+  };
+
+  const result = await renderPaidAssessmentWordDraft(value);
+  const xml = documentXml(result.bytes);
+
+  assert.equal(result.readiness, 'NEEDS_CONFIRMATION');
+  assert.ok(xml.includes('未評価'));
+  assert.ok(xml.includes('要確認'));
+  assert.ok(xml.includes('業務工数の追加調査が必要'));
+});
+
+test('does not hide blocked scenario status or promote its recommendation', async () => {
+  const value = futureFitWordFixture();
+  value.scenarios.scenarios[1]!.state =
+    'BLOCKED_BY_OPTION_EVIDENCE';
+
+  const result = await renderPaidAssessmentWordDraft(value);
+  const xml = documentXml(result.bytes);
+
+  assert.equal(result.readiness, 'BLOCKED_BY_EVIDENCE');
+  assert.ok(xml.includes('実現条件の確認が必要'));
+  assert.ok(xml.includes('内部確認用・未承認'));
+  assert.ok(xml.includes('atLIBからのご提案（検討案）'));
+  assert.equal('deliveryApproved' in result, false);
+});
+
+test('splits four scenarios into two tables without dropping any scenario', async () => {
+  const value = futureFitWordFixture();
+
+  value.scenarios.scenarios.push({
+    ...value.scenarios.scenarios[0]!,
+    id: 'd',
+    title: '既存ベンダー連携型',
+  });
+
+  const comparison = value.futureComparison!;
+
+  value.futureComparison = {
+    ...comparison,
+    scenarioIds: [...comparison.scenarioIds, 'd'],
+    evaluations: [
+      ...comparison.evaluations,
+      ...comparison.evaluations
+        .filter(e => e.scenarioId === 'a')
+        .map(e => ({ ...e, scenarioId: 'd' })),
+    ],
+  };
+
+  const xml = documentXml(
+    (await renderPaidAssessmentWordDraft(value)).bytes,
+  );
+
+  assert.equal((xml.match(/<w:tbl>/g) ?? []).length, 2);
+  assert.ok(xml.includes('既存ベンダー連携型'));
+  assert.ok(xml.includes('積極的変革型'));
+});
+
+test('rejects oversized comparison text instead of silently clipping and preserves input', async () => {
+  const value = futureFitWordFixture();
+  const before = structuredClone(value);
+
+  await renderPaidAssessmentWordDraft(value);
+  assert.deepEqual(value, before);
+
+  const comparison = value.futureComparison!;
+
+  value.futureComparison = {
+    ...comparison,
+    evaluations: [{
+      ...comparison.evaluations[0]!,
+      rationale: 'あ'.repeat(241),
+    }],
+  };
+
+  await assert.rejects(
+    () => renderPaidAssessmentWordDraft(value),
+    /evaluation rationale must not exceed 240/,
+  );
+});
