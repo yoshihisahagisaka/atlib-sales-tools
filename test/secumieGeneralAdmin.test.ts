@@ -49,3 +49,14 @@ test('one general management entry with both service filters and row-scoped deta
  assert.equal(existsSync('public/admin/secumie-web-leads.html'),false);
  assert.equal(existsSync('public/admin/secumie-insight-leads.html'),false);
 });
+
+
+test('general lead database credentials are scoped by role and environment',async()=>{
+ const {loadGeneralLeadDatabaseConfig}=await import('../src/config');
+ const env={SECUMIE_GENERAL_DB_NAME:'secumie_general_staging',SECUMIE_GENERAL_DB_USER:'secumie_general_writer_staging',SECUMIE_GENERAL_DB_PASSWORD:'synthetic-writer',SECUMIE_GENERAL_DB_STAFF_USER:'secumie_general_staff_staging',SECUMIE_GENERAL_DB_STAFF_PASSWORD:'synthetic-staff'};
+ assert.equal(loadGeneralLeadDatabaseConfig('writer',env).user,'secumie_general_writer_staging');
+ assert.equal(loadGeneralLeadDatabaseConfig('staff',env).user,'secumie_general_staff_staging');
+ assert.throws(()=>loadGeneralLeadDatabaseConfig('staff',{...env,SECUMIE_GENERAL_DB_STAFF_USER:env.SECUMIE_GENERAL_DB_USER}),/ROLE_MISMATCH/);
+ assert.throws(()=>loadGeneralLeadDatabaseConfig('writer',{...env,SECUMIE_GENERAL_DB_NAME:'secumie_insight_staging'}),/NAME_MISMATCH/);
+ assert.throws(()=>loadGeneralLeadDatabaseConfig('staff',{...env,SECUMIE_GENERAL_DB_PORT:'0'}),/PORT_INVALID/);
+});

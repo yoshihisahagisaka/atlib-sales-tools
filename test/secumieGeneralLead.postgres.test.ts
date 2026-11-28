@@ -19,11 +19,13 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
   // Isolated acceptance ACL only. Actual deployment grant/role preflight is separate.
   await owner.query(`GRANT USAGE ON SCHEMA secumie_general TO secumie_general_writer_staging,secumie_general_staff_staging;
    GRANT INSERT(kind,idempotency_key,payload_hash,receipt_hash,receipt_expires_at,company_name,person_name,email,department,position,phone,target_url,consent_version,sales_contact_allowed),
-   SELECT(id,kind,idempotency_key,payload_hash,receipt_hash,receipt_expires_at,diagnosis_status,diagnosis_result,company_name,person_name,email,target_url,consultation_status,consultation_phone,consultation_note,consultation_requested_at,notification_status),
+   SELECT(id,kind,idempotency_key,payload_hash,receipt_hash,receipt_expires_at,diagnosis_status,diagnosis_result,company_name,person_name,email,target_url,consultation_status,consultation_phone,consultation_note,consultation_requested_at,notification_status,completed_at),
    UPDATE(diagnosis_status,diagnosis_result,completed_at,updated_at,consultation_status,consultation_phone,consultation_note,consultation_consent_version,consultation_requested_at,notification_status) ON secumie_general.lead TO secumie_general_writer_staging;
    GRANT SELECT ON secumie_general.lead TO secumie_general_staff_staging;
    GRANT UPDATE(sales_status,staff_note,updated_at) ON secumie_general.lead TO secumie_general_staff_staging;
-   GRANT INSERT ON secumie_general.staff_change TO secumie_general_staff_staging;`);
+   GRANT INSERT ON secumie_general.staff_change TO secumie_general_staff_staging;
+   GRANT INSERT(lead_id,diagnosis_result,completed_at) ON secumie_general.insight_result_history TO secumie_general_writer_staging;
+   GRANT SELECT ON secumie_general.insight_result_history TO secumie_general_staff_staging;`);
   const repo=new SecumieGeneralLeadRepo(writer,'synthetic-receipt-key-not-for-production-0001');
   const admin=new SecumieGeneralAdminRepo(staff);
   const input={idempotencyKey:randomUUID(),companyName:'Synthetic Co',personName:'Synthetic Person',email:'synthetic@example.invalid',accepted:true as const};
@@ -44,7 +46,15 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
   assert.equal(await repo.fail('WEB',first.receipt),false);
   assert.deepEqual(await repo.getCompleted('WEB',first.receipt),{synthetic:true});
   assert.equal(await repo.getCompleted('INSIGHT',first.receipt),null);
-  assert.equal(await repo.complete('INSIGHT',insight.receipt,{answers:['synthetic']}),true);
+  const originalAnswers=Array.from({length:8},(_,i)=>({questionId:'T'+String(i+1).padStart(2,'0'),answerId:'A1'}));
+  const revisedAnswers=originalAnswers.map((x,i)=>i===0?{...x,answerId:'A2'}:x);
+  assert.equal(await repo.complete('INSIGHT',insight.receipt,{answers:originalAnswers}),true);
+  assert.equal(await repo.complete('INSIGHT',insight.receipt,{answers:revisedAnswers}),true);
+  assert.equal(await repo.complete('INSIGHT',insight.receipt,{answers:revisedAnswers}),true);
+  const revised=await admin.detail('INSIGHT',insight.id);
+  assert.deepEqual(revised?.diagnosis_result,{answers:revisedAnswers});
+  assert.equal(revised?.result_history.length,1);
+  assert.deepEqual(revised?.result_history[0].diagnosis_result,{answers:originalAnswers});
   const list=await admin.list({limit:50,offset:0});
   assert.equal(list.total,2);assert.equal(list.summary.web_completed,1);assert.equal(list.summary.insight_completed,1);assert.equal(list.summary.consultations,0);
   const detail=await admin.detail('WEB',first.id);assert.equal(detail.consent_version,GENERAL_CONSENT_VERSION);
@@ -67,9 +77,15 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
   assert.equal(saved.consultation_status,'REQUESTED');assert.equal(saved.consultation_phone,'000');assert.equal(saved.notification_status,'SENT');
   assert.equal(saved.sales_contact_allowed,false);assert.equal(saved.sales_status,'CONTACTED');
   const failed=new SecumieGeneralConsultation(repo,async()=>{throw Error('synthetic SMTP failure');});
-  const second={...form,leadReceipt:insight.receipt};
+  const second={...form,leadReceipt:insight.receipt,answers:revisedAnswers};
+  await assert.rejects(failed.submit('INSIGHT',{...second,answers:originalAnswers}),/DIAGNOSIS_NOT_SAVED/);
   assert.equal((await failed.submit('INSIGHT',second)).notificationStatus,'FAILED');
   assert.equal((await failed.submit('INSIGHT',second)).notificationStatus,'FAILED');
+  assert.equal(await repo.complete('INSIGHT',insight.receipt,{answers:originalAnswers}),false);
+  assert.equal(await repo.complete('INSIGHT',insight.receipt,{answers:revisedAnswers}),true);
+  assert.equal((await admin.detail('INSIGHT',insight.id))?.result_history.length,1);
+  await assert.rejects(writer.query('SELECT diagnosis_result FROM secumie_general.insight_result_history'),/permission denied/);
+  await assert.rejects(staff.query('DELETE FROM secumie_general.insight_result_history'),/permission denied/);
   assert.equal((await admin.list({limit:50,offset:0})).summary.consultations,2);
   await assert.rejects(writer.query('SELECT staff_note FROM secumie_general.lead'),/permission denied/);
   await assert.rejects(writer.query("UPDATE secumie_general.lead SET sales_status='WON'"),/permission denied/);
