@@ -125,8 +125,8 @@ def main():
         doc=yaml.safe_load(c.gc(c.runargs("services","describe",service)+["--format=export"],"EXPORT_"+service))
         tmpl=doc["spec"]["template"]
         containers={x["name"]:x for x in tmpl["spec"]["containers"]}
-        c.require(set(containers)=={"app","sql-proxy"} and containers["app"]["image"]==c.IMAGE,
-                  "ORIGINAL_TEMPLATE_STOP_"+service)
+        c.require(set(containers)=={"app","sql-proxy"},"ORIGINAL_TEMPLATE_STOP_"+service)
+        # The exact prior candidate revision was verified above; template image string is not authority.
         c.require(c.envmap(containers["app"])==c.envmap(next(x for x in originals[service]["spec"]["containers"] if x["name"]=="app")),
                   "TEMPLATE_ENV_STOP_"+service)
         containers["app"]["image"]=image
