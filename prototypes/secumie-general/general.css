@@ -223,3 +223,5 @@ button[type=submit]{width:100%;padding:17px;border:0;background:#dc782d;color:#f
  .general-insight-report .insight-diagram-connector,.general-insight-report .insight-diagram-connector:after{height:11px}
  .general-insight-report .insight-diagram-center{padding:5px 10px;print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }
+
+.general-save-status{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px;margin:8px 0;background:#fff8e8;border:1px solid #dfc88b;border-radius:6px;color:#593f15;font-size:13px}.general-save-status button{font:inherit;padding:6px 10px;cursor:pointer}@media print{.general-save-status{display:none!important}}

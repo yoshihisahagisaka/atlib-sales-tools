@@ -87,6 +87,20 @@ export async function loadSecumieAdminDatabaseConfig(): Promise<Config['db']> {
   };
 }
 
+/** Dedicated general lead DB; never fall back to Sales Tools or PIRA credentials. */
+export function loadGeneralLeadDatabaseConfig(role:'staff'|'writer',env:NodeJS.ProcessEnv=process.env):Config['db'] {
+ const required=(key:string)=>{const value=env[key];if(!value?.trim())throw Error('MISSING_GENERAL_DB_CONFIG:'+key);return value;};
+ const name=required('SECUMIE_GENERAL_DB_NAME');
+ if(!['secumie_general','secumie_general_staging'].includes(name))throw Error('GENERAL_DB_NAME_MISMATCH');
+ const suffix=name==='secumie_general'?'prod':'staging';
+ const prefix=role==='staff'?'SECUMIE_GENERAL_DB_STAFF_':'SECUMIE_GENERAL_DB_';
+ const user=required(prefix+'USER');
+ if(user!=='secumie_general_'+role+'_'+suffix)throw Error('GENERAL_DB_ROLE_MISMATCH');
+ const port=Number(env.SECUMIE_GENERAL_DB_PORT??5432);
+ if(!Number.isInteger(port)||port<1||port>65535)throw Error('GENERAL_DB_PORT_INVALID');
+ return {name,user,password:required(prefix+'PASSWORD'),port,host:env.SECUMIE_GENERAL_DB_HOST??'127.0.0.1',socketPath:env.SECUMIE_GENERAL_DB_SOCKET_PATH||undefined};
+}
+
 export async function loadConfig(): Promise<Config> {
   const gcpProjectId = process.env.GCP_PROJECT_ID ?? 'msp-zabbix';
 

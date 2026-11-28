@@ -1,0 +1,370 @@
+{
+  "status": "OBSERVED_NOT_APPROVED",
+  "source": "owner final preflight Cloud Shell output 2026-11-29 JST",
+  "image": "asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/sales-tools@sha256:a700eab0c0a2859ef7660e0eb1879b4cacb7b61973f3938e524e08e0e33fc936",
+  "buildId": "2721ab47-5e4e-426f-ac04-13f46dbe1271",
+  "scan": "projects/msp-zabbix/locations/asia/scans/5a45abca-6dfc-4669-801b-871ac84c77e3",
+  "baselineScan": "projects/msp-zabbix/locations/asia/scans/0625ce30-9a67-4c9b-aefd-69ca59f63a5d",
+  "counts": {
+    "CRITICAL": 1,
+    "HIGH": 30,
+    "MEDIUM": 39,
+    "LOW": 143,
+    "MINIMAL": 103,
+    "UNKNOWN": 13
+  },
+  "findings": [
+    {
+      "cve": "CVE-2023-5574",
+      "package": "xorg-server",
+      "installed": "2:21.1.7-3+deb12u13",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-107364",
+      "package": "krb5",
+      "installed": "1.20.1-2+deb12u5",
+      "packageType": "OS",
+      "severity": "UNKNOWN",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-107493",
+      "package": "openssl",
+      "installed": "3.0.22-1~deb12u2",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-107496",
+      "package": "openssl",
+      "installed": "3.0.22-1~deb12u2",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-107884",
+      "package": "krb5",
+      "installed": "1.20.1-2+deb12u5",
+      "packageType": "OS",
+      "severity": "UNKNOWN",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-109908",
+      "package": "libfontenc",
+      "installed": "1:1.1.4-1",
+      "packageType": "OS",
+      "severity": "UNKNOWN",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-111423",
+      "package": "krb5",
+      "installed": "1.20.1-2+deb12u5",
+      "packageType": "OS",
+      "severity": "UNKNOWN",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-112314",
+      "package": "krb5",
+      "installed": "1.20.1-2+deb12u5",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-112320",
+      "package": "krb5",
+      "installed": "1.20.1-2+deb12u5",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-112321",
+      "package": "krb5",
+      "installed": "1.20.1-2+deb12u5",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-112322",
+      "package": "krb5",
+      "installed": "1.20.1-2+deb12u5",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-112323",
+      "package": "krb5",
+      "installed": "1.20.1-2+deb12u5",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-117610",
+      "package": "expat",
+      "installed": "2.5.0-1+deb12u5",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-118370",
+      "package": "expat",
+      "installed": "2.5.0-1+deb12u5",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-118380",
+      "package": "krb5",
+      "installed": "1.20.1-2+deb12u5",
+      "packageType": "OS",
+      "severity": "UNKNOWN",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-119079",
+      "package": "krb5",
+      "installed": "1.20.1-2+deb12u5",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-135901",
+      "package": "shadow",
+      "installed": "1:4.13+dfsg1-1+deb12u2",
+      "packageType": "OS",
+      "severity": "UNKNOWN",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-137992",
+      "package": "expat",
+      "installed": "2.5.0-1+deb12u5",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-16118",
+      "package": "glib2.0",
+      "installed": "2.74.6-2+deb12u9",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-34980",
+      "package": "cups",
+      "installed": "2.4.2-3+deb12u9",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-53613",
+      "package": "util-linux",
+      "installed": "2.38.1-5+deb12u3",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-53615",
+      "package": "util-linux",
+      "installed": "2.38.1-5+deb12u3",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-54369",
+      "package": "acl",
+      "installed": "2.3.1-3",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-54370",
+      "package": "acl",
+      "installed": "2.3.1-3",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-54371",
+      "package": "attr",
+      "installed": "1:2.5.1-4",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-55999",
+      "package": "xorg-server",
+      "installed": "2:21.1.7-3+deb12u13",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-56000",
+      "package": "xorg-server",
+      "installed": "2:21.1.7-3+deb12u13",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-58010",
+      "package": "glib2.0",
+      "installed": "2.74.6-2+deb12u9",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-58011",
+      "package": "glib2.0",
+      "installed": "2.74.6-2+deb12u9",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-58012",
+      "package": "glib2.0",
+      "installed": "2.74.6-2+deb12u9",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-58013",
+      "package": "glib2.0",
+      "installed": "2.74.6-2+deb12u9",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-58014",
+      "package": "glib2.0",
+      "installed": "2.74.6-2+deb12u9",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-58015",
+      "package": "glib2.0",
+      "installed": "2.74.6-2+deb12u9",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-58016",
+      "package": "glib2.0",
+      "installed": "2.74.6-2+deb12u9",
+      "packageType": "OS",
+      "severity": "CRITICAL",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-71199",
+      "package": "krb5",
+      "installed": "1.20.1-2+deb12u5",
+      "packageType": "OS",
+      "severity": "UNKNOWN",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-71200",
+      "package": "krb5",
+      "installed": "1.20.1-2+deb12u5",
+      "packageType": "OS",
+      "severity": "UNKNOWN",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-84786",
+      "package": "openssl",
+      "installed": "3.0.22-1~deb12u2",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-85091",
+      "package": "zlib",
+      "installed": "1:1.2.13.dfsg-1",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-8674",
+      "package": "glibc",
+      "installed": "2.36-9+deb12u14",
+      "packageType": "OS",
+      "severity": "UNKNOWN",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-86805",
+      "package": "glibc",
+      "installed": "2.36-9+deb12u14",
+      "packageType": "OS",
+      "severity": "UNKNOWN",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-89092",
+      "package": "glibc",
+      "installed": "2.36-9+deb12u14",
+      "packageType": "OS",
+      "severity": "UNKNOWN",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-9538",
+      "package": "perl",
+      "installed": "5.36.0-7+deb12u4",
+      "packageType": "OS",
+      "severity": "HIGH",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-95818",
+      "package": "glibc",
+      "installed": "2.36-9+deb12u14",
+      "packageType": "OS",
+      "severity": "UNKNOWN",
+      "fixed": []
+    },
+    {
+      "cve": "CVE-2026-97399",
+      "package": "glibc",
+      "installed": "2.36-9+deb12u14",
+      "packageType": "OS",
+      "severity": "UNKNOWN",
+      "fixed": []
+    }
+  ]
+}

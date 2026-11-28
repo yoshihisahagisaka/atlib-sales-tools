@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import {syntheticLeadRepo} from './support/secumieGeneralLeadFixture';
 import { createGeneralTurnstileVerifier, createSecumieGeneralRuntime } from '../src/runtime/secumieGeneralRuntime';
 
 test('Turnstile requires success, hostname and action; fails closed', async () => {
@@ -10,15 +11,15 @@ test('Turnstile requires success, hostname and action; fails closed', async () =
   }
 });
 test('public endpoint rejects wrong origin and invalid bot challenge, then returns HTML only', async () => {
-  let verified = false, calls = 0;
-  const app = createSecumieGeneralRuntime({kind:'WEB',hostname:'service.atlib.jp',enabled:true,verify:async()=>verified,wsc:{diagnose:async()=>{calls++;return {html:'<p>synthetic</p>',report:{},normalizedUrl:'https://example.org/'}}}});
+  let verified = false, calls = 0;const leads=syntheticLeadRepo();
+  const app = createSecumieGeneralRuntime({kind:'WEB',hostname:'service.atlib.jp',enabled:true,leads:leads.repo,verify:async()=>verified,wsc:{renderStored:async()=>'<p>synthetic</p>',diagnose:async()=>{assert.deepEqual(leads.calls,['begin']);calls++;return {html:'<p>synthetic</p>',report:{},normalizedUrl:'https://example.org/'}}}});
   const server = app.listen(0,'127.0.0.1');
   await new Promise<void>(resolve=>server.once('listening',resolve));
   try {
     const address=server.address(); assert.ok(address && typeof address!=='string');
     const url='http://127.0.0.1:'+address.port+'/secumie-web/api/start';
     const send=(origin:string,host='service.atlib.jp')=>new Promise<{status:number;json:()=>unknown}>((resolve,reject)=>{
-      const body=JSON.stringify({companyName:'Synthetic',accepted:true,turnstileToken:'test',targetUrl:'https://example.org/'});
+      const body=JSON.stringify({idempotencyKey:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',companyName:'Synthetic',personName:'Person',email:'synthetic@example.org',accepted:true,turnstileToken:'test',targetUrl:'https://example.org/'});
       const req=http.request(url,{method:'POST',headers:{Host:host,Origin:origin,'Content-Type':'application/json','Content-Length':Buffer.byteLength(body)}},res=>{
         const chunks:Buffer[]=[];res.on('data',(chunk:Buffer)=>chunks.push(chunk));res.on('error',reject);res.on('end',()=>resolve({status:res.statusCode??0,json:()=>JSON.parse(Buffer.concat(chunks).toString('utf8'))}));
       });req.on('error',reject);req.end(body);
@@ -26,11 +27,11 @@ test('public endpoint rejects wrong origin and invalid bot challenge, then retur
     assert.equal((await send('https://service.atlib.jp','other.example')).status,404);
     assert.equal((await send('https://other.example')).status,403);
     assert.equal((await send('https://service.atlib.jp')).status,403);
-    assert.equal(calls,0);
+    assert.equal(calls,0);assert.deepEqual(leads.calls,[]);
     verified=true;
     const response=await send('https://service.atlib.jp');
     assert.equal(response.status,200); assert.equal(calls,1);
-    assert.deepEqual(await response.json(),{ok:true,html:'<p>synthetic</p>',normalizedUrl:'https://example.org/'});
+    assert.deepEqual(await response.json(),{ok:true,leadReceipt:leads.receipt,leadSaved:true,html:'<p>synthetic</p>',normalizedUrl:'https://example.org/'});
   } finally { await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve())); }
 });
 
@@ -71,4 +72,56 @@ for (const kind of ['WEB','INSIGHT'] as const) test(kind+' only exposes indexabl
       assert.equal(calls,0);
     }finally{await new Promise<void>(resolve=>server.close(()=>resolve()));}
   }
+});
+
+const leadInput={idempotencyKey:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',companyName:'Synthetic',personName:'Person',email:'synthetic@example.org',accepted:true,turnstileToken:'test'};
+async function exercise(app:ReturnType<typeof createSecumieGeneralRuntime>,kind:'web'|'insight',run:(send:(suffix:string,body:object)=>Promise<{status:number;body:Record<string,unknown>}>)=>Promise<void>){
+ const server=app.listen(0,'127.0.0.1');await new Promise<void>(resolve=>server.once('listening',resolve));
+ try{
+  const address=server.address();assert.ok(address&&typeof address!=='string');
+  const send=(suffix:string,body:object)=>new Promise<{status:number;body:Record<string,unknown>}>((resolve,reject)=>{const raw=JSON.stringify(body);const req=http.request({hostname:'127.0.0.1',port:address.port,path:'/secumie-'+kind+'/api/'+suffix,method:'POST',headers:{Host:'service.atlib.jp',Origin:'https://service.atlib.jp','Content-Type':'application/json','Content-Length':Buffer.byteLength(raw)}},res=>{const chunks:Buffer[]=[];res.on('data',c=>chunks.push(c));res.once('end',()=>resolve({status:res.statusCode??0,body:JSON.parse(Buffer.concat(chunks).toString('utf8'))}));});req.on('error',reject);req.end(raw);});
+  await run(send);
+ }finally{await new Promise<void>(resolve=>server.close(()=>resolve()));}
+}
+test('lead intake unavailable prevents diagnosis; raw completion payload rejected',async()=>{
+ const fixture=syntheticLeadRepo();
+ const app=createSecumieGeneralRuntime({kind:'INSIGHT',hostname:'service.atlib.jp',enabled:true,verify:async()=>true,leads:{...fixture.repo,begin:async()=>{throw Error('DB_DOWN');}},evaluateInsight:answers=>({answers})});
+ await exercise(app,'insight',async send=>{
+  assert.equal((await send('start',{companyName:'Synthetic',accepted:true,turnstileToken:'test'})).status,422);
+  assert.equal((await send('start',leadInput)).status,503);
+  assert.equal((await send('complete',{leadReceipt:fixture.receipt,report:{fake:true}})).status,422);
+  assert.equal((await send('complete',{leadReceipt:fixture.receipt,answers:[]})).status,422);
+  assert.deepEqual(fixture.calls,[]);
+ });
+});
+test('WEB free report is returned despite a failed completion write; retry uses server-held facts',async()=>{
+ const fixture=syntheticLeadRepo();let writes=0,probes=0;
+ const app=createSecumieGeneralRuntime({kind:'WEB',hostname:'service.atlib.jp',enabled:true,verify:async()=>true,leads:{...fixture.repo,complete:async(...args)=>{writes++;if(writes===1)throw Error('DB_DOWN');return fixture.repo.complete(...args);}},wsc:{renderStored:async()=>'<p>synthetic</p>',diagnose:async()=>{probes++;return {html:'<p>synthetic</p>',report:{fact:true},normalizedUrl:'https://example.org/'}}}});
+ await exercise(app,'web',async send=>{
+  const start=await send('start',{...leadInput,targetUrl:'https://example.org/'});
+  assert.equal(start.status,200);assert.equal(start.body.leadSaved,false);assert.equal(start.body.html,'<p>synthetic</p>');
+  assert.equal((await send('complete',{leadReceipt:fixture.receipt,report:{fake:true}})).status,422);
+  assert.equal((await send('complete',{leadReceipt:fixture.receipt})).status,200);
+  assert.equal(probes,1);assert.equal(writes,2);
+  assert.deepEqual(await fixture.repo.getCompleted('WEB',fixture.receipt),{normalizedUrl:'https://example.org/',report:{fact:true}});
+ });
+});
+
+test('completion request ceiling is enforced before repository access',async()=>{
+ const fixture=syntheticLeadRepo();
+ const app=createSecumieGeneralRuntime({kind:'INSIGHT',hostname:'service.atlib.jp',enabled:true,verify:async()=>true,leads:fixture.repo,evaluateInsight:answers=>({answers})});
+ const answers=Array.from({length:8},(_,i)=>({questionId:'T'+i,answerId:'A1'}));
+ await exercise(app,'insight',async send=>{
+  for(let i=0;i<30;i++)assert.equal((await send('complete',{leadReceipt:fixture.receipt,answers})).status,200);
+  const limited=await send('complete',{leadReceipt:fixture.receipt,answers});assert.equal(limited.status,429);assert.equal(limited.body.code,'RECEIPT_LIMIT');
+  assert.equal(fixture.calls.filter(x=>x==='complete').length,30);
+ });
+});
+test('revision bound is a distinct non-gating completion response',async()=>{
+ const fixture=syntheticLeadRepo();
+ const app=createSecumieGeneralRuntime({kind:'INSIGHT',hostname:'service.atlib.jp',enabled:true,verify:async()=>true,leads:{...fixture.repo,complete:async()=>{throw Error('REVISION_LIMIT');}},evaluateInsight:answers=>({answers})});
+ await exercise(app,'insight',async send=>{
+  const response=await send('complete',{leadReceipt:fixture.receipt,answers:Array.from({length:8},(_,i)=>({questionId:'T'+i,answerId:'A1'}))});
+  assert.equal(response.status,409);assert.equal(response.body.code,'REVISION_LIMIT');
+ });
 });

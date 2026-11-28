@@ -5,6 +5,9 @@ RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build && mkdir -p dist/wsc/vendor/tools && cp -R src/wsc/vendor/tools/wsc-vs1 src/wsc/vendor/tools/wsc-phase2a src/wsc/vendor/tools/wsc-phase2b src/wsc/vendor/tools/wsc-phase2c dist/wsc/vendor/tools/
+COPY prototypes/secumie-general ./prototypes/secumie-general
+COPY prototypes/pira-union-diagnosis-v2 ./prototypes/pira-union-diagnosis-v2
+RUN chmod -R a+rX /app/dist /app/prototypes
 FROM node:24-trixie-slim AS runtime-deps
 WORKDIR /app
 # Only packages reached by the dedicated runtime. Lockfile resolution is preserved.
@@ -17,8 +20,7 @@ ARG SOURCE_REVISION
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 COPY --from=runtime-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
-COPY prototypes/secumie-general ./prototypes/secumie-general
-COPY prototypes/pira-union-diagnosis-v2 ./prototypes/pira-union-diagnosis-v2
+COPY --from=build /app/prototypes ./prototypes
 USER nonroot
 EXPOSE 8080
 CMD ["dist/secumieGeneralServer.js"]

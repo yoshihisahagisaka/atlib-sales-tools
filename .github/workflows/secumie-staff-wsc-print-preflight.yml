@@ -1,0 +1,57 @@
+name: SECU:MIE staff WSC print preflight
+on:
+  pull_request:
+    branches: [feat/secumie-general-release-20261128]
+    paths:
+      - 'release/secumie-general-staff-wsc-overlay/**'
+      - 'src/wsc/**'
+      - 'test/wscPresentation.test.mjs'
+      - '.github/workflows/secumie-staff-wsc-print-preflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  staff-print:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.2'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - name: Install test-runner Chromium and PDF extraction tools
+        run: |
+          npx --no-install playwright install --with-deps chromium
+          sudo apt-get install -y fonts-noto-cjk poppler-utils
+      - name: Reproduce verified production-derived adapter source and exact WSC fixtures
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          OLD=0ea3dd4084084972a0ba820f73a5a9c47878bb47
+          LEGACY=340076c356121ac58d9c6ca13ed4581b28734961
+          git fetch --quiet --depth=1 origin "$OLD" "$LEGACY"
+          mkdir -p dist/wsc/vendor/tools "$RUNNER_TEMP/wsc-legacy"
+          cp -R src/wsc/vendor/tools/wsc-* dist/wsc/vendor/tools/
+          git show "$OLD:src/services/wscSalesService.ts" > "$RUNNER_TEMP/wscSalesService.ts"
+          node -e 'const fs=require("node:fs"),ts=require("typescript");const s=fs.readFileSync(process.argv[1],"utf8");const out=ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}});fs.writeFileSync("dist/services/wscSalesService.js",out.outputText)' "$RUNNER_TEMP/wscSalesService.ts"
+          for f in engine.mjs rules.json explanations.json; do
+            git show "$LEGACY:src/wsc/vendor/tools/wsc-vs1/$f" > "$RUNNER_TEMP/wsc-legacy/$f"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("test/wscPresentation.test.mjs")
+          s=p.read_text()
+          a="const generate=r=>render(r,company,{technicalHeadings:true});"
+          assert s.count(a)==1
+          p.write_text(s.replace(a,"const generate=r=>render(r,company);"))
+          PY
+          WSC_LEGACY_FIXTURE_DIR="$RUNNER_TEMP/wsc-legacy" WSC_PRESENTATION_OUTPUT="$RUNNER_TEMP/staff-reports" node --test test/wscPresentation.test.mjs
+      - name: Execute the exact staff regression harness against source-derived runtime
+        run: |
+          node --check release/secumie-general-staff-wsc-overlay/staff-regression.cjs
+          node release/secumie-general-staff-wsc-overlay/staff-regression.cjs "$RUNNER_TEMP/staff-reports" --source-check

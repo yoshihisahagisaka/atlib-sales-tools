@@ -3,7 +3,9 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import pinoHttp from 'pino-http';
 import pino from 'pino';
-import { loadConfig, loadSecumieAdminDatabaseConfig } from './config';
+import { loadConfig, loadSecumieAdminDatabaseConfig, loadGeneralLeadDatabaseConfig } from './config';
+import {SecumieGeneralAdminRepo} from './services/secumieGeneralAdminRepo';
+import {createAdminSecumieGeneralRouter} from './routes/adminSecumieGeneral';
 import { createPool } from './db/pool';
 import { Mailer } from './services/mailer';
 import { IsmsDiagnosticRepo } from './services/ismsDiagnosticRepo';
@@ -118,6 +120,9 @@ async function main(): Promise<void> {
   const staffAuthService = new StaffAuthService(config.staffAuth.jwtSecret);
   const wscSalesService = new WscSalesService();
   const piraAdminRepo = new PiraAdminRepo(secumiePool);
+  const generalAdminPool=process.env.SECUMIE_GENERAL_ADMIN_ENABLED==='true'
+    ?createPool({db:loadGeneralLeadDatabaseConfig('staff')},{max:1,connectionTimeoutMillis:5000}):undefined;
+  generalAdminPool?.on('error',()=>logger.error({event:'secumie_general_admin_pool_error'},'General lead database unavailable'));
   const itManagementDiagnosisRepo = new ItManagementDiagnosisRepo(pool);
   const preparationRepo = new DiagnosisPreparationRepo(pool);
   const preparationProvider = new AnthropicPreDiagnosisProvider(config.aiAssist.anthropicApiKey);
@@ -229,6 +234,8 @@ async function main(): Promise<void> {
   );
   app.use('/api/admin/market-rates', ...adminAuthGate, createAdminMarketRatesRouter(marketRateRepo));
   app.use('/api/admin/web-security-check', ...adminAuthGate, createAdminWebSecurityCheckRouter(wscSalesService));
+  app.use('/api/admin/secumie-general/v1', ...adminAuthGate,
+    generalAdminPool?createAdminSecumieGeneralRouter(new SecumieGeneralAdminRepo(generalAdminPool)):(_req,res)=>{res.status(503).json({code:'NOT_READY'});});
   app.use('/api/admin/pira/v1', ...adminAuthGate,
     createAdminPiraRouter(piraAdminRepo, new Set(config.piraAdminEmails)));
   app.use(
@@ -283,7 +290,7 @@ async function main(): Promise<void> {
     stopping = true;
     logger.info({ event: 'server_shutdown', signal }, 'Stopping Sales Tools');
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    await Promise.allSettled([pool.end(), secumiePool.end()]);
+    await Promise.allSettled([pool.end(), secumiePool.end(), ...(generalAdminPool?[generalAdminPool.end()]:[])]);
   };
   process.once('SIGTERM', () => { void stop('SIGTERM').finally(() => process.exit(0)); });
   process.once('SIGINT', () => { void stop('SIGINT').finally(() => process.exit(0)); });
