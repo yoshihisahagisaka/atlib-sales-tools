@@ -33,3 +33,17 @@ test('general lead admin staff gate, service boundary, strict filters and mutati
   assert.equal(calls.length,3);
  }finally{await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
 });
+
+
+test('independent WEB and Insight management pages have fixed service identity',async()=>{
+ const {readFileSync,existsSync}=await import('node:fs');
+ for(const [page,kind] of [['secumie-web-leads.html','WEB'],['secumie-insight-leads.html','INSIGHT']]){
+  const html=readFileSync('public/admin/'+page,'utf8');
+  assert.ok(html.includes('data-service="'+kind+'"'));
+  assert.doesNotMatch(html,/id="tab-(web|insight)"|href="\?kind=/);
+ }
+ const script=readFileSync('public/admin/secumie-general-leads.js','utf8');
+ assert.match(script,/document\.body\.dataset\.service/);
+ assert.doesNotMatch(script,/location\.search/);
+ assert.equal(existsSync('public/admin/secumie-general-leads.html'),false);
+});
