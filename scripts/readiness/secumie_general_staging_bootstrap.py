@@ -88,7 +88,7 @@ def psql(port, database, user, password, sql, label):
                     "-h", "127.0.0.1", "-p", str(port), "-U", user, "-d", database],
                    label, sql.encode("utf-8"), env, timeout=45).decode("utf-8").strip()
 
-def metadata_preflight():
+def metadata_preflight(recover=False):
     check_deadline()
     for executable in ("gcloud", "psql"):
         require(shutil.which(executable), "MISSING_" + executable.upper())
@@ -113,7 +113,15 @@ def metadata_preflight():
     existing = gc_json(["secrets", "list"], "SECRET_INVENTORY")
     names = {x["name"].rsplit("/", 1)[-1] for x in existing}
     require(BOOT in names, "BOOTSTRAP_SECRET_MISSING")
-    require(not names.intersection([v[1] for v in ROLES.values()] + [RECEIPT]), "GENERAL_SECRET_COLLISION_STOP")
+    new_secrets = {v[1] for v in ROLES.values()} | {RECEIPT}
+    if recover:
+        require(new_secrets <= names, "RECOVERY_SECRET_SET_MISMATCH")
+        for secret_name in sorted(new_secrets):
+            versions = gc_json(["secrets", "versions", "list", "--secret=" + secret_name], "RECOVERY_SECRET_VERSIONS")
+            require(len(versions) == 1 and versions[0]["name"].endswith("/1") and versions[0]["state"] == "ENABLED",
+                    "RECOVERY_SECRET_VERSION_MISMATCH")
+    else:
+        require(not names.intersection(new_secrets), "GENERAL_SECRET_COLLISION_STOP")
     version = gc_json(["secrets", "versions", "describe", "1", "--secret=" + BOOT], "BOOTSTRAP_VERSION")
     require(version.get("state") == "ENABLED", "BOOTSTRAP_VERSION_DISABLED")
     vms = gc_json(["compute", "instances", "list", "--filter=name=" + VM], "IAP_VM")
@@ -123,7 +131,7 @@ def metadata_preflight():
     print("METADATA_PREFLIGHT=PASS", flush=True)
     return zone
 
-def db_preflight(port, password):
+def db_preflight(port, password, recover=False):
     sql = """
 SELECT json_build_object(
  'db',current_database(),'usr',current_user,
@@ -135,6 +143,12 @@ SELECT json_build_object(
  'dbs',(SELECT json_agg(datname ORDER BY datname) FROM pg_database WHERE NOT datistemplate),
  'roles',(SELECT json_object_agg(rolname,rolconnlimit) FROM pg_roles WHERE rolcanlogin AND rolname ~* '(secumie|secure.?guard|sales.?tools)'),
  'new_roles',(SELECT count(*) FROM pg_roles WHERE rolname IN ('secumie_general_migration_staging','secumie_general_writer_staging','secumie_general_staff_staging')),
+ 'valid_new_roles',(SELECT coalesce(json_object_agg(rolname,rolconnlimit),'{}'::json) FROM pg_roles
+  WHERE rolname IN ('secumie_general_migration_staging','secumie_general_writer_staging','secumie_general_staff_staging')
+  AND rolcanlogin AND NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolinherit OR rolreplication OR rolbypassrls)
+  AND NOT EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=pg_roles.oid OR m.roleid=pg_roles.oid)),
+ 'bootstrap_createdb',(SELECT rolcreatedb FROM pg_roles WHERE rolname=current_user),
+ 'bootstrap_superuser',(SELECT rolsuper FROM pg_roles WHERE rolname=current_user),
  'public_connect',(SELECT coalesce(json_agg(d.datname),'[]'::json) FROM pg_database d WHERE NOT d.datistemplate AND d.datname NOT IN ('postgres','cloudsqladmin') AND EXISTS(SELECT 1 FROM aclexplode(coalesce(d.datacl,acldefault('d',d.datdba))) a WHERE a.grantee=0 AND a.privilege_type='CONNECT')),
  'log_statement',current_setting('log_statement'),
  'log_min_duration',current_setting('log_min_duration_statement'),
@@ -145,7 +159,15 @@ SELECT json_build_object(
 """
     m = json.loads(psql(port, "postgres", "postgres", password, sql, "DB_PREFLIGHT"))
     require(m["db"] == "postgres" and m["usr"] == "postgres" and 160000 <= m["version"] < 170000, "DB_IDENTITY_STOP")
-    require(set(m["dbs"]) == EXPECTED_DBS and m["roles"] == EXPECTED_ROLES and m["new_roles"] == 0, "EXISTING_DB_OR_ROLE_INVENTORY_CHANGED")
+    expected_roles = dict(EXPECTED_ROLES)
+    new_roles = {name: value[0] for name, value in ROLES.items()}
+    if recover:
+        expected_roles.update(new_roles)
+        require(m["new_roles"] == 3 and m["valid_new_roles"] == new_roles, "RECOVERY_ROLE_ATTRIBUTES_STOP")
+    else:
+        require(m["new_roles"] == 0, "GENERAL_ROLE_COLLISION_STOP")
+    require(set(m["dbs"]) == EXPECTED_DBS and m["roles"] == expected_roles, "EXISTING_DB_OR_ROLE_INVENTORY_CHANGED")
+    require(m["bootstrap_createdb"] and not m["bootstrap_superuser"], "BOOTSTRAP_ROLE_IDENTITY_STOP")
     available = capacity(m["max"], m["super"], m["reserved"], m["observed"])
     require(available >= 86 and m["observed"] < int(m["max"] * .7), "CAPACITY_STOP")
     require(m["web_clients"] == 0, "UNBOUNDED_WEB_ROLE_ACTIVE_STOP")
@@ -178,20 +200,36 @@ def provision(port, bootstrap):
     psql(port, "postgres", "postgres", bootstrap, "\n".join(statements), "CREATE_ROLES")
     print("CREATED_ROLES=3", flush=True)
     check_deadline()
+    create_database_and_acl(port, bootstrap, passwords)
+
+def create_database_and_acl(port, bootstrap, passwords):
+    # Cloud SQL's non-superuser postgres cannot SET ROLE to independently created login roles.
+    # Reuse the successful Insight recovery pattern: postgres owns only this new database.
+    check_deadline()
     psql(port, "postgres", "postgres", bootstrap,
-         f"CREATE DATABASE {DB} OWNER secumie_general_migration_staging;", "CREATE_DATABASE")
+         f"CREATE DATABASE {DB};", "CREATE_DATABASE")
     print("CREATED_DATABASE=" + DB, flush=True)
     psql(port, DB, "postgres", bootstrap,
          f"BEGIN; REVOKE CONNECT,TEMPORARY ON DATABASE {DB} FROM PUBLIC;"
-         f" GRANT CONNECT ON DATABASE {DB} TO postgres,{','.join(ROLES)}; COMMIT;", "DATABASE_ACL")
+         f" GRANT CONNECT ON DATABASE {DB} TO postgres,{','.join(ROLES)};"
+         f" GRANT CREATE ON DATABASE {DB} TO secumie_general_migration_staging;"
+         " REVOKE ALL ON SCHEMA public FROM PUBLIC;"
+         " GRANT USAGE,CREATE ON SCHEMA public TO secumie_general_migration_staging;"
+         " COMMIT;", "DATABASE_ACL")
     result = json.loads(psql(port, DB, "postgres", bootstrap, """
 SELECT json_build_object(
  'owner',(SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname=current_database()),
  'public_connect',(SELECT EXISTS(SELECT 1 FROM aclexplode(coalesce(datacl,acldefault('d',datdba))) WHERE grantee=0 AND privilege_type IN ('CONNECT','TEMPORARY')) FROM pg_database WHERE datname=current_database()),
  'roles',(SELECT json_object_agg(rolname,rolconnlimit) FROM pg_roles WHERE rolname IN ('secumie_general_migration_staging','secumie_general_writer_staging','secumie_general_staff_staging') AND rolcanlogin AND NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolinherit OR rolreplication OR rolbypassrls) AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid)),
+ 'public_schema_access',(SELECT EXISTS(SELECT 1 FROM aclexplode(coalesce(nspacl,acldefault('n',nspowner))) WHERE grantee=0 AND privilege_type IN ('USAGE','CREATE')) FROM pg_namespace WHERE nspname='public'),
+ 'migration_create',has_database_privilege('secumie_general_migration_staging',current_database(),'CREATE') AND has_schema_privilege('secumie_general_migration_staging','public','USAGE') AND has_schema_privilege('secumie_general_migration_staging','public','CREATE'),
+ 'runtime_create',(SELECT bool_or(has_database_privilege(rolname,current_database(),'CREATE') OR has_schema_privilege(rolname,'public','CREATE')) FROM pg_roles WHERE rolname IN ('secumie_general_writer_staging','secumie_general_staff_staging')),
+ 'connect_count',(SELECT count(*) FROM pg_roles WHERE rolname IN ('secumie_general_migration_staging','secumie_general_writer_staging','secumie_general_staff_staging') AND has_database_privilege(rolname,current_database(),'CONNECT')),
  'schema_exists',EXISTS(SELECT 1 FROM pg_namespace WHERE nspname='secumie_general'));
 """, "POSTCHECK"))
-    require(result["owner"] == "secumie_general_migration_staging" and result["public_connect"] is False
+    require(result["owner"] == "postgres" and result["public_connect"] is False
+            and result["public_schema_access"] is False and result["migration_create"] is True
+            and result["runtime_create"] is False and result["connect_count"] == 3
             and result["roles"] == {name: value[0] for name, value in ROLES.items()}
             and result["schema_exists"] is False, "POSTCHECK_MISMATCH")
     for name, pwd in passwords.items():
@@ -200,14 +238,30 @@ SELECT json_build_object(
     for _, secret_name in ROLES.values():
         require(gc_json(["secrets", "versions", "describe", "1", "--secret=" + secret_name], "SECRET_POSTCHECK").get("state") == "ENABLED", "SECRET_VERSION_NOT_ENABLED")
     require(gc_json(["secrets", "versions", "describe", "1", "--secret=" + RECEIPT], "SECRET_POSTCHECK").get("state") == "ENABLED", "SECRET_VERSION_NOT_ENABLED")
+    print("DATABASE_OWNER=postgres; ROLE_AUTH=PASS; DATABASE_ACL=PASS", flush=True)
     print("GENERAL_STAGING_BOOTSTRAP=PASS", flush=True)
     print("MIGRATION=NOT_APPLIED; PRODUCTION=UNCHANGED", flush=True)
+
+def recover_database(port, bootstrap):
+    passwords = {name: gc(["secrets", "versions", "access", "1", "--secret=" + secret_name],
+                         "RECOVERY_SECRET_ACCESS").decode("utf-8")
+                 for name, (_, secret_name) in ROLES.items()}
+    require(all(len(pwd) >= 32 and "\n" not in pwd and "\r" not in pwd for pwd in passwords.values())
+            and len(set(passwords.values())) == 3, "RECOVERY_SECRET_FORMAT_STOP")
+    # Authenticate the preserved role passwords before any new DDL. Existing postgres
+    # database is used solely to verify current_user; no data or changes.
+    for name, pwd in passwords.items():
+        require(psql(port, "postgres", name, pwd, "SELECT current_user;", "RECOVERY_ROLE_AUTH") == name,
+                "RECOVERY_ROLE_IDENTITY_STOP")
+    print("PRESERVED_SECRETS=4; PRESERVED_ROLES=3; RECOVERY_ROLE_AUTH=PASS", flush=True)
+    create_database_and_acl(port, bootstrap, passwords)
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--apply", action="store_true", help="only after owner-authorized staging bootstrap")
+    parser.add_argument("--recover", action="store_true", help="resume after committed secrets and roles; only when target DB absent")
     args = parser.parse_args()
-    zone = metadata_preflight()
+    zone = metadata_preflight(args.recover)
     # Use established IAP route, no network/firewall configuration change.
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -228,9 +282,12 @@ def main():
             raise Stop("IAP_TUNNEL_TIMEOUT")
         bootstrap = gc(["secrets", "versions", "access", "1", "--secret=" + BOOT], "BOOTSTRAP_ACCESS").decode("utf-8")
         require(len(bootstrap) >= 32 and "\n" not in bootstrap and "\r" not in bootstrap, "BOOTSTRAP_SECRET_FORMAT_STOP")
-        db_preflight(port, bootstrap)
+        db_preflight(port, bootstrap, args.recover)
         if args.apply:
-            provision(port, bootstrap)
+            if args.recover:
+                recover_database(port, bootstrap)
+            else:
+                provision(port, bootstrap)
         else:
             print("READ_ONLY_PREFLIGHT=PASS; NO_RESOURCES_CREATED", flush=True)
     finally:

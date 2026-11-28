@@ -23,6 +23,14 @@ class TestBootstrap(unittest.TestCase):
         key=hashlib.pbkdf2_hmac("sha256",b"synthetic-password-not-for-production",base64.b64decode(salt),int(count))
         self.assertEqual(base64.b64decode(stored),hashlib.sha256(hmac.digest(key,b"Client Key","sha256")).digest())
         self.assertEqual(base64.b64decode(server),hmac.digest(key,b"Server Key","sha256"))
+    def test_recovery_create_uses_current_owner(self):
+        import inspect
+        source=inspect.getsource(bootstrap.create_database_and_acl)
+        self.assertIn('CREATE DATABASE {DB};',source)
+        self.assertNotIn('CREATE DATABASE {DB} OWNER',source)
+        self.assertIn('GRANT CREATE ON DATABASE {DB} TO secumie_general_migration_staging',source)
+        self.assertIn('REVOKE ALL ON SCHEMA public FROM PUBLIC',source)
+
     def test_scope(self):
         self.assertEqual(bootstrap.INSTANCE,"secumie-sg-shared-staging-db")
         self.assertEqual(bootstrap.DB,"secumie_general_staging")
