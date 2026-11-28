@@ -124,6 +124,9 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
   assert.equal(await report.locator('.v7-tools-page article').count(),5);
   assert.equal(await report.locator('#insight-consulting').count(),1);
   assert.equal(await report.locator('#insight-consulting .insight-cert-links a').count(),4);
+  assert.equal(await report.locator('#insight-consulting .insight-diagram-center').innerText(),'企業全体のセキュリティ対策');
+  assert.equal(await report.locator('.theme-page[data-question-id="T06"] .insight-action a[href="#tool-CALENDAR"]').count(),1);
+  assert.equal(await report.locator('.theme-page[data-question-id="T06"] .v7-tools').count(),0);
   assert.equal(await report.locator('#insight-consulting .consult-guide-trigger').count(),1);
   for(const viewport of [{width:390,height:844},{width:1440,height:1000}]){
    await page.setViewportSize(viewport);
