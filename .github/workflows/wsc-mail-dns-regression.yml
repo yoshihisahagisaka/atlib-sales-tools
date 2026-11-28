@@ -6,6 +6,7 @@ on:
       - 'src/wsc/**'
       - 'test/wscMailDns.test.mjs'
       - 'test/wscPresentation.test.mjs'
+      - 'test/wscPresentationPrint.mjs'
       - 'test/wscDiagnosisAccuracy.test.mjs'
       - 'test/wscPublicDestination.test.mjs'
       - '.github/workflows/wsc-mail-dns-regression.yml'
@@ -42,3 +43,16 @@ jobs:
           node src/wsc/vendor/tools/wsc-phase2a/test.mjs
           node src/wsc/vendor/tools/wsc-phase2b/test.mjs
           node src/wsc/vendor/tools/wsc-phase2c/test.mjs
+      - name: Install locked browser dependencies and Japanese print fonts
+        run: |
+          npm ci --ignore-scripts
+          npx --no-install playwright install --with-deps chromium
+          sudo apt-get install -y fonts-noto-cjk poppler-utils
+      - name: Print and validate all synthetic reports in Chromium
+        run: node test/wscPresentationPrint.mjs review-reports review-pdf
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wsc-presentation-pdf
+          path: review-pdf/
+          retention-days: 7
