@@ -380,3 +380,303 @@ test('does not invent timestamp, actor, approval, ranking, ROI or a customer rel
     '作成日', '承認日', '実行担当者', 'Scenario A', '最優先', 'ROI', '認証済み', '顧客納品許可',
   ]) assert.ok(!content.includes(forbidden), `fabricated ${forbidden}`);
 });
+
+function futureFitSlidesAssessment(): DeliverableProjectionInput {
+  const value = fixture().assessment;
+
+  value.statements[0]!.text =
+    '人員増加だけに頼らず、持続的に成長できる会社';
+
+  value.scenarios = {
+    scenarios: [
+      ['a', '現状活用型'],
+      ['b', '段階的改善型'],
+      ['c', '積極的変革型'],
+    ].map(([id, title]) => ({
+      id: id!,
+      title: title!,
+      managementPriority: {
+        statement: value.statements[0]!.text,
+        source: managementSource,
+      },
+      rationale: '未来を実現する方法を比較する',
+      optionIds: ['option-ok'],
+      expectedDirection: '業務負担の軽減',
+      tradeoffs: [],
+      risks: [],
+      assumptions: [],
+      investmentCharacter: 'NOT_ASSESSED' as const,
+      state: 'REVIEWABLE' as const,
+      reviewReasons: [],
+    })),
+    counts: {
+      REVIEWABLE: 3,
+      NEEDS_CONFIRMATION: 0,
+      BLOCKED_BY_OPTION_EVIDENCE: 0,
+    },
+  };
+
+  value.futureComparison = {
+    criteria: [
+      {
+        id: 'efficiency',
+        futureStatementId: 'statement-1',
+        title: '業務効率化',
+        rationale: '本来の業務に集中する時間を確保する',
+      },
+      {
+        id: 'standardization',
+        futureStatementId: 'statement-1',
+        title: '属人化の解消',
+        rationale: '担当者不在でも業務を継続する',
+      },
+    ],
+    scenarioIds: ['a', 'b', 'c'],
+    evaluations: [
+      {
+        criterionId: 'efficiency',
+        scenarioId: 'a',
+        rating: 'PARTIAL',
+        rationale: '一部の業務で重複作業を減らす',
+        sourceRefs: [coreSource],
+      },
+      {
+        criterionId: 'efficiency',
+        scenarioId: 'b',
+        rating: 'HIGH',
+        rationale: '業務全体の負担軽減を目指す',
+        sourceRefs: [coreSource],
+      },
+      {
+        criterionId: 'efficiency',
+        scenarioId: 'c',
+        rating: 'HIGH',
+        rationale: '業務構造から見直す',
+        sourceRefs: [coreSource],
+      },
+      {
+        criterionId: 'standardization',
+        scenarioId: 'a',
+        rating: 'DIFFICULT',
+        rationale: '現行環境だけでは改善に制約がある',
+        sourceRefs: [coreSource],
+      },
+      {
+        criterionId: 'standardization',
+        scenarioId: 'b',
+        rating: 'SUFFICIENT',
+        rationale: '手順と情報管理を統一する',
+        sourceRefs: [coreSource],
+      },
+      {
+        criterionId: 'standardization',
+        scenarioId: 'c',
+        rating: 'HIGH',
+        rationale: '業務体系を再構築する',
+        sourceRefs: [coreSource],
+      },
+    ],
+    recommendation: {
+      scenarioId: 'b',
+      rationale: '現在の事業運営を維持しながら成長基盤を整える',
+      conditions: ['段階的に改善効果を確認する'],
+      alternativeConditions: ['投資制約に応じて現状活用型も検討する'],
+    },
+  };
+
+  return value;
+}
+
+
+function futureFitSlidesFixture(): PaidAssessmentExecutiveSlidesInput {
+  const existing = fixture();
+
+  return {
+    assessment: futureFitSlidesAssessment(),
+    slides: existing.slides,
+  };
+}
+
+test('renders future-fit comparison, reasons and explicit recommendation', async () => {
+  const value = futureFitSlidesFixture();
+
+  const result =
+    await renderPaidAssessmentExecutiveSlidesDraft(value);
+
+  const comparison = slideXml(result.bytes, 5);
+  const recommendation = slideXml(result.bytes, 6);
+  const conditions = slideXml(result.bytes, 7);
+
+  for (const text of [
+    '目指す未来への適合度比較',
+    '人員増加だけに頼らず、持続的に成長できる会社',
+    '現状活用型',
+    '段階的改善型',
+    '積極的変革型',
+    '業務効率化',
+    '属人化の解消',
+    '一部の業務で重複作業を減らす',
+    '◎', '○', '△', '×',
+  ]) {
+    assert.ok(comparison.includes(text), `missing ${text}`);
+  }
+
+  assert.ok(recommendation.includes('段階的改善型'));
+  assert.ok(recommendation.includes(
+    '現在の事業運営を維持しながら成長基盤を整える',
+  ));
+
+  assert.ok(conditions.includes(
+    '段階的に改善効果を確認する',
+  ));
+
+  assert.ok(conditions.includes(
+    '投資制約に応じて現状活用型も検討する',
+  ));
+
+  assert.equal(result.slideCount, 7);
+  assert.equal(result.status, 'INTERNAL_REVIEW_DRAFT');
+
+  assert.ok(notesXml(result.bytes, 5).includes(
+    'source:CORE_VERIFIED_REFERENCE',
+  ));
+
+  assert.ok(!allXml(result.bytes).includes(coreSource.hash));
+});
+
+test('does not add comparison slides to an existing report without comparison', async () => {
+  const result =
+    await renderPaidAssessmentExecutiveSlidesDraft(fixture());
+
+  assert.equal(result.slideCount, 4);
+  assert.ok(!allXml(result.bytes).includes(
+    '目指す未来への適合度比較',
+  ));
+});
+
+test('distinguishes missing evaluations from explicit confirmation', async () => {
+  const value = futureFitSlidesFixture();
+  const comparison = value.assessment.futureComparison!;
+
+  value.assessment.futureComparison = {
+    ...comparison,
+    evaluations: [{
+      ...comparison.evaluations[0]!,
+      rating: 'NEEDS_CONFIRMATION',
+      rationale: '業務工数の追加調査が必要',
+      sourceRefs: [],
+    }],
+  };
+
+  const result =
+    await renderPaidAssessmentExecutiveSlidesDraft(value);
+
+  const xml = slideXml(result.bytes, 5);
+
+  assert.equal(result.readiness, 'NEEDS_CONFIRMATION');
+  assert.ok(xml.includes('未評価'));
+  assert.ok(xml.includes('要確認'));
+  assert.ok(xml.includes('業務工数の追加調査が必要'));
+});
+
+test('preserves blocked state and marks recommendation as requiring confirmation', async () => {
+  const value = futureFitSlidesFixture();
+
+  value.assessment.scenarios.scenarios[1]!.state =
+    'BLOCKED_BY_OPTION_EVIDENCE';
+
+  const result =
+    await renderPaidAssessmentExecutiveSlidesDraft(value);
+
+  assert.equal(result.readiness, 'BLOCKED_BY_EVIDENCE');
+  assert.ok(slideXml(result.bytes, 5).includes(
+    '実現条件の確認が必要',
+  ));
+  assert.ok(slideXml(result.bytes, 6).includes(
+    '実現に向けて追加確認が必要です。',
+  ));
+});
+
+test('splits comparison across scenario groups without dropping evaluations', async () => {
+  const value = futureFitSlidesFixture();
+
+  value.assessment.scenarios.scenarios.push({
+    ...value.assessment.scenarios.scenarios[0]!,
+    id: 'd',
+    title: '既存ベンダー連携型',
+  });
+
+  const comparison = value.assessment.futureComparison!;
+
+  value.assessment.futureComparison = {
+    ...comparison,
+    scenarioIds: [...comparison.scenarioIds, 'd'],
+    evaluations: [
+      ...comparison.evaluations,
+      ...comparison.evaluations
+        .filter(e => e.scenarioId === 'a')
+        .map(e => ({ ...e, scenarioId: 'd' })),
+    ],
+  };
+
+  const result =
+    await renderPaidAssessmentExecutiveSlidesDraft(value);
+
+  assert.equal(result.slideCount, 8);
+  assert.ok(slideXml(result.bytes, 5).includes('積極的変革型'));
+  assert.ok(slideXml(result.bytes, 6).includes('既存ベンダー連携型'));
+});
+
+test('rejects excessive comparison text and does not mutate the source', async () => {
+  const value = futureFitSlidesFixture();
+  const before = structuredClone(value);
+
+  await renderPaidAssessmentExecutiveSlidesDraft(value);
+
+  assert.deepEqual(value, before);
+
+  const comparison = value.assessment.futureComparison!;
+
+  value.assessment.futureComparison = {
+    ...comparison,
+    evaluations: [{
+      ...comparison.evaluations[0]!,
+      rationale: 'あ'.repeat(61),
+    }],
+  };
+
+  await assert.rejects(
+    () => renderPaidAssessmentExecutiveSlidesDraft(value),
+    /comparison evaluation rationale must not exceed 60/,
+  );
+});
+
+test('preserves all criteria when comparison rows are split', async () => {
+  const value = futureFitSlidesFixture();
+  const comparison = value.assessment.futureComparison!;
+
+  value.assessment.futureComparison = {
+    ...comparison,
+    criteria: [
+      ...comparison.criteria,
+      {
+        ...comparison.criteria[0]!,
+        id: 'growth',
+        title: '事業成長への対応',
+      },
+    ],
+    evaluations: [
+      ...comparison.evaluations,
+      ...comparison.evaluations
+        .filter(e => e.criterionId === 'efficiency')
+        .map(e => ({ ...e, criterionId: 'growth' })),
+    ],
+  };
+
+  const result =
+    await renderPaidAssessmentExecutiveSlidesDraft(value);
+
+  assert.equal(result.slideCount, 8);
+  assert.ok(slideXml(result.bytes, 5).includes('業務効率化'));
+  assert.ok(slideXml(result.bytes, 6).includes('事業成長への対応'));
+});

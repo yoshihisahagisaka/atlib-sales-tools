@@ -2,6 +2,7 @@ import PptxGenJS from 'pptxgenjs';
 import {
   buildPaidAssessmentDeliverableProjection,
   type DeliverableProjectionInput,
+  type DeliverableProjection,
   type DeliverableReadiness,
   type DeliverableStatement,
   type DeliverableStatementKind,
@@ -153,6 +154,490 @@ function addStatement(
   });
 }
 
+
+type FutureComparison = NonNullable<
+  DeliverableProjection['futureComparison']
+>;
+
+const FIT_SYMBOLS = {
+  HIGH: '◎',
+  SUFFICIENT: '○',
+  PARTIAL: '△',
+  DIFFICULT: '×',
+  NEEDS_CONFIRMATION: '要確認',
+} as const;
+
+const FIT_COLORS = {
+  HIGH: '16836A',
+  SUFFICIENT: '2875B5',
+  PARTIAL: '946B20',
+  DIFFICULT: 'B45353',
+  NEEDS_CONFIRMATION: '666666',
+} as const;
+
+const COMPARISON_COLUMNS = 3;
+const COMPARISON_ROWS = 2;
+
+function addComparisonSlides(
+  pptx: PptxGenJS,
+  comparison: FutureComparison,
+  availableSlides: number,
+): number {
+  const groups = new Map<string, FutureComparison['rows']>();
+
+  for (const row of comparison.rows) {
+    const group = groups.get(row.future.id) ?? [];
+    group.push(row);
+    groups.set(row.future.id, group);
+  }
+
+  const empty =
+    comparison.rows.length === 0 ||
+    comparison.scenarios.length === 0;
+
+  let expectedCount = empty ? 1 : 0;
+
+  if (!empty) {
+    for (const rows of groups.values()) {
+      expectedCount +=
+        Math.ceil(rows.length / COMPARISON_ROWS) *
+        Math.ceil(
+          comparison.scenarios.length / COMPARISON_COLUMNS
+        );
+    }
+  }
+
+  const recommendation = comparison.recommendation;
+  const recommendationDetails = recommendation === null
+    ? []
+    : [
+        ...recommendation.conditions.map(text => ({
+          label: '実現条件',
+          text,
+        })),
+        ...recommendation.alternativeConditions.map(text => ({
+          label: '他の改善プランも検討する条件',
+          text,
+        })),
+      ];
+
+  if (recommendation !== null) {
+    expectedCount += 1 +
+      Math.ceil(recommendationDetails.length / 3);
+  }
+
+  if (expectedCount > availableSlides) {
+    throw new TypeError(
+      'comparison exceeds available slide budget'
+    );
+  }
+
+  let count = 0;
+
+  function newSlide(title: string): PptxGenJS.Slide {
+    const slide = pptx.addSlide();
+    count += 1;
+
+    addSlideTitle(slide, title);
+    addInternalStatus(slide);
+
+    return slide;
+  }
+
+  function addNotes(
+    slide: PptxGenJS.Slide,
+    lines: string[],
+  ): void {
+    const notes = [INTERNAL_STATUS, ...lines].join('\n');
+
+    enforceCodePointLimit(
+      notes,
+      'comparison reviewer notes',
+      MAX_SLIDE_NOTES,
+    );
+
+    slide.addNotes(notes);
+  }
+
+  function text(
+    slide: PptxGenJS.Slide,
+    value: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    fontSize: number,
+    color = '111111',
+    bold = false,
+    align: 'left' | 'center' = 'left',
+  ): void {
+    slide.addText(value, {
+      x, y, w, h,
+      fontFace: 'Yu Gothic',
+      fontSize,
+      color,
+      bold,
+      align,
+      margin: 0.05,
+      valign: 'middle',
+      fit: 'shrink',
+      breakLine: false,
+    });
+  }
+
+  function box(
+    slide: PptxGenJS.Slide,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    fill: string,
+  ): void {
+    slide.addShape('rect', {
+      x, y, w, h,
+      fill: { color: fill },
+      line: { color: 'D4DFE6', width: 0.7 },
+    });
+  }
+
+  if (empty) {
+    const slide = newSlide('目指す未来への適合度比較');
+
+    text(
+      slide,
+      '比較内容の準備が必要です。',
+      0.85, 2.0, 11.5, 1.2, 26,
+    );
+
+    addNotes(slide, ['比較未完成']);
+  } else {
+    for (const rows of groups.values()) {
+      const future = rows[0]!.future;
+
+      enforceCodePointLimit(
+        future.text, 'future text', 120,
+      );
+
+      for (
+        let start = 0;
+        start < comparison.scenarios.length;
+        start += COMPARISON_COLUMNS
+      ) {
+        const scenarios = comparison.scenarios.slice(
+          start,
+          start + COMPARISON_COLUMNS,
+        );
+
+        for (
+          let r = 0;
+          r < rows.length;
+          r += COMPARISON_ROWS
+        ) {
+          const slide = newSlide(
+            '目指す未来への適合度比較',
+          );
+
+          const displayed = rows.slice(
+            r, r + COMPARISON_ROWS,
+          );
+
+          const notes = [
+            `futureId:${future.id}`,
+            ...sourceNotes(future),
+          ];
+
+          box(slide, 0.75, 1.30, 11.8, 0.92, 'EDF3F7');
+
+          text(
+            slide, '目指す未来の姿',
+            0.9, 1.34, 11.5, 0.23,
+            12, '31566F',
+          );
+
+          text(
+            slide, future.text,
+            0.9, 1.58, 11.5, 0.54,
+            21, '17354A', true,
+          );
+
+          const left = 0.75;
+          const totalWidth = 11.8;
+          const criterionWidth = 3.0;
+          const colWidth =
+            (totalWidth - criterionWidth) /
+            scenarios.length;
+
+          const headerY = 2.40;
+          const headerHeight = 0.68;
+          const rowHeight = 1.60;
+
+          box(
+            slide, left, headerY,
+            criterionWidth, headerHeight,
+            'E8EFF5',
+          );
+
+          text(
+            slide, '未来の実現条件',
+            left + 0.08, headerY + 0.04,
+            criterionWidth - 0.16, 0.58,
+            14, '31566F', true,
+          );
+
+          scenarios.forEach((scenario, index) => {
+            enforceCodePointLimit(
+              scenario.title,
+              'comparison scenario title',
+              36,
+            );
+
+            const x =
+              left + criterionWidth + colWidth * index;
+
+            box(
+              slide, x, headerY, colWidth,
+              headerHeight, 'E8EFF5',
+            );
+
+            text(
+              slide, scenario.title,
+              x + 0.05, headerY + 0.02,
+              colWidth - 0.10,
+              scenario.state === 'REVIEWABLE'
+                ? 0.61 : 0.34,
+              14, '31566F', true, 'center',
+            );
+
+            if (scenario.state !== 'REVIEWABLE') {
+              text(
+                slide,
+                scenario.state === 'BLOCKED_BY_OPTION_EVIDENCE'
+                  ? '実現条件の確認が必要'
+                  : '追加確認が必要',
+                x + 0.05, headerY + 0.36,
+                colWidth - 0.10, 0.28,
+                10, '9C0006', false, 'center',
+              );
+            }
+
+            notes.push(
+              `scenarioId:${scenario.id}`,
+              `scenarioState:${scenario.state}`,
+              ...scenario.reviewReasons,
+            );
+          });
+
+          displayed.forEach((row, index) => {
+            const y =
+              headerY + headerHeight + index * rowHeight;
+
+            enforceCodePointLimit(
+              row.criterion.title,
+              'comparison criterion title',
+              40,
+            );
+
+            box(
+              slide, left, y,
+              criterionWidth, rowHeight,
+              'F7F9FB',
+            );
+
+            text(
+              slide, row.criterion.title,
+              left + 0.10, y + 0.08,
+              criterionWidth - 0.20,
+              rowHeight - 0.16,
+              17, '17354A', true,
+            );
+
+            notes.push(
+              `criterionId:${row.criterion.id}`,
+              row.criterion.rationale,
+            );
+
+            scenarios.forEach((scenario, column) => {
+              const x =
+                left + criterionWidth + colWidth * column;
+
+              const evaluation =
+                row.cells[start + column]!.evaluation;
+
+              box(
+                slide, x, y,
+                colWidth, rowHeight,
+                'FFFFFF',
+              );
+
+              if (evaluation === null) {
+                text(
+                  slide, '未評価',
+                  x + 0.08, y + 0.30,
+                  colWidth - 0.16, 1.0,
+                  18, '666666', false, 'center',
+                );
+
+                notes.push(
+                  `scenarioId:${scenario.id}`,
+                  'evaluation:missing',
+                );
+
+                return;
+              }
+
+              enforceCodePointLimit(
+                evaluation.rationale,
+                'comparison evaluation rationale',
+                60,
+              );
+
+              text(
+                slide, FIT_SYMBOLS[evaluation.rating],
+                x + 0.05, y + 0.05,
+                colWidth - 0.10, 0.57,
+                evaluation.rating === 'NEEDS_CONFIRMATION'
+                  ? 20 : 32,
+                FIT_COLORS[evaluation.rating],
+                true, 'center',
+              );
+
+              text(
+                slide, evaluation.rationale,
+                x + 0.10, y + 0.65,
+                colWidth - 0.20, 0.84,
+                14, '333333', false, 'center',
+              );
+
+              notes.push(
+                `scenarioId:${scenario.id}`,
+                `rating:${evaluation.rating}`,
+                evaluation.rationale,
+              );
+
+              for (const source of evaluation.sourceRefs) {
+                notes.push(
+                  `source:${source.kind} / ${source.id} / version ${source.version}`
+                );
+              }
+            });
+          });
+
+          text(
+            slide,
+            '◎ 大きく貢献　○ 一定の貢献　△ 部分的な貢献　× 実現が難しい　要確認：追加確認が必要',
+            0.75, 6.48, 11.8, 0.35,
+            10, '526B7D',
+          );
+
+          addNotes(slide, notes);
+        }
+      }
+    }
+  }
+
+  if (recommendation !== null) {
+    const scenario = comparison.scenarios.find(
+      s => s.id === recommendation.scenarioId,
+    )!;
+
+    enforceCodePointLimit(
+      scenario.title, 'recommendation title', 36,
+    );
+
+    enforceCodePointLimit(
+      recommendation.rationale,
+      'recommendation rationale', 240,
+    );
+
+    const slide = newSlide(
+      'atLIBからのご提案（検討案）',
+    );
+
+    box(slide, 0.75, 1.45, 11.8, 1.25, 'EDF3F7');
+
+    text(
+      slide, scenario.title,
+      1.0, 1.65, 11.3, 0.84,
+      32, '17354A', true,
+    );
+
+    text(
+      slide, recommendation.rationale,
+      1.0, 3.0, 11.3, 2.1,
+      23,
+    );
+
+    if (scenario.state !== 'REVIEWABLE') {
+      text(
+        slide,
+        '実現に向けて追加確認が必要です。',
+        1.0, 5.4, 11.3, 0.7,
+        17, '9C0006',
+      );
+    }
+
+    addNotes(slide, [
+      `recommendedScenarioId:${scenario.id}`,
+      `scenarioState:${scenario.state}`,
+      ...scenario.reviewReasons,
+      '顧客による決定ではありません。',
+    ]);
+
+    for (
+      let start = 0;
+      start < recommendationDetails.length;
+      start += 3
+    ) {
+      const details = recommendationDetails.slice(
+        start, start + 3,
+      );
+
+      const detailSlide = newSlide(
+        'ご提案の実現条件',
+      );
+
+      text(
+        detailSlide, scenario.title,
+        0.85, 1.35, 11.5, 0.55,
+        20, '31566F', true,
+      );
+
+      details.forEach((detail, index) => {
+        enforceCodePointLimit(
+          detail.text,
+          'recommendation condition',
+          120,
+        );
+
+        const y = 2.0 + index * 1.50;
+
+        text(
+          detailSlide, detail.label,
+          0.9, y, 11.5, 0.32,
+          14, '31566F', true,
+        );
+
+        text(
+          detailSlide, detail.text,
+          0.9, y + 0.35, 11.5, 1.02,
+          18,
+        );
+      });
+
+      addNotes(detailSlide, [
+        `recommendedScenarioId:${scenario.id}`,
+        '顧客との協議に使用する検討案です。',
+      ]);
+    }
+  }
+
+  if (count !== expectedCount) {
+    throw new TypeError('comparison slide count mismatch');
+  }
+
+  return count;
+}
+
 export async function renderPaidAssessmentExecutiveSlidesDraft(
   input: PaidAssessmentExecutiveSlidesInput,
 ): Promise<PaidAssessmentExecutiveSlidesDraft> {
@@ -296,6 +781,15 @@ export async function renderPaidAssessmentExecutiveSlidesDraft(
     addInternalStatus(slide);
   }
 
+  const comparisonSlideCount =
+    projection.futureComparison === undefined
+      ? 0
+      : addComparisonSlides(
+          pptx,
+          projection.futureComparison,
+          MAX_SLIDES - selectedSlides.length,
+        );
+
   const output = await pptx.write({ outputType: 'nodebuffer', compression: true });
   if (!(output instanceof Uint8Array) && !(output instanceof ArrayBuffer)) {
     throw new TypeError('PPTX renderer did not return binary output');
@@ -312,7 +806,8 @@ export async function renderPaidAssessmentExecutiveSlidesDraft(
     bytes,
     readiness: projection.readiness,
     reviewReasons: [...projection.reviewReasons],
-    slideCount: selectedSlides.length + 2,
+    slideCount:
+      selectedSlides.length + 2 + comparisonSlideCount,
     status: 'INTERNAL_REVIEW_DRAFT',
   };
 }
