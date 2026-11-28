@@ -30,9 +30,92 @@ document.addEventListener('DOMContentLoaded', () => {
  const openGuide=(target)=>{returnTarget=target;apply.disabled=!receipt||(!web&&!insightAnswers);consultStatus.textContent=apply.disabled?'相談受付を利用できません。':'';target.hidden=true;if(web)target.closest('main').hidden=true;consultation.hidden=false;document.getElementById('consult-heading').focus();window.scrollTo(0,0);};
  document.getElementById('consult-back').onclick=()=>{consultation.hidden=true;if(returnTarget){returnTarget.hidden=false;if(web)returnTarget.closest('main').hidden=false;returnTarget.querySelector('.consult-guide-trigger')?.focus();}};
  const addGuide=(target,container)=>{if(container.querySelector('.consult-guide-trigger'))return;const button=document.createElement('button');button.type='button';button.className='primary-action consult-guide-trigger';button.textContent='診断結果を今後の対策に活かしませんか？';button.onclick=()=>openGuide(target);container.append(button);};
+
+ // General Insight presentation: keep the shared questions, evaluation and union report untouched.
+ const enhanceInsight=(app,answers)=>{
+  const report=app.querySelector('.v7-prototype');
+  const content=window.PiraV6Content;
+  if(!report||!content||!Array.isArray(answers)||report.classList.contains('general-insight-report'))return;
+  const services='https://www.atlib.jp/services/';
+  const consulting=services+'security-consulting/';
+  const support={
+   T01:{name:'セキュリティコンサルティング',url:consulting,detail:'情報の保管・廃棄ルールを、実際の業務に合わせて整備する支援です。'},
+   T02:{name:'atLIB Secure Send',url:services+'#secure-send',detail:'PPAPに代わるファイル送受信の仕組みについてご相談いただけます。宛先確認や共有権限の管理も引き続き大切です。'},
+   T03:{name:'情シスアウトソーシング',url:services+'#it-bpo',detail:'入退社・異動時のアカウント停止、権限変更など、日常のIT運用を支援します。'},
+   T04:{name:'IT構築・運用支援',url:services+'#it-projects',detail:'利用中のサービスに合わせ、多要素認証の設定や導入・運用方法を検討します。'},
+   T05:{name:'情シスアウトソーシング',url:services+'#it-bpo',detail:'端末の更新状況の把握や、継続的なIT運用の仕組みづくりを支援します。'},
+   T06:{name:'IT構築・運用支援',url:services+'#it-projects',detail:'バックアップの取得・保管・復元確認の仕組みを、業務に合わせて整備します。',extra:{name:'atLIB Secure Guard',url:services+'#secure-guard',detail:'危険な接続先への通信をDNSの段階で防ぐ対策もご相談いただけます。バックアップの代替ではありません。'}},
+   T07:{name:'セキュリティコンサルティング',url:consulting,detail:'振込先変更の別経路確認など、業務ルールや確認手順を整備します。',extra:{name:'atLIB Secure Guard',url:services+'#secure-guard',detail:'危険なサイトへの接続を防ぐ補助的な対策です。振込先の確認手順を置き換えるものではありません。'}},
+   T08:{name:'セキュリティコンサルティング',url:consulting,detail:'事故時の連絡先、初動手順、対応記録といった運用体制を整える支援です。'}
+  };
+  const guidance={READY:'今の取り組みを継続するための支援',PARTIAL:'取り組みの範囲を広げるための支援',NOT_DONE:'仕組みづくりからの支援',UNKNOWN:'現状を確認するための支援',DELEGATED:'担当者・保守会社との確認を進めるための支援'};
+  const node=(tag,cls,txt)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(txt!==undefined)el.textContent=txt;return el;};
+  const link=(label,url)=>{const a=node('a','insight-service-link',label);a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;};
+  const answerMap=new Map(answers.map(a=>[a.questionId,a.answerId]));
+  const getOption=id=>content.questions.find(q=>q.id===id)?.options.find(o=>o.id===answerMap.get(id));
+  report.classList.add('general-insight-report');
+  const summary=report.querySelector('.result-page');
+  const table=summary?.querySelector('table');
+  if(summary&&table){
+   const greeting=summary.querySelector('.v7-greeting');
+   if(greeting)greeting.replaceChildren(node('p','','8つの回答をもとに、日常業務で見直すポイントと関連する支援をご紹介します。安全性の採点や、対策の実施状況を保証するものではありません。'));
+   const themes=summary.querySelector('.v7-theme-list');
+   if(themes&&themes.previousElementSibling){const title=themes.previousElementSibling;greeting?.after(title,themes);}
+   const heading=table.previousElementSibling;
+   if(heading)heading.textContent='8つの回答と関連する支援';
+   Array.from(table.querySelectorAll('tbody tr')).forEach((row,index)=>{
+    const q=content.questions[index],option=q&&getOption(q.id),entry=q&&support[q.id],cell=row.cells[2];
+    if(!q||!option||!entry||!cell)return;
+    row.dataset.questionId=q.id;row.dataset.answerState=option.state;
+    row.cells[1].prepend(node('strong','insight-question-theme',content.themes[q.id].title));
+    const info=node('div','insight-answer-support');
+    if(option.state==='NOT_APPLICABLE')info.append(node('span','insight-support-context','今回の回答では対象外'));
+    else{info.append(node('span','insight-support-context',guidance[option.state]||'関連する支援'),link(entry.name,entry.url));}
+    cell.append(info);
+   });
+  }
+  report.querySelectorAll('.theme-page:not(.v7-reference)').forEach(page=>{
+   const title=page.querySelector('.v7-title-content h1')?.textContent;
+   const id=Object.keys(support).find(k=>content.themes[k]?.title===title);
+   const option=id&&getOption(id),entry=id&&support[id];
+   if(!id||!option||!entry)return;
+   page.dataset.questionId=id;
+   const intro=page.querySelector('.v7-intro');
+   if(intro){const box=node('div','insight-own-answer');box.append(node('span','insight-small-label','今回の御社の回答'),node('strong','',option.label));intro.before(box);box.append(intro);}
+   const sections=Array.from(page.querySelectorAll(':scope > section'));
+   sections.forEach(section=>{const h=section.querySelector('h2');if(!h)return;if(h.textContent==='基本的な知識')section.classList.add('insight-knowledge');else if(/^(実際に|身近な)/.test(h.textContent))section.classList.add('insight-case');else if(h.textContent==='日常業務での確認')section.classList.add('insight-action');});
+   page.querySelectorAll('.v7-principles li').forEach((li,index)=>{
+    const original=li.textContent;const parts=original.split(/[：:]/);const head=parts.shift();
+    li.replaceChildren(node('span','insight-point-number',String(index+1).padStart(2,'0')),node('strong','',head||original));
+    if(parts.length)li.append(node('span','insight-point-detail',parts.join('：')));
+   });
+   const tools=page.querySelector('.v7-tools');
+   if(tools){const toolLink=tools.querySelector('.v7-tool-label');tools.replaceChildren(node('h2','','日常業務に役立つツール'),node('p','','定期的な確認には、情報管理・セキュリティ年間確認カレンダーをご活用ください。'));if(toolLink)tools.append(toolLink);}
+   if(option.state!=='NOT_APPLICABLE'){
+    const card=node('aside','insight-related-service');card.append(node('span','insight-small-label',guidance[option.state]||'関連する支援'),link(entry.name,entry.url),node('p','',entry.detail));
+    if(entry.extra)card.append(link(entry.extra.name,entry.extra.url),node('p','',entry.extra.detail));
+    page.append(card);
+   }
+  });
+  const reference=report.querySelector('.v7-reference .v7-management-grid');
+  if(reference){reference.replaceChildren(...[['技術','機器・システムの対策'],['運用','日常の点検・更新・教育'],['管理','ルール・役割・改善']].map(([a,b])=>{const item=node('span','');item.append(node('strong','',a),node('small','',b));return item;}));}
+  const tools=report.querySelector('.v7-tools-page');
+  if(tools){const education=tools.querySelector('#tool-EDUCATION h2');if(education)education.textContent='従業員向け情報セキュリティ教育資料';}
+  const final=node('section','v7-page insight-consulting-page');final.id='insight-consulting';
+  const header=node('header','v7-title-card');const title=node('div','v7-title-content');title.append(node('span','','atLIB SECURITY CONSULTING'),node('h1','','知ることから、守る仕組みづくりまで。'),node('p','','企業全体のセキュリティ対策を、一緒に考えます。'));header.append(title);final.append(header);
+  final.append(node('p','insight-consulting-lead','個別の対策だけでなく、技術・運用・管理を組み合わせ、御社の事業やIT環境に合った仕組みを整えることが大切です。'));
+  const pillars=node('div','insight-pillars');[['技術','必要な機器・システム対策'],['運用','点検・更新・教育を日常業務に'],['管理','ルール・責任体制と継続改善']].forEach(([a,b])=>{const c=node('div','');c.append(node('strong','',a),node('span','',b));pillars.append(c);});final.append(pillars,node('h2','','atLIBのセキュリティコンサルティング'));
+  final.append(node('p','','認証取得の先に、現場で機能する仕組みを。書類を整えるだけでなく、実際に運用できる情報管理・セキュリティ体制の構築を支援します。'));
+  const steps=node('ol','insight-consulting-steps');[['現状把握','業務・IT環境・管理体制を確認'],['課題整理','必要な対策と優先順位を整理'],['体制・ルール整備','企業の実態に合った仕組みづくり'],['運用定着','継続的な運用・改善を支援']].forEach(([a,b],i)=>{const li=node('li','');li.append(node('span','insight-point-number',String(i+1).padStart(2,'0')),node('strong','',a),node('span','',b));steps.append(li);});final.append(steps);
+  final.append(node('h2','','認証取得・評価制度への対応もご相談ください'));
+  const scopes=node('div','insight-cert-links');[['ISMS取得・運用体制整備','#isms-support'],['Pマーク取得支援','#pmark-support'],['SecureNavi導入支援','#securenavi-support'],['SCS評価制度対応支援','#scs-support']].forEach(([label,fragment])=>scopes.append(link(label,consulting+fragment)));final.append(scopes);
+  const next=node('div','insight-consulting-next');next.append(node('h2','','何から始めればよいか分からない企業様へ'),node('p','','診断結果をもとに、御社に必要な対策を一緒に整理します。無料相談では今回の回答を引き継げます。'),link('セキュリティコンサルティングの詳細を見る',consulting));final.append(next);
+  const printContact=node('p','insight-print-contact');printContact.append(node('span','','atLIB株式会社　ご相談・お問い合わせ：'),link('www.atlib.jp/contact/','https://www.atlib.jp/contact/'));final.append(printContact);
+  report.append(final);addGuide(app,next);
+ };
  if(!web)document.addEventListener('pira:v7-report-rendered',async event=>{
   insightAnswers=event.detail?.answers??null;
-  const app=document.getElementById('app');const toolbar=app.querySelector('.v7-toolbar');if(toolbar)addGuide(app,toolbar);
+  const app=document.getElementById('app');const toolbar=app.querySelector('.v7-toolbar');if(toolbar)addGuide(app,toolbar);enhanceInsight(app,insightAnswers);
   app.hidden=true;const started=showProgress();await waitMinimum(started);
   finishProgress();app.hidden=false;toolbar?.querySelector('button')?.focus({preventScroll:true});
  });
