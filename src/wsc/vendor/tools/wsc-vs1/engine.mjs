@@ -162,10 +162,78 @@ const spfAllowsAll = record => {
   return all!==undefined&&/^\+?all$/i.test(all);
 };
 
+// Freeze customer presentation at diagnosis time, independently of HTML/PDF.
+const detailValue=(finding,label)=>finding.details.find(d=>d.label===label)?.raw;
+const validEvidenceDomain=value=>typeof value==='string'&&value.length<=253&&value.split('.').every(label=>/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label));
+const customerPresentation=(finding,definition,customer)=>{
+  const entry=definition.presentation,group=customer.groups[entry.group],v=customer.variants,l=customer.labels;
+  const facts=[];
+  const add=(label,value)=>{if(typeof value==='string'&&value.length>0)facts.push({label,value});};
+  const domain=(label,value)=>{if(validEvidenceDomain(value))add(label,value);};
+  let result=entry.result,summary=entry.summary;
+  switch(finding.id){
+    case 'TLS_VALID':
+    case 'TLS_EXPIRING':{
+      const expires=detailValue(finding,'証明書の期限');
+      if(typeof expires==='string'&&Number.isFinite(Date.parse(expires)))add(l.expiry,japaneseDate(expires));
+      if(finding.id==='TLS_EXPIRING'){
+        const days=detailValue(finding,'残日数');
+        if(Number.isInteger(days)&&days>=0&&days<=30)add(l.days,days===0?'1日未満':days+'日');
+      }
+      break;
+    }
+    case 'TLS_INVALID':{
+      const reason=detailValue(finding,'検証エラー');
+      if(typeof reason==='string'&&Object.hasOwn(v.TLS_REASONS,reason))add(l.reason,v.TLS_REASONS[reason]);
+      break;
+    }
+    case 'HSTS_DISABLED':
+      if(typeof detailValue(finding,'Strict-Transport-Security')==='string')result=v.HSTS_ZERO;
+      break;
+    case 'CSP_HEADER_ABSENT':
+      if(typeof detailValue(finding,'Content-Security-Policy-Report-Only')==='string')result=v.CSP_MONITOR;
+      break;
+    case 'SPF_PRESENT':case 'SPF_MULTIPLE':case 'SPF_ALLOW_ALL':case 'SPF_INVALID':
+      domain(l.domain,detailValue(finding,'SPF確認ドメイン'));
+      break;
+    case 'DMARC_NONE':case 'DMARC_ENFORCING':case 'DMARC_TEST':{
+      const p=detailValue(finding,'適用ポリシー')??detailValue(finding,'p値');
+      const tag=detailValue(finding,'適用ポリシーのタグ')??'p';
+      domain(l.domain,detailValue(finding,'DMARC確認ドメイン'));
+      domain(l.policyDomain,detailValue(finding,'レコード取得ドメイン'));
+      if(['p','sp','np'].includes(tag)&&['none','quarantine','reject'].includes(p))add(l.policy,tag+'='+p);
+      if(finding.id==='DMARC_ENFORCING'&&p==='quarantine')result=v.DMARC_QUARANTINE;
+      if(finding.id==='DMARC_ENFORCING'&&p==='reject')result=v.DMARC_REJECT;
+      if(detailValue(finding,'テストモード')==='y'){
+        add('テストモード','t=y');
+        if(finding.id==='DMARC_NONE')result+=' '+v.DMARC_TEST_NONE;
+        const effective=detailValue(finding,'テスト時の方針');
+        if(['none','quarantine'].includes(effective))add('テスト時に求める方針',effective);
+      }
+      break;
+    }
+    case 'DMARC_ABSENT':{
+      const searched=detailValue(finding,'探索ドメイン');
+      domain(l.domain,detailValue(finding,'DMARC確認ドメイン'));
+      if(typeof searched==='string'){
+        const names=searched.split(', ');
+        if(names.length<=8&&names.every(validEvidenceDomain))add(l.searched,names.join('、'));
+      }
+      break;
+    }
+  }
+  return {summary,result,facts,protection:group.protection,impact:group.impact,action:finding.status==='追加確認推奨'?definition.nextAction:null};
+};
+const reportTime=value=>{
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(value)).map(p=>[p.type,p.value]));
+  return parts.year+'年'+parts.month+'月'+parts.day+'日 '+parts.hour+':'+parts.minute;
+};
+
 export function evaluate(input, { rulesPath, explanationsPath } = {}) {
   if (!isObject(input)) throw new Error('入力JSONはオブジェクトである必要があります。');
-  const rules = rulesPath ? read(rulesPath) : { ruleVersion: 'WSC-R-1.0.2-draft' };
-  const explanations = explanationsPath ? read(explanationsPath).entries : null;
+  const rules = rulesPath ? read(rulesPath) : { ruleVersion: 'WSC-R-1.0.3-draft' };
+  const content = explanationsPath ? read(explanationsPath) : null;
+  const explanations = content?.entries;
   if (!explanations) throw new Error('固定解説ファイルが必要です。');
   const findings = [];
   const internalOnly = [];
@@ -238,20 +306,28 @@ export function evaluate(input, { rulesPath, explanationsPath } = {}) {
   const policyTag = text(dmarc?.policyTag);
   const dmarcScope = policyDomain && checkedDomain ? [evidence('DMARC確認ドメイン', checkedDomain), evidence('レコード取得ドメイン', policyDomain), evidence('適用ポリシーのタグ', policyTag), ...(dmarc.policySource === 'PSD' ? [evidence('ポリシー取得元', 'PSD', '公開サフィックスドメイン')] : [])] : [];
   if (dmarc && dmarc.lookupStatus === 'FOUND' && Array.isArray(dmarc.records) && dmarc.recordCount === 1 && dmarc.records.length === 1) {
-    if (p === 'none') add('DMARC_NONE', '追加確認推奨', [evidence('DMARCレコード', dmarc.records.join(' ')), evidence(policyDomain && policyDomain !== checkedDomain ? '適用ポリシー' : 'p値', p), ...dmarcScope]);
-    else if (p === 'quarantine' || p === 'reject') add('DMARC_ENFORCING', '設定確認済み', [evidence(policyDomain && policyDomain !== checkedDomain ? '適用ポリシー' : 'p値', p), ...dmarcScope]);
-    else internalOnly.push('DMARC: p値が未定義');
-    if (policyDomain && checkedDomain && policyDomain !== checkedDomain && ['DMARC_NONE','DMARC_ENFORCING'].includes(findings.at(-1)?.id)) {
-      findings.at(-1).observation += ' 上位ドメイン（' + policyDomain + '）に公開された対応方針を確認しました。';
-      findings.at(-1).evidenceExplanation = '確認ドメイン（' + checkedDomain + '）には上位ドメイン（' + policyDomain + '）のDMARC方針が適用されます。' + policyTag + '=' + p + (p === 'none' ? ' のため、認証に失敗したメールの隔離や拒否を受信側へ要求しない指定です。' : ' により、認証に失敗したメールの隔離または拒否を受信側へ求める指定です。実際の配信・認証状況は検証していません。');
-    }
+    const testing=text(dmarc.tags.t)?.toLowerCase();
+    const testEvidence=testing==='y'?[evidence('テストモード','y'),...(p==='quarantine'||p==='reject'?[evidence('テスト時の方針',p==='reject'?'quarantine':'none')]:[])]:[];
+    if(Object.hasOwn(dmarc.tags,'t')&&!['y','n'].includes(testing))internalOnly.push('DMARC: テストモードが判定不能');
+    else if(p==='none')add('DMARC_NONE','追加確認推奨',[evidence('DMARCレコード',dmarc.records.join(' ')),evidence(policyDomain&&policyDomain!==checkedDomain?'適用ポリシー':'p値',p),...dmarcScope,...testEvidence]);
+    else if(p==='quarantine'||p==='reject'){
+      if(testing==='y')add('DMARC_TEST','追加確認推奨',[evidence(policyDomain&&policyDomain!==checkedDomain?'適用ポリシー':'p値',p),...dmarcScope,...testEvidence]);
+      else add('DMARC_ENFORCING','設定確認済み',[evidence(policyDomain&&policyDomain!==checkedDomain?'適用ポリシー':'p値',p),...dmarcScope]);
+    }else internalOnly.push('DMARC: p値が未定義');
   } else if (dmarc && dmarc.lookupStatus === 'NO_RECORD') {
     const domains = Array.isArray(dmarc.queriedDomains) && dmarc.queriedDomains.every(value => typeof value === 'string') ? dmarc.queriedDomains : [];
     add('DMARC_ABSENT', '追加確認推奨', [evidence('DNS取得状態', dmarc.lookupStatus), ...(checkedDomain ? [evidence('DMARC確認ドメイン', checkedDomain)] : []), ...(domains.length ? [evidence('探索ドメイン', domains.join(', '))] : [])]);
     if (checkedDomain && domains.length) findings.at(-1).evidenceExplanation = '確認ドメイン（' + checkedDomain + '）と上位ドメインをDNSで探索し、適用されるDMARCレコードを確認できませんでした。';
   } else if (dmarc) internalOnly.push('DMARC: DNS取得状態またはレコード型が判定不能');
 
-  return { ruleVersion: rules.ruleVersion, contentVersion: read(explanationsPath).contentVersion, checkedAt: text(input.checkedAt), targetUrl: text(input.targetUrl), findings, internalOnly };
+  if(content.customer){
+    for(const finding of findings){
+      finding.presentation=customerPresentation(finding,explanations[finding.id],content.customer);
+      // Stored observation is also factual and consistent with the public copy.
+      finding.observation=finding.presentation.result;
+    }
+  }
+  return { ruleVersion: rules.ruleVersion, contentVersion: content.contentVersion, checkedAt: text(input.checkedAt), targetUrl: text(input.targetUrl), findings, internalOnly, ...(content.customer?{customerScope:content.customer.scope}:{}) };
 }
 
 const TECHNICAL_HEADINGS = Object.freeze({
@@ -272,7 +348,8 @@ const TECHNICAL_HEADINGS = Object.freeze({
   "SPF_INVALID": "SPF",
   "DMARC_NONE": "DMARC",
   "DMARC_ENFORCING": "DMARC",
-  "DMARC_ABSENT": "DMARC"
+  "DMARC_ABSENT": "DMARC",
+  "DMARC_TEST": "DMARC"
 });
 const technicalHeading = (finding, options) => options?.technicalHeadings === true ? (TECHNICAL_HEADINGS[finding.id] || '') : '';
 const displayTitle = (finding, options) => { const label = technicalHeading(finding, options); return label ? label + '｜' + finding.title : finding.title; };
@@ -285,13 +362,13 @@ export function render(report, company, options) {
   const groups = { https: report.findings.filter(f => sectionOf(f.id) === 'https'), web: report.findings.filter(f => sectionOf(f.id) === 'web'), email: report.findings.filter(f => sectionOf(f.id) === 'email') };
   const evidenceList = (f) => f.details.map(d => `<li><b>${html(d.label)}：</b><span class="value">${html(d.display)}</span>${d.raw !== d.display ? `<small class="raw">原値：${html(d.raw === null ? 'null' : d.raw)}</small>` : ''}</li>`).join('');
   const icon = (id) => /^(TLS|HSTS)/.test(id) ? assets.globe : /^(CSP|FRAME|NOSNIFF)/.test(id) ? assets.shield : id.startsWith('SPF') ? assets.mail : assets.warning;
-  const summary = (items) => items.map(f => `<div class="ov-item"><img class="fv-icon" src="${icon(f.id)}" alt=""><div>${technicalHeading(f, options) ? `<strong class="technical-heading">${html(technicalHeading(f, options))}</strong>` : ''}<b>${html((f.id==='SPF_PRESENT'&&f.details.some(d=>d.label==='SPF確認ドメイン')&&f.observation.startsWith('上位ドメイン') ? f.observation : FV_COPY[f.id] || f.observation))}</b><small>${html(f.details[0]?.display || f.title)}</small></div><span class="ov-status ${f.status === '追加確認推奨' ? 'review' : ''}">${html(f.status)}</span></div>`).join('');
+  const summary = (items) => items.map(f => `<div class="ov-item"><img class="fv-icon" src="${icon(f.id)}" alt=""><div>${technicalHeading(f, options) ? `<strong class="technical-heading">${html(technicalHeading(f, options))}</strong>` : ''}<b>${html(f.presentation?.summary ?? ((f.id==='SPF_PRESENT'&&f.details.some(d=>d.label==='SPF確認ドメイン')&&f.observation.startsWith('上位ドメイン') ? f.observation : FV_COPY[f.id] || f.observation)))}</b><small>${html(f.details[0]?.display || f.title)}</small></div><span class="ov-status ${f.status === '追加確認推奨' ? 'review' : ''}">${html(f.status)}</span></div>`).join('');
   const source = (f) => (SOURCES[f.id] || []).map(([name, url]) => `<a href="${url}">${html(name)}</a>`).join(' ／ ') || (f.reference ? html(f.reference) : '');
   const finding = (f) => `<article class="finding ${f.status === '追加確認推奨' ? 'review' : ''}" data-finding-id="${html(f.id)}"><span class="tag">${html(f.status)}</span><h3>${html(f.title)}</h3><h4>今回の診断結果</h4><p>${html(f.observation)}</p><div class="evidence"><h4>そう判断した根拠</h4><ul>${evidenceList(f)}</ul><p>${html(f.evidenceExplanation)}</p></div><h4>なぜ大切なのか</h4><p>${html(f.knowledge)}</p><div class="action"><h4>次に確認すること</h4><p>${html(f.nextAction)}</p></div>${source(f) ? `<p class="source">技術的な参考資料：${source(f)}</p>` : ''}</article>`;
   const detail = (id, title, lead, items) => !items.length ? '' : `<section class="detail report-section" id="${id}"><h2>${title}</h2><p class="lead">${lead}</p>${items.map(finding).join('')}</section>`;
   const review = report.findings.filter(f => f.status === '追加確認推奨');
   const date = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'long', timeZone: 'Asia/Tokyo' }).format(new Date(report.checkedAt));
-  return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${html(company.name)}｜Webセキュリティ診断レポート</title><style>:root{--navy:#1F3556;--orange:#F28C38;--green:#2DBE9D;--off:#F8FAFC;--line:#DCE5F0}*{box-sizing:border-box}html{background:var(--off);scroll-behavior:smooth}body{margin:0;color:var(--navy);font-family:"Yu Gothic","Meiryo",sans-serif;line-height:1.75}.topnav{position:sticky;top:0;z-index:3;background:#fffffff5;border-bottom:1px solid var(--line)}.nav-inner{max-width:1100px;min-height:68px;margin:auto;padding:10px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{font-weight:800;font-size:18px}.nav-links{display:flex;gap:18px}.nav-links a{color:var(--navy);font-weight:700;text-decoration:none;font-size:13px}.print-button{border:0;border-radius:9px;background:var(--navy);color:#fff;padding:11px 16px;font:700 13px inherit;cursor:pointer}.review-banner{text-align:center;background:#F7CA91;font-size:11px;font-weight:bold;padding:7px}.report-section{width:min(100% - 32px,1050px);margin:26px auto;padding:65px 68px;background:var(--off);border-radius:16px;box-shadow:0 8px 36px #15324512}.cover{min-height:690px;color:#fff;overflow:hidden;background:radial-gradient(circle at 80% 40%,#287F78 0%,#1F3556 44%,#152743 85%)}.cover-kicker{margin-top:115px;color:#91E6D2;font-size:13px;letter-spacing:.12em}.cover h1{font-size:clamp(36px,5vw,56px);line-height:1.4;letter-spacing:-.06em}.cover-sub{font-size:13px;letter-spacing:.16em;color:#D6E4F2}.cover-bottom{margin-top:120px;padding-top:32px;border-top:1px solid #7E99B2}.company span,.cover-details{display:block;color:#C1D0E2}.company strong{font-size:25px}.cover-details{display:flex;justify-content:space-between;margin-top:25px}.intro h2,.detail h2{font-size:30px;line-height:1.4}.intro-copy{font-size:15px}.intro-copy h3{color:#207B71;font-size:17px;margin:23px 0 3px}.intro-news-source,.source{font-size:11px;color:#60728A}.overview h2{font-size:35px;line-height:1.3}.overview h2 em{font-style:normal;color:#218D7B}.overview-main{display:grid;grid-template-columns:1fr 1fr;gap:18px}.overview-card,.finding{border:1px solid var(--line);border-radius:13px;background:#fff;overflow:hidden}.ov-head{padding:20px;background:#EDF8F5}.ov-head h3{margin:0;font-size:20px}.ov-list{padding:14px 18px}.ov-item{display:flex;justify-content:space-between;gap:9px;padding:15px 0;border-bottom:1px solid #E8EDF4}.ov-item:last-child{border:0}.ov-item b,.ov-item small{display:block}.ov-item small{font-size:12px;color:#657995}.ov-status,.tag{display:inline-block;align-self:flex-start;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:750;background:#E6F7F2;color:#176F5C;white-space:nowrap}.ov-status.review,.finding.review .tag{background:#FFF2E6;color:#98501B}.attention,.action{background:#FFF2E6;border-radius:12px;padding:20px;margin-top:22px}.attention h3{margin:0}.attention li{margin:8px 0}.lead{color:#60728A}.illustration{background:#EAF6F3;border:1px solid #CBE9E0;border-radius:14px;padding:20px;margin:20px 0 28px}.illustration svg{width:100%;height:110px;fill:none;stroke:#2DBE9D;stroke-width:4}.finding{border-left:5px solid var(--green);padding:24px 28px;margin:22px 0;break-inside:avoid}.finding.review{border-left-color:var(--orange)}.finding h3{font-size:21px;margin:10px 0}.finding h4{font-size:14px;color:#187E73;margin:18px 0 5px}.evidence{background:var(--off);border-radius:8px;padding:14px 18px;margin:14px 0}.evidence ul{margin:0;padding-left:18px}.evidence p{margin:7px 0 0}.action h4{color:#9D541C;margin:0 0 5px}.action p{margin:0}.final-card,.final-note{background:#EAF6F3;border-radius:12px;padding:24px;margin:18px 0}.final-card{background:#FFF2E6}@media(max-width:800px){.nav-inner{flex-wrap:wrap}.nav-links{order:3;width:100%;justify-content:space-between}.report-section{width:calc(100% - 16px);padding:36px 22px;margin:12px auto}.cover{min-height:580px}.cover-kicker{margin-top:90px}.cover-bottom{margin-top:105px}.cover-details{flex-wrap:wrap;gap:12px}.overview-main{grid-template-columns:1fr}.finding{padding:18px}.ov-item{flex-direction:column}}@media print{@page{size:A4;margin:15mm 13mm}.topnav,.review-banner{display:none!important}html,body{background:#fff}.report-section{width:100%;margin:0;padding:10mm 0;box-shadow:none;border-radius:0}.cover{min-height:245mm;padding:16mm;break-after:page}.finding,.overview-card,.attention,.final-card,.final-note{break-inside:avoid}.cover-bottom{margin-top:75mm}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><nav class="topnav"><div class="nav-inner"><span class="brand">atLIB <small>WEB SECURITY REPORT</small></span><div class="nav-links"><a href="#overview">診断概要</a><a href="#https">Webサイト</a><a href="#email">メール</a><a href="#next-steps">確認事項</a></div><button class="print-button" aria-label="印刷またはPDFで保存" onclick="window.print()">▣ PDFで保存・印刷</button></div></nav><div class="review-banner">内部デザインレビュー用｜対外配布不可</div><section class="cover report-section"><div class="cover-kicker">公開情報から見える、会社のセキュリティ</div><h1>Webセキュリティ<br>診断レポート</h1><div class="cover-sub">PUBLIC WEBSITE &amp; EMAIL SECURITY REVIEW</div><div class="cover-bottom"><div class="company"><span>診断対象企業</span><strong>${html(company.name)}</strong></div><div class="cover-details"><span>${html(company.url)}</span><span>${html(date)}</span></div></div></section><section class="intro report-section"><h2>WebサイトのURLだけで、ここまで分かることをご存じですか？</h2><div class="intro-copy">${APPROVED_INTRO}</div></section><section class="overview report-section" id="overview"><h2>今回の診断で<br><em>分かったこと</em></h2><p>対象URL：${html(report.targetUrl)} ／ 診断日時：${html(report.checkedAt)}</p><div class="overview-main"><div class="overview-card"><div class="ov-head"><small>CHECK AREA</small><h3>Webサイト</h3></div><div class="ov-list">${summary([...groups.https,...groups.web]) || '<p>表示対象の結果はありません。</p>'}</div></div><div class="overview-card"><div class="ov-head"><small>CHECK AREA</small><h3>メール</h3></div><div class="ov-list">${summary(groups.email) || '<p>表示対象の結果はありません。</p>'}</div></div></div>${review.length ? `<div class="attention"><h3>今回、確認をおすすめすること</h3><ol>${review.map(f => `<li>${html(displayTitle(f, options))}</li>`).join('')}</ol></div>` : ''}</section>${detail('https','Webサイトの通信を守る仕組み','暗号化通信と証明書について、今回の確認結果をご案内します。',groups.https)}${detail('web','Webサイトの表示・動作を守る設定','公開されている設定から、管理担当者への確認をおすすめする内容です。',groups.web)}${detail('email','自社を装った偽メールへの対策','対象メールドメインの公開DNS設定に基づく説明です。',groups.email)}<section class="detail report-section" id="next-steps"><h2>次に確認しておくとよいこと</h2><p class="lead">管理担当者や保守会社へ、以下の内容を確認する際にお役立てください。</p>${review.map(f => `<div class="final-card"><h3>${html(f.title)}</h3><p>${html(f.nextAction)}</p></div>`).join('')}<div class="final-note"><b>診断の範囲について</b><p>本診断はインターネット上に公開されているWebサイトやメールの設定を確認したものであり、企業全体のセキュリティ対策や安全性を評価するものではありません。</p><p>「追加確認推奨」は管理担当者や保守会社への確認をおすすめするものであり、atLIBによる追加調査を約束するものではありません。</p><p>ルール版：${html(report.ruleVersion)} ／ 解説版：${html(report.contentVersion)}</p></div></section></body></html>`;
+  return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${html(company.name)}｜Webセキュリティ診断レポート</title><style>:root{--navy:#1F3556;--orange:#F28C38;--green:#2DBE9D;--off:#F8FAFC;--line:#DCE5F0}*{box-sizing:border-box}html{background:var(--off);scroll-behavior:smooth}body{margin:0;color:var(--navy);font-family:"Yu Gothic","Meiryo",sans-serif;line-height:1.75}.topnav{position:sticky;top:0;z-index:3;background:#fffffff5;border-bottom:1px solid var(--line)}.nav-inner{max-width:1100px;min-height:68px;margin:auto;padding:10px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{font-weight:800;font-size:18px}.nav-links{display:flex;gap:18px}.nav-links a{color:var(--navy);font-weight:700;text-decoration:none;font-size:13px}.print-button{border:0;border-radius:9px;background:var(--navy);color:#fff;padding:11px 16px;font:700 13px inherit;cursor:pointer}.review-banner{text-align:center;background:#F7CA91;font-size:11px;font-weight:bold;padding:7px}.report-section{width:min(100% - 32px,1050px);margin:26px auto;padding:65px 68px;background:var(--off);border-radius:16px;box-shadow:0 8px 36px #15324512}.cover{min-height:690px;color:#fff;overflow:hidden;background:radial-gradient(circle at 80% 40%,#287F78 0%,#1F3556 44%,#152743 85%)}.cover-kicker{margin-top:115px;color:#91E6D2;font-size:13px;letter-spacing:.12em}.cover h1{font-size:clamp(36px,5vw,56px);line-height:1.4;letter-spacing:-.06em}.cover-sub{font-size:13px;letter-spacing:.16em;color:#D6E4F2}.cover-bottom{margin-top:120px;padding-top:32px;border-top:1px solid #7E99B2}.company span,.cover-details{display:block;color:#C1D0E2}.company strong{font-size:25px}.cover-details{display:flex;justify-content:space-between;margin-top:25px}.intro h2,.detail h2{font-size:30px;line-height:1.4}.intro-copy{font-size:15px}.intro-copy h3{color:#207B71;font-size:17px;margin:23px 0 3px}.intro-news-source,.source{font-size:11px;color:#60728A}.overview h2{font-size:35px;line-height:1.3}.overview h2 em{font-style:normal;color:#218D7B}.overview-main{display:grid;grid-template-columns:1fr 1fr;gap:18px}.overview-card,.finding{border:1px solid var(--line);border-radius:13px;background:#fff;overflow:hidden}.ov-head{padding:20px;background:#EDF8F5}.ov-head h3{margin:0;font-size:20px}.ov-list{padding:14px 18px}.ov-item{display:flex;justify-content:space-between;gap:9px;padding:15px 0;border-bottom:1px solid #E8EDF4}.ov-item:last-child{border:0}.ov-item b,.ov-item small{display:block}.ov-item small{font-size:12px;color:#657995}.ov-status,.tag{display:inline-block;align-self:flex-start;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:750;background:#E6F7F2;color:#176F5C;white-space:nowrap}.ov-status.review,.finding.review .tag{background:#FFF2E6;color:#98501B}.attention,.action{background:#FFF2E6;border-radius:12px;padding:20px;margin-top:22px}.attention h3{margin:0}.attention li{margin:8px 0}.lead{color:#60728A}.illustration{background:#EAF6F3;border:1px solid #CBE9E0;border-radius:14px;padding:20px;margin:20px 0 28px}.illustration svg{width:100%;height:110px;fill:none;stroke:#2DBE9D;stroke-width:4}.finding{border-left:5px solid var(--green);padding:24px 28px;margin:22px 0;break-inside:avoid}.finding.review{border-left-color:var(--orange)}.finding h3{font-size:21px;margin:10px 0}.finding h4{font-size:14px;color:#187E73;margin:18px 0 5px}.evidence{background:var(--off);border-radius:8px;padding:14px 18px;margin:14px 0}.evidence ul{margin:0;padding-left:18px}.evidence p{margin:7px 0 0}.action h4{color:#9D541C;margin:0 0 5px}.action p{margin:0}.final-card,.final-note{background:#EAF6F3;border-radius:12px;padding:24px;margin:18px 0}.final-card{background:#FFF2E6}@media(max-width:800px){.nav-inner{flex-wrap:wrap}.nav-links{order:3;width:100%;justify-content:space-between}.report-section{width:calc(100% - 16px);padding:36px 22px;margin:12px auto}.cover{min-height:580px}.cover-kicker{margin-top:90px}.cover-bottom{margin-top:105px}.cover-details{flex-wrap:wrap;gap:12px}.overview-main{grid-template-columns:1fr}.finding{padding:18px}.ov-item{flex-direction:column}}@media print{@page{size:A4;margin:15mm 13mm}.topnav,.review-banner{display:none!important}html,body{background:#fff}.report-section{width:100%;margin:0;padding:10mm 0;box-shadow:none;border-radius:0}.cover{min-height:245mm;padding:16mm;break-after:page}.finding,.overview-card,.attention,.final-card,.final-note{break-inside:avoid}.cover-bottom{margin-top:75mm}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><nav class="topnav"><div class="nav-inner"><span class="brand">atLIB <small>WEB SECURITY REPORT</small></span><div class="nav-links"><a href="#overview">診断概要</a><a href="#https">Webサイト</a><a href="#email">メール</a><a href="#next-steps">確認事項</a></div><button class="print-button" aria-label="印刷またはPDFで保存" onclick="window.print()">▣ PDFで保存・印刷</button></div></nav><div class="review-banner">内部デザインレビュー用｜対外配布不可</div><section class="cover report-section"><div class="cover-kicker">公開情報から見える、会社のセキュリティ</div><h1>Webセキュリティ<br>診断レポート</h1><div class="cover-sub">PUBLIC WEBSITE &amp; EMAIL SECURITY REVIEW</div><div class="cover-bottom"><div class="company"><span>診断対象企業</span><strong>${html(company.name)}</strong></div><div class="cover-details"><span>${html(company.url)}</span><span>${html(date)}</span></div></div></section><section class="intro report-section"><h2>WebサイトのURLだけで、ここまで分かることをご存じですか？</h2><div class="intro-copy">${APPROVED_INTRO}</div></section><section class="overview report-section" id="overview"><h2>今回の診断で<br><em>分かったこと</em></h2><p>対象URL：${html(report.targetUrl)} ／ 診断日時：${html(report.customerScope?reportTime(report.checkedAt):report.checkedAt)}</p><div class="overview-main"><div class="overview-card"><div class="ov-head"><small>CHECK AREA</small><h3>Webサイト</h3></div><div class="ov-list">${summary([...groups.https,...groups.web]) || '<p>表示対象の結果はありません。</p>'}</div></div><div class="overview-card"><div class="ov-head"><small>CHECK AREA</small><h3>メール</h3></div><div class="ov-list">${summary(groups.email) || '<p>表示対象の結果はありません。</p>'}</div></div></div>${review.length ? `<div class="attention"><h3>今回、確認をおすすめすること</h3><ol>${review.map(f => `<li>${html(displayTitle(f, options))}</li>`).join('')}</ol></div>` : ''}</section>${detail('https','Webサイトの通信を守る仕組み','暗号化通信と証明書について、今回の確認結果をご案内します。',groups.https)}${detail('web','Webサイトの表示・動作を守る設定','公開されている設定から、管理担当者への確認をおすすめする内容です。',groups.web)}${detail('email','自社を装った偽メールへの対策','対象メールドメインの公開DNS設定に基づく説明です。',groups.email)}<section class="detail report-section" id="next-steps"><h2>次に確認しておくとよいこと</h2><p class="lead">管理担当者や保守会社へ、以下の内容を確認する際にお役立てください。</p>${review.map(f => `<div class="final-card"><h3>${html(f.title)}</h3><p>${html(f.nextAction)}</p></div>`).join('')}<div class="final-note"><b>診断の範囲について</b><p>本診断はインターネット上に公開されているWebサイトやメールの設定を確認したものであり、企業全体のセキュリティ対策や安全性を評価するものではありません。</p><p>「追加確認推奨」は管理担当者や保守会社への確認をおすすめするものであり、atLIBによる追加調査を約束するものではありません。</p><p>ルール版：${html(report.ruleVersion)} ／ 解説版：${html(report.contentVersion)}</p></div></section></body></html>`;
 }
 
 // The assets are embedded as data URLs after the common template is rendered so
@@ -323,8 +400,14 @@ render = (report, company, options) => {
     const review = finding.status === '追加確認推奨';
     return `<span class="tag${review ? ' review' : ''}">${review ? '<span class="warning-icon" aria-hidden="true">⚠</span>' : ''}${html(finding.status)}</span>`;
   };
-  const customerFinding = (finding) => { const key = category(finding.id); const protection = PROTECTION_COPY[key] || []; const impact = IMPACT_DETAIL_COPY[key] || [IMPACT_COPY[finding.id] || finding.knowledge]; const long = protection.length + impact.length >= 6; return `<article class="finding${finding.status === '追加確認推奨' ? ' review' : ''}${long ? ' long' : ''}">${status(finding)}<h3>${html(displayTitle(finding, options))}</h3><h4>今回の診断結果</h4><p>${html(finding.observation)}</p><h4>どのような対策なのか</h4>${paragraphs(protection)}<h4>対策が不十分だと、どうなるのか</h4>${paragraphs(impact)}</article>`; };
-  const closing = `<section class="detail report-section" id="next-steps"><h2>診断結果を、これからの対策につなげるために</h2><p>今回の診断では、Webサイトやメールに関する公開設定を確認しました。</p><p>「追加確認推奨」となった項目については、現在の管理状況や他の対策の有無も含め、Webサイトの制作会社、保守会社、メール管理担当者などに確認することをおすすめします。</p><p>セキュリティ対策は、自社だけの問題ではありません。</p><p>自社のWebサイトやメールが悪用されれば、お客様や取引先にも被害が及び、信用問題や取引関係への影響につながりかねません。</p><p>今回の結果を、必要な対策を見直すきっかけとしてお役立てください。</p><div class="final-note"><b>診断の範囲について</b><p>本診断はインターネット上に公開されているWebサイトやメールの設定を確認したものであり、企業全体のセキュリティ対策や安全性を評価するものではありません。</p><p>「追加確認推奨」は管理担当者や保守会社への確認をおすすめするものであり、atLIBによる追加調査を約束するものではありません。</p></div></section>`;
+  const customerFinding = (finding) => {
+    if(finding.presentation){
+      const p=finding.presentation;
+      const long=p.protection.length+p.impact.length>=6;
+      return `<article class="finding${finding.status==='追加確認推奨'?' review':''}${long?' long':''}">${status(finding)}<h3>${html(displayTitle(finding,options))}</h3><h4>今回の診断結果</h4><p>${html(p.result)}</p>${p.facts.length?`<p>${p.facts.map(f=>html(f.label+'：'+f.value)).join(' ／ ')}</p>`:''}<h4>どのような対策なのか</h4>${paragraphs(p.protection)}<h4>対策が不十分だと、どうなるのか</h4>${paragraphs(p.impact)}${p.action?`<h4>確認をおすすめすること</h4><p>${html(p.action)}</p>`:''}</article>`;
+    }
+    const key = category(finding.id); const protection = PROTECTION_COPY[key] || []; const impact = IMPACT_DETAIL_COPY[key] || [IMPACT_COPY[finding.id] || finding.knowledge]; const long = protection.length + impact.length >= 6; return `<article class="finding${finding.status === '追加確認推奨' ? ' review' : ''}${long ? ' long' : ''}">${status(finding)}<h3>${html(displayTitle(finding, options))}</h3><h4>今回の診断結果</h4><p>${html(finding.observation)}</p><h4>どのような対策なのか</h4>${paragraphs(protection)}<h4>対策が不十分だと、どうなるのか</h4>${paragraphs(impact)}</article>`; };
+  const closing = `<section class="detail report-section" id="next-steps"><h2>診断結果を、これからの対策につなげるために</h2><p>今回の診断では、Webサイトやメールに関する公開設定を確認しました。</p><p>「追加確認推奨」となった項目については、現在の管理状況や他の対策の有無も含め、Webサイトの制作会社、保守会社、メール管理担当者などに確認することをおすすめします。</p><p>セキュリティ対策は、自社だけの問題ではありません。</p><p>自社のWebサイトやメールが悪用されれば、お客様や取引先にも被害が及び、信用問題や取引関係への影響につながりかねません。</p><p>今回の結果を、必要な対策を見直すきっかけとしてお役立てください。</p><div class="final-note"><b>診断の範囲について</b>${report.customerScope?paragraphs(report.customerScope):`<p>本診断はインターネット上に公開されているWebサイトやメールの設定を確認したものであり、企業全体のセキュリティ対策や安全性を評価するものではありません。</p><p>「追加確認推奨」は管理担当者や保守会社への確認をおすすめするものであり、atLIBによる追加調査を約束するものではありません。</p>`}</div></section>`;
   return customerFacingRender(report, company, options)
     .replace(/<div class="ov-item">([\s\S]*?)<small>[\s\S]*?<\/small>/g, '<div class="ov-item">$1')
     .replace(/<span class="ov-status review">/g, '<span class="ov-status review"><span class="warning-icon" aria-hidden="true">⚠</span>')
