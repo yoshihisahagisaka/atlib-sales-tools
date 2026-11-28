@@ -34,6 +34,8 @@ FILES={
         "ad3aa436079aacd96275d5c4a56b5b5215a836fa"
     ]
 }
+GUARD="src/wsc/vendor/tools/wsc-phase2a/safe-executor.mjs"
+GUARD_HASH="e24e52714f0a34ec1a5a9f66ef604d7019806e3e"
 TESTS=("test/wscMailDns.test.mjs","test/wscDiagnosisAccuracy.test.mjs","test/wscPublicDestination.test.mjs","test/wscPresentation.test.mjs")
 PUBLIC={"secumie-web-general-prod":"secumie-web-general-prod-wsc-copy-50a1ed5","secumie-insight-general-prod":"secumie-insight-general-prod-notify-03e48d9"}
 
@@ -53,6 +55,9 @@ def context(dest):
         data=git("show",SOURCE+":"+name)
         c.require(blob(data)==hashes[2] and git("show","HEAD:"+name)==data,"EXACT_WSC_SOURCE_STOP_"+Path(name).name)
         write(dest/name,data)
+    guard=git("show",SOURCE+":"+GUARD)
+    c.require(blob(guard)==GUARD_HASH and git("show","HEAD:"+GUARD)==guard,"WSC_GUARD_SOURCE_STOP")
+    write(dest/GUARD,guard)
     for name in TESTS:write(dest/name,git("show",SOURCE+":"+name))
     for suite in ("wsc-vs1","wsc-phase2c"):
         write(dest/"test"/"vendor"/suite/"test.mjs",git("show",SOURCE+":src/wsc/vendor/tools/"+suite+"/test.mjs"))
@@ -63,7 +68,7 @@ def context(dest):
     write(dest/"manifest.json",json.dumps(FILES,sort_keys=True).encode())
     for p in dest.rglob("*"):
         if p.is_dir():p.chmod(0o755)
-    print("APPROVED_WSC_SOURCE=PASS; FOUR_RUNTIME_FILES",flush=True)
+    print("APPROVED_WSC_SOURCE=PASS; FOUR_RUNTIME_FILES; TARGET_GUARD_PREREQUISITE_VERIFIED",flush=True)
 
 def anchors():
     s=c.read_service(staff.SERVICE)
