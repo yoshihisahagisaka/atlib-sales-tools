@@ -1,5 +1,5 @@
 {
-  "ruleVersion": "WSC-R-1.0.2-draft",
+  "ruleVersion": "WSC-R-1.0.3-draft",
   "inputSchemaVersion": "2.0",
   "classification": {
     "confirmed": "設定確認済み",
@@ -127,7 +127,7 @@
     },
     {
       "id": "DMARC_ENFORCING",
-      "condition": "dns.dmarc.lookupStatus == FOUND AND recordCount == 1 AND effectivePolicy (legacy input: tags.p) in [quarantine,reject]",
+      "condition": "dns.dmarc.lookupStatus == FOUND AND recordCount == 1 AND effectivePolicy (legacy input: tags.p) in [quarantine,reject] AND test mode absent or n",
       "status": "設定確認済み",
       "evidenceFields": [
         "dns.dmarc.tags.p",
@@ -180,6 +180,16 @@
         "dns.spf.records",
         "dns.spf.checkedDomain (when acquired)"
       ]
+    },
+    {
+      "id": "DMARC_TEST",
+      "condition": "dns.dmarc.lookupStatus == FOUND AND recordCount == 1 AND effectivePolicy in [quarantine,reject] AND tags.t == y",
+      "status": "追加確認推奨",
+      "evidenceFields": [
+        "dns.dmarc.effectivePolicy",
+        "dns.dmarc.tags.t",
+        "dns.dmarc.policyDomain (when acquired)"
+      ]
     }
   ],
   "guards": [
@@ -197,6 +207,7 @@
     "Known certificate-verification errors from the pinned destination may yield TLS_INVALID without HTTP acquisition; all other transport/security failures remain unavailable.",
     "Frame evidence is evaluated independently of CSP presence; ambiguous source lists are not claimed safe.",
     "SPF ancestor discovery is bounded and independently queried; do not infer company ownership or SMTP identity. Known PSD SPF excluded. Basic syntax and first all only, no recursive SPF verification.",
-    "Explicit malformed fields with a defined review finding are distinguished from unknown evidence."
+    "Explicit malformed fields with a defined review finding are distinguished from unknown evidence.",
+    "DMARC t=y requests one level less than declared policy (RFC 9989 section 4.7); t=y with none remains DMARC_NONE, invalid test value stays internal only. Do not claim actual recipient behavior. Customer presentation snapshot is generated only for confirmed findings, not raw DNS/header text."
   ]
 }
