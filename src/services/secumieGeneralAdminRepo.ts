@@ -4,14 +4,15 @@ export const generalKinds = ['WEB','INSIGHT'] as const;
 export const generalSalesStates = ['NEW','CONTACTED','PROPOSAL','WON','LOST','CLOSED'] as const;
 export type GeneralKind = typeof generalKinds[number];
 export type GeneralSalesState = typeof generalSalesStates[number];
-export type GeneralLeadFilters = { kind:GeneralKind; companyName?:string; diagnosisStatus?:'RECEIVED'|'COMPLETED'|'FAILED'; consultationStatus?:'NONE'|'REQUESTED'; salesStatus?:GeneralSalesState; limit:number; offset:number };
+export type GeneralLeadFilters = { kind?:GeneralKind; companyName?:string; diagnosisStatus?:'RECEIVED'|'COMPLETED'|'FAILED'; consultationStatus?:'NONE'|'REQUESTED'; salesStatus?:GeneralSalesState; limit:number; offset:number };
 
 const columns = 'id,kind,received_at,company_name,person_name,target_url,diagnosis_status,consultation_status,notification_status,sales_status,sales_contact_allowed,is_test';
 export class SecumieGeneralAdminRepo {
  constructor(private readonly pool:Pool){}
  async list(input:GeneralLeadFilters){
-  const clauses=['kind=$1'],values:unknown[]=[input.kind];
+  const clauses=['TRUE'],values:unknown[]=[];
   const add=(column:string,value:string,like=false)=>{values.push(like?'%'+value+'%':value);clauses.push(column+(like?' ILIKE ':'=')+'$'+values.length);};
+  if(input.kind)add('kind',input.kind);
   if(input.companyName)add('company_name',input.companyName,true);
   if(input.diagnosisStatus)add('diagnosis_status',input.diagnosisStatus);
   if(input.consultationStatus)add('consultation_status',input.consultationStatus);
@@ -19,7 +20,7 @@ export class SecumieGeneralAdminRepo {
   const where=clauses.join(' AND ');
   const count=await this.pool.query('SELECT count(*)::int AS total FROM secumie_general.lead WHERE '+where,values);
   const rows=await this.pool.query('SELECT '+columns+' FROM secumie_general.lead WHERE '+where+' ORDER BY received_at DESC,id LIMIT $'+(values.length+1)+' OFFSET $'+(values.length+2),[...values,input.limit,input.offset]);
-  const summary=await this.pool.query("SELECT count(*)::int AS received,count(*) FILTER (WHERE diagnosis_status='COMPLETED')::int AS completed,count(*) FILTER (WHERE consultation_status='REQUESTED')::int AS consultations,count(*) FILTER (WHERE sales_status='NEW')::int AS new_leads FROM secumie_general.lead WHERE kind=$1 AND NOT is_test",[input.kind]);
+  const summary=await this.pool.query("SELECT count(*)::int AS received,count(*) FILTER (WHERE diagnosis_status='COMPLETED')::int AS completed,count(*) FILTER (WHERE consultation_status='REQUESTED')::int AS consultations,count(*) FILTER (WHERE sales_status='NEW')::int AS new_leads,count(*) FILTER (WHERE kind='WEB' AND diagnosis_status='COMPLETED')::int AS web_completed,count(*) FILTER (WHERE kind='INSIGHT' AND diagnosis_status='COMPLETED')::int AS insight_completed FROM secumie_general.lead WHERE NOT is_test");
   return {items:rows.rows,total:count.rows[0].total,summary:summary.rows[0]};
  }
  async detail(kind:GeneralKind,id:string){

@@ -4,7 +4,7 @@ import { generalKinds, generalSalesStates, type SecumieGeneralAdminRepo } from '
 
 const kind=z.enum(generalKinds);
 const salesStatus=z.enum(generalSalesStates);
-const filters=z.object({kind,companyName:z.string().trim().max(150).optional(),diagnosisStatus:z.enum(['RECEIVED','COMPLETED','FAILED']).optional(),consultationStatus:z.enum(['NONE','REQUESTED']).optional(),salesStatus:salesStatus.optional(),limit:z.coerce.number().int().min(1).max(100).default(50),offset:z.coerce.number().int().min(0).max(100000).default(0)}).strict();
+const filters=z.object({kind:kind.optional(),companyName:z.string().trim().max(150).optional(),diagnosisStatus:z.enum(['RECEIVED','COMPLETED','FAILED']).optional(),consultationStatus:z.enum(['NONE','REQUESTED']).optional(),salesStatus:salesStatus.optional(),limit:z.coerce.number().int().min(1).max(100).default(50),offset:z.coerce.number().int().min(0).max(100000).default(0)}).strict();
 const key=z.object({kind,id:z.string().uuid()}).strict();
 const edit=z.object({status:salesStatus,note:z.string().trim().max(2000)}).strict();
 export function createAdminSecumieGeneralRouter(repo:Pick<SecumieGeneralAdminRepo,'list'|'detail'|'updateSales'>):Router{

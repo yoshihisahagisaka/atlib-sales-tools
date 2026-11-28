@@ -7,7 +7,7 @@ import type { SecumieGeneralAdminRepo } from '../src/services/secumieGeneralAdmi
 test('general lead admin staff gate, service boundary, strict filters and mutation',async()=>{
  const calls:unknown[]=[];
  const repo:Pick<SecumieGeneralAdminRepo,'list'|'detail'|'updateSales'>={
-  async list(p){calls.push(p);return {items:[],total:0,summary:{received:0,completed:0,consultations:0,new_leads:0}};},
+  async list(p){calls.push(p);return {items:[],total:0,summary:{received:0,completed:0,consultations:0,new_leads:0,web_completed:0,insight_completed:0}};},
   async detail(kind,id){calls.push({kind,id});return null;},
   async updateSales(kind,id,input){calls.push({kind,id,input});return true;}
  };
@@ -30,20 +30,21 @@ test('general lead admin staff gate, service boundary, strict filters and mutati
   assert.equal((await fetch(url,{method:'PATCH',headers:{...staff,'content-type':'application/json'},body:payload})).status,403);
   assert.equal((await fetch(url,{method:'PATCH',headers:{...staff,'content-type':'application/json','x-secumie-staff-command':'1'},body:payload})).status,204);
   assert.deepEqual(calls[2],{kind:'WEB',id,input:{status:'CONTACTED',note:'synthetic',actor:'synthetic@example.invalid'}});
-  assert.equal(calls.length,3);
+  assert.equal((await fetch(base,{headers:staff})).status,200);
+  assert.deepEqual(calls[3],{limit:50,offset:0});
+  assert.equal(calls.length,4);
  }finally{await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
 });
 
 
-test('independent WEB and Insight management pages have fixed service identity',async()=>{
+test('one general management entry with both service filters and row-scoped details',async()=>{
  const {readFileSync,existsSync}=await import('node:fs');
- for(const [page,kind] of [['secumie-web-leads.html','WEB'],['secumie-insight-leads.html','INSIGHT']]){
-  const html=readFileSync('public/admin/'+page,'utf8');
-  assert.ok(html.includes('data-service="'+kind+'"'));
-  assert.doesNotMatch(html,/id="tab-(web|insight)"|href="\?kind=/);
- }
+ const html=readFileSync('public/admin/secumie-general-leads.html','utf8');
+ assert.match(html,/name="kind"/);assert.match(html,/value="WEB"/);assert.match(html,/value="INSIGHT"/);
+ assert.match(html,/id="web_completed"/);assert.match(html,/id="insight_completed"/);
  const script=readFileSync('public/admin/secumie-general-leads.js','utf8');
- assert.match(script,/document\.body\.dataset\.service/);
- assert.doesNotMatch(script,/location\.search/);
- assert.equal(existsSync('public/admin/secumie-general-leads.html'),false);
+ assert.match(script,/detail\(x.kind,x.id\)/);
+ assert.match(script,/kind=activeKind/);
+ assert.equal(existsSync('public/admin/secumie-web-leads.html'),false);
+ assert.equal(existsSync('public/admin/secumie-insight-leads.html'),false);
 });
