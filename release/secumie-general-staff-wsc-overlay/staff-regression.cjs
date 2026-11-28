@@ -1,15 +1,17 @@
 // Real installed runtime, synthetic transport and loopback only. No DB/SMTP.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {execFileSync,spawnSync}=require('node:child_process');
-const express=require('/app/node_modules/express'),cookieParser=require('/app/node_modules/cookie-parser');
-const {WscSalesService,renderWscPdf}=require('/app/dist/services/wscSalesService.js');
-const {createAdminWebSecurityCheckRouter}=require('/app/dist/routes/adminWebSecurityCheck.js');
-const {StaffAuthService}=require('/app/dist/services/staffAuthService.js');
-const {requireStaffAuth}=require('/app/dist/middleware/staffAuth.js');
-const serverCode=fs.readFileSync('/app/dist/server.js','utf8');
+const sourceCheck=process.argv[3]==='--source-check';
+const appRoot=sourceCheck?process.cwd():'/app';
+const express=require(appRoot+'/node_modules/express'),cookieParser=require(appRoot+'/node_modules/cookie-parser');
+const {WscSalesService,renderWscPdf}=require(appRoot+'/dist/services/wscSalesService.js');
+const {createAdminWebSecurityCheckRouter}=require(appRoot+'/dist/routes/adminWebSecurityCheck.js');
+const {StaffAuthService}=require(appRoot+'/dist/services/staffAuthService.js');
+const {requireStaffAuth}=require(appRoot+'/dist/middleware/staffAuth.js');
+const serverCode=fs.readFileSync(appRoot+'/dist/server.js','utf8');
 assert.match(serverCode,/app\.use\(['"]\/api\/admin\/web-security-check['"],\s*\.\.\.adminAuthGate,/);
-assert.equal(require('/app/node_modules/zod/package.json').version,'4.6.7');
-assert.equal(require('/app/node_modules/nodemailer/package.json').version,'10.6.1');
+assert.equal(require(appRoot+'/node_modules/zod/package.json').version,'4.6.7');
+if(!sourceCheck)assert.equal(require(appRoot+'/node_modules/nodemailer/package.json').version,'10.6.1');
 const now='2026-11-28T16:57:00.842Z';
 const diagnosis={schemaVersion:'2.0',targetUrl:'https://example.org/',checkedAt:now,mailDomain:'example.org',
  http:{status:'OK',statusCode:200,headers:{'Strict-Transport-Security':'max-age=31536000','Content-Security-Policy':"default-src 'self'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY'}},
@@ -23,6 +25,32 @@ function pdfCheck(b,label){
  const pageCount=(b.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length;
  assert.ok(pageCount>=4&&pageCount<=12,label+' invalid page count '+pageCount);
  return pageCount;
+}
+// The staff adapter returns PDF, not raw HTML. The approved shared renderer
+// retains exactly one review banner which must be hidden in print media.
+const BANNER='<div class="review-banner">内部デザインレビュー用｜対外配布不可</div>';
+const FORBIDDEN=/内部デザインレビュー用|対外配布不可|原値：|data-finding-id/;
+const haveText=spawnSync('pdftotext',['-v'],{stdio:'ignore'}).status===0;
+if(sourceCheck)assert.ok(haveText,'source print preflight requires pdftotext');
+function checkHtml(h,label){
+ assert.equal(h.split(BANNER).length-1,1,label+': expected exact shared review banner');
+ assert.ok(!FORBIDDEN.test(h.replace(BANNER,'')),label+': unexpected internal content outside banner');
+}
+function checkPdfText(b,label){
+ if(!haveText)return;
+ const printed=execFileSync('pdftotext',['-raw','-','-'],{input:b,encoding:'utf8',maxBuffer:4*1024*1024}).normalize('NFKC').replace(/\s+/gu,'').replace(/\u00ad/g,'');
+ assert.ok(printed.includes('検証株式会社御中'),label+': missing recipient');
+ assert.ok(printed.includes('2026年11月29日01:57'),label+': missing JST timestamp');
+ assert.ok(!FORBIDDEN.test(printed),label+': internal content in actual printed PDF');
+}
+async function checkPrintVisibility(page,h,label){
+ await page.setContent(h,{waitUntil:'load',timeout:30000});
+ await page.emulateMedia({media:'print'});
+ assert.equal(await page.locator('.review-banner').count(),1,label+': banner count');
+ const hidden=await page.locator('.review-banner').evaluate(el=>getComputedStyle(el).display==='none');
+ assert.ok(hidden,label+': banner visible in print media');
+ const visible=(await page.locator('body').innerText());
+ assert.ok(!FORBIDDEN.test(visible),label+': internal content in visible print text');
 }
 async function main(){
  const auth=new StaffAuthService('synthetic-only-'.repeat(4)),token=auth.issueSessionToken({email:'synthetic@example.invalid'});
@@ -45,24 +73,28 @@ async function main(){
   assert.match(response.headers.get('content-disposition'),/attachment; filename\*=UTF-8''/);assert.equal(response.headers.get('cache-control'),'no-store');assert.equal(response.headers.get('x-content-type-options'),'nosniff');
   const bytes=Buffer.from(await response.arrayBuffer());pdfCheck(bytes,'staff HTTP');assert.equal(calls,1);
   // Match the approved DMARC_NONE presentation, not obsolete generic wording.
-  const approved=JSON.parse(fs.readFileSync('/app/dist/wsc/vendor/tools/wsc-vs1/explanations.json','utf8')).entries.DMARC_NONE;
+  const approved=JSON.parse(fs.readFileSync(appRoot+'/dist/wsc/vendor/tools/wsc-vs1/explanations.json','utf8')).entries.DMARC_NONE;
   const checks=[['recipient','検証株式会社 御中'],['TLS','通信の暗号化ができています'],['JST','2026年11月29日 01:57'],['DMARC summary',approved.presentation.summary],['DMARC result',approved.presentation.result],['DMARC status','追加確認推奨'],['DMARC policy','適用される方針：p=none'],['DMARC action heading','確認をおすすめすること'],['DMARC action',approved.nextAction]];
   for(const [label,value] of checks)assert.ok(typeof value==='string'&&value.length>0&&html.includes(value),'approved staff report missing '+label);
-  assert.ok(!/内部デザインレビュー用|原値：|data-finding-id/.test(html),'staff report contains forbidden internal content');
+  checkHtml(html,'staff HTTP');checkPdfText(bytes,'staff HTTP');
   console.log('STAFF_AUTH_CSV_REAL_PDF_HTTP=PASS');
  }finally{await new Promise(resolve=>server.close(resolve));}
  const dir=process.argv[2],names=fs.readdirSync(dir).filter(x=>x.endsWith('.html')).sort();assert.equal(names.length,29);
- const haveText=spawnSync('pdftotext',['-v'],{stdio:'ignore'}).status===0;
+ const {chromium}=require(appRoot+'/node_modules/playwright');
+ const browser=await chromium.launch({headless:true});
+ try{
+ const context=await browser.newContext();
+ await context.route('**/*',route=>/^https?:/i.test(route.request().url())?route.abort():route.continue());
+ const page=await context.newPage();
+ await checkPrintVisibility(page,html,'staff HTTP');
  for(const name of names){
   const h=fs.readFileSync(path.join(dir,name),'utf8');
-  assert.ok(!/原値：|data-finding-id|内部デザインレビュー用/.test(h),name+': forbidden internal content');
+  checkHtml(h,name);await checkPrintVisibility(page,h,name);
   const b=await renderWscPdf(h),pages=pdfCheck(b,name);
-  if(haveText){
-   const printed=execFileSync('pdftotext',['-raw','-','-'],{input:b,encoding:'utf8'}).normalize('NFKC').replace(/\s+/gu,'');
-   assert.match(printed,/検証株式会社御中/);assert.match(printed,/2026年11月29日01:57/);
-  }
+  checkPdfText(b,name);
   console.log('STAFF_PRINT_PASS='+name+'; PAGES='+pages);
  }
- console.log('STAFF_CHROMIUM_PDFS=29; PDF_TEXT_EXTRACTION='+String(haveText)+'; STAFF_PDF_GENERATION=PASS');
+ }finally{await browser.close();}
+ console.log('STAFF_CHROMIUM_PDFS=29; PRINT_BANNER_HIDDEN=PASS; PDF_TEXT_EXTRACTION='+String(haveText)+'; STAFF_PDF_GENERATION=PASS');
 }
 main().catch(e=>{console.error(e.stack);process.exitCode=1;});
