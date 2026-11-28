@@ -55,6 +55,11 @@ export class SecumieGeneralLeadRepo{
    AND diagnosis_status='COMPLETED' AND diagnosis_result=$3::jsonb`,[kind,digest(receipt),value]);
   return Boolean(replay.rowCount);
  }
+ async getCompleted(kind:GeneralKind,receipt:string):Promise<unknown|null>{
+  if(!receiptPattern.test(receipt))return null;
+  const q=await this.pool.query(`SELECT diagnosis_result FROM secumie_general.lead WHERE kind=$1 AND receipt_hash=$2 AND receipt_expires_at>clock_timestamp() AND diagnosis_status='COMPLETED'`,[kind,digest(receipt)]);
+  return q.rows[0]?.diagnosis_result??null;
+ }
  async fail(kind:GeneralKind,receipt:string):Promise<boolean>{
   if(!receiptPattern.test(receipt))return false;
   const q=await this.pool.query(`UPDATE secumie_general.lead SET diagnosis_status='FAILED',updated_at=clock_timestamp()

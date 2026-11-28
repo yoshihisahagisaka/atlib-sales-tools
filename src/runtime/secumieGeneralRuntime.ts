@@ -6,17 +6,18 @@ import { configurePublicRuntime, publicPageCsp } from './runtimeSecurity';
 import { SecumieGeneralLimits, GeneralLimitError } from './secumieGeneralLimits';
 import { consultationSchema, type ConsultationHandoff } from '../services/secumieConsultationHandoff';
 import type { WscHtmlService } from '../services/wscHtmlService';
+import { generalLeadInputSchema, normalizeGeneralTarget, type SecumieGeneralLeadRepo } from '../services/secumieGeneralLeadRepo';
 
 type Kind = 'WEB' | 'INSIGHT';
 type Verify = (token: string, ip: string, action: string) => Promise<boolean>;
-const company = z.object({
-  companyName: z.string().trim().min(1).max(150),
-  // Compatibility for a pre-update tab only; never retain or forward the address.
-  registeredAddress: z.string().max(500).optional(),
-  accepted: z.literal(true),
-  turnstileToken: z.string().min(1).max(2048),
+const startSchema=generalLeadInputSchema.extend({
+  turnstileToken:z.string().min(1).max(2048),
+  targetUrl:z.string().trim().min(1).max(2000).optional(),
 }).strict();
-const web = company.extend({ targetUrl: z.string().trim().min(1).max(2000) }).strict();
+const receiptSchema=z.string().regex(/^[A-Za-z0-9_-]{43}$/);
+const completeSchema=z.object({leadReceipt:receiptSchema,answers:consultationSchema.shape.answers}).strict();
+type WebResult={normalizedUrl:string;report:unknown};
+const storedWeb=z.object({normalizedUrl:z.string().url(),report:z.unknown()}).strict();
 
 export function createGeneralTurnstileVerifier(secret: string, hostname: string, fetchImpl: typeof fetch = fetch): Verify {
   return async (token, ip, action) => {
@@ -37,7 +38,9 @@ export function createSecumieGeneralRuntime(options: {
   hostname: string;
   enabled: boolean;
   verify: Verify;
-  wsc?: Pick<WscHtmlService, 'diagnose'>;
+  wsc?: Pick<WscHtmlService, 'diagnose' | 'renderStored'>;
+  leads?: Pick<SecumieGeneralLeadRepo,'begin'|'complete'|'fail'|'getCompleted'>;
+  evaluateInsight?: (answers:NonNullable<z.infer<typeof consultationSchema>['answers']>)=>unknown;
   limits?: SecumieGeneralLimits;
   handoff?: ConsultationHandoff;
   assets?: { pageDir: string; insightDir: string; siteKey: string };
@@ -46,6 +49,11 @@ export function createSecumieGeneralRuntime(options: {
   configurePublicRuntime(app);
   const limits = options.limits ?? new SecumieGeneralLimits();
   const prefix = options.kind === 'WEB' ? '/secumie-web' : '/secumie-insight';
+  // Bounded fallback for a failed WEB completion write; only server-generated data.
+  const pendingWeb=new Map<string,{result:WebResult;expires:number}>();
+  const activeWeb=new Set<string>();
+  const sweep=()=>{for(const [key,value] of pendingWeb)if(value.expires<=Date.now())pendingWeb.delete(key);};
+  const issue=(context:Parameters<ConsultationHandoff['issue']>[0])=>{try{return options.handoff?.issue(context);}catch{return undefined;}};
   app.get('/healthz', (_req, res) => res.json({ status: 'ok' }));
   app.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -57,34 +65,85 @@ export function createSecumieGeneralRuntime(options: {
   });
   app.post(prefix + '/api/start', express.json({ limit: '16kb', strict: true }), async (req: Request, res) => {
     if (req.get('origin') !== 'https://' + options.hostname || !req.is('application/json')) { res.sendStatus(403); return; }
-    const parsed = (options.kind === 'WEB' ? web : company).safeParse(req.body);
-    if (!parsed.success) { res.status(422).json({ code: 'INVALID_REQUEST' }); return; }
-    const data = parsed.data;
-    const ip = req.ip;
-    if (!ip) { res.status(403).json({ code: 'CLIENT_IP_UNAVAILABLE' }); return; }
-    let target: string | undefined;
-    if ('targetUrl' in data) {
-      try {
-        const u = new URL(String(data.targetUrl));
-        if (u.protocol !== 'https:' || u.username || u.password || u.port || u.hash) throw Error();
-        target = u.href;
-      } catch { res.status(422).json({ code: 'INVALID_TARGET' }); return; }
-    }
-    let release: (() => void) | undefined;
-    try {
-      if (!(await options.verify(data.turnstileToken, ip, options.kind === 'WEB' ? 'secumie_web' : 'secumie_insight'))) {
-        res.status(403).json({ code: 'TURNSTILE_DENIED' }); return;
+    const parsed=startSchema.safeParse(req.body);
+    if(!parsed.success){res.status(422).json({code:'INVALID_REQUEST'});return;}
+    if(!options.leads){res.status(503).json({code:'NOT_READY'});return;}
+    const {turnstileToken,targetUrl,...data}=parsed.data;
+    const ip=req.ip;
+    if(!ip){res.status(403).json({code:'CLIENT_IP_UNAVAILABLE'});return;}
+    let target:string|undefined;
+    try{target=normalizeGeneralTarget(options.kind,targetUrl)??undefined;}catch{res.status(422).json({code:'INVALID_TARGET'});return;}
+    if(options.kind==='WEB'&&!options.wsc){res.status(503).json({code:'NOT_READY'});return;}
+    let release:(()=>void)|undefined;
+    let leadReceipt:string|undefined;
+    let ownsWeb=false;
+    try{
+      if(!(await options.verify(turnstileToken,ip,options.kind==='WEB'?'secumie_web':'secumie_insight'))){res.status(403).json({code:'TURNSTILE_DENIED'});return;}
+      release=limits.admit(options.kind,ip,target);
+      let lead;
+      try{lead=await options.leads.begin(options.kind,data,target);}
+      catch(error){
+        const code=error instanceof Error?error.message:'';
+        if(code==='LEAD_IDEMPOTENCY_CONFLICT'||code==='RECEIPT_EXPIRED'){res.status(409).json({code});return;}
+        res.status(503).json({code:'LEAD_SAVE_FAILED'});return;
       }
-      release = limits.admit(options.kind, ip, target);
-      if (options.kind === 'INSIGHT') { const receipt = options.handoff?.issue({kind:'INSIGHT', companyName:data.companyName}); res.json({ ok: true, ...(receipt ? {receipt}: {}) }); return; }
-      if (!options.wsc || !target) { res.status(503).json({ code: 'NOT_READY' }); return; }
-      const result = await options.wsc.diagnose({ name: data.companyName, url: target, executor: 'general-web' });
-      const receipt = options.handoff?.issue({kind:'WEB',companyName:data.companyName,targetUrl:result.normalizedUrl,report:result.report});
-      res.json({ ok: true, ...(receipt ? {receipt}: {}), html: result.html.replace('<div class="review-banner">内部デザインレビュー用｜対外配布不可</div>', ''), normalizedUrl: result.normalizedUrl });
-    } catch (error) {
-      if (error instanceof GeneralLimitError) { res.status(429).json({ code: error.code }); return; }
-      res.status(422).json({ code: 'DIAGNOSIS_UNAVAILABLE' });
-    } finally { release?.(); }
+      leadReceipt=lead.receipt;
+      if(options.kind==='INSIGHT'){
+        const receipt=issue({kind:'INSIGHT',companyName:data.companyName});
+        res.json({ok:true,leadReceipt,...(receipt?{receipt}:{})});return;
+      }
+      if(activeWeb.has(leadReceipt)){res.status(409).json({code:'DIAGNOSIS_IN_PROGRESS'});return;}
+      activeWeb.add(leadReceipt);ownsWeb=true;sweep();
+      const pending=pendingWeb.get(leadReceipt);
+      let result:WebResult;let html:string;let saved=false;
+      if(lead.status==='COMPLETED'){
+        const stored=storedWeb.safeParse(await options.leads.getCompleted('WEB',leadReceipt));
+        if(!stored.success)throw Error('STORED_REPORT_UNAVAILABLE');
+        result={normalizedUrl:stored.data.normalizedUrl,report:stored.data.report};html=await options.wsc!.renderStored({name:data.companyName,url:result.normalizedUrl,report:result.report});saved=true;
+      }else if(pending){
+        result=pending.result;html=await options.wsc!.renderStored({name:data.companyName,url:result.normalizedUrl,report:result.report});
+      }else{
+        const diagnosed=await options.wsc!.diagnose({name:data.companyName,url:target!,executor:'general-web'});
+        result={normalizedUrl:diagnosed.normalizedUrl,report:diagnosed.report};html=diagnosed.html;
+      }
+      if(!saved){
+        try{saved=await options.leads.complete('WEB',leadReceipt,result);}catch{saved=false;}
+        if(saved)pendingWeb.delete(leadReceipt);
+        else if(pendingWeb.size<30||pendingWeb.has(leadReceipt)){
+          if(Buffer.byteLength(JSON.stringify(result))<=256*1024)pendingWeb.set(leadReceipt,{result,expires:Date.now()+120_000});
+        }
+      }
+      const receipt=issue({kind:'WEB',companyName:data.companyName,targetUrl:result.normalizedUrl,report:result.report});
+      res.json({ok:true,leadReceipt,leadSaved:saved,...(receipt?{receipt}:{}),html:html.replace('<div class="review-banner">内部デザインレビュー用｜対外配布不可</div>',''),normalizedUrl:result.normalizedUrl});
+    }catch(error){
+      if(error instanceof GeneralLimitError){res.status(429).json({code:error.code});return;}
+      if(ownsWeb&&leadReceipt)try{await options.leads.fail('WEB',leadReceipt);}catch{/* no PII in logs */}
+      res.status(422).json({code:'DIAGNOSIS_UNAVAILABLE'});
+    }finally{if(ownsWeb&&leadReceipt)activeWeb.delete(leadReceipt);release?.();}
+  });
+  app.post(prefix+'/api/complete',express.json({limit:'16kb',strict:true}),async(req,res)=>{
+    if(req.get('origin')!=='https://'+options.hostname||!req.is('application/json')){res.sendStatus(403);return;}
+    if(!options.leads){res.status(503).json({code:'NOT_READY'});return;}
+    const p=completeSchema.safeParse(req.body);
+    if(!p.success){res.status(422).json({code:'INVALID_REQUEST'});return;}
+    const {leadReceipt,answers}=p.data;
+    let result:unknown;
+    if(options.kind==='INSIGHT'){
+      if(!answers||!options.evaluateInsight||new Set(answers.map(x=>x.questionId)).size!==8){res.status(422).json({code:'INVALID_ANSWERS'});return;}
+      try{result=options.evaluateInsight(answers);}catch{res.status(422).json({code:'INVALID_ANSWERS'});return;}
+    }else{
+      if(answers!==undefined){res.status(422).json({code:'INVALID_REQUEST'});return;}
+      sweep();result=pendingWeb.get(leadReceipt)?.result;
+      if(!result){
+        try{if(await options.leads.getCompleted('WEB',leadReceipt)){res.json({ok:true});return;}}catch{res.status(503).json({code:'LEAD_SAVE_FAILED'});return;}
+        res.status(410).json({code:'RETRY_UNAVAILABLE'});return;
+      }
+    }
+    try{
+      if(!await options.leads.complete(options.kind,leadReceipt,result)){res.status(409).json({code:'COMPLETION_CONFLICT_OR_EXPIRED'});return;}
+      if(options.kind==='WEB')pendingWeb.delete(leadReceipt);
+      res.json({ok:true});
+    }catch{res.status(503).json({code:'LEAD_SAVE_FAILED'});}
   });
   app.post(prefix + '/api/consultation', express.json({limit:'16kb',strict:true}), async (req,res) => {
     if (req.get('origin') !== 'https://' + options.hostname || !req.is('application/json')) { res.sendStatus(403); return; }

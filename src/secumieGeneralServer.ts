@@ -1,4 +1,6 @@
 import path from 'node:path';
+import {createPool} from './db/pool';
+import {SecumieGeneralLeadRepo} from './services/secumieGeneralLeadRepo';
 import { Mailer } from './services/mailer';
 import { ConsultationHandoff, SECUMIE_SCHEDULE_URLS, type ConsultationInput } from './services/secumieConsultationHandoff';
 import { createGeneralTurnstileVerifier, createSecumieGeneralRuntime } from './runtime/secumieGeneralRuntime';
@@ -26,8 +28,15 @@ const handoff = enabled ? (() => {
   const recipient = required('SECUMIE_CONSULTATION_NOTIFY_EMAIL');
   return new ConsultationHandoff(notice=>mailer.sendSecumieConsultationNotification(recipient,notice),SECUMIE_SCHEDULE_URLS[kind],Date.now,7200000,500,evaluateInsight);
 })() : undefined;
+const leadPool=enabled?createPool({db:{
+  name:required('SECUMIE_GENERAL_DB_NAME'),user:required('SECUMIE_GENERAL_DB_USER'),
+  password:required('SECUMIE_GENERAL_DB_PASSWORD'),host:process.env.SECUMIE_GENERAL_DB_HOST??'127.0.0.1',
+  port:Number(process.env.SECUMIE_GENERAL_DB_PORT??5432),socketPath:process.env.SECUMIE_GENERAL_DB_SOCKET_PATH||undefined
+}},{max:1,connectionTimeoutMillis:5000}):undefined;
+leadPool?.on('error',()=>console.error('GENERAL_DB_POOL_ERROR'));
+const leads=leadPool?new SecumieGeneralLeadRepo(leadPool,required('SECUMIE_GENERAL_RECEIPT_SECRET')):undefined;
 const app = createSecumieGeneralRuntime({
-  kind, hostname, enabled, handoff,
+  kind, hostname, enabled, handoff, leads, evaluateInsight,
   verify: createGeneralTurnstileVerifier(secret, hostname),
   ...(kind === 'WEB' ? { wsc: new WscHtmlService({technicalHeadings:true}) } : {}),
   assets: {
