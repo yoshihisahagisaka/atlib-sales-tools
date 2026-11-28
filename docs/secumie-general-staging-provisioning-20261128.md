@@ -1,0 +1,26 @@
+# General SECU:MIE staging provisioning plan — 2026-11-28
+
+Status: candidate / not executed. Source evidence PR #134 and C4. No production or existing DB changes. Existing shared Staging instance secumie-sg-shared-staging-db in msp-zabbix / asia-northeast1. Deadline 2026-12-04 10:12:12 JST (existing preservation decision; no extension). No new Cloud SQL instance.
+
+## Fixed new resources (candidate)
+
+| Resource | Identity | Cap |
+|---|---|---:|
+| Database | secumie_general_staging | separate logical DB |
+| Migration | secumie_general_migration_staging | 1 |
+| Public writer | secumie_general_writer_staging | 4 |
+| Staff | secumie_general_staff_staging | 2 |
+| Secret | secumie-general-stg-db-migration-password | independent generated credential |
+| Secret | secumie-general-stg-db-writer-password | independent generated credential |
+| Secret | secumie-general-stg-db-staff-password | independent generated credential |
+| Secret | secumie-general-stg-receipt-secret | independent >=32 byte cryptographic value |
+
+No existing secret payload reset, new IAM grants or production credentials; use existing authorized operator private connection. Do not reuse the old Insight bootstrap job. Any new runtime SA/Secret grants are independent acceptance decisions. Receipt secret separate from all DB passwords.
+
+## Execution gates
+
+1. Verify actual instance identity, private reachability via previously proven IAP path, successful backup/PITR and deletion protection, no name collisions (new DB/roles/Secrets), existing stage cost/deadline and current topology including unbounded WEB roles. Compare fresh server identity/connection metadata to owner CSV; stop if insufficient. Preserve existing 78 budget and allow 7 new stage role connections plus operator reserve. Do not raise DB flags. No DB rows read.
+2. After limited staging-only authorization, use authorized operator with existing bootstrap credential; generate distinct credentials via Secret Manager using nonlogging flow, and create three non-elevated login roles with caps 1/4/2. Role SQL uses only approved fixed identifiers; password values passed through a secure client, not command arguments or SQL Studio history. Validate role flags and memberships before proceeding. Create only secumie_general_staging owned by migration role; revoke PUBLIC CONNECT/TEMP, grant CONNECT only to approved operator and dedicated roles. No cross-database grants. Stop on partial failure; no automatic deletion or overwrite.
+3. Reuse src/db/migrate.ts on exact tracked design/secumie-general/migrations 001-006 (ordered, ledger, transactional per file). Verify exact filenames/sha256, database/role/PG16 guards, owners and role grants. No existing Insight/WEB/Guard or main migrations. Disposable CI has proven 001-006; actual staging run not yet executed.
+4. Synthetic acceptance: two leads, both results, correction and cap, optional consultation using synthetic mail transport, signed staff session, link/unlink, shared sales state, denied operations. Use existing test runner/private endpoint and no public traffic. Preserve only aggregate evidence; remove synthetic test data via separately reviewed isolated cleanup or discard newly created dedicated staging DB after approval. Do not delete any other DB/role/secret. Actual Workspace/SMTP and image scan are separate gates.
+5. Stop if shared resource impact, expiry or cost breach, ACL mismatch, authentication failure, unexpected objects, or security gate. Production equivalent migration and rollout remain independent. Retention/consent policy pending.
