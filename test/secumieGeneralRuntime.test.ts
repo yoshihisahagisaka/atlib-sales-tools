@@ -18,7 +18,7 @@ test('public endpoint rejects wrong origin and invalid bot challenge, then retur
     const address=server.address(); assert.ok(address && typeof address!=='string');
     const url='http://127.0.0.1:'+address.port+'/secumie-web/api/start';
     const send=(origin:string,host='service.atlib.jp')=>new Promise<{status:number;json:()=>unknown}>((resolve,reject)=>{
-      const body=JSON.stringify({companyName:'Synthetic',registeredAddress:'Tokyo',accepted:true,turnstileToken:'test',targetUrl:'https://example.org/'});
+      const body=JSON.stringify({companyName:'Synthetic',accepted:true,turnstileToken:'test',targetUrl:'https://example.org/'});
       const req=http.request(url,{method:'POST',headers:{Host:host,Origin:origin,'Content-Type':'application/json','Content-Length':Buffer.byteLength(body)}},res=>{
         const chunks:Buffer[]=[];res.on('data',(chunk:Buffer)=>chunks.push(chunk));res.on('error',reject);res.on('end',()=>resolve({status:res.statusCode??0,json:()=>JSON.parse(Buffer.concat(chunks).toString('utf8'))}));
       });req.on('error',reject);req.end(body);
