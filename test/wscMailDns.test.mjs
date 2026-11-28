@@ -27,14 +27,14 @@ test('reproduces www.atlib.jp NXDOMAIN and apex TXT: same policy as apex, scoped
     assert.equal(dns.spf.checkedDomain,'atlib.jp');
     const report = reportFor(host,dns);
     assert.deepEqual(report.findings.map(f=>f.id),['SPF_PRESENT','DMARC_NONE']);
-    assert.equal(report.ruleVersion,'WSC-R-1.0.2-draft');
-    assert.equal(report.contentVersion,'WSC-C-1.0.2-draft');
+    assert.equal(report.ruleVersion,'WSC-R-1.0.3-draft');
+    assert.equal(report.contentVersion,'WSC-C-1.0.3-draft');
     const finding = report.findings.find(f=>f.id==='DMARC_NONE');
     assert.ok(finding.details.some(d=>d.label==='レコード取得ドメイン' && d.raw==='atlib.jp'));
     if(host !== 'atlib.jp') {
       const html=render(report,{name:'atLIB synthetic',url:'https://'+host+'/'});
-      assert.match(html,/確認したドメインは atlib\.jp です/);
-      assert.match(html,/上位ドメイン（atlib\.jp）に公開された対応方針/);
+      assert.match(html,/確認したドメイン：atlib\.jp/);
+      assert.match(html,/設定取得元：atlib\.jp/);
       assert.match(html,/偽メールの隔離・拒否を求める設定にはなっていません/);
       assert.doesNotMatch(html,/DMARC_ABSENT|原値：/);
     }
