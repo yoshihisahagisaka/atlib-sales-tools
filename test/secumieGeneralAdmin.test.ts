@@ -7,10 +7,12 @@ import type { SecumieGeneralAdminRepo } from '../src/services/secumieGeneralAdmi
 
 test('general lead admin staff gate, service boundary, strict filters and mutation',async()=>{
  const calls:unknown[]=[];
- const repo:Pick<SecumieGeneralAdminRepo,'list'|'detail'|'updateSales'>={
+ const repo:Pick<SecumieGeneralAdminRepo,'list'|'detail'|'updateSales'|'linkCompany'|'unlinkCompany'>={
   async list(p){calls.push(p);return {items:[],total:0,summary:{received:0,completed:0,consultations:0,new_leads:0,web_completed:0,insight_completed:0}};},
   async detail(kind,id){calls.push({kind,id});return null;},
-  async updateSales(kind,id,input){calls.push({kind,id,input});return true;}
+  async updateSales(kind,id,input){calls.push({kind,id,input});return true;},
+  async linkCompany(kind,id,input){calls.push({kind,id,input});return {groupId:id};},
+  async unlinkCompany(kind,id,actor){calls.push({kind,id,actor});return true;}
  };
  const app=express();app.use(express.json());app.use((req,_res,next)=>{if(req.get('x-test-staff')==='1')req.staffEmail='synthetic@example.invalid';next();});app.use('/leads-admin',createAdminSecumieGeneralRouter(repo));
  const server=app.listen(0,'127.0.0.1');
@@ -34,6 +36,14 @@ test('general lead admin staff gate, service boundary, strict filters and mutati
   assert.equal((await fetch(base,{headers:staff})).status,200);
   assert.deepEqual(calls[3],{limit:50,offset:0});
   assert.equal(calls.length,4);
+  const link=base+'/WEB/'+id+'/company-link',targetId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const headers={...staff,'content-type':'application/json','x-secumie-staff-command':'1'};
+  assert.equal((await fetch(link,{method:'POST',headers,body:JSON.stringify({targetKind:'INSIGHT',targetId,confirmed:false})})).status,400);
+  assert.equal((await fetch(link,{method:'POST',headers:{...staff,'content-type':'application/json'},body:JSON.stringify({targetKind:'INSIGHT',targetId,confirmed:true})})).status,403);
+  assert.equal((await fetch(link,{method:'POST',headers,body:JSON.stringify({targetKind:'INSIGHT',targetId,confirmed:true})})).status,200);
+  assert.deepEqual(calls[4],{kind:'WEB',id,input:{targetKind:'INSIGHT',targetId,actor:'synthetic@example.invalid'}});
+  assert.equal((await fetch(link,{method:'DELETE',headers,body:JSON.stringify({confirmed:true})})).status,204);
+  assert.deepEqual(calls[5],{kind:'WEB',id,actor:'synthetic@example.invalid'});
  }finally{await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
 });
 
