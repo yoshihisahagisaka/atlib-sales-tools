@@ -63,6 +63,24 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
   await page.locator('#web-result').waitFor({state:'visible'});
   await page.frameLocator('#report-frame').locator('body').getByText('クリックジャック対策',{exact:false}).first().waitFor();
   await page.locator('#print-result').waitFor({state:'visible'});
+  assert.equal(await page.frameLocator('#report-frame').locator('.print-button').count(),0,'inert embedded print button must not be displayed');
+  assert.equal(await page.locator('#web-result .consult-guide-trigger').count(),2);
+  for(const viewport of [{width:390,height:844},{width:1440,height:1000}]){
+    await page.setViewportSize(viewport);
+    await page.evaluate('window.scrollTo(0,0)');
+    const top=page.locator('#web-result-actions .consult-guide-trigger');
+    assert.equal(await top.isVisible(),true);
+    const rect=await top.boundingBox();
+    assert.ok(rect&&rect.y>=0&&rect.y+rect.height<=viewport.height&&rect.x>=0&&rect.x+rect.width<=viewport.width,'consult CTA visible without scrolling');
+  }
+  await page.setViewportSize({width:390,height:844});
+  await page.frameLocator('#report-frame').locator('body').evaluate('() => { window.print = () => { document.body.dataset.printCalled = "yes"; }; }');
+  await page.locator('#print-result').click();
+  assert.equal(await page.frameLocator('#report-frame').locator('body').getAttribute('data-print-called'),'yes','working parent print button calls frame print');
+  await page.locator('#web-result-actions-bottom .consult-guide-trigger').click();
+  await page.locator('#consultation-guide').waitFor({state:'visible'});
+  await page.locator('#consult-back').click();
+  assert.equal(await page.locator('#web-result').isVisible(),true);
  }else{
   for(let i=0;i<8;i++){await page.locator('[data-answer]').first().click();await page.locator('#next').click();}
   await page.locator('#v7-print').waitFor({state:'visible'});
