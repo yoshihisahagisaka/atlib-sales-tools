@@ -4,10 +4,10 @@ ARG SOURCE_REVISION
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION com.atlib.security.overlay.base="asia-northeast1-docker.pkg.dev/msp-zabbix/cloud-run-source-deploy/sales-tools@sha256:49e25ba4a8ce41d1cb06f6184d6451e24ad98e67a4872641e468ab3d792e3e9a"
 USER root
 COPY patch.cjs /tmp/staff-security-patch.cjs
-RUN node /tmp/staff-security-patch.cjs before \
- && apt-get update \
- && apt-cache policy apt libapt-pkg6.0 libglib2.0-0 \
- && set -eu; \
+RUN set -eu; \
+    node /tmp/staff-security-patch.cjs before; \
+    apt-get update; \
+    apt-cache policy apt libapt-pkg6.0 libglib2.0-0; \
     aptv="$(apt-cache policy apt | awk '/Candidate:/ {print $2}')"; \
     libv="$(apt-cache policy libapt-pkg6.0 | awk '/Candidate:/ {print $2}')"; \
     if [ "$aptv" != "(none)" ] && [ "$libv" != "(none)" ] && dpkg --compare-versions "$aptv" ge 2.6.2 && dpkg --compare-versions "$libv" ge 2.6.2; then \
