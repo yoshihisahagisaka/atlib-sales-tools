@@ -123,7 +123,7 @@ const cspPolicies = value => {
     return directives;
   });
 };
-const meaningfulCsp = policies => policies.some(policy=>[...policy].some(([name,values])=>!['report-uri','report-to'].includes(name)&&(values.length||['sandbox','upgrade-insecure-requests','block-all-mixed-content','trusted-types'].includes(name))));
+const meaningfulCsp = policies => policies.some(policy=>[...policy].some(([name,values])=>!['report-uri','report-to'].includes(name)&&(values.length||name.endsWith('-src')||['script-src-elem','script-src-attr','style-src-elem','style-src-attr','base-uri','form-action','frame-ancestors','sandbox','upgrade-insecure-requests','block-all-mixed-content','trusted-types'].includes(name))));
 // Only explicit no-restriction or recognized restrictive policy is inferred.
 // Unrecognized frame-ancestors syntax is not guessed.
 const framePolicy = (csp, xfo) => {
@@ -138,6 +138,23 @@ const framePolicy = (csp, xfo) => {
   if(typeof xfo==='string'&&/^(deny|sameorigin)$/i.test(xfo.trim()))return 'RESTRICTED';
   if(xfo===null||typeof xfo==='string'&&(/^(?:allow-from\b.*|)$/i.test(xfo.trim())))return 'OPEN';
   return 'UNKNOWN';
+};
+const spfBasicMalformed = record => {
+  if(!/^v=spf1(?: |$)/i.test(record)||/[\t\r\n]/.test(record))return true;
+  const seen=new Set();
+  for(const term of record.trim().split(/ +/).slice(1)){
+    if(/^[A-Za-z][A-Za-z0-9_.-]*=/.test(term)){
+      const name=term.split('=')[0].toLowerCase();
+      if(['redirect','exp'].includes(name)){
+        if(seen.has(name)||term.endsWith('='))return true;
+        seen.add(name);
+      }
+      continue;
+    }
+    if(/^[+?~-]?all$/i.test(term))break;
+    if(!/^[+?~-]?(?:include|exists|ip4|ip6):\S+$/i.test(term)&&!/^[+?~-]?(?:a|mx)(?::[^/]+)?(?:\/\d+)?(?:\/\/\d+)?$/i.test(term)&&!/^[+?~-]?ptr(?::\S+)?$/i.test(term))return true;
+  }
+  return false;
 };
 const spfAllowsAll = record => {
   const terms=record.trim().split(/ +/).slice(1);
@@ -200,12 +217,12 @@ export function evaluate(input, { rulesPath, explanationsPath } = {}) {
   const spfScope = text(spf?.checkedDomain) ? [evidence('SPF確認ドメイン', spf.checkedDomain)] : [];
   if (spf && spf.lookupStatus === 'FOUND' && Array.isArray(spf.records) && Number.isInteger(spf.recordCount) && spf.recordCount === spf.records.length) {
     if (spf.recordCount === 1 && typeof spf.records[0] === 'string' && /^v=spf1(?: |$)/i.test(spf.records[0])) {
-      const permissive=spfAllowsAll(spf.records[0]);
-      add(permissive?'SPF_ALLOW_ALL':'SPF_PRESENT',permissive?'追加確認推奨':'設定確認済み',[evidence('SPFレコード',spf.records[0]),evidence('レコード数',spf.recordCount),...spfScope]);
+      const malformed=spfBasicMalformed(spf.records[0]), permissive=spfAllowsAll(spf.records[0]);
+      add(malformed?'SPF_INVALID':permissive?'SPF_ALLOW_ALL':'SPF_PRESENT',malformed||permissive?'追加確認推奨':'設定確認済み',[evidence('SPFレコード',spf.records[0]),evidence('レコード数',spf.recordCount),...spfScope]);
     }
     else if (spf.recordCount > 1) add('SPF_MULTIPLE', '追加確認推奨', [evidence('レコード数', spf.recordCount), ...spfScope]);
     else internalOnly.push('SPF: 形式が未定義');
-    if (text(spf.checkedDomain) && text(input.mailDomain) && spf.checkedDomain !== input.mailDomain.toLowerCase().replace(/\.$/, '') && ['SPF_PRESENT','SPF_MULTIPLE','SPF_ALLOW_ALL'].includes(findings.at(-1)?.id)) {
+    if (text(spf.checkedDomain) && text(input.mailDomain) && spf.checkedDomain !== input.mailDomain.toLowerCase().replace(/\.$/, '') && ['SPF_PRESENT','SPF_MULTIPLE','SPF_ALLOW_ALL','SPF_INVALID'].includes(findings.at(-1)?.id)) {
       const finding = findings.at(-1);
       if(finding.id==='SPF_PRESENT')finding.observation='上位ドメインにメール送信元を示す公開設定があります。';
       finding.observation += ' 確認したドメインは ' + spf.checkedDomain + ' です。';
@@ -252,6 +269,7 @@ const TECHNICAL_HEADINGS = Object.freeze({
   "SPF_PRESENT": "SPF",
   "SPF_MULTIPLE": "SPF",
   "SPF_ALLOW_ALL": "SPF",
+  "SPF_INVALID": "SPF",
   "DMARC_NONE": "DMARC",
   "DMARC_ENFORCING": "DMARC",
   "DMARC_ABSENT": "DMARC"
