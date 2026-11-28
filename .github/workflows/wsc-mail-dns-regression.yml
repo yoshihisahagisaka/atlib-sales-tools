@@ -13,6 +13,8 @@ on:
       - 'release/secumie-web-diagnosis-overlay/**'
       - 'release/secumie-web-presentation-overlay/**'
       - 'scripts/readiness/secumie_web_presentation_build.py'
+      - 'scripts/readiness/secumie_web_presentation_release.py'
+      - 'test/secumie_web_presentation_release_test.py'
       - 'scripts/readiness/secumie_web_diagnosis_build.py'
       - 'scripts/readiness/secumie_web_diagnosis_release.py'
       - 'test/secumie_web_diagnosis_release_test.py'
@@ -31,6 +33,8 @@ jobs:
           node-version: '24'
       - run: python3 -m py_compile scripts/readiness/secumie_web_diagnosis_build.py scripts/readiness/secumie_web_diagnosis_release.py
       - run: python3 test/secumie_web_diagnosis_release_test.py
+      - run: python3 -m py_compile scripts/readiness/secumie_web_presentation_release.py
+      - run: python3 test/secumie_web_presentation_release_test.py
       - run: node --check release/secumie-web-diagnosis-overlay/verify.cjs
       - run: python3 -m py_compile scripts/readiness/secumie_web_presentation_build.py
       - run: node --check release/secumie-web-presentation-overlay/verify.cjs
