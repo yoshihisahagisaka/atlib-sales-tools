@@ -78,7 +78,7 @@ export class SecumieGeneralLeadRepo{
   const q=await this.pool.query(`SELECT diagnosis_result FROM secumie_general.lead WHERE kind=$1 AND receipt_hash=$2 AND receipt_expires_at>clock_timestamp() AND diagnosis_status='COMPLETED'`,[kind,digest(receipt)]);
   return q.rows[0]?.diagnosis_result??null;
  }
- async claimConsultation(kind:GeneralKind,receipt:string,input:{phone:string;note?:string}):Promise<GeneralConsultationClaim>{
+ async claimConsultation(kind:GeneralKind,receipt:string,input:{phone:string;note?:string;answers?:{questionId:string;answerId:string}[]}):Promise<GeneralConsultationClaim>{
   if(!receiptPattern.test(receipt))throw Error('RECEIPT_EXPIRED');
   const phone=z.string().trim().min(1).max(50).parse(input.phone),note=z.string().trim().max(2000).parse(input.note??'');
   const client=await this.pool.connect();
@@ -88,6 +88,12 @@ export class SecumieGeneralLeadRepo{
     FROM secumie_general.lead WHERE kind=$1 AND receipt_hash=$2 AND receipt_expires_at>clock_timestamp() FOR UPDATE`,[kind,digest(receipt)])).rows[0];
    if(!row)throw Error('RECEIPT_EXPIRED');
    if(row.diagnosis_status!=='COMPLETED')throw Error('DIAGNOSIS_NOT_SAVED');
+   if(kind==='INSIGHT'){
+    const stored=z.array(z.object({questionId:z.string(),answerId:z.string()})).length(8).safeParse(row.diagnosis_result?.answers);
+    const expected=input.answers;
+    const canonical=(items:{questionId:string;answerId:string}[])=>JSON.stringify(items.map(x=>[x.questionId,x.answerId]).sort((a,b)=>a[0]!.localeCompare(b[0]!)));
+    if(!stored.success||!expected||expected.length!==8||new Set(expected.map(x=>x.questionId)).size!==8||canonical(stored.data)!==canonical(expected))throw Error('DIAGNOSIS_NOT_SAVED');
+   }else if(input.answers!==undefined)throw Error('DIAGNOSIS_NOT_SAVED');
    let status:GeneralConsultationClaim['status'];
    let at=row.consultation_requested_at;
    if(row.consultation_status==='NONE'){

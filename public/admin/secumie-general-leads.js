@@ -26,18 +26,20 @@
   }catch(e){if(seq!==generation)return;for(const k of ['received','web_completed','insight_completed','consultations','new_leads'])$(k).textContent='—';$('page').textContent='';$('status').textContent=e.message;}
  }
  async function detail(kind,id){
-  const seq=++detailGeneration;activeId=null;activeKind=null;$('detail-title').textContent='リード詳細';$('detail-status').textContent='取得中…';$('sales-form').hidden=true;$('contact').replaceChildren();$('diagnosis').replaceChildren();$('consultation').replaceChildren();$('result').textContent='';if(!$('detail').open)$('detail').showModal();
+  const seq=++detailGeneration;activeId=null;activeKind=null;$('detail-title').textContent='リード詳細';$('detail-status').textContent='取得中…';$('sales-form').hidden=true;$('contact').replaceChildren();$('diagnosis').replaceChildren();$('consultation').replaceChildren();$('result').textContent='';$('result-history').replaceChildren();if(!$('detail').open)$('detail').showModal();
   try{
    const x=await request(api+'/'+kind+'/'+encodeURIComponent(id));if(seq!==detailGeneration||!$('detail').open)return;
    activeId=x.id;activeKind=kind;$('detail-title').textContent=x.company_name+'｜'+serviceLabel(kind);
    fields('contact',[['担当者',x.person_name],['部署',x.department],['役職',x.position],['メール（未認証）',x.email],['電話番号',x.phone],['営業案内',x.sales_contact_allowed?'同意あり':'同意なし'],['同意版',x.consent_version],['同意日時',date(x.consented_at)]]);
    fields('diagnosis',[['受付日時',date(x.received_at)],['診断状況',display(x.diagnosis_status)],['完了日時',date(x.completed_at)],...(kind==='WEB'?[['対象URL',x.target_url]]:[])]);
    $('result').textContent=x.diagnosis_result?JSON.stringify(x.diagnosis_result,null,2):'診断結果未登録';
+   const history=$('result-history');history.replaceChildren();
+   for(const entry of x.result_history??[]){const d=document.createElement('details'),summary=document.createElement('summary'),pre=document.createElement('pre');summary.textContent='修正前の回答（'+date(entry.completed_at)+'）';pre.textContent=JSON.stringify(entry.diagnosis_result,null,2);d.append(summary,pre);history.append(d);}
    fields('consultation',[['申込状況',display(x.consultation_status)],['申込日時',date(x.consultation_requested_at)],['相談時電話番号',x.consultation_phone],['同意版',x.consultation_consent_version],['通知状況',notifications[x.notification_status]??'—'],['相談内容',x.consultation_note]]);
    $('sales-status').value=x.sales_status;$('staff-note').value=x.staff_note??'';$('sales-form').hidden=false;$('detail-status').textContent='';
   }catch(e){if(seq===detailGeneration)$('detail-status').textContent=e.message;}
  }
- $('filters').addEventListener('submit',e=>{e.preventDefault();offset=0;load();});$('prev').addEventListener('click',()=>{offset=Math.max(0,offset-50);load();});$('next').addEventListener('click',()=>{offset+=50;load();});$('close').addEventListener('click',()=>$('detail').close());$('detail').addEventListener('close',()=>{detailGeneration++;activeId=null;activeKind=null;$('contact').replaceChildren();$('diagnosis').replaceChildren();$('consultation').replaceChildren();$('result').textContent='';$('staff-note').value='';});
+ $('filters').addEventListener('submit',e=>{e.preventDefault();offset=0;load();});$('prev').addEventListener('click',()=>{offset=Math.max(0,offset-50);load();});$('next').addEventListener('click',()=>{offset+=50;load();});$('close').addEventListener('click',()=>$('detail').close());$('detail').addEventListener('close',()=>{detailGeneration++;activeId=null;activeKind=null;$('contact').replaceChildren();$('diagnosis').replaceChildren();$('consultation').replaceChildren();$('result').textContent='';$('result-history').replaceChildren();$('staff-note').value='';});
  $('sales-form').addEventListener('submit',async e=>{e.preventDefault();if(!activeId||!activeKind)return;const id=activeId,kind=activeKind,seq=detailGeneration,button=e.currentTarget.querySelector('button');button.disabled=true;try{await request(api+'/'+kind+'/'+encodeURIComponent(id)+'/sales',{method:'PATCH',headers:{'Content-Type':'application/json','X-Secumie-Staff-Command':'1'},body:JSON.stringify({status:$('sales-status').value,note:$('staff-note').value})});if(seq===detailGeneration)$('detail-status').textContent='保存しました';load();}catch(err){if(seq===detailGeneration)$('detail-status').textContent=err.message;}finally{button.disabled=false;}});
  load();
 })();

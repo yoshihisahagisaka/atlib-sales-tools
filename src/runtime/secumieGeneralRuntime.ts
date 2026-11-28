@@ -148,6 +148,7 @@ export function createSecumieGeneralRuntime(options: {
     if (!options.consultation) { res.status(503).json({code:'NOT_READY'}); return; }
     const parsed=generalConsultationSchema.safeParse(req.body);
     if(!parsed.success){res.status(422).json({code:'INVALID_REQUEST'});return;}
+    if(options.kind==='INSIGHT'?!parsed.data.answers:parsed.data.answers!==undefined){res.status(422).json({code:'INVALID_ANSWERS'});return;}
     try{const result=await options.consultation.submit(options.kind,parsed.data);res.json({ok:true,...result});}
     catch(error){
       const code=error instanceof Error?error.message:'';

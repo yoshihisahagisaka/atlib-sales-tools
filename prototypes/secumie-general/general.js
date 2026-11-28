@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
  const cf=document.getElementById('consultation-form');
  document.getElementById('consult-form-back').onclick=()=>{formView.hidden=true;consultation.hidden=false;apply.focus();};
  apply.onclick=()=>{if(!leadReceipt||(!web&&!insightAnswers))return;document.getElementById('consult-company').textContent=[companyData.companyName,web?companyData.targetUrl:''].filter(Boolean).join(' ／ ');document.getElementById('consult-name').value=companyData.personName||'';document.getElementById('consult-email').value=companyData.email||'';document.getElementById('consult-phone').value=companyData.phone||'';consultation.hidden=true;formView.hidden=false;cf.querySelector('input').focus();window.scrollTo(0,0);};
- cf.addEventListener('submit',async event=>{event.preventDefault();const button=cf.querySelector('button[type=submit]'),msg=document.getElementById('consult-form-status');if(button.disabled||!leadReceipt||!cf.reportValidity())return;const d=Object.fromEntries(new FormData(cf));button.disabled=true;msg.textContent='受付中です…';try{const response=await fetch((web?'/secumie-web':'/secumie-insight')+'/api/consultation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({leadReceipt,phone:d.phone,note:d.note,accepted:d.consent==='on'}),signal:AbortSignal.timeout(55000)});const result=await response.json();if(!response.ok||!result.ok)throw Error(response.status===410?'診断情報の保持期限が切れました。再度診断を行ってください。':result.code==='DIAGNOSIS_NOT_SAVED'?'診断結果の保存が完了していません。結果画面で保存を再試行してください。':result.code==='ALREADY_SUBMITTED'?'既に相談を受け付けています。変更はお問い合わせ窓口へご連絡ください。':'受付を完了できませんでした。時間をおいて再度お試しください。');const url=new URL(result.scheduleUrl);if(url.protocol!=='https:'||url.hostname!=='timerex.net'||!url.pathname.startsWith('/s/')||url.username||url.password||url.port)throw Error('日程調整先を確認できませんでした。');location.assign(url.href);}catch(error){msg.textContent=error.message||'通信に失敗しました。';button.disabled=false;}});
+ cf.addEventListener('submit',async event=>{event.preventDefault();const button=cf.querySelector('button[type=submit]'),msg=document.getElementById('consult-form-status');if(button.disabled||!leadReceipt||!cf.reportValidity())return;const d=Object.fromEntries(new FormData(cf));button.disabled=true;msg.textContent='受付中です…';try{const response=await fetch((web?'/secumie-web':'/secumie-insight')+'/api/consultation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({leadReceipt,phone:d.phone,note:d.note,accepted:d.consent==='on',...(!web?{answers:insightAnswers}:{})}),signal:AbortSignal.timeout(55000)});const result=await response.json();if(!response.ok||!result.ok)throw Error(response.status===410?'診断情報の保持期限が切れました。再度診断を行ってください。':result.code==='DIAGNOSIS_NOT_SAVED'?'診断結果の保存が完了していません。結果画面で保存を再試行してください。':result.code==='ALREADY_SUBMITTED'?'既に相談を受け付けています。変更はお問い合わせ窓口へご連絡ください。':'受付を完了できませんでした。時間をおいて再度お試しください。');const url=new URL(result.scheduleUrl);if(url.protocol!=='https:'||url.hostname!=='timerex.net'||!url.pathname.startsWith('/s/')||url.username||url.password||url.port)throw Error('日程調整先を確認できませんでした。');location.assign(url.href);}catch(error){msg.textContent=error.message||'通信に失敗しました。';button.disabled=false;}});
 
  const openGuide=(target)=>{returnTarget=target;apply.disabled=!leadReceipt||(!web&&!insightAnswers);consultStatus.textContent=apply.disabled?'相談受付を利用できません。':'';target.hidden=true;if(web)target.closest('main').hidden=true;consultation.hidden=false;document.getElementById('consult-heading').focus();window.scrollTo(0,0);};
  document.getElementById('consult-back').onclick=()=>{consultation.hidden=true;if(returnTarget){returnTarget.hidden=false;if(web)returnTarget.closest('main').hidden=false;returnTarget.querySelector('.consult-guide-trigger')?.focus();}};
@@ -118,6 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const printContact=node('p','insight-print-contact');printContact.append(node('span','','atLIB株式会社　ご相談・お問い合わせ：'),link('www.atlib.jp/contact/','https://www.atlib.jp/contact/'));final.append(printContact);
   report.append(final);addGuide(app,next);
  };
+ let saveQueue=Promise.resolve();
  const persistResult=async(target,answers,alreadySaved=false)=>{
   if(alreadySaved||!leadReceipt)return;
   const previous=target.querySelector('.general-save-status');if(previous)previous.remove();
@@ -127,10 +128,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const attempt=async()=>{retry.disabled=true;msg.textContent='診断情報を保存しています。';try{
    const response=await fetch((web?'/secumie-web':'/secumie-insight')+'/api/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({leadReceipt:ownReceipt,...(!web?{answers}:{})}),signal:AbortSignal.timeout(10000)});
    if(response.ok){box.remove();return;}
-   if(response.status===409||response.status===410){msg.textContent='診断結果は閲覧・保存できますが、受付への結果保存は完了していません。再診断が必要な場合があります。';retry.hidden=true;return;}
+   if(response.status===409||response.status===410){msg.textContent='診断結果は閲覧・保存できますが、受付への結果保存は完了していません。相談申込済みの診断を変更する場合は、新しく診断してください。';retry.hidden=true;return;}
    throw Error();
   }catch{msg.textContent='診断情報の保存が完了していません。レポートは無料で閲覧・PDF保存できます。';retry.disabled=false;}};
-  retry.onclick=attempt;await attempt();
+  const queued=()=>{retry.disabled=true;saveQueue=saveQueue.then(attempt,attempt);return saveQueue;};retry.onclick=queued;await queued();
  };
  if(!web)document.addEventListener('pira:v7-report-rendered',async event=>{
   insightAnswers=event.detail?.answers??null;
