@@ -11,7 +11,7 @@ export const consultationSchema = z.object({
   answers: z.array(z.object({ questionId: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/), answerId: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/) }).strict()).length(8).optional(),
 }).strict();
 export type ConsultationInput = z.infer<typeof consultationSchema>;
-export type DiagnosisContext = { kind: 'WEB' | 'INSIGHT'; companyName: string; registeredAddress: string; targetUrl?: string; report?: unknown };
+export type DiagnosisContext = { kind: 'WEB' | 'INSIGHT'; companyName: string; targetUrl?: string; report?: unknown };
 export type ConsultationNotice = DiagnosisContext & { personName: string; email: string; phone: string; note?: string; answers?: ConsultationInput['answers']; receivedAt: string; reference: string };
 type Entry = { context: DiagnosisContext; expires: number; state: 'ready' | 'sending' | 'sent'; fingerprint?: string; timer?: NodeJS.Timeout };
 
@@ -42,7 +42,7 @@ export class ConsultationHandoff {
   private remove(key: string): void {
     const entry = this.entries.get(key);
     if (entry?.timer) clearTimeout(entry.timer);
-    if (entry) entry.context = {kind:entry.context.kind,companyName:'',registeredAddress:''};
+    if (entry) entry.context = {kind:entry.context.kind,companyName:''};
     this.entries.delete(key);
   }
   close(): void { for (const key of this.entries.keys()) this.remove(key); }
@@ -63,7 +63,7 @@ export class ConsultationHandoff {
       await this.notify({ ...entry.context, ...(entry.context.kind === 'INSIGHT' ? {report:insightReport}:{}), personName: input.personName, email: input.email, phone: input.phone, ...(input.note ? {note: input.note}:{}), ...(input.answers ? {answers: input.answers}:{}), receivedAt: new Date(this.now()).toISOString(), reference: createHash('sha256').update(input.receipt).digest('hex').slice(0,20) });
       entry.fingerprint = fingerprint; entry.state = 'sent';
       // Remove diagnostic data immediately after notification.
-      entry.context = {kind:entry.context.kind,companyName:'',registeredAddress:''};
+      entry.context = {kind:entry.context.kind,companyName:''};
       return this.scheduleUrl;
     } catch { entry.state = 'ready'; throw Error('NOTIFICATION_FAILED'); }
   }
