@@ -11,6 +11,8 @@ on:
       - 'test/wscPublicDestination.test.mjs'
       - '.github/workflows/wsc-mail-dns-regression.yml'
       - 'release/secumie-web-diagnosis-overlay/**'
+      - 'release/secumie-web-presentation-overlay/**'
+      - 'scripts/readiness/secumie_web_presentation_build.py'
       - 'scripts/readiness/secumie_web_diagnosis_build.py'
       - 'scripts/readiness/secumie_web_diagnosis_release.py'
       - 'test/secumie_web_diagnosis_release_test.py'
@@ -30,6 +32,9 @@ jobs:
       - run: python3 -m py_compile scripts/readiness/secumie_web_diagnosis_build.py scripts/readiness/secumie_web_diagnosis_release.py
       - run: python3 test/secumie_web_diagnosis_release_test.py
       - run: node --check release/secumie-web-diagnosis-overlay/verify.cjs
+      - run: python3 -m py_compile scripts/readiness/secumie_web_presentation_build.py
+      - run: node --check release/secumie-web-presentation-overlay/verify.cjs
+      - run: python3 scripts/readiness/secumie_web_presentation_build.py --check-source
       - run: python3 scripts/readiness/secumie_web_diagnosis_build.py --check-source
       - run: node --test test/wscMailDns.test.mjs test/wscDiagnosisAccuracy.test.mjs test/wscPublicDestination.test.mjs
       - run: WSC_PRESENTATION_OUTPUT=review-reports node --test test/wscPresentation.test.mjs
