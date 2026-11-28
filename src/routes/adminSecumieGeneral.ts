@@ -7,7 +7,7 @@ const salesStatus=z.enum(generalSalesStates);
 const filters=z.object({kind:kind.optional(),companyName:z.string().trim().max(150).optional(),diagnosisStatus:z.enum(['RECEIVED','COMPLETED','FAILED']).optional(),consultationStatus:z.enum(['NONE','REQUESTED']).optional(),salesStatus:salesStatus.optional(),limit:z.coerce.number().int().min(1).max(100).default(50),offset:z.coerce.number().int().min(0).max(100000).default(0)}).strict();
 const key=z.object({kind,id:z.string().uuid()}).strict();
 const edit=z.object({status:salesStatus,note:z.string().trim().max(2000)}).strict();
-export function createAdminSecumieGeneralRouter(repo:Pick<SecumieGeneralAdminRepo,'list'|'detail'|'updateSales'>):Router{
+export function createAdminSecumieGeneralRouter(repo:Pick<SecumieGeneralAdminRepo,'list'|'detail'|'updateSales'|'linkCompany'|'unlinkCompany'>):Router{
  const router=Router();
  router.use((req,res,next)=>{
   res.setHeader('Cache-Control','no-store');
@@ -29,6 +29,17 @@ export function createAdminSecumieGeneralRouter(repo:Pick<SecumieGeneralAdminRep
   const p=key.safeParse(req.params),v=edit.safeParse(req.body);
   if(!p.success||!v.success){res.status(400).json({code:'INVALID_REQUEST'});return;}
   try{const changed=await repo.updateSales(p.data.kind,p.data.id,{...v.data,actor:req.staffEmail!});res.sendStatus(changed?204:404);}catch{res.status(503).json({code:'SERVICE_UNAVAILABLE'});}
+ });
+ router.post('/leads/:kind/:id/company-link',async(req,res)=>{
+  const p=key.safeParse(req.params),v=z.object({targetKind:kind,targetId:z.string().uuid(),confirmed:z.literal(true)}).strict().safeParse(req.body);
+  if(!p.success||!v.success){res.status(400).json({code:'INVALID_REQUEST'});return;}
+  try{const linked=await repo.linkCompany(p.data.kind,p.data.id,{targetKind:v.data.targetKind,targetId:v.data.targetId,actor:req.staffEmail!});if(!linked){res.sendStatus(404);return;}res.json(linked);}
+  catch(e){const code=e instanceof Error?e.message:'';if(['SAME_LEAD','TEST_BOUNDARY','GROUP_MERGE_NOT_ALLOWED'].includes(code)){res.status(409).json({code});return;}res.status(503).json({code:'SERVICE_UNAVAILABLE'});}
+ });
+ router.delete('/leads/:kind/:id/company-link',async(req,res)=>{
+  const p=key.safeParse(req.params),v=z.object({confirmed:z.literal(true)}).strict().safeParse(req.body);
+  if(!p.success||!v.success){res.status(400).json({code:'INVALID_REQUEST'});return;}
+  try{res.sendStatus(await repo.unlinkCompany(p.data.kind,p.data.id,req.staffEmail!)?204:404);}catch{res.status(503).json({code:'SERVICE_UNAVAILABLE'});}
  });
  return router;
 }
