@@ -127,6 +127,7 @@ jobs:
           REVOKE ALL ON SCHEMA public FROM PUBLIC;
           GRANT USAGE,CREATE ON SCHEMA public TO secumie_general_migration_prod;
           SQL
+          python3 test/secumie_general_production_bootstrap_test.py
           python3 scripts/readiness/secumie_general_production_migrate.py check
           python3 scripts/readiness/secumie_general_production_migrate.py batch > /tmp/general-prod-batch.sql
           export PGPASSWORD=synthetic-migration-password
