@@ -201,3 +201,25 @@ button[type=submit]{width:100%;padding:17px;border:0;background:#dc782d;color:#f
  .general-insight-report .insight-consulting-page{break-after:auto}
  .general-insight-report .consult-guide-trigger{display:none!important}
 }
+
+/* General Insight: connect the three domains visually, without extra artwork requests. */
+.general-insight-report .insight-consulting-diagram{margin:14px 0 18px}
+.general-insight-report .insight-diagram-connector{position:relative;width:66%;height:18px;margin:auto;border-top:1px solid #248267;border-left:1px solid #248267;border-right:1px solid #248267}
+.general-insight-report .insight-diagram-connector:after{content:'';position:absolute;left:50%;top:0;height:18px;border-left:1px solid #248267}
+.general-insight-report .insight-diagram-center{display:block;text-align:center;background:#1f3556;color:white;padding:8px 12px;border-radius:6px}
+.general-insight-report .insight-action .v7-tool-label{margin:6px 0 0;font-size:12px}
+@media screen and (max-width:600px){.general-insight-report .insight-diagram-connector{width:1px;border:0;border-left:1px solid #248267}.general-insight-report .insight-diagram-connector:after{display:none}}
+@media print{
+ html:has(.general-insight-report),body:has(.general-insight-report){background:#fff!important}
+ .general-insight-report .v7-page[data-question-id="T06"]{padding-top:9mm;padding-bottom:9mm}
+ .general-insight-report [data-question-id="T06"] .v7-title-content{padding:8px 14px}
+ .general-insight-report [data-question-id="T06"] .insight-own-answer{margin:5px 0;padding:5px 9px}
+ .general-insight-report [data-question-id="T06"] > section{margin:5px 0}
+ .general-insight-report [data-question-id="T06"] h2{margin:5px 0 3px}
+ .general-insight-report [data-question-id="T06"] .v7-impact-cards{margin:3px 0;gap:5px}
+ .general-insight-report [data-question-id="T06"] .insight-related-service{margin-top:4px;padding:5px 8px}
+ .general-insight-report [data-question-id="T06"] .insight-related-service p{margin:1px 0 3px}
+ .general-insight-report .insight-consulting-diagram{margin:8px 0 12px}
+ .general-insight-report .insight-diagram-connector,.general-insight-report .insight-diagram-connector:after{height:11px}
+ .general-insight-report .insight-diagram-center{padding:5px 10px;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
