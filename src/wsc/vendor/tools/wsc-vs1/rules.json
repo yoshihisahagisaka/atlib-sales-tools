@@ -1,5 +1,5 @@
 {
-  "ruleVersion": "WSC-R-1.0.1-draft",
+  "ruleVersion": "WSC-R-1.0.2-draft",
   "inputSchemaVersion": "2.0",
   "classification": {
     "confirmed": "設定確認済み",
@@ -28,7 +28,7 @@
     },
     {
       "id": "TLS_EXPIRING",
-      "condition": "tls.status == VALIDATED AND 0 <= tls.daysRemaining <= 30",
+      "condition": "tls.status == VALIDATED AND policyErrors == None AND 0 <= floor((notAfter - checkedAt)/day) <= 30 (legacy residual days only if dates unavailable)",
       "status": "追加確認推奨",
       "evidenceFields": [
         "tls.daysRemaining",
@@ -46,7 +46,7 @@
     },
     {
       "id": "HSTS_ENABLED",
-      "condition": "http.status == OK AND HSTS.maxAge > 0",
+      "condition": "http.status == OK AND normal page response AND valid HSTS grammar AND maxAge > 0",
       "status": "設定確認済み",
       "evidenceFields": [
         "http.headers.Strict-Transport-Security"
@@ -54,7 +54,7 @@
     },
     {
       "id": "HSTS_DISABLED",
-      "condition": "http.status == OK AND (HSTS missing OR HSTS.maxAge == 0)",
+      "condition": "http.status == OK AND normal page response AND (HSTS explicitly absent OR valid maxAge == 0)",
       "status": "追加確認推奨",
       "evidenceFields": [
         "http.headers.Strict-Transport-Security"
@@ -62,7 +62,7 @@
     },
     {
       "id": "CSP_HEADER_ABSENT",
-      "condition": "http.status == OK AND CSP header null",
+      "condition": "http.status == OK AND normal page response AND enforcing CSP explicitly null",
       "status": "追加確認推奨",
       "evidenceFields": [
         "http.headers.Content-Security-Policy"
@@ -70,7 +70,7 @@
     },
     {
       "id": "CSP_HEADER_PRESENT",
-      "condition": "http.status == OK AND CSP header nonempty",
+      "condition": "http.status == OK AND normal page response AND enforcing CSP has recognized restriction directive; presence only",
       "status": "設定確認済み",
       "evidenceFields": [
         "http.headers.Content-Security-Policy"
@@ -78,7 +78,7 @@
     },
     {
       "id": "FRAME_HEADER_ABSENT",
-      "condition": "http.status == OK AND XFO header null AND CSP header null",
+      "condition": "http.status == OK AND normal page response AND known XFO/CSP evidence shows no recognized embedding restriction (including explicit wildcard); ambiguous syntax stays internal",
       "status": "追加確認推奨",
       "evidenceFields": [
         "http.headers.X-Frame-Options",
@@ -95,7 +95,7 @@
     },
     {
       "id": "SPF_PRESENT",
-      "condition": "dns.spf.lookupStatus == FOUND AND recordCount == 1 AND record starts v=spf1",
+      "condition": "dns.spf.lookupStatus == FOUND AND one SPF record passes basic syntax checks AND first all is not permissive; presence only",
       "status": "設定確認済み",
       "evidenceFields": [
         "dns.spf.records",
@@ -146,19 +146,57 @@
         "dns.dmarc.checkedDomain (when acquired)",
         "dns.dmarc.queriedDomains (when acquired)"
       ]
+    },
+    {
+      "id": "HSTS_INVALID",
+      "condition": "normal OK response AND explicit malformed HSTS field",
+      "status": "追加確認推奨",
+      "evidenceFields": [
+        "http.headers.Strict-Transport-Security"
+      ]
+    },
+    {
+      "id": "CSP_HEADER_INVALID",
+      "condition": "normal OK response AND explicit CSP field without recognizable restriction",
+      "status": "追加確認推奨",
+      "evidenceFields": [
+        "http.headers.Content-Security-Policy"
+      ]
+    },
+    {
+      "id": "SPF_ALLOW_ALL",
+      "condition": "one SPF record passes basic syntax check AND first all is +all or all",
+      "status": "追加確認推奨",
+      "evidenceFields": [
+        "dns.spf.records",
+        "dns.spf.checkedDomain (when acquired)"
+      ]
+    },
+    {
+      "id": "SPF_INVALID",
+      "condition": "one SPF record has obvious basic syntax problem",
+      "status": "追加確認推奨",
+      "evidenceFields": [
+        "dns.spf.records",
+        "dns.spf.checkedDomain (when acquired)"
+      ]
     }
   ],
   "guards": [
     "Only infer header absence when http.status == OK and the named header is explicitly null.",
     "Unknown, error, missing field, malformed record, and unrecognized enum values yield INTERNAL_ONLY; never CONFIRMED.",
     "TLS_EXPIRING is additional to TLS_VALID; do not count them as independent overall security scores.",
-    "If CSP exists, do not emit FRAME_HEADER_ABSENT; frame-ancestors must be parsed separately before claiming embedding protection.",
     "Do not claim CSP presence establishes an effective policy.",
     "SPF and DMARC validity are not proven by presence; basic syntax-only findings must say so.",
     "Use checkedAt from input, not current system time, for reproducible output.",
     "Raw HTML and user-supplied fields must be escaped.",
     "All network operations are prohibited in evaluate and render.",
     "Live DMARC absence requires completed bounded DNS policy discovery; transient DNS errors and invalid/ambiguous records are INTERNAL_ONLY. Legacy offline inputs are evaluated as originally supplied.",
-    "SPF evidence identifies the actually queried domain and does not imply inheritance or real SMTP sender authentication."
+    "SPF evidence identifies the actually queried domain and does not imply inheritance or real SMTP sender authentication.",
+    "Do not conflate missing/invalid field types with explicit null. Non-normal HTTP responses do not produce page-header findings; no redirect is followed.",
+    "Known certificate-verification errors from the pinned destination may yield TLS_INVALID without HTTP acquisition; all other transport/security failures remain unavailable.",
+    "Frame evidence is evaluated independently of CSP presence; ambiguous source lists are not claimed safe.",
+    "SPF ancestor discovery is bounded and independently queried; do not infer company ownership or SMTP identity. Known PSD SPF excluded. Basic syntax and first all only, no recursive SPF verification.",
+    "Explicit malformed fields with a defined review finding are distinguished from unknown evidence."
   ]
 }
