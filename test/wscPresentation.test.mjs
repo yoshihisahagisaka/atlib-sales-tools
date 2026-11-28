@@ -51,6 +51,18 @@ test('all current rule IDs have customer definitions and actual evaluator-to-ren
     if(output)fs.writeFileSync(path.join(output,String(i+1).padStart(2,'0')+'-'+id+'.html'),h);
   }
 });
+test('generate combined reports for print review, including actual atLIB-like finding mix',()=>{
+  const output=process.env.WSC_PRESENTATION_OUTPUT;
+  if(!output)return;
+  const email=(s,d)=>({dns:{...s.dns,...d.dns}});
+  const inputs=[
+    ['26-combined-atlib-like', {...tls(60),...web(),...email(spf(['v=spf1 include:_spf.google.com ~all']),dmarc('none'))}],
+    ['27-combined-review-heavy', {...tls(5),...web({'Strict-Transport-Security':'max-age=bad','Content-Security-Policy':'bad','X-Frame-Options':null}),...email(spf(['v=spf1 +all']),dmarc('reject','y'))}],
+    ['28-no-confirmed-results',{http:{status:'UNVERIFIED'},dns:{spf:{lookupStatus:'UNVERIFIED'},dmarc:{lookupStatus:'UNVERIFIED'}}}],
+    ['29-combined-protected',{...tls(60),...web(),...email(spf(['v=spf1 -all']),dmarc('reject'))}]
+  ];
+  for(const [name,input] of inputs)fs.writeFileSync(path.join(output,name+'.html'),generate(report(input)));
+});
 test('variant evidence and test mode are factual, with no normal enforcement confirmation for t=y',()=>{
   for(const p of ['reject','quarantine']){
     const f=report(dmarc(p,'y')).findings[0];
