@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
    const response=await fetch((web?'/secumie-web':'/secumie-insight')+'/api/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...data,accepted:true,turnstileToken:token}),signal:AbortSignal.timeout(65000)});
    const result=await response.json(); if(!response.ok||!result.ok)throw Error(response.status===429?'利用上限に達しました。時間をおいて再度お試しください。':'診断を開始できませんでした。入力内容をご確認ください。');
    receipt=result.receipt??null;companyData=data;
-   if(web){const frame=document.getElementById('report-frame');frame.srcdoc=result.html;document.getElementById('web-result').hidden=false;document.getElementById('print-result').onclick=()=>frame.contentWindow.print();intake.hidden=true;const target=document.getElementById('web-result');addGuide(target,target);}
+   if(web){const frame=document.getElementById('report-frame');frame.srcdoc=result.html.replace('<button class="print-button" aria-label="印刷またはPDFで保存" onclick="window.print()">▣ PDFで保存・印刷</button>','');document.getElementById('web-result').hidden=false;document.getElementById('print-result').onclick=()=>frame.contentWindow.print();intake.hidden=true;const target=document.getElementById('web-result');addGuide(target,document.getElementById('web-result-actions'));addGuide(target,document.getElementById('web-result-actions-bottom'));}
    else {document.getElementById('general-entry').hidden=true;document.getElementById('app').hidden=false;window.PiraV7PublicApp.start();document.getElementById('start').click();}
   }catch(error){status.textContent=error.message||'通信に失敗しました。';}finally{button.disabled=false;window.turnstile?.reset();}
  });
