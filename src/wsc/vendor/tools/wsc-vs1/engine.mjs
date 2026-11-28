@@ -128,6 +128,7 @@ export function evaluate(input, { rulesPath, explanationsPath } = {}) {
     else internalOnly.push('SPF: 形式が未定義');
     if (text(spf.checkedDomain) && text(input.mailDomain) && spf.checkedDomain !== input.mailDomain.toLowerCase().replace(/\.$/, '') && ['SPF_PRESENT','SPF_MULTIPLE'].includes(findings.at(-1)?.id)) {
       const finding = findings.at(-1);
+      finding.observation += ' 確認したドメインは ' + spf.checkedDomain + ' です。';
       finding.evidenceExplanation = '確認ドメイン（' + spf.checkedDomain + '）に公開されたSPFレコードの情報です。Webサイトのホスト名への継承や実際のメール送信元は検証していません。' + (finding.id === 'SPF_PRESENT' ? '参照先を含む設定全体の妥当性は検証していません。' : '同じドメインに複数のSPFレコードが見つかりました。');
     }
   } else if (spf) internalOnly.push('SPF: DNS取得状態またはレコード型が判定不能');
@@ -144,6 +145,7 @@ export function evaluate(input, { rulesPath, explanationsPath } = {}) {
     else if (p === 'quarantine' || p === 'reject') add('DMARC_ENFORCING', '設定確認済み', [evidence(policyDomain && policyDomain !== checkedDomain ? '適用ポリシー' : 'p値', p), ...dmarcScope]);
     else internalOnly.push('DMARC: p値が未定義');
     if (policyDomain && checkedDomain && policyDomain !== checkedDomain && ['DMARC_NONE','DMARC_ENFORCING'].includes(findings.at(-1)?.id)) {
+      findings.at(-1).observation += ' 上位ドメイン（' + policyDomain + '）に公開された対応方針を確認しました。';
       findings.at(-1).evidenceExplanation = '確認ドメイン（' + checkedDomain + '）には上位ドメイン（' + policyDomain + '）のDMARC方針が適用されます。' + policyTag + '=' + p + (p === 'none' ? ' のため、認証に失敗したメールの隔離や拒否を受信側へ要求しない指定です。' : ' により、認証に失敗したメールの隔離または拒否を受信側へ求める指定です。実際の配信・認証状況は検証していません。');
     }
   } else if (dmarc && dmarc.lookupStatus === 'NO_RECORD') {
