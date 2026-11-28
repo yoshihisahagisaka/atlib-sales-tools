@@ -72,7 +72,7 @@ test('old stored report remains byte-identical to old renderer; new snapshots do
   try{
     const old='340076c356121ac58d9c6ca13ed4581b28734961';
     for(const file of ['engine.mjs','rules.json','explanations.json'])fs.writeFileSync(path.join(tmp,file),execFileSync('git',['show',old+':src/wsc/vendor/tools/wsc-vs1/'+file]));
-    fs.symlink(path.join(root,'assets'),path.join(tmp,'assets'),'dir');
+    fs.symlinkSync(path.join(root,'assets'),path.join(tmp,'assets'),'dir');
     const legacy=await import(pathToFileURL(path.join(tmp,'engine.mjs')).href);
     const original=legacy.evaluate({...base,...web(),...spf(['v=spf1 -all'])},{rulesPath:path.join(tmp,'rules.json'),explanationsPath:path.join(tmp,'explanations.json')});
     for(const technicalHeadings of [true,false])assert.equal(render(original,company,{technicalHeadings}),legacy.render(original,company,{technicalHeadings}));
