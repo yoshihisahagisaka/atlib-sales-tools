@@ -34,3 +34,30 @@ test('bounded memory fails closed, expired keys removed', () => {
   assert.throws(()=>g.admit('INSIGHT','two'),/BUSY/);
   now+=GENERAL_WINDOW_MS; g.admit('INSIGHT','two')();
 });
+
+test('pre-verification start ceiling independent of accepted diagnosis quota',()=>{
+ let now=0;const g=new SecumieGeneralLimits(()=>now);
+ for(let i=0;i<60;i++)g.admitOperation('WEB','start','ip');
+ assert.throws(()=>g.admitOperation('WEB','start','ip'),/IP_LIMIT/);
+ g.admit('WEB','ip','https://example.org/')();
+ g.admitOperation('INSIGHT','start','ip');
+ now+=GENERAL_WINDOW_MS;g.admitOperation('WEB','start','ip');
+});
+test('completion and consultation receipt limits survive changing IP, with independent windows',()=>{
+ let now=0;const g=new SecumieGeneralLimits(()=>now);
+ for(let i=0;i<30;i++)g.admitOperation('INSIGHT','complete','ip'+i,'receipt');
+ assert.throws(()=>g.admitOperation('INSIGHT','complete','new-ip','receipt'),/RECEIPT_LIMIT/);
+ for(let i=0;i<10;i++)g.admitOperation('INSIGHT','consultation','ip'+i,'receipt');
+ assert.throws(()=>g.admitOperation('INSIGHT','consultation','new-ip','receipt'),/RECEIPT_LIMIT/);
+ g.admitOperation('WEB','complete','ip','receipt');
+ g.admitOperation('INSIGHT','complete','ip','other-receipt');
+ now+=GENERAL_WINDOW_MS;g.admitOperation('INSIGHT','complete','new-ip','receipt');
+});
+test('operation IP ceiling bounds distinct receipts; map capacity fails closed',()=>{
+ const g=new SecumieGeneralLimits();
+ for(let i=0;i<120;i++)g.admitOperation('INSIGHT','complete','ip','receipt'+i);
+ assert.throws(()=>g.admitOperation('INSIGHT','complete','ip','new'),/IP_LIMIT/);
+ const small=new SecumieGeneralLimits(()=>0,1);
+ small.admitOperation('WEB','complete','ip','receipt');
+ assert.throws(()=>small.admitOperation('WEB','complete','ip','different'),/BUSY/);
+});

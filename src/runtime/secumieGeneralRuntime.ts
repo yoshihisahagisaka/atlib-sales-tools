@@ -49,6 +49,11 @@ export function createSecumieGeneralRuntime(options: {
   const app = express();
   configurePublicRuntime(app);
   const limits = options.limits ?? new SecumieGeneralLimits();
+  const admitOperation=(req:Request,res:express.Response,operation:'start'|'complete'|'consultation',receipt?:string)=>{
+    if(!req.ip){res.status(403).json({code:'CLIENT_IP_UNAVAILABLE'});return false;}
+    try{limits.admitOperation(options.kind,operation,req.ip,receipt);return true;}
+    catch(error){if(error instanceof GeneralLimitError){res.setHeader('Retry-After','600');res.status(429).json({code:error.code});return false;}throw error;}
+  };
   const prefix = options.kind === 'WEB' ? '/secumie-web' : '/secumie-insight';
   // Bounded fallback for a failed WEB completion write; only server-generated data.
   const pendingWeb=new Map<string,{result:WebResult;expires:number}>();
@@ -71,6 +76,7 @@ export function createSecumieGeneralRuntime(options: {
     const {turnstileToken,targetUrl,...data}=parsed.data;
     const ip=req.ip;
     if(!ip){res.status(403).json({code:'CLIENT_IP_UNAVAILABLE'});return;}
+    if(!admitOperation(req,res,'start'))return;
     let target:string|undefined;
     try{target=normalizeGeneralTarget(options.kind,targetUrl)??undefined;}catch{res.status(422).json({code:'INVALID_TARGET'});return;}
     if(options.kind==='WEB'&&!options.wsc){res.status(503).json({code:'NOT_READY'});return;}
@@ -125,6 +131,7 @@ export function createSecumieGeneralRuntime(options: {
     const p=completeSchema.safeParse(req.body);
     if(!p.success){res.status(422).json({code:'INVALID_REQUEST'});return;}
     const {leadReceipt,answers}=p.data;
+    if(!admitOperation(req,res,'complete',leadReceipt))return;
     let result:unknown;
     if(options.kind==='INSIGHT'){
       if(!answers||!options.evaluateInsight||new Set(answers.map(x=>x.questionId)).size!==8){res.status(422).json({code:'INVALID_ANSWERS'});return;}
@@ -148,6 +155,7 @@ export function createSecumieGeneralRuntime(options: {
     if (!options.consultation) { res.status(503).json({code:'NOT_READY'}); return; }
     const parsed=generalConsultationSchema.safeParse(req.body);
     if(!parsed.success){res.status(422).json({code:'INVALID_REQUEST'});return;}
+    if(!admitOperation(req,res,'consultation',parsed.data.leadReceipt))return;
     if(options.kind==='INSIGHT'?!parsed.data.answers:parsed.data.answers!==undefined){res.status(422).json({code:'INVALID_ANSWERS'});return;}
     try{const result=await options.consultation.submit(options.kind,parsed.data);res.json({ok:true,...result});}
     catch(error){
