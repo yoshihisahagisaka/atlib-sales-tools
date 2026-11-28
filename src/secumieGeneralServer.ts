@@ -3,6 +3,8 @@ import {createPool} from './db/pool';
 import {loadGeneralLeadDatabaseConfig} from './config';
 import {SecumieGeneralLeadRepo} from './services/secumieGeneralLeadRepo';
 import { Mailer } from './services/mailer';
+import {sendSlackNotification} from './services/slackNotifier';
+import {dispatchSecumieConsultationNotification} from './services/secumieConsultationNotification';
 import type { ConsultationInput } from './services/secumieConsultationHandoff';
 import {SecumieGeneralConsultation} from './services/secumieGeneralConsultation';
 import { createGeneralTurnstileVerifier, createSecumieGeneralRuntime } from './runtime/secumieGeneralRuntime';
@@ -31,7 +33,16 @@ const leads=leadPool?new SecumieGeneralLeadRepo(leadPool,required('SECUMIE_GENER
 const consultation=leads?(()=>{
  const mailer=new Mailer({host:required('SMTP_HOST'),port:587,user:required('SMTP_USER'),password:required('SMTP_PASSWORD'),from:required('SMTP_FROM')});
  const recipient=required('SECUMIE_CONSULTATION_NOTIFY_EMAIL');
- return new SecumieGeneralConsultation(leads,notice=>mailer.sendSecumieConsultationNotification(recipient,notice));
+ const slackWebhook=process.env.SLACK_WEBHOOK_DIAGNOSTIC?.trim()||undefined;
+ if(slackWebhook){
+  const url=new URL(slackWebhook);
+  if(url.protocol!=='https:'||url.hostname!=='hooks.slack.com'||url.port||url.username||url.password||url.search||url.hash||!url.pathname.startsWith('/services/'))throw Error('SECUMIE_SLACK_WEBHOOK_INVALID');
+ }
+ return new SecumieGeneralConsultation(leads,notice=>dispatchSecumieConsultationNotification(
+  notice,
+  n=>mailer.sendSecumieConsultationNotification(recipient,n),
+  text=>sendSlackNotification(slackWebhook,text),
+ ));
 })():undefined;
 const app = createSecumieGeneralRuntime({
   kind, hostname, enabled, consultation, leads, evaluateInsight,

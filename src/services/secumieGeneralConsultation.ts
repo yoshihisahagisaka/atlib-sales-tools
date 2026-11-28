@@ -17,9 +17,8 @@ export class SecumieGeneralConsultation{
   let notificationStatus: 'PENDING'|'SENT'|'FAILED'=claim.status==='CLAIMED'?'PENDING':claim.status;
   if(claim.status==='CLAIMED'){
    let outcome:'SENT'|'FAILED'='FAILED';
-   const report=kind==='WEB'&&claim.report&&typeof claim.report==='object'&&'report' in claim.report?claim.report.report:claim.report;
    try{
-    await this.notify({kind,companyName:claim.companyName,personName:claim.personName,email:claim.email,phone:claim.phone,note:claim.note, targetUrl:claim.targetUrl,report,receivedAt:claim.receivedAt,reference:createHash('sha256').update(v.leadReceipt).digest('hex').slice(0,20)});
+    await this.notify({kind,companyName:claim.companyName,personName:claim.personName,email:claim.email,phone:claim.phone,note:claim.note, targetUrl:claim.targetUrl,receivedAt:claim.receivedAt,reference:createHash('sha256').update(v.leadReceipt).digest('hex').slice(0,20)});
     outcome='SENT';
    }catch{/* Stored request remains available to staff; no automatic SMTP resend. */}
    try{if(await this.repo.finishConsultation(kind,claim.id,outcome))notificationStatus=outcome;}catch{/* Ambiguous result stays PENDING; staff reconciliation, not automatic resend. */}
