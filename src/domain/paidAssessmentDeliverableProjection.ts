@@ -1,5 +1,9 @@
 import type { PreparationSourceRef } from './paidAssessmentPreparation';
 import {
+  buildScenarioInvestmentComparison,
+  type ScenarioInvestmentComparisonInput,
+} from './paidAssessmentInvestmentComparison';
+import {
   buildFutureScenarioComparison,
   type FutureScenarioComparisonInput,
 } from './paidAssessmentFutureFitComparison';
@@ -85,6 +89,7 @@ export interface DeliverableProjectionInput {
   initialActions: InitialActionPlanReview;
   roadmap: RoadmapReviewResult;
   futureComparison?: FutureScenarioComparisonInput;
+  investmentComparison?: ScenarioInvestmentComparisonInput;
 }
 
 export type DeliverableReadiness =
@@ -98,6 +103,7 @@ export interface DeliverableProjection {
   purpose: string;
   sections: Array<DeliverableSectionDraft & { statements: DeliverableStatement[] }>;
   futureComparison?: ReturnType<typeof buildFutureScenarioComparison>;
+  investmentComparison?: ReturnType<typeof buildScenarioInvestmentComparison>;
   evidenceIndex: Array<{
     statementId: string;
     kind: DeliverableStatementKind;
@@ -515,6 +521,35 @@ export function buildPaidAssessmentDeliverableProjection(
     }
   }
 
+  if (
+    input.investmentComparison !== undefined &&
+    futureComparison === undefined
+  ) {
+    throw new TypeError(
+      'Investment comparison requires future comparison',
+    );
+  }
+
+  const investmentComparison =
+    input.investmentComparison === undefined
+      ? undefined
+      : buildScenarioInvestmentComparison(
+          futureComparison!.scenarios,
+          input.investmentComparison,
+        );
+
+  if (investmentComparison !== undefined) {
+    for (const column of investmentComparison.columns) {
+      if (column.entry === null) {
+        pushUnique(
+          confirmationReasons,
+          confirmationReasonKeys,
+          `INVESTMENT_COMPARISON_NOT_ENTERED:${column.scenarioId}`,
+        );
+      }
+    }
+  }
+
   if (inputSections.length === 0) {
     pushUnique(confirmationReasons, confirmationReasonKeys, 'NO_SECTIONS');
   }
@@ -546,6 +581,9 @@ export function buildPaidAssessmentDeliverableProjection(
     ...(futureComparison === undefined
       ? {}
       : { futureComparison }),
+    ...(investmentComparison === undefined
+      ? {}
+      : { investmentComparison }),
     readiness,
     reviewReasons,
   };
