@@ -4,7 +4,7 @@ import path from 'node:path';
 import {mkdirSync} from 'node:fs';
 import { chromium } from 'playwright';
 import { createSecumieGeneralRuntime } from '../src/runtime/secumieGeneralRuntime';
-import { ConsultationHandoff, SECUMIE_SCHEDULE_URLS, type ConsultationNotice } from '../src/services/secumieConsultationHandoff';
+import { SECUMIE_SCHEDULE_URLS, type ConsultationNotice } from '../src/services/secumieConsultationHandoff';
 import { WscHtmlService } from '../src/services/wscHtmlService';
 import {SecumieGeneralConsultation} from '../src/services/secumieGeneralConsultation';
 import {syntheticLeadRepo} from './support/secumieGeneralLeadFixture';
@@ -166,6 +166,8 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
  await capture('05-consult-form');
  assert.equal(await page.locator('#consult-name').inputValue(),'Synthetic Person');
  assert.equal(await page.locator('#consult-email').inputValue(),'synthetic@example.org');
+ assert.equal(await page.locator('#consult-email').getAttribute('readonly'),'');
+ assert.equal(await page.locator('#consult-name').getAttribute('readonly'),'');
  await page.locator('#consult-phone').fill('000');
  await page.locator('[name=consent]').check();
  await Promise.all([page.waitForURL(SECUMIE_SCHEDULE_URLS[kind]),page.locator('#consultation-form button[type=submit]').click()]);

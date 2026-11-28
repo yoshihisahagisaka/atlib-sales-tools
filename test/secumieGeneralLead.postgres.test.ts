@@ -5,6 +5,7 @@ import {randomUUID} from 'node:crypto';
 import path from 'node:path';
 import {runMigrations} from '../src/db/migrate';
 import {SecumieGeneralLeadRepo,GENERAL_CONSENT_VERSION} from '../src/services/secumieGeneralLeadRepo';
+import {SecumieGeneralConsultation} from '../src/services/secumieGeneralConsultation';
 import {SecumieGeneralAdminRepo} from '../src/services/secumieGeneralAdminRepo';
 
 test('isolated PostgreSQL 16: durable general intake, replay, independent diagnosis and consultation state',async()=>{
@@ -18,8 +19,8 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
   // Isolated acceptance ACL only. Actual deployment grant/role preflight is separate.
   await owner.query(`GRANT USAGE ON SCHEMA secumie_general TO secumie_general_writer_staging,secumie_general_staff_staging;
    GRANT INSERT(kind,idempotency_key,payload_hash,receipt_hash,receipt_expires_at,company_name,person_name,email,department,position,phone,target_url,consent_version,sales_contact_allowed),
-   SELECT(id,kind,idempotency_key,payload_hash,receipt_hash,receipt_expires_at,diagnosis_status,diagnosis_result),
-   UPDATE(diagnosis_status,diagnosis_result,completed_at,updated_at) ON secumie_general.lead TO secumie_general_writer_staging;
+   SELECT(id,kind,idempotency_key,payload_hash,receipt_hash,receipt_expires_at,diagnosis_status,diagnosis_result,company_name,person_name,email,target_url,consultation_status,consultation_phone,consultation_note,consultation_requested_at,notification_status),
+   UPDATE(diagnosis_status,diagnosis_result,completed_at,updated_at,consultation_status,consultation_phone,consultation_note,consultation_consent_version,consultation_requested_at,notification_status) ON secumie_general.lead TO secumie_general_writer_staging;
    GRANT SELECT ON secumie_general.lead TO secumie_general_staff_staging;
    GRANT UPDATE(sales_status,staff_note,updated_at) ON secumie_general.lead TO secumie_general_staff_staging;
    GRANT INSERT ON secumie_general.staff_change TO secumie_general_staff_staging;`);
@@ -53,6 +54,23 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
   assert.equal(await admin.updateSales('WEB',first.id,{status:'CONTACTED',note:'synthetic',actor:'staff@example.invalid'}),true);
   assert.equal((await admin.detail('WEB',first.id)).diagnosis_status,'COMPLETED');
   assert.equal((await admin.detail('WEB',first.id)).consultation_status,'NONE');
+  const notices:import('../src/services/secumieConsultationHandoff').ConsultationNotice[]=[];
+  const service=new SecumieGeneralConsultation(repo,async notice=>{notices.push(notice);assert.equal((await admin.detail('WEB',first.id)).notification_status,'PENDING');});
+  const form={leadReceipt:first.receipt,phone:'000',note:'synthetic consultation',accepted:true as const};
+  await assert.rejects(service.submit('INSIGHT',form),/RECEIPT_EXPIRED/);
+  const [a,b]=await Promise.all([service.submit('WEB',form),service.submit('WEB',form)]);
+  assert.equal(notices.length,1);assert.equal(a.scheduleUrl,b.scheduleUrl);
+  assert.equal(notices[0]?.email,input.email);
+  assert.equal((await service.submit('WEB',form)).notificationStatus,'SENT');
+  await assert.rejects(service.submit('WEB',{...form,note:'changed'}),/ALREADY_SUBMITTED/);
+  const saved=await admin.detail('WEB',first.id);
+  assert.equal(saved.consultation_status,'REQUESTED');assert.equal(saved.consultation_phone,'000');assert.equal(saved.notification_status,'SENT');
+  assert.equal(saved.sales_contact_allowed,false);assert.equal(saved.sales_status,'CONTACTED');
+  const failed=new SecumieGeneralConsultation(repo,async()=>{throw Error('synthetic SMTP failure');});
+  const second={...form,leadReceipt:insight.receipt};
+  assert.equal((await failed.submit('INSIGHT',second)).notificationStatus,'FAILED');
+  assert.equal((await failed.submit('INSIGHT',second)).notificationStatus,'FAILED');
+  assert.equal((await admin.list({limit:50,offset:0})).summary.consultations,2);
   await assert.rejects(writer.query('SELECT staff_note FROM secumie_general.lead'),/permission denied/);
   await assert.rejects(writer.query("UPDATE secumie_general.lead SET sales_status='WON'"),/permission denied/);
   await assert.rejects(staff.query('DELETE FROM secumie_general.lead'),/permission denied/);
