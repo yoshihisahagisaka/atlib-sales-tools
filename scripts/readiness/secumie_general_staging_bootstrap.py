@@ -79,14 +79,14 @@ def capacity(maximum, superuser, reserved, observed):
 def check_deadline():
     require(dt.datetime.now(dt.timezone.utc) < DEADLINE, "STAGING_PRESERVATION_EXPIRED")
 
-def psql(port, database, user, password, sql, label):
+def psql(port, database, user, password, sql, label, timeout=45):
     env = {k: v for k, v in os.environ.items() if not k.startswith("PG")}
     env.update(PGPASSWORD=password, PGSSLMODE="require", PGCONNECT_TIMEOUT="8",
                PGAPPNAME="secumie-general-staging-bootstrap",
                PGOPTIONS="-c statement_timeout=15000 -c lock_timeout=2000")
     return command(["psql", "-X", "-qAt", "-w", "-v", "ON_ERROR_STOP=1",
                     "-h", "127.0.0.1", "-p", str(port), "-U", user, "-d", database],
-                   label, sql.encode("utf-8"), env, timeout=45).decode("utf-8").strip()
+                   label, sql.encode("utf-8"), env, timeout=timeout).decode("utf-8").strip()
 
 def list_secret_versions(secret_name):
     # gcloud secrets versions list takes SECRET as a positional argument.
@@ -135,7 +135,7 @@ def metadata_preflight(recover=False):
     print("METADATA_PREFLIGHT=PASS", flush=True)
     return zone
 
-def db_preflight(port, password, recover=False):
+def db_preflight(port, password, recover=False, migrate=False):
     sql = """
 SELECT json_build_object(
  'db',current_database(),'usr',current_user,
@@ -170,7 +170,8 @@ SELECT json_build_object(
         require(m["new_roles"] == 3 and m["valid_new_roles"] == new_roles, "RECOVERY_ROLE_ATTRIBUTES_STOP")
     else:
         require(m["new_roles"] == 0, "GENERAL_ROLE_COLLISION_STOP")
-    require(set(m["dbs"]) == EXPECTED_DBS and m["roles"] == expected_roles, "EXISTING_DB_OR_ROLE_INVENTORY_CHANGED")
+    expected_dbs = EXPECTED_DBS | ({DB} if migrate else set())
+    require(set(m["dbs"]) == expected_dbs and m["roles"] == expected_roles, "EXISTING_DB_OR_ROLE_INVENTORY_CHANGED")
     require(m["bootstrap_createdb"] and not m["bootstrap_superuser"], "BOOTSTRAP_ROLE_IDENTITY_STOP")
     available = capacity(m["max"], m["super"], m["reserved"], m["observed"])
     require(available >= 86 and m["observed"] < int(m["max"] * .7), "CAPACITY_STOP")
@@ -260,12 +261,43 @@ def recover_database(port, bootstrap):
     print("PRESERVED_SECRETS=4; PRESERVED_ROLES=3; RECOVERY_ROLE_AUTH=PASS", flush=True)
     create_database_and_acl(port, bootstrap, passwords)
 
+def migrate_database(port, migration_dir, apply):
+    from pathlib import Path
+    from secumie_general_staging_migrate import read_migrations, migration_preflight_sql, migration_batch, verify_sql, verify_result
+    files = read_migrations(Path(migration_dir))
+    print("MIGRATION_MANIFEST=PASS; FILES=6", flush=True)
+    migration = "secumie_general_migration_staging"
+    password = gc(["secrets", "versions", "access", "1", "--secret=" + ROLES[migration][1]], "MIGRATION_SECRET_ACCESS").decode("utf-8")
+    require(len(password) >= 32 and "\n" not in password and "\r" not in password, "MIGRATION_SECRET_FORMAT_STOP")
+    # Repeat the exact preflight inside the advisory-lock session before any DDL.
+    psql(port, DB, migration, password, migration_preflight_sql(), "MIGRATION_PREFLIGHT")
+    print("MIGRATION_TARGET_PREFLIGHT=PASS; DATABASE=" + DB, flush=True)
+    if not apply:
+        print("READ_ONLY_PREFLIGHT=PASS; NO_MIGRATIONS_APPLIED", flush=True)
+        return
+    check_deadline()
+    result = psql(port, DB, migration, password, migration_batch(files), "MIGRATION_BATCH", timeout=180)
+    for line in result.splitlines():
+        if line.startswith("MIGRATION_APPLIED="):
+            print(line, flush=True)
+    evidence = json.loads(psql(port, DB, migration, password, verify_sql(), "MIGRATION_VERIFY"))
+    verify_result(evidence)
+    for role in ("secumie_general_writer_staging", "secumie_general_staff_staging"):
+        pwd = gc(["secrets", "versions", "access", "1", "--secret=" + ROLES[role][1]], "RUNTIME_SECRET_ACCESS").decode("utf-8")
+        require(len(pwd) >= 32 and "\n" not in pwd and "\r" not in pwd, "RUNTIME_SECRET_FORMAT_STOP")
+        actual = psql(port, DB, role, pwd, "SELECT current_user; SELECT id FROM secumie_general.lead LIMIT 0;", "RUNTIME_ROLE_AUTH")
+        require(actual == role, "RUNTIME_ROLE_IDENTITY_STOP")
+    print(json.dumps({"event": "GENERAL_STAGING_MIGRATION_VERIFIED", **evidence}), flush=True)
+    print("GENERAL_STAGING_MIGRATION=PASS; PRODUCTION=UNCHANGED", flush=True)
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--apply", action="store_true", help="only after owner-authorized staging bootstrap")
     parser.add_argument("--recover", action="store_true", help="resume after committed secrets and roles; only when target DB absent")
+    parser.add_argument("--migrate", metavar="DIRECTORY", help="apply exact fresh staging migrations 001-006; never resume partial ledger")
     args = parser.parse_args()
-    zone = metadata_preflight(args.recover)
+    require(not (args.recover and args.migrate), "MODE_CONFLICT_STOP")
+    zone = metadata_preflight(args.recover or bool(args.migrate))
     # Use established IAP route, no network/firewall configuration change.
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -286,8 +318,10 @@ def main():
             raise Stop("IAP_TUNNEL_TIMEOUT")
         bootstrap = gc(["secrets", "versions", "access", "1", "--secret=" + BOOT], "BOOTSTRAP_ACCESS").decode("utf-8")
         require(len(bootstrap) >= 32 and "\n" not in bootstrap and "\r" not in bootstrap, "BOOTSTRAP_SECRET_FORMAT_STOP")
-        db_preflight(port, bootstrap, args.recover)
-        if args.apply:
+        db_preflight(port, bootstrap, args.recover or bool(args.migrate), bool(args.migrate))
+        if args.migrate:
+            migrate_database(port, args.migrate, args.apply)
+        elif args.apply:
             if args.recover:
                 recover_database(port, bootstrap)
             else:

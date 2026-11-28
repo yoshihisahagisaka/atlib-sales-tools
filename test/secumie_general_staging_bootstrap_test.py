@@ -39,6 +39,21 @@ class TestBootstrap(unittest.TestCase):
             query.assert_called_once_with(["secrets", "versions", "list", name],
                                           "RECOVERY_SECRET_VERSIONS_" + name)
 
+    def test_migration_manifest_and_batch(self):
+        from pathlib import Path
+        import sys
+        base=Path(__file__).resolve().parents[1]
+        sys.path.insert(0,str(base/"scripts/readiness"))
+        from secumie_general_staging_migrate import read_migrations, migration_batch, MANIFEST
+        files=read_migrations(base/"design/secumie-general/migrations")
+        self.assertEqual(list(files),list(MANIFEST))
+        batch=migration_batch(files)
+        self.assertIn("pg_try_advisory_lock(17492026,1)",batch)
+        self.assertIn("public.schema_migrations",batch)
+        self.assertEqual(batch.count("MIGRATION_APPLIED="),6)
+        self.assertEqual(batch.count("INSERT INTO public.schema_migrations"),6)
+        self.assertLess(batch.index("GENERAL_MIGRATION_PREFLIGHT_STOP"),batch.index("CREATE TABLE public.schema_migrations"))
+
     def test_scope(self):
         self.assertEqual(bootstrap.INSTANCE,"secumie-sg-shared-staging-db")
         self.assertEqual(bootstrap.DB,"secumie_general_staging")
