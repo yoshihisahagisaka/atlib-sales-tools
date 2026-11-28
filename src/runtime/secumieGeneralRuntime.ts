@@ -11,7 +11,8 @@ type Kind = 'WEB' | 'INSIGHT';
 type Verify = (token: string, ip: string, action: string) => Promise<boolean>;
 const company = z.object({
   companyName: z.string().trim().min(1).max(150),
-  registeredAddress: z.string().trim().min(1).max(500),
+  // Compatibility for a pre-update tab only; never retain or forward the address.
+  registeredAddress: z.string().max(500).optional(),
   accepted: z.literal(true),
   turnstileToken: z.string().min(1).max(2048),
 }).strict();
@@ -75,10 +76,10 @@ export function createSecumieGeneralRuntime(options: {
         res.status(403).json({ code: 'TURNSTILE_DENIED' }); return;
       }
       release = limits.admit(options.kind, ip, target);
-      if (options.kind === 'INSIGHT') { const receipt = options.handoff?.issue({kind:'INSIGHT', companyName:data.companyName,registeredAddress:data.registeredAddress}); res.json({ ok: true, ...(receipt ? {receipt}: {}) }); return; }
+      if (options.kind === 'INSIGHT') { const receipt = options.handoff?.issue({kind:'INSIGHT', companyName:data.companyName}); res.json({ ok: true, ...(receipt ? {receipt}: {}) }); return; }
       if (!options.wsc || !target) { res.status(503).json({ code: 'NOT_READY' }); return; }
       const result = await options.wsc.diagnose({ name: data.companyName, url: target, executor: 'general-web' });
-      const receipt = options.handoff?.issue({kind:'WEB',companyName:data.companyName,registeredAddress:data.registeredAddress,targetUrl:result.normalizedUrl,report:result.report});
+      const receipt = options.handoff?.issue({kind:'WEB',companyName:data.companyName,targetUrl:result.normalizedUrl,report:result.report});
       res.json({ ok: true, ...(receipt ? {receipt}: {}), html: result.html.replace('<div class="review-banner">内部デザインレビュー用｜対外配布不可</div>', ''), normalizedUrl: result.normalizedUrl });
     } catch (error) {
       if (error instanceof GeneralLimitError) { res.status(429).json({ code: error.code }); return; }
