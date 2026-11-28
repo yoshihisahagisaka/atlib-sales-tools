@@ -97,3 +97,16 @@ button[type=submit]{width:100%;padding:17px;border:0;background:#dc782d;color:#f
 #web-result .web-result-actions-bottom{margin:18px 0 0;justify-content:center}
 #web-result .consult-guide-trigger{max-width:100%;white-space:normal;line-height:1.5}
 @media(max-width:640px){#web-result .web-result-actions{gap:8px}#web-result .web-result-actions button{min-height:48px}}
+
+/* General intake and report preparation only. */
+.required-note{font-size:13px;color:#455e69;margin:0 0 18px}
+.field label .required-mark,.privacy-label .required-mark{display:inline;color:#b42318;background:none;padding:0;margin:0 0 0 4px;font-size:inherit;vertical-align:baseline;font-weight:700}
+.diagnosis-progress-card{text-align:center;max-width:680px;margin:0 auto}
+.diagnosis-progress-card p{line-height:1.8;color:#455e69}
+.diagnosis-progress-card h2{margin:0 0 12px}
+.diagnosis-progress-track{height:10px;border-radius:12px;background:#dce8e3;overflow:hidden;margin:24px 0 12px}
+.diagnosis-progress-track span{display:block;width:38%;height:100%;border-radius:12px;background:#248267;animation:general-progress 1.5s ease-in-out infinite}
+.diagnosis-progress-note{font-size:13px}
+@keyframes general-progress{0%{transform:translateX(-100%)}100%{transform:translateX(270%)}}
+@media(prefers-reduced-motion:reduce){.diagnosis-progress-track span{animation:none;width:100%;opacity:.65}}
+@media print{#diagnosis-progress{display:none!important}}
