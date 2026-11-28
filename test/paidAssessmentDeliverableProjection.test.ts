@@ -550,3 +550,313 @@ test('detaches comparison data and remains deterministic without mutating inputs
   assert.deepEqual(value, before);
   assert.notDeepEqual(first, second);
 });
+
+function investmentInput(): DeliverableProjectionInput {
+  const value = comparisonInput();
+
+  const scenario = value.scenarios.scenarios.find(
+    s => s.id === 'scenario-ok',
+  )!;
+
+  scenario.investmentCharacter = 'EVIDENCE_BACKED_RANGE';
+  scenario.investmentNote = '取得済み参考見積に基づく概算';
+  scenario.investmentEvidence = coreSource;
+
+  value.investmentComparison = {
+    scope: '既存維持費を除く追加投資',
+    taxBasis: 'EXCLUDING_TAX',
+    entries: [{
+      scenarioId: 'scenario-ok',
+      initialYen: {
+        min: 1_000_000,
+        max: 1_200_000,
+      },
+      monthlyYen: {
+        min: 80_000,
+        max: 100_000,
+      },
+      monthlyPattern: 'CONSTANT_36_MONTHS',
+      leadTime: '段階的に実施',
+      internalEffort: '関係者による定期確認',
+      deliveryTeam: '社内外の役割を協議する',
+    }],
+  };
+
+  return value;
+}
+
+test('shares evidence-backed investment ranges and comparable period totals', () => {
+  const result =
+    buildPaidAssessmentDeliverableProjection(investmentInput());
+
+  const comparison = result.investmentComparison!;
+  const entry = comparison.columns[0]!.entry!;
+
+  assert.equal(comparison.currency, 'JPY');
+  assert.equal(comparison.taxBasis, 'EXCLUDING_TAX');
+
+  assert.deepEqual(entry.firstYearYen, {
+    min: 1_960_000,
+    max: 2_400_000,
+  });
+
+  assert.deepEqual(entry.threeYearYen, {
+    min: 3_880_000,
+    max: 4_800_000,
+  });
+
+  assert.deepEqual(entry.investmentEvidence, coreSource);
+
+  assert.equal(result.readiness, 'REVIEWABLE_DRAFT');
+  assert.deepEqual(result.references.decisionIds, []);
+});
+
+test('does not infer totals for variable or unconfirmed monthly costs', () => {
+  const value = investmentInput();
+
+  value.investmentComparison!.entries = [{
+    ...value.investmentComparison!.entries[0]!,
+    monthlyPattern: 'VARIABLE_OR_UNCONFIRMED',
+  }];
+
+  const entry = buildPaidAssessmentDeliverableProjection(value)
+    .investmentComparison!.columns[0]!.entry!;
+
+  assert.equal(entry.firstYearYen, null);
+  assert.equal(entry.threeYearYen, null);
+  assert.deepEqual(entry.monthlyYen, {
+    min: 80_000,
+    max: 100_000,
+  });
+});
+
+test('distinguishes explicitly unknown amounts from zero amounts', () => {
+  const value = investmentInput();
+
+  const initial = value.investmentComparison!.entries[0]!;
+
+  value.investmentComparison!.entries = [{
+    ...initial,
+    monthlyYen: null,
+  }];
+
+  let entry = buildPaidAssessmentDeliverableProjection(value)
+    .investmentComparison!.columns[0]!.entry!;
+
+  assert.equal(entry.monthlyYen, null);
+  assert.equal(entry.firstYearYen, null);
+
+  value.investmentComparison!.entries = [{
+    ...initial,
+    monthlyYen: { min: 0, max: 0 },
+  }];
+
+  entry = buildPaidAssessmentDeliverableProjection(value)
+    .investmentComparison!.columns[0]!.entry!;
+
+  assert.deepEqual(entry.monthlyYen, { min: 0, max: 0 });
+  assert.deepEqual(entry.firstYearYen, initial.initialYen);
+});
+
+test('requires existing investment evidence for numeric ranges', () => {
+  const value = investmentInput();
+
+  const scenario = value.scenarios.scenarios.find(
+    s => s.id === 'scenario-ok',
+  )!;
+
+  delete scenario.investmentEvidence;
+
+  assert.throws(
+    () => buildPaidAssessmentDeliverableProjection(value),
+    /Numeric investment requires existing scenario evidence/,
+  );
+});
+
+test('rejects invalid cost ranges, amounts and unsafe totals', () => {
+  const ranges = [
+    { min: -1, max: 100 },
+    { min: 100, max: 10 },
+    { min: 1.5, max: 10 },
+    { min: 0, max: Number.POSITIVE_INFINITY },
+  ];
+
+  for (const range of ranges) {
+    const value = investmentInput();
+
+    value.investmentComparison!.entries = [{
+      ...value.investmentComparison!.entries[0]!,
+      initialYen: range,
+    }];
+
+    assert.throws(
+      () => buildPaidAssessmentDeliverableProjection(value),
+      /initialYen is invalid/,
+    );
+  }
+
+  const overflow = investmentInput();
+
+  overflow.investmentComparison!.entries = [{
+    ...overflow.investmentComparison!.entries[0]!,
+    monthlyYen: {
+      min: 0,
+      max: Number.MAX_SAFE_INTEGER,
+    },
+  }];
+
+  assert.throws(
+    () => buildPaidAssessmentDeliverableProjection(overflow),
+    /Investment total exceeds safe range/,
+  );
+});
+
+test('requires the same selected future-comparison scenarios', () => {
+  const missing = investmentInput();
+
+  delete missing.futureComparison;
+
+  assert.throws(
+    () => buildPaidAssessmentDeliverableProjection(missing),
+    /Investment comparison requires future comparison/,
+  );
+
+  const unrelated = investmentInput();
+
+  unrelated.investmentComparison!.entries = [{
+    ...unrelated.investmentComparison!.entries[0]!,
+    scenarioId: 'scenario-needs',
+  }];
+
+  assert.throws(
+    () => buildPaidAssessmentDeliverableProjection(unrelated),
+    /Unknown investment scenario/,
+  );
+
+  const duplicate = investmentInput();
+
+  duplicate.investmentComparison!.entries = [
+    ...duplicate.investmentComparison!.entries,
+    duplicate.investmentComparison!.entries[0]!,
+  ];
+
+  assert.throws(
+    () => buildPaidAssessmentDeliverableProjection(duplicate),
+    /Duplicate investment scenario/,
+  );
+});
+
+test('preserves scenario order and flags missing investment entry', () => {
+  const value = investmentInput();
+  const comparison = value.futureComparison!;
+
+  value.scenarios.scenarios.push({
+    ...value.scenarios.scenarios.find(
+      s => s.id === 'scenario-ok',
+    )!,
+    id: 'second-scenario',
+    title: '別の改善案',
+  });
+
+  value.futureComparison = {
+    ...comparison,
+    scenarioIds: ['second-scenario', 'scenario-ok'],
+    evaluations: [
+      ...comparison.evaluations,
+      {
+        ...comparison.evaluations[0]!,
+        scenarioId: 'second-scenario',
+      },
+    ],
+  };
+
+  const result =
+    buildPaidAssessmentDeliverableProjection(value);
+
+  assert.deepEqual(
+    result.investmentComparison!.columns.map(c => c.scenarioId),
+    ['second-scenario', 'scenario-ok'],
+  );
+
+  assert.equal(
+    result.investmentComparison!.columns[0]!.entry,
+    null,
+  );
+
+  assert.equal(result.readiness, 'NEEDS_CONFIRMATION');
+
+  assert.ok(result.reviewReasons.includes(
+    'INVESTMENT_COMPARISON_NOT_ENTERED:second-scenario',
+  ));
+});
+
+test('preserves blocked precedence and never promotes an investment to approval', () => {
+  const value = investmentInput();
+
+  value.scenarios.scenarios.find(
+    s => s.id === 'scenario-ok',
+  )!.state = 'BLOCKED_BY_OPTION_EVIDENCE';
+
+  const result =
+    buildPaidAssessmentDeliverableProjection(value);
+
+  assert.equal(result.readiness, 'BLOCKED_BY_EVIDENCE');
+
+  assert.ok(result.reviewReasons.includes(
+    'UPSTREAM_BLOCKED:SCENARIO:scenario-ok',
+  ));
+
+  assert.equal('approved' in result, false);
+  assert.deepEqual(result.references.decisionIds, []);
+});
+
+test('preserves existing reports and returns detached investment data', () => {
+  const existing =
+    buildPaidAssessmentDeliverableProjection(comparisonInput());
+
+  assert.equal('investmentComparison' in existing, false);
+
+  const value = investmentInput();
+  const before = structuredClone(value);
+
+  const result =
+    buildPaidAssessmentDeliverableProjection(value);
+
+  assert.deepEqual(
+    result,
+    buildPaidAssessmentDeliverableProjection(value),
+  );
+
+  result.investmentComparison!
+    .columns[0]!.entry!.initialYen!.min = 99;
+
+  assert.deepEqual(value, before);
+});
+
+test('supports qualitative or unknown investment without fabricating price', () => {
+  const value = investmentInput();
+
+  const scenario = value.scenarios.scenarios.find(
+    s => s.id === 'scenario-ok',
+  )!;
+
+  scenario.investmentCharacter = 'QUALITATIVE_ONLY';
+  scenario.investmentNote = '既存設備を活用する方向';
+  delete scenario.investmentEvidence;
+
+  value.investmentComparison!.entries = [{
+    ...value.investmentComparison!.entries[0]!,
+    initialYen: null,
+    monthlyYen: null,
+    monthlyPattern: 'VARIABLE_OR_UNCONFIRMED',
+  }];
+
+  const entry = buildPaidAssessmentDeliverableProjection(value)
+    .investmentComparison!.columns[0]!.entry!;
+
+  assert.equal(entry.initialYen, null);
+  assert.equal(entry.monthlyYen, null);
+  assert.equal(entry.firstYearYen, null);
+  assert.equal(entry.threeYearYen, null);
+  assert.equal(entry.investmentEvidence, null);
+});
