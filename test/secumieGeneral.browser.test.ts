@@ -58,7 +58,14 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
  await page.locator('#companyName').fill('Synthetic Company');
  assert.equal(await page.locator('#registeredAddress').count(),0);
  assert.equal(await page.locator('#general-form .required-mark').count(),kind==='WEB'?2:1);
- if(kind==='WEB')await page.locator('#targetUrl').fill('https://example.org/');
+ if(kind==='WEB'){
+  await page.locator('#targetUrl').fill('https://example.org/');
+  await page.route('**/secumie-web/api/start',route=>route.fulfill({status:422,contentType:'application/json',body:'{"code":"DIAGNOSIS_UNAVAILABLE"}'}),{times:1});
+  await page.locator('#general-form button[type=submit]').click();
+  await page.locator('#general-intake').waitFor({state:'visible'});
+  assert.equal(await page.locator('#diagnosis-progress').isVisible(),false);
+  assert.match(await page.locator('#general-status').innerText(),/診断を開始できませんでした/);
+ }
  const webStart=Date.now();
  await page.locator('#general-form button[type=submit]').click();
  if(kind==='WEB'){
