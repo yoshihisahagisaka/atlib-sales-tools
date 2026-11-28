@@ -1,4 +1,9 @@
 import {
+  buildInvestmentDisplay,
+  type InvestmentDisplay,
+} from './paidAssessmentInvestmentDisplay';
+
+import {
   AlignmentType,
   Document,
   HeadingLevel,
@@ -186,6 +191,7 @@ const MAX_COMPARISON_CELLS = 3000;
 
 function comparisonBlocks(
   comparison: FutureComparison,
+  investment?: InvestmentDisplay,
 ): {
   body: WordBlock[];
   evidence: Paragraph[];
@@ -429,6 +435,121 @@ function comparisonBlocks(
     ));
   }
 
+
+  if (investment !== undefined) {
+    body.push(
+      heading('投資・実現条件の比較'),
+      paragraph(
+        `比較範囲：${bounded(investment.scope, 240, 'investment scope')}（${investment.taxLabel}）`,
+      ),
+      paragraph(investment.caveat),
+    );
+
+    if (investment.columns.length === 0) {
+      body.push(paragraph('比較内容の準備が必要です。'));
+    }
+
+    for (const group of investment.groups) {
+      if (investment.columns.length === 0) break;
+
+      body.push(heading(group.title));
+
+      for (
+        let start = 0;
+        start < investment.columns.length;
+        start += SCENARIOS_PER_TABLE
+      ) {
+        const columns = investment.columns.slice(
+          start,
+          start + SCENARIOS_PER_TABLE,
+        );
+
+        const labelWidth = 2800;
+        const available = COMPARISON_TABLE_WIDTH - labelWidth;
+
+        const widths = columns.map((_, i) =>
+          i === columns.length - 1
+            ? available -
+              Math.floor(available / columns.length) * i
+            : Math.floor(available / columns.length),
+        );
+
+        const header = new TableRow({
+          tableHeader: true,
+          children: [
+            cell(
+              labelWidth,
+              [cellText(record('比較項目'), true)],
+              true,
+            ),
+            ...columns.map((column, i) => {
+              const paragraphs = [
+                cellText(
+                  bounded(column.title, 100, 'investment title'),
+                  true,
+                ),
+              ];
+
+              if (column.status !== null) {
+                paragraphs.push(cellText(record(column.status)));
+              }
+
+              return cell(widths[i]!, paragraphs, true);
+            }),
+          ],
+        });
+
+        const rows = group.rows.map(row =>
+          new TableRow({
+            cantSplit: true,
+            children: [
+              cell(labelWidth, [
+                cellText(record(row.label), true),
+              ]),
+              ...columns.map((_, i) =>
+                cell(widths[i]!, [
+                  cellText(
+                    bounded(
+                      row.values[start + i]!,
+                      240,
+                      'investment cell',
+                    ),
+                  ),
+                ]),
+              ),
+            ],
+          }),
+        );
+
+        body.push(new Table({
+          width: {
+            size: COMPARISON_TABLE_WIDTH,
+            type: WidthType.DXA,
+          },
+          layout: TableLayoutType.FIXED,
+          columnWidths: [labelWidth, ...widths],
+          rows: [header, ...rows],
+        }));
+      }
+    }
+
+    evidence.push(heading('投資比較の参照情報・社内確認用'));
+
+    for (const column of investment.columns) {
+      evidence.push(paragraph(column.title));
+
+      if (column.source === null) {
+        evidence.push(paragraph('根拠参照：未提示'));
+      } else {
+        const source = column.source;
+
+        evidence.push(paragraph(
+          `${source.kind} / ${source.id} / version ${source.version}`,
+        ));
+      }
+    }
+  }
+
   const recommendation = comparison.recommendation;
 
   if (recommendation !== null) {
@@ -498,7 +619,10 @@ export async function renderPaidAssessmentWordDraft(
 
   const comparison = projection.futureComparison === undefined
     ? undefined
-    : comparisonBlocks(projection.futureComparison);
+    : comparisonBlocks(
+        projection.futureComparison,
+        buildInvestmentDisplay(projection),
+      );
 
   if (
     comparison !== undefined &&

@@ -1,3 +1,8 @@
+import {
+  buildInvestmentDisplay,
+  type InvestmentDisplay,
+} from './paidAssessmentInvestmentDisplay';
+
 import PptxGenJS from 'pptxgenjs';
 import {
   buildPaidAssessmentDeliverableProjection,
@@ -182,6 +187,7 @@ function addComparisonSlides(
   pptx: PptxGenJS,
   comparison: FutureComparison,
   availableSlides: number,
+  investment?: InvestmentDisplay,
 ): number {
   const groups = new Map<string, FutureComparison['rows']>();
 
@@ -224,6 +230,14 @@ function addComparisonSlides(
   if (recommendation !== null) {
     expectedCount += 1 +
       Math.ceil(recommendationDetails.length / 3);
+  }
+
+  if (investment !== undefined) {
+    expectedCount += investment.columns.length === 0
+      ? 1
+      : investment.groups.length * Math.ceil(
+          investment.columns.length / COMPARISON_COLUMNS,
+        );
   }
 
   if (expectedCount > availableSlides) {
@@ -535,6 +549,161 @@ function addComparisonSlides(
     }
   }
 
+
+  if (investment !== undefined) {
+    enforceCodePointLimit(
+      investment.scope,
+      'investment scope',
+      120,
+    );
+
+    if (investment.columns.length === 0) {
+      const slide = newSlide('投資・実現条件の比較');
+
+      text(
+        slide, '比較内容の準備が必要です。',
+        0.85, 2.0, 11.5, 1.0, 24,
+      );
+
+      addNotes(slide, ['投資比較未完成']);
+    }
+
+    for (const group of investment.groups) {
+      for (
+        let start = 0;
+        start < investment.columns.length;
+        start += COMPARISON_COLUMNS
+      ) {
+        const columns = investment.columns.slice(
+          start,
+          start + COMPARISON_COLUMNS,
+        );
+
+        const slide = newSlide(
+          `投資・実現条件の比較｜${group.title}`,
+        );
+
+        text(
+          slide,
+          `比較範囲：${investment.scope}（${investment.taxLabel}）`,
+          0.75, 1.30, 11.8, 0.60,
+          15, '31566F',
+        );
+
+        const left = 0.75;
+        const labelWidth = 2.85;
+        const colWidth = (11.8 - labelWidth) / columns.length;
+        const headerY = 2.00;
+        const headerH = 0.65;
+        const rowH = 0.91;
+
+        box(
+          slide, left, headerY,
+          labelWidth, headerH, 'E8EFF5',
+        );
+
+        text(
+          slide, '比較項目',
+          left + 0.08, headerY + 0.03,
+          labelWidth - 0.16, 0.58,
+          15, '31566F', true,
+        );
+
+        const notes = [
+          `scope:${investment.scope}`,
+          `tax:${investment.taxLabel}`,
+        ];
+
+        columns.forEach((column, i) => {
+          enforceCodePointLimit(
+            column.title, 'investment title', 36,
+          );
+
+          const x = left + labelWidth + colWidth * i;
+
+          box(
+            slide, x, headerY,
+            colWidth, headerH, 'E8EFF5',
+          );
+
+          text(
+            slide, column.title,
+            x + 0.06, headerY + 0.02,
+            colWidth - 0.12,
+            column.status === null ? 0.59 : 0.32,
+            15, '31566F', true, 'center',
+          );
+
+          if (column.status !== null) {
+            text(
+              slide, column.status,
+              x + 0.04, headerY + 0.35,
+              colWidth - 0.08, 0.27,
+              10, '9C0006', false, 'center',
+            );
+          }
+
+          notes.push(`scenarioId:${column.scenarioId}`);
+
+          if (column.source !== null) {
+            const source = column.source;
+
+            notes.push(
+              `source:${source.kind} / ${source.id} / version ${source.version}`,
+            );
+          }
+        });
+
+        group.rows.forEach((row, r) => {
+          const y = headerY + headerH + r * rowH;
+
+          box(
+            slide, left, y,
+            labelWidth, rowH, 'F7F9FB',
+          );
+
+          text(
+            slide, row.label,
+            left + 0.08, y + 0.05,
+            labelWidth - 0.16, rowH - 0.10,
+            14, '17354A', true,
+          );
+
+          columns.forEach((_, i) => {
+            const value = row.values[start + i]!;
+
+            enforceCodePointLimit(
+              value, 'investment cell', 60,
+            );
+
+            const x = left + labelWidth + colWidth * i;
+
+            box(
+              slide, x, y,
+              colWidth, rowH, 'FFFFFF',
+            );
+
+            text(
+              slide, value,
+              x + 0.06, y + 0.04,
+              colWidth - 0.12, rowH - 0.08,
+              group.title === '投資額' ? 17 : 14,
+              '334155', false, 'center',
+            );
+          });
+        });
+
+        text(
+          slide, investment.caveat,
+          0.75, 6.43, 11.8, 0.43,
+          10, '526B7D',
+        );
+
+        addNotes(slide, notes);
+      }
+    }
+  }
+
   if (recommendation !== null) {
     const scenario = comparison.scenarios.find(
       s => s.id === recommendation.scenarioId,
@@ -788,6 +957,7 @@ export async function renderPaidAssessmentExecutiveSlidesDraft(
           pptx,
           projection.futureComparison,
           MAX_SLIDES - selectedSlides.length,
+          buildInvestmentDisplay(projection),
         );
 
   const output = await pptx.write({ outputType: 'nodebuffer', compression: true });
