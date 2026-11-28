@@ -1,4 +1,9 @@
 import {
+  buildScenarioPlanDisplay,
+  type ScenarioPlanDisplay,
+} from './paidAssessmentScenarioPlanDisplay';
+
+import {
   buildInvestmentDisplay,
   type InvestmentDisplay,
 } from './paidAssessmentInvestmentDisplay';
@@ -188,6 +193,7 @@ function addComparisonSlides(
   comparison: FutureComparison,
   availableSlides: number,
   investment?: InvestmentDisplay,
+  plans?: ScenarioPlanDisplay,
 ): number {
   const groups = new Map<string, FutureComparison['rows']>();
 
@@ -237,6 +243,22 @@ function addComparisonSlides(
       ? 1
       : investment.groups.length * Math.ceil(
           investment.columns.length / COMPARISON_COLUMNS,
+        );
+  }
+
+  const yearsPerSlide = 3;
+
+  if (plans !== undefined) {
+    expectedCount += plans.columns.length === 0
+      ? 1
+      : plans.columns.reduce(
+          (total, column) =>
+            total + (column.plan === null
+              ? 1
+              : Math.ceil(
+                  column.plan.years.length / yearsPerSlide,
+                )),
+          0,
         );
   }
 
@@ -704,6 +726,219 @@ function addComparisonSlides(
     }
   }
 
+
+  if (plans !== undefined) {
+    enforceCodePointLimit(
+      plans.scope, 'plan scope', 120,
+    );
+
+    if (plans.columns.length === 0) {
+      const slide = newSlide('シナリオ別複数年改善計画');
+
+      text(
+        slide, '比較内容の準備が必要です。',
+        0.85, 2.0, 11.5, 1.0, 24,
+      );
+
+      addNotes(slide, ['改善計画未完成']);
+    }
+
+    for (const column of plans.columns) {
+      enforceCodePointLimit(
+        column.title, 'plan scenario title', 36,
+      );
+
+      const plan = column.plan;
+
+      const notesBase = [
+        `scenarioId:${column.scenarioId}`,
+        `scope:${plans.scope}`,
+        `tax:${plans.taxLabel}`,
+        '経営判断前の検討案。期待する変化は未検証。',
+      ];
+
+      if (plan?.investmentEvidence) {
+        const source = plan.investmentEvidence;
+
+        notesBase.push(
+          `source:${source.kind} / ${source.id} / version ${source.version}`,
+        );
+      }
+
+      function planSlide() {
+        const slide = newSlide('シナリオ別複数年改善計画');
+
+        text(
+          slide, column.title,
+          0.75, 1.30, 7.2, 0.42,
+          22, '31566F', true,
+        );
+
+        if (column.status !== null) {
+          text(
+            slide, column.status,
+            8.05, 1.30, 4.5, 0.42,
+            14, '9C0006', true, 'center',
+          );
+        }
+
+        text(
+          slide,
+          `比較範囲：${plans!.scope}（${plans!.taxLabel}）`,
+          0.75, 1.78, 11.8, 0.36,
+          13, '526B7D',
+        );
+
+        return slide;
+      }
+
+      if (plan === null) {
+        const slide = planSlide();
+
+        text(
+          slide, '未入力（改善計画）',
+          0.85, 2.6, 11.5, 1.2, 25,
+        );
+
+        addNotes(slide, [...notesBase, '未入力']);
+        continue;
+      }
+
+      for (
+        let start = 0;
+        start < plan.years.length;
+        start += yearsPerSlide
+      ) {
+        const years = plan.years.slice(
+          start, start + yearsPerSlide,
+        );
+
+        const slide = planSlide();
+
+        const notes = [
+          ...notesBase,
+          ...plan.uncoveredOptionIds.map(
+            id => `uncoveredOption:${id}`,
+          ),
+        ];
+
+        const gap = 0.15;
+        const width =
+          (11.8 - gap * (years.length - 1)) / years.length;
+
+        years.forEach((year, index) => {
+          const x = 0.75 + index * (width + gap);
+          const tx = x + 0.10;
+          const tw = width - 0.20;
+          const activities = year.activities.join('／');
+
+          enforceCodePointLimit(
+            year.heading, 'scenario plan heading', 42,
+          );
+
+          enforceCodePointLimit(
+            year.purpose, 'scenario plan purpose', 60,
+          );
+
+          enforceCodePointLimit(
+            activities, 'scenario plan activities', 100,
+          );
+
+          enforceCodePointLimit(
+            year.expectedChange, 'scenario plan expected change', 60,
+          );
+
+          box(
+            slide, x, 2.23, width, 4.38, 'FFFFFF',
+          );
+
+          box(
+            slide, x, 2.23, width, 0.75, 'E8EFF5',
+          );
+
+          text(
+            slide, year.heading,
+            tx, 2.28, tw, 0.64,
+            17, '17354A', true, 'center',
+          );
+
+          text(
+            slide, '目的',
+            tx, 3.02, tw, 0.22,
+            11, '526B7D', true,
+          );
+
+          text(
+            slide, year.purpose,
+            tx, 3.24, tw, 0.52,
+            15,
+          );
+
+          text(
+            slide, '主な取り組み',
+            tx, 3.79, tw, 0.22,
+            11, '526B7D', true,
+          );
+
+          text(
+            slide, activities,
+            tx, 4.01, tw, 0.74,
+            15,
+          );
+
+          text(
+            slide, '期待する変化',
+            tx, 4.78, tw, 0.22,
+            11, '526B7D', true,
+          );
+
+          text(
+            slide, year.expectedChange,
+            tx, 5.00, tw, 0.60,
+            16, '16836A', true,
+          );
+
+          text(
+            slide, '年度別投資額',
+            tx, 5.65, tw, 0.22,
+            11, '526B7D', true,
+          );
+
+          text(
+            slide, year.annualAmount,
+            tx, 5.87, tw, 0.48,
+            18, '17354A', true, 'center',
+          );
+
+          text(
+            slide, year.costLabel,
+            tx, 6.38, tw, 0.19,
+            10, '526B7D', false, 'center',
+          );
+
+          notes.push(
+            year.heading,
+            `効果の確認方法：${year.verificationApproach}`,
+            ...year.prerequisites.map(v => `実現条件：${v}`),
+            ...year.risks.map(v => `リスク：${v}`),
+            `計画を見直す条件：${year.reassessmentTrigger}`,
+            ...year.openQuestions.map(v => `未確認事項：${v}`),
+            ...year.optionIds.map(id => `ACT:${id}`),
+            `算定条件：${year.costBasis ?? '未提示'}`,
+          );
+        });
+
+        text(
+          slide, plan.summary,
+          0.75, 6.65, 11.8, 0.28,
+          15, '31566F', true, 'center',
+        );
+
+        addNotes(slide, notes);
+      }
+    }
+  }
+
   if (recommendation !== null) {
     const scenario = comparison.scenarios.find(
       s => s.id === recommendation.scenarioId,
@@ -958,6 +1193,7 @@ export async function renderPaidAssessmentExecutiveSlidesDraft(
           projection.futureComparison,
           MAX_SLIDES - selectedSlides.length,
           buildInvestmentDisplay(projection),
+          buildScenarioPlanDisplay(projection),
         );
 
   const output = await pptx.write({ outputType: 'nodebuffer', compression: true });
