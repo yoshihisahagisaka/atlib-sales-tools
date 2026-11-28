@@ -9,7 +9,7 @@ import secumie_web_diagnosis_release as m
 
 class ReleaseGuard(unittest.TestCase):
     def setUp(self):
-        self.old={"metadata":{"name":m.w.OLD,"annotations":{"run.googleapis.com/secrets":"existing-ref"}},"spec":{"serviceAccountName":"existing-sa","containerConcurrency":10,"containers":[{"name":"app","image":m.w.BASE_IMAGE,"env":[{"name":"EXAMPLE","valueFrom":{"secretKeyRef":{"name":"existing","key":"1"}}}]},{"name":"sql-proxy","image":"existing-proxy","args":["existing"]}]},"status":{"conditions":[{"type":"Ready","status":"True"}]}}
+        self.old={"metadata":{"name":m.w.OLD,"annotations":{"run.googleapis.com/secrets":"existing-ref"}},"spec":{"serviceAccountName":"existing-sa","containerConcurrency":10,"containers":[{"name":"app","image":m.w.BASE_IMAGE,"env":[{"name":"EXAMPLE","valueFrom":{"secretKeyRef":{"name":"existing","key":"1"}}}]},{"name":"sql-proxy","image":m.PROXY_MANIFEST,"args":["existing"]}]},"status":{"conditions":[{"type":"Ready","status":"True"}]}}
         self.new=copy.deepcopy(self.old)
         self.new["metadata"]["name"]=m.NEW
         self.new["spec"]["containers"][0]["image"]=m.IMAGE
@@ -27,6 +27,29 @@ class ReleaseGuard(unittest.TestCase):
                 if change=="secret":new["metadata"]["annotations"]["run.googleapis.com/secrets"]="changed"
                 if change=="ready":new["status"]["conditions"]=[]
                 with self.assertRaises(m.c.Stop):m.verify_revision(self.old,new)
+
+    def test_known_proxy_index_manifest_pair_only(self):
+        actual=copy.deepcopy(self.old["spec"]["containers"][1])
+        template=copy.deepcopy(actual)
+        template["image"]=m.c.PROXY
+        self.assertTrue(m.template_proxy_matches(template,actual))
+        self.assertTrue(m.template_proxy_matches(actual,actual))
+        for key,value in (("image","unknown"),("args",["changed"]),("env",[])):
+            changed=copy.deepcopy(template)
+            changed[key]=value
+            self.assertFalse(m.template_proxy_matches(changed,actual))
+        self.assertFalse(m.template_proxy_matches(template,template))
+
+    def test_prepare_keeps_proxy_index_and_old_traffic(self):
+        doc={"metadata":{"name":m.w.SERVICE},"spec":{"template":{"metadata":{"name":m.w.OLD},"spec":copy.deepcopy(self.old["spec"])},"traffic":[{"revisionName":m.w.OLD,"percent":100}]}}
+        doc["spec"]["template"]["spec"]["containers"][1]["image"]=m.c.PROXY
+        state={"status":{"latestCreatedRevisionName":m.w.OLD,"latestReadyRevisionName":m.w.OLD}}
+        with patch.object(m.c,"gc",return_value=m.yaml.safe_dump(doc)):
+            candidate=m.prepare(state,self.old)
+        expected=copy.deepcopy(doc)
+        expected["spec"]["template"]["metadata"]["name"]=m.NEW
+        expected["spec"]["template"]["spec"]["containers"][0]["image"]=m.IMAGE
+        self.assertEqual(candidate,expected)
 
     def test_exact_candidate_approval(self):
         self.assertEqual(len(m.APPROVED),3)
