@@ -18,3 +18,41 @@ jobs:
       - run: npm run build
       - run: node --check public/admin/secumie-general-leads.js
       - run: node -r ts-node/register --test test/secumieGeneralAdmin.test.ts test/secumieGeneralLimits.test.ts test/secumieGeneralRuntime.test.ts test/secumieConsultationHandoff.test.ts
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 55439:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Prepare disposable roles and database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -p 55439 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE secumie_general_migration_staging LOGIN PASSWORD 'synthetic-migration-password';
+          CREATE ROLE secumie_general_writer_staging LOGIN PASSWORD 'synthetic-writer-password';
+          CREATE ROLE secumie_general_staff_staging LOGIN PASSWORD 'synthetic-staff-password';
+          CREATE DATABASE secumie_general_staging OWNER secumie_general_migration_staging;
+          REVOKE ALL ON DATABASE secumie_general_staging FROM PUBLIC;
+          GRANT CONNECT ON DATABASE secumie_general_staging TO secumie_general_writer_staging,secumie_general_staff_staging;
+          SQL
+      - run: node -r ts-node/register --test test/secumieGeneralLead.postgres.test.ts
+        env:
+          SECUMIE_GENERAL_ISOLATED_TEST: '1'

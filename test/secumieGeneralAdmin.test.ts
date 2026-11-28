@@ -1,3 +1,4 @@
+import '../src/middleware/staffAuth';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import express from 'express';

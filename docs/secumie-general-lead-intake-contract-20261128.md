@@ -30,3 +30,9 @@ A: schema/repository/admin design + tests in isolated PostgreSQL. B: form/start/
 ## Management decision evidence
 
 2026-11-28: latest owner approves one SECU:MIE business management page (WEB/Insight). This supersedes the independent-page direction recorded in Issue #133 and b44f4bb. No DB schema change needed for mixed-kind list. Implement combined staff entry and optional kind filter now; company-level identity linkage remains a distinct acceptance item. Public intake persistence, staff mount, role grants, DB acceptance and retention review remain pending. No production change.
+
+## Slice A2 — durable lead repository
+
+- CI 46119997598 stopped on missing staffEmail type augmentation in test; import existing staffAuth middleware in test (no auth bypass in runtime).
+- Add strict lead schema and dedicated PostgreSQL repository. Receipt is HMAC-SHA256 scoped to kind and idempotency UUID with server secret (32+ bytes); DB stores only hash and expiry. Same normalized data and key replays original receipt; conflicting body/kind and expired capability fail. Consent version is draft, must be approved before release. No OTP and no email verification assertion. Existing start/consultation code remains unchanged in this slice. Structured result completion is idempotent for identical JSON, refuses different overwrite, wrong kind or expired token; failure cannot downgrade completed state. Only trusted server-side evaluator/scanner will call completion; no public raw result endpoint.
+- Reuse existing migration runner and PostgreSQL 16 isolated CI pattern. Synthetic role grants in test only; no Cloud SQL operation. Verify admin mixed-kind list and independent lifecycle with actual DB, test denied public writer sales access and staff deletion. No public runtime integration or production grants yet. Next slice wires intake form/API, result persistence and consultation, followed by authenticated staff mount and acceptance. No new common foundation changes.
