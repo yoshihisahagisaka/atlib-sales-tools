@@ -25,7 +25,9 @@ export class SecumieGeneralAdminRepo {
  }
  async detail(kind:GeneralKind,id:string){
   const q=await this.pool.query('SELECT '+columns+',department,position,email,phone,consent_version,consented_at,diagnosis_result,completed_at,consultation_phone,consultation_note,consultation_requested_at,consultation_consent_version,staff_note,updated_at FROM secumie_general.lead WHERE kind=$1 AND id=$2',[kind,id]);
-  return q.rows[0]??null;
+  const row=q.rows[0];if(!row)return null;
+  const history=kind==='INSIGHT'?await this.pool.query('SELECT diagnosis_result,completed_at,archived_at FROM secumie_general.insight_result_history WHERE lead_id=$1 ORDER BY archived_at DESC,id DESC LIMIT 50',[id]):{rows:[]};
+  return {...row,result_history:history.rows};
  }
  async updateSales(kind:GeneralKind,id:string,input:{status:GeneralSalesState;note:string;actor:string}){
   const client=await this.pool.connect();

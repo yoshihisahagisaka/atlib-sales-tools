@@ -50,6 +50,22 @@ export class SecumieGeneralLeadRepo{
   if(!receiptPattern.test(receipt))return false;
   if(result===null||typeof result!=='object'||Array.isArray(result))throw Error('INVALID_DIAGNOSIS_RESULT');
   const value=JSON.stringify(result);if(Buffer.byteLength(value)>256*1024)throw Error('DIAGNOSIS_RESULT_TOO_LARGE');
+  if(kind==='INSIGHT'){
+   const client=await this.pool.connect();
+   try{
+    await client.query('BEGIN');
+    const row=(await client.query(`SELECT id,diagnosis_status,consultation_status,diagnosis_result=$3::jsonb AS same,diagnosis_result,completed_at
+      FROM secumie_general.lead WHERE kind=$1 AND receipt_hash=$2 AND receipt_expires_at>clock_timestamp() FOR UPDATE`,[kind,digest(receipt),value])).rows[0];
+    if(!row){await client.query('ROLLBACK');return false;}
+    if(row.diagnosis_status==='COMPLETED'&&row.same){await client.query('COMMIT');return true;}
+    if(row.consultation_status!=='NONE'){await client.query('ROLLBACK');return false;}
+    if(row.diagnosis_status==='COMPLETED'){
+     await client.query(`INSERT INTO secumie_general.insight_result_history(lead_id,diagnosis_result,completed_at) VALUES($1,$2::jsonb,$3)`,[row.id,JSON.stringify(row.diagnosis_result),row.completed_at]);
+    }
+    await client.query(`UPDATE secumie_general.lead SET diagnosis_status='COMPLETED',diagnosis_result=$2::jsonb,completed_at=clock_timestamp(),updated_at=clock_timestamp() WHERE id=$1`,[row.id,value]);
+    await client.query('COMMIT');return true;
+   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+  }
   const updated=await this.pool.query(`UPDATE secumie_general.lead SET diagnosis_status='COMPLETED',diagnosis_result=$3::jsonb,completed_at=clock_timestamp(),updated_at=clock_timestamp()
    WHERE kind=$1 AND receipt_hash=$2 AND receipt_expires_at>clock_timestamp() AND diagnosis_status IN ('RECEIVED','FAILED') RETURNING id`,[kind,digest(receipt),value]);
   if(updated.rowCount)return true;
