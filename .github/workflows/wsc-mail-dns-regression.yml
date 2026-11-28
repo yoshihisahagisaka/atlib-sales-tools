@@ -5,6 +5,7 @@ on:
     paths:
       - 'src/wsc/**'
       - 'test/wscMailDns.test.mjs'
+      - 'test/wscDiagnosisAccuracy.test.mjs'
       - 'test/wscPublicDestination.test.mjs'
       - '.github/workflows/wsc-mail-dns-regression.yml'
   workflow_dispatch:
@@ -18,7 +19,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node --test test/wscMailDns.test.mjs test/wscPublicDestination.test.mjs
+      - run: node --test test/wscMailDns.test.mjs test/wscDiagnosisAccuracy.test.mjs test/wscPublicDestination.test.mjs
       - run: |
           node src/wsc/vendor/tools/wsc-vs1/test.mjs
           node src/wsc/vendor/tools/wsc-phase2a/test.mjs
