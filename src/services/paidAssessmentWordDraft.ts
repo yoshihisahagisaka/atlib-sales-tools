@@ -1,4 +1,9 @@
 import {
+  buildScenarioPlanDisplay,
+  type ScenarioPlanDisplay,
+} from './paidAssessmentScenarioPlanDisplay';
+
+import {
   buildInvestmentDisplay,
   type InvestmentDisplay,
 } from './paidAssessmentInvestmentDisplay';
@@ -192,6 +197,7 @@ const MAX_COMPARISON_CELLS = 3000;
 function comparisonBlocks(
   comparison: FutureComparison,
   investment?: InvestmentDisplay,
+  plans?: ScenarioPlanDisplay,
 ): {
   body: WordBlock[];
   evidence: Paragraph[];
@@ -550,6 +556,110 @@ function comparisonBlocks(
     }
   }
 
+
+  if (plans !== undefined) {
+    body.push(
+      heading('シナリオ別複数年改善計画'),
+      paragraph(
+        `比較範囲：${bounded(plans.scope, 240, 'plan scope')}（${plans.taxLabel}）`,
+      ),
+      paragraph('以下は経営判断前の検討案です。期待する変化は実績を示すものではありません。'),
+    );
+
+    if (plans.columns.length === 0) {
+      body.push(paragraph('比較内容の準備が必要です。'));
+    }
+
+    evidence.push(
+      heading('複数年改善計画の参照情報・社内確認用'),
+    );
+
+    for (const column of plans.columns) {
+      body.push(
+        heading(bounded(column.title, 100, 'plan scenario title')),
+      );
+
+      if (column.status !== null) {
+        body.push(paragraph(column.status));
+      }
+
+      if (column.plan === null) {
+        body.push(paragraph('未入力（改善計画）'));
+        continue;
+      }
+
+      const plan = column.plan;
+
+      body.push(paragraph(plan.summary));
+
+      if (plan.uncoveredOptionIds.length > 0) {
+        body.push(paragraph('改善計画に未反映の改善案があります。'));
+      }
+
+      evidence.push(paragraph(column.title));
+
+      for (const id of plan.uncoveredOptionIds) {
+        evidence.push(paragraph(`未反映の改善案：${id}`));
+      }
+
+      if (plan.investmentEvidence !== null) {
+        const source = plan.investmentEvidence;
+
+        evidence.push(paragraph(
+          `${source.kind} / ${source.id} / version ${source.version}`,
+        ));
+      }
+
+      for (const year of plan.years) {
+        body.push(
+          new Paragraph({
+            text: bounded(year.heading, 120, 'plan year heading'),
+            heading: HeadingLevel.HEADING_2,
+            keepNext: true,
+            spacing: { before: 240, after: 120 },
+          }),
+        );
+
+        const fields: Array<[string, readonly string[]]> = [
+          ['目的', [year.purpose]],
+          ['主な取り組み', year.activities],
+          ['期待する変化', [year.expectedChange]],
+          ['効果の確認方法', [year.verificationApproach]],
+          ['実現条件', year.prerequisites],
+          ['リスク', year.risks],
+          ['計画を見直す条件', [year.reassessmentTrigger]],
+          ['未確認事項', year.openQuestions],
+          ['年度別投資額', [year.annualAmount, year.costLabel]],
+          ['算定条件', year.costBasis === null
+            ? []
+            : [year.costBasis]],
+        ];
+
+        for (const [label, values] of fields) {
+          body.push(paragraph(label));
+
+          if (values.length === 0) {
+            body.push(paragraph('記載なし'));
+          }
+
+          for (const value of values) {
+            body.push(paragraph(
+              bounded(value, 240, 'scenario plan detail'),
+            ));
+          }
+        }
+
+        evidence.push(paragraph(
+          `${column.scenarioId} / ${year.year}年目`,
+        ));
+
+        for (const id of year.optionIds) {
+          evidence.push(paragraph(`ACT：${id}`));
+        }
+      }
+    }
+  }
+
   const recommendation = comparison.recommendation;
 
   if (recommendation !== null) {
@@ -622,6 +732,7 @@ export async function renderPaidAssessmentWordDraft(
     : comparisonBlocks(
         projection.futureComparison,
         buildInvestmentDisplay(projection),
+        buildScenarioPlanDisplay(projection),
       );
 
   if (

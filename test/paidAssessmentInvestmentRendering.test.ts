@@ -608,3 +608,364 @@ test('renders an empty comparison without fabricating amounts', async () => {
     '比較内容の準備が必要です。',
   ));
 });
+
+function multiYearFixture(): PaidAssessmentExecutiveSlidesInput {
+  const value = investmentFixture();
+
+  // Synthetic upstream ACT for the existing scenario references.
+  // This is fixture data only, not a production approval.
+  value.assessment.options = {
+    options: [{
+      id: 'option-ok',
+      title: '業務改善の検討案',
+      description: '業務の可視化と標準化を段階的に進める',
+      why: '業務負担を軽減するため',
+      area: 'OPERATION',
+      lenses: ['STANDARDIZE', 'ORGANIZE'],
+      future: {
+        statement: value.assessment.statements[0]!.text,
+        source: managementSource,
+      },
+      gapIds: ['gap-ok'],
+      rootCauseHypothesisIds: [],
+      expectedChange: {
+        statement: '本来の業務に集中できる',
+        verificationApproach: '業務負担の変化を確認する',
+      },
+      assumptions: [],
+      dependencies: [],
+      risks: [],
+      actorCandidates: ['COMBINATION'],
+      state: 'REVIEWABLE',
+      reviewReasons: [],
+    }],
+    counts: {
+      REVIEWABLE: 1,
+      NEEDS_CONFIRMATION: 0,
+      BLOCKED_BY_GAP_EVIDENCE: 0,
+    },
+  };
+
+  const investment = value.assessment.investmentComparison!;
+
+  investment.entries = investment.entries.map(entry =>
+    entry.scenarioId === 'b'
+      ? {
+          ...entry,
+          monthlyPattern: 'VARIABLE_OR_UNCONFIRMED' as const,
+        }
+      : entry,
+  );
+
+  const definitions = [
+    {
+      id: 'a',
+      titles: ['現状把握', '個別業務改善', '運用定着'],
+      activities: ['既存業務の調査', '重複作業の削減', '改善手順の定着'],
+      changes: ['課題を把握する', '個別業務の負担を減らす', '既存運用を安定させる'],
+    },
+    {
+      id: 'b',
+      titles: ['改善基盤の整備', '業務効率の向上', '経営価値の向上'],
+      activities: ['業務可視化・手順標準化', 'システム連携・自動化', '経営情報活用・継続改善'],
+      changes: ['属人化を減らす', '本来の業務に集中する', '持続的な事業成長を支える'],
+    },
+    {
+      id: 'c',
+      titles: ['経営基盤設計', '業務体系の再構築', '全社的な改善'],
+      activities: ['業務とITの全体設計', '業務基盤の移行', '経営管理と改善活動の統合'],
+      changes: ['全体の方向性を統一する', '業務構造を変える', '事業拡大に対応する'],
+    },
+  ];
+
+  value.assessment.scenarioPlans = {
+    plans: definitions.map(definition => ({
+      scenarioId: definition.id,
+      years: definition.titles.map((title, index) => ({
+        year: index + 1,
+        title,
+        purpose: '目指す未来に向けた経営基盤の整備',
+        activities: [definition.activities[index]!],
+        optionIds: ['option-ok'],
+        expectedChange: definition.changes[index]!,
+        verificationApproach: '業務負担と改善効果を確認する',
+        prerequisites: ['関係者の合意'],
+        risks: ['移行時の業務負担'],
+        reassessmentTrigger: '期待する変化が得られない場合',
+        openQuestions: [],
+        annualYen: definition.id === 'b'
+          ? {
+              min: [2_200_000, 1_500_000, 800_000][index]!,
+              max: [2_400_000, 1_500_000, 800_000][index]!,
+            }
+          : null,
+        costBasis: definition.id === 'b'
+          ? '年度別参考見積に基づく概算'
+          : null,
+      })),
+    })),
+  };
+
+  return value;
+}
+
+test('renders scenario plans and reconciles annual estimates in both formats', async () => {
+  const value = multiYearFixture();
+  const before = structuredClone(value);
+  const result = await renderBoth(value);
+
+  assert.equal(result.slides.slideCount, 13);
+
+  for (const expected of [
+    'シナリオ別複数年改善計画',
+    '改善基盤の整備',
+    '業務効率の向上',
+    '経営価値の向上',
+    '業務可視化・手順標準化',
+    '持続的な事業成長を支える',
+    '2,200,000〜2,400,000円',
+    '4,500,000〜4,700,000円',
+    '3年間合計：4,500,000〜4,700,000円',
+  ]) {
+    assert.ok(result.wordText.includes(expected), `Word: ${expected}`);
+    assert.ok(result.slideText.includes(expected), `PPTX: ${expected}`);
+  }
+
+  const comparison = slideXml(result.slides.bytes, 6);
+  const plan = slideXml(result.slides.bytes, 10);
+
+  assert.ok(comparison.includes(
+    '4,500,000〜4,700,000円（年度別試算）',
+  ));
+
+  assert.ok(plan.includes('段階的改善型'));
+  assert.ok(plan.includes('3年間合計：4,500,000〜4,700,000円'));
+
+  assert.ok(slideXml(result.slides.bytes, 12).includes(
+    'atLIBからのご提案（検討案）',
+  ));
+
+  assert.ok(
+    result.wordText.indexOf('投資・実現条件の比較') <
+    result.wordText.indexOf('シナリオ別複数年改善計画'),
+  );
+
+  assert.ok(
+    result.wordText.indexOf('シナリオ別複数年改善計画') <
+    result.wordText.indexOf('atLIBからのご提案（検討案）'),
+  );
+
+  for (const expected of [
+    '業務負担と改善効果を確認する',
+    '移行時の業務負担',
+    '期待する変化が得られない場合',
+    '年度別参考見積に基づく概算',
+  ]) {
+    assert.ok(result.wordText.includes(expected));
+    assert.ok(notesXml(result.slides.bytes, 10).includes(expected));
+  }
+
+  assert.ok(!result.wordText.includes(coreSource.hash));
+  assert.ok(!allXml(result.slides.bytes).includes(coreSource.hash));
+
+  assert.deepEqual(value, before);
+});
+
+test('preserves missing plans, unknown annual costs and explicit zero', async () => {
+  const value = multiYearFixture();
+  const plans = value.assessment.scenarioPlans!;
+
+  plans.plans = plans.plans
+    .filter(plan => plan.scenarioId !== 'c')
+    .map(plan => ({
+      ...plan,
+      years: plan.years.map(year =>
+        plan.scenarioId !== 'b'
+          ? year
+          : year.year === 2
+            ? {
+                ...year,
+                annualYen: null,
+                costBasis: null,
+              }
+            : year.year === 3
+              ? {
+                  ...year,
+                  annualYen: { min: 0, max: 0 },
+                  costBasis: '追加投資なし',
+                }
+              : year,
+      ),
+    }));
+
+  const result = await renderBoth(value);
+
+  assert.equal(result.word.readiness, 'NEEDS_CONFIRMATION');
+  assert.equal(result.slides.readiness, 'NEEDS_CONFIRMATION');
+
+  for (const expected of [
+    '未入力（改善計画）',
+    '未算定',
+    '0円',
+    '3年間合計：未算定',
+    '算出せず（変動・未確認）',
+  ]) {
+    assert.ok(result.wordText.includes(expected));
+    assert.ok(result.slideText.includes(expected));
+  }
+
+  assert.ok(!slideXml(result.slides.bytes, 6).includes(
+    '4,500,000〜4,700,000円（年度別試算）',
+  ));
+});
+
+test('splits four-year plans without assuming costs after month 36', async () => {
+  const value = multiYearFixture();
+  const plan = value.assessment.scenarioPlans!.plans[0]!;
+
+  plan.years = [
+    ...plan.years,
+    {
+      ...plan.years[2]!,
+      year: 4,
+      title: '次の成長段階',
+    },
+  ];
+
+  const result = await renderBoth(value);
+
+  assert.equal(result.slides.slideCount, 14);
+
+  assert.ok(slideXml(result.slides.bytes, 10).includes(
+    '4年目｜次の成長段階',
+  ));
+
+  assert.ok(slideXml(result.slides.bytes, 10).includes(
+    '4年間合計：未算定',
+  ));
+
+  assert.ok(result.wordText.includes('4年間合計：未算定'));
+
+  assert.ok(slideXml(result.slides.bytes, 6).includes(
+    '1,380,000円',
+  ));
+});
+
+test('keeps the previous investment-only output without scenario plans', async () => {
+  const result = await renderBoth(investmentFixture());
+
+  assert.equal(result.slides.slideCount, 10);
+  assert.ok(!result.wordText.includes('シナリオ別複数年改善計画'));
+  assert.ok(!result.slideText.includes('シナリオ別複数年改善計画'));
+});
+
+test('includes scenario plan slides in the existing slide budget', async () => {
+  const value = multiYearFixture();
+
+  value.slides = Array.from(
+    { length: 32 },
+    () => value.slides[0]!,
+  );
+
+  await assert.rejects(
+    () => renderPaidAssessmentExecutiveSlidesDraft(value),
+    /comparison exceeds available slide budget/,
+  );
+});
+
+test('retains blocked state and flags review needs on scenario plan slides', async () => {
+  const value = multiYearFixture();
+
+  value.assessment.scenarios.scenarios[1]!.state =
+    'BLOCKED_BY_OPTION_EVIDENCE';
+
+  const plan = value.assessment.scenarioPlans!.plans[0]!;
+
+  plan.years = plan.years.map(year => ({
+    ...year,
+    openQuestions: ['担当者の役割分担を確認する'],
+  }));
+
+  const result = await renderBoth(value);
+
+  assert.equal(result.word.readiness, 'BLOCKED_BY_EVIDENCE');
+  assert.equal(result.slides.readiness, 'BLOCKED_BY_EVIDENCE');
+
+  assert.ok(slideXml(result.slides.bytes, 9).includes(
+    '追加確認が必要',
+  ));
+
+  assert.ok(slideXml(result.slides.bytes, 10).includes(
+    '実現条件の確認が必要',
+  ));
+
+  assert.ok(notesXml(result.slides.bytes, 9).includes(
+    '担当者の役割分担を確認する',
+  ));
+
+  assert.equal(result.word.status, 'INTERNAL_REVIEW_DRAFT');
+  assert.equal(result.slides.status, 'INTERNAL_REVIEW_DRAFT');
+});
+
+test('rejects oversized plan text instead of silently clipping it', async () => {
+  const value = multiYearFixture();
+  const plan = value.assessment.scenarioPlans!.plans[0]!;
+
+  plan.years = plan.years.map(year => ({
+    ...year,
+    activities: ['あ'.repeat(241)],
+  }));
+
+  await assert.rejects(
+    () => renderPaidAssessmentWordDraft(value.assessment),
+    /scenario plan detail must not exceed 240/,
+  );
+
+  await assert.rejects(
+    () => renderPaidAssessmentExecutiveSlidesDraft(value),
+    /scenario plan activities must not exceed 100/,
+  );
+});
+
+test('preserves known three-year comparison while displaying a two-year plan', async () => {
+  const value = multiYearFixture();
+
+  const plan = value.assessment.scenarioPlans!.plans[0]!;
+
+  plan.years = plan.years.slice(0, 2);
+
+  const result = await renderBoth(value);
+
+  assert.ok(slideXml(result.slides.bytes, 6).includes(
+    '1,380,000円',
+  ));
+
+  assert.ok(slideXml(result.slides.bytes, 9).includes(
+    '2年間合計：1,020,000円',
+  ));
+
+  assert.ok(result.wordText.includes('2年間合計：1,020,000円'));
+});
+
+test('renders an empty scenario plan comparison without invented values', async () => {
+  const value = multiYearFixture();
+
+  value.assessment.futureComparison = {
+    criteria: [],
+    scenarioIds: [],
+    evaluations: [],
+  };
+
+  value.assessment.investmentComparison!.entries = [];
+  value.assessment.scenarioPlans!.plans = [];
+
+  const result = await renderBoth(value);
+
+  assert.equal(result.slides.slideCount, 7);
+  assert.equal(result.word.readiness, 'NEEDS_CONFIRMATION');
+  assert.equal(result.slides.readiness, 'NEEDS_CONFIRMATION');
+
+  assert.ok(slideXml(result.slides.bytes, 7).includes(
+    '比較内容の準備が必要です。',
+  ));
+});

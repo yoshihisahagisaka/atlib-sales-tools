@@ -18,7 +18,7 @@ type Column = Investment['columns'][number];
 
 const yen = new Intl.NumberFormat('ja-JP');
 
-function money(value: YenRange | null): string {
+export function money(value: YenRange | null): string {
   if (value === null) return '未算定';
 
   if (value.min === value.max) {
@@ -31,6 +31,9 @@ function money(value: YenRange | null): string {
 function total(
   column: Column,
   period: 'firstYearYen' | 'threeYearYen',
+  annualPlan?: NonNullable<
+    DeliverableProjection['scenarioPlans']
+  >['plans'][number]['plan'],
 ): string {
   if (column.entry === null) return '未入力';
 
@@ -38,7 +41,11 @@ function total(
     column.entry.monthlyPattern ===
     'VARIABLE_OR_UNCONFIRMED'
   ) {
-    return '算出せず（変動・未確認）';
+    const annualTotal = annualPlan?.[period];
+
+    return annualTotal !== undefined && annualTotal !== null
+      ? `${money(annualTotal)}（年度別試算）`
+      : '算出せず（変動・未確認）';
   }
 
   return money(column.entry[period]);
@@ -62,6 +69,12 @@ export function buildInvestmentDisplay(
   }
 
   const scenarios = projection.futureComparison.scenarios;
+
+  const plans = new Map(
+    (projection.scenarioPlans?.plans ?? []).map(
+      column => [column.scenarioId, column.plan] as const,
+    ),
+  );
 
   const columns = investment.columns.map((column, index) => {
     const scenario = scenarios[index];
@@ -116,8 +129,11 @@ export function buildInvestmentDisplay(
       ? '税別'
       : '税込',
     caveat:
-      '合計額は初期投資と月額費用が明らかで、' +
-      '月額費用が36か月一定の場合の参考額です。',
+      projection.scenarioPlans === undefined
+        ? '合計額は初期投資と月額費用が明らかで、' +
+          '月額費用が36か月一定の場合の参考額です。'
+        : '合計額は36か月一定の条件、または年度別試算に基づく参考額です。' +
+          '未算定分は補完しません。',
     columns,
     groups: [
       {
@@ -131,8 +147,10 @@ export function buildInvestmentDisplay(
             c.entry === null
               ? '未入力'
               : money(c.entry.monthlyYen)),
-          row('初年度合計', c => total(c, 'firstYearYen')),
-          row('3年間合計', c => total(c, 'threeYearYen')),
+          row('初年度合計', c =>
+            total(c, 'firstYearYen', plans.get(c.scenarioId))),
+          row('3年間合計', c =>
+            total(c, 'threeYearYen', plans.get(c.scenarioId))),
         ],
       },
       {
