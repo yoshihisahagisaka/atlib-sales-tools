@@ -24,7 +24,7 @@ export class SecumieGeneralAdminRepo {
   return {items:rows.rows,total:count.rows[0].total,summary:summary.rows[0]};
  }
  async detail(kind:GeneralKind,id:string){
-  const q=await this.pool.query('SELECT '+columns+',department,position,email,phone,consent_version,consented_at,diagnosis_result,completed_at,consultation_note,consultation_requested_at,consultation_consent_version,staff_note,updated_at FROM secumie_general.lead WHERE kind=$1 AND id=$2',[kind,id]);
+  const q=await this.pool.query('SELECT '+columns+',department,position,email,phone,consent_version,consented_at,diagnosis_result,completed_at,consultation_phone,consultation_note,consultation_requested_at,consultation_consent_version,staff_note,updated_at FROM secumie_general.lead WHERE kind=$1 AND id=$2',[kind,id]);
   return q.rows[0]??null;
  }
  async updateSales(kind:GeneralKind,id:string,input:{status:GeneralSalesState;note:string;actor:string}){

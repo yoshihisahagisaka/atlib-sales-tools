@@ -4,7 +4,7 @@
  const serviceLabel=kind=>kind==='WEB'?'WEB':'Insight';
  const api='/api/admin/secumie-general/v1/leads';
  const states={NEW:'未対応',CONTACTED:'連絡済み',PROPOSAL:'提案中',WON:'受注',LOST:'失注',CLOSED:'終了',RECEIVED:'受付済み',COMPLETED:'完了',FAILED:'失敗',NONE:'未申込',REQUESTED:'申込済み'};
- const notifications={NONE:'未送信',PENDING:'送信待ち',SENT:'送信済み',FAILED:'送信失敗'};
+ const notifications={NONE:'未送信',PENDING:'送信処理中・要確認',SENT:'送信済み',FAILED:'送信失敗'};
  const display=x=>states[x]??x??'—';
  const date=x=>x?new Date(x).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'}):'—';
  const td=(row,text)=>{const cell=document.createElement('td');cell.textContent=text??'—';row.append(cell);return cell;};
@@ -21,7 +21,7 @@
   try{
    const data=await request(api+'?'+query);if(seq!==generation)return;
    for(const k of ['received','web_completed','insight_completed','consultations','new_leads'])$(k).textContent=String(data.summary[k]);
-   for(const x of data.items){const row=document.createElement('tr');td(row,date(x.received_at));td(row,x.company_name+' / '+x.person_name+(x.is_test?'（テスト）':''));td(row,serviceLabel(x.kind));td(row,x.kind==='WEB'?x.target_url:'—');td(row,display(x.diagnosis_status));td(row,display(x.consultation_status)+(x.notification_status==='FAILED'?'（通知失敗）':''));td(row,display(x.sales_status));td(row,x.sales_contact_allowed?'同意あり':'同意なし');const button=document.createElement('button');button.type='button';button.textContent='詳細';button.addEventListener('click',()=>detail(x.kind,x.id));td(row,'').append(button);$('rows').append(row);}
+   for(const x of data.items){const row=document.createElement('tr');td(row,date(x.received_at));td(row,x.company_name+' / '+x.person_name+(x.is_test?'（テスト）':''));td(row,serviceLabel(x.kind));td(row,x.kind==='WEB'?x.target_url:'—');td(row,display(x.diagnosis_status));td(row,display(x.consultation_status)+(x.notification_status==='FAILED'?'（通知失敗・要対応）':x.notification_status==='PENDING'?'（通知要確認）':''));td(row,display(x.sales_status));td(row,x.sales_contact_allowed?'同意あり':'同意なし');const button=document.createElement('button');button.type='button';button.textContent='詳細';button.addEventListener('click',()=>detail(x.kind,x.id));td(row,'').append(button);$('rows').append(row);}
    $('status').textContent=data.total+'件';$('page').textContent=data.total?String(offset+1)+'–'+String(offset+data.items.length):'0件';$('prev').disabled=offset===0;$('next').disabled=offset+data.items.length>=data.total;
   }catch(e){if(seq!==generation)return;for(const k of ['received','web_completed','insight_completed','consultations','new_leads'])$(k).textContent='—';$('page').textContent='';$('status').textContent=e.message;}
  }
@@ -33,7 +33,7 @@
    fields('contact',[['担当者',x.person_name],['部署',x.department],['役職',x.position],['メール（未認証）',x.email],['電話番号',x.phone],['営業案内',x.sales_contact_allowed?'同意あり':'同意なし'],['同意版',x.consent_version],['同意日時',date(x.consented_at)]]);
    fields('diagnosis',[['受付日時',date(x.received_at)],['診断状況',display(x.diagnosis_status)],['完了日時',date(x.completed_at)],...(kind==='WEB'?[['対象URL',x.target_url]]:[])]);
    $('result').textContent=x.diagnosis_result?JSON.stringify(x.diagnosis_result,null,2):'診断結果未登録';
-   fields('consultation',[['申込状況',display(x.consultation_status)],['申込日時',date(x.consultation_requested_at)],['同意版',x.consultation_consent_version],['通知状況',notifications[x.notification_status]??'—'],['相談内容',x.consultation_note]]);
+   fields('consultation',[['申込状況',display(x.consultation_status)],['申込日時',date(x.consultation_requested_at)],['相談時電話番号',x.consultation_phone],['同意版',x.consultation_consent_version],['通知状況',notifications[x.notification_status]??'—'],['相談内容',x.consultation_note]]);
    $('sales-status').value=x.sales_status;$('staff-note').value=x.staff_note??'';$('sales-form').hidden=false;$('detail-status').textContent='';
   }catch(e){if(seq===detailGeneration)$('detail-status').textContent=e.message;}
  }

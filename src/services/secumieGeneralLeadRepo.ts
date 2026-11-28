@@ -13,6 +13,8 @@ export const generalLeadInputSchema=z.object({
 }).strict();
 export type GeneralLeadInput=z.input<typeof generalLeadInputSchema>;
 export type GeneralLeadStart= {id:string;receipt:string;created:boolean;status:'RECEIVED'|'COMPLETED'|'FAILED'};
+export const GENERAL_CONSULTATION_CONSENT_VERSION='SECUMIE-GENERAL-CONSULTATION-DRAFT-V1';
+export type GeneralConsultationClaim={status:'CLAIMED'|'PENDING'|'SENT'|'FAILED';id:string;companyName:string;personName:string;email:string;phone:string;note:string;targetUrl?:string;report:unknown;receivedAt:string};
 const receiptPattern=/^[A-Za-z0-9_-]{43}$/;
 const digest=(value:string)=>createHash('sha256').update(value).digest('hex');
 export function normalizeGeneralTarget(kind:GeneralKind,target?:string):string|null{
@@ -59,6 +61,34 @@ export class SecumieGeneralLeadRepo{
   if(!receiptPattern.test(receipt))return null;
   const q=await this.pool.query(`SELECT diagnosis_result FROM secumie_general.lead WHERE kind=$1 AND receipt_hash=$2 AND receipt_expires_at>clock_timestamp() AND diagnosis_status='COMPLETED'`,[kind,digest(receipt)]);
   return q.rows[0]?.diagnosis_result??null;
+ }
+ async claimConsultation(kind:GeneralKind,receipt:string,input:{phone:string;note?:string}):Promise<GeneralConsultationClaim>{
+  if(!receiptPattern.test(receipt))throw Error('RECEIPT_EXPIRED');
+  const phone=z.string().trim().min(1).max(50).parse(input.phone),note=z.string().trim().max(2000).parse(input.note??'');
+  const client=await this.pool.connect();
+  try{
+   await client.query('BEGIN');
+   const row=(await client.query(`SELECT id,company_name,person_name,email,target_url,diagnosis_status,diagnosis_result,consultation_status,consultation_phone,consultation_note,consultation_requested_at,notification_status
+    FROM secumie_general.lead WHERE kind=$1 AND receipt_hash=$2 AND receipt_expires_at>clock_timestamp() FOR UPDATE`,[kind,digest(receipt)])).rows[0];
+   if(!row)throw Error('RECEIPT_EXPIRED');
+   if(row.diagnosis_status!=='COMPLETED')throw Error('DIAGNOSIS_NOT_SAVED');
+   let status:GeneralConsultationClaim['status'];
+   let at=row.consultation_requested_at;
+   if(row.consultation_status==='NONE'){
+    const updated=await client.query(`UPDATE secumie_general.lead SET consultation_status='REQUESTED',consultation_phone=$3,consultation_note=$4,consultation_consent_version=$5,consultation_requested_at=clock_timestamp(),notification_status='PENDING',updated_at=clock_timestamp() WHERE kind=$1 AND id=$2 RETURNING consultation_requested_at`,[kind,row.id,phone,note,GENERAL_CONSULTATION_CONSENT_VERSION]);
+    at=updated.rows[0].consultation_requested_at;status='CLAIMED';
+   }else{
+    if(row.consultation_phone!==phone||(row.consultation_note??'')!==note)throw Error('ALREADY_SUBMITTED');
+    status=row.notification_status;
+    if(!['PENDING','SENT','FAILED'].includes(status))throw Error('INVALID_NOTIFICATION_STATE');
+   }
+   await client.query('COMMIT');
+   return {status,id:row.id,companyName:row.company_name,personName:row.person_name,email:row.email,phone,note,...(row.target_url?{targetUrl:row.target_url}:{}),report:row.diagnosis_result,receivedAt:new Date(at).toISOString()};
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }
+ async finishConsultation(kind:GeneralKind,id:string,status:'SENT'|'FAILED'):Promise<boolean>{
+  const q=await this.pool.query(`UPDATE secumie_general.lead SET notification_status=$3,updated_at=clock_timestamp() WHERE kind=$1 AND id=$2 AND consultation_status='REQUESTED' AND notification_status='PENDING' RETURNING id`,[kind,id,status]);
+  return Boolean(q.rowCount);
  }
  async fail(kind:GeneralKind,receipt:string):Promise<boolean>{
   if(!receiptPattern.test(receipt))return false;
