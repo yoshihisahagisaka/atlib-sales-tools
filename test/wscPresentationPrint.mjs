@@ -40,6 +40,14 @@ try{
     for(const paragraph of expected){
       if(norm(paragraph))assert.ok(printed.includes(norm(paragraph)),name+': missing printed text '+paragraph.slice(0,80));
     }
+    const cards=await page.locator('section.detail article.finding').evaluateAll(nodes=>nodes.map(node=>Array.from(node.querySelectorAll('h3,h4,p')).map(el=>el.textContent)));
+    for(const card of cards){
+      assert.ok(pages.some(p=>card.every(t=>norm(p).includes(norm(t)))),name+': finding card split across pages '+card[0]);
+    }
+    if(name.startsWith('27-')){
+      assert.match(norm(pages[2]),/今回、確認をおすすめすること/,name+': review summary should fit overview');
+      assert.ok(pageCount<=9,name+': review-heavy pagination regression');
+    }
     const bbox=execFileSync('pdftotext',['-bbox-layout',file,'-'],{encoding:'utf8'});
     let words=0;
     for(const m of bbox.matchAll(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)"/g)){
