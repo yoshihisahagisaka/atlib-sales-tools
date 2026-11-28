@@ -1,7 +1,8 @@
 'use strict';
 (()=>{
  const $=id=>document.getElementById(id);
- const kind=new URLSearchParams(location.search).get('kind')==='INSIGHT'?'INSIGHT':'WEB';
+ const kind=document.body.dataset.service;
+ if(kind!=='WEB'&&kind!=='INSIGHT')throw Error('SERVICE_PAGE_REQUIRED');
  const label=kind==='WEB'?'WEB':'Insight';
  const api='/api/admin/secumie-general/v1/leads';
  const states={NEW:'未対応',CONTACTED:'連絡済み',PROPOSAL:'提案中',WON:'受注',LOST:'失注',CLOSED:'終了',RECEIVED:'受付済み',COMPLETED:'完了',FAILED:'失敗',NONE:'未申込',REQUESTED:'申込済み'};
@@ -12,7 +13,6 @@
  function fields(id,items){const dest=$(id);dest.replaceChildren();for(const [k,v] of items){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=k;dd.textContent=v??'—';dest.append(dt,dd);}}
  async function request(url,options={}){const r=await fetch(url,{credentials:'same-origin',cache:'no-store',...options});if(!r.ok)throw Error(r.status===401?'スタッフ認証が必要です':r.status===403?'操作権限がありません':'取得・更新に失敗しました（'+r.status+'）');return r.status===204?null:r.json();}
  $('title').textContent='SECU:MIE '+label+'｜リード管理';
- $('tab-'+kind.toLowerCase()).setAttribute('aria-current','page');
  $('diagnosis-col').textContent=kind==='WEB'?'対象URL':'診断';
  for(const key of ['NEW','CONTACTED','PROPOSAL','WON','LOST','CLOSED'])for(const id of ['sales-filter','sales-status']){const o=document.createElement('option');o.value=key;o.textContent=states[key];$(id).append(o);}
  let offset=0,activeId=null,generation=0,detailGeneration=0;
