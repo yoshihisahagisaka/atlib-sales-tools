@@ -313,3 +313,240 @@ test('is deterministic, preserves inputs and deeply detaches all shared-view dat
   assert.notEqual(first.sections[0]!.statements[0]!.relatedRefs, value.statements[1]!.relatedRefs);
   assert.notEqual(first.evidenceIndex[0]!.sources, value.statements[0]!.sourceRefs);
 });
+
+function comparisonInput(): DeliverableProjectionInput {
+  const value = input();
+
+  value.scenarios.scenarios =
+    value.scenarios.scenarios.map(s => ({
+      ...s,
+      title: s.id,
+      managementPriority: {
+        statement: '人を増やさず事業を拡大する',
+        source: managementSource,
+      },
+      rationale: '業務改善の方向を比較する',
+      optionIds: ['option-ok'],
+      expectedDirection: '業務負担の軽減',
+      tradeoffs: [],
+      risks: [],
+      assumptions: [],
+      investmentCharacter: 'NOT_ASSESSED',
+      reviewReasons: [],
+    }));
+
+  value.futureComparison = {
+    criteria: [{
+      id: 'efficiency',
+      futureStatementId: 'future',
+      title: '本来の業務に集中する',
+      rationale: '成長に必要な時間を確保する',
+    }],
+    scenarioIds: ['scenario-ok'],
+    evaluations: [{
+      criterionId: 'efficiency',
+      scenarioId: 'scenario-ok',
+      rating: 'HIGH',
+      rationale: '標準化により負担軽減を目指す',
+      sourceRefs: [coreSource],
+    }],
+    recommendation: {
+      scenarioId: 'scenario-ok',
+      rationale: '事業成長の方向と合う',
+      conditions: ['段階的に効果を確認する'],
+      alternativeConditions: [],
+    },
+  };
+
+  return value;
+}
+
+test('keeps the existing D1 contract when comparison is omitted', () => {
+  const result = buildPaidAssessmentDeliverableProjection(input());
+  assert.equal('futureComparison' in result, false);
+  assert.equal(result.readiness, 'REVIEWABLE_DRAFT');
+});
+
+test('projects future-fit matrix and explicit recommendation without approval', () => {
+  const result = buildPaidAssessmentDeliverableProjection(
+    comparisonInput(),
+  );
+
+  assert.equal(result.readiness, 'REVIEWABLE_DRAFT');
+  assert.deepEqual(result.references.scenarioIds, ['scenario-ok']);
+  assert.equal(
+    result.futureComparison!.rows[0]!.future.id,
+    'future',
+  );
+  assert.equal(
+    result.futureComparison!.rows[0]!.cells[0]!.evaluation!.rating,
+    'HIGH',
+  );
+  assert.deepEqual(
+    result.futureComparison!.rows[0]!.cells[0]!.evaluation!.sourceRefs,
+    [coreSource],
+  );
+  assert.equal(
+    result.futureComparison!.recommendation!.scenarioId,
+    'scenario-ok',
+  );
+  assert.deepEqual(result.references.decisionIds, []);
+});
+
+test('distinguishes missing evaluation from explicit confirmation needed', () => {
+  const value = comparisonInput();
+  const comparison = value.futureComparison!;
+
+  value.futureComparison = {
+    ...comparison,
+    evaluations: [],
+  };
+
+  const missing = buildPaidAssessmentDeliverableProjection(value);
+
+  assert.equal(missing.readiness, 'NEEDS_CONFIRMATION');
+  assert.equal(
+    missing.futureComparison!.rows[0]!.cells[0]!.evaluation,
+    null,
+  );
+  assert.deepEqual(missing.reviewReasons, [
+    'FUTURE_FIT_NOT_EVALUATED:["efficiency","scenario-ok"]',
+  ]);
+
+  value.futureComparison = {
+    ...comparison,
+    evaluations: [{
+      ...comparison.evaluations[0]!,
+      rating: 'NEEDS_CONFIRMATION',
+      sourceRefs: [],
+    }],
+  };
+
+  const pending = buildPaidAssessmentDeliverableProjection(value);
+
+  assert.equal(pending.readiness, 'NEEDS_CONFIRMATION');
+  assert.deepEqual(pending.reviewReasons, [
+    'FUTURE_FIT_NEEDS_CONFIRMATION:["efficiency","scenario-ok"]',
+  ]);
+});
+
+test('preserves blocked precedence even for explicitly recommended high fit', () => {
+  const value = comparisonInput();
+  const comparison = value.futureComparison!;
+
+  value.futureComparison = {
+    ...comparison,
+    scenarioIds: ['scenario-blocked', 'scenario-needs'],
+    evaluations: [{
+      ...comparison.evaluations[0]!,
+      scenarioId: 'scenario-blocked',
+    }],
+    recommendation: {
+      ...comparison.recommendation!,
+      scenarioId: 'scenario-blocked',
+    },
+  };
+
+  const result = buildPaidAssessmentDeliverableProjection(value);
+
+  assert.equal(result.readiness, 'BLOCKED_BY_EVIDENCE');
+  assert.deepEqual(result.reviewReasons, [
+    'UPSTREAM_BLOCKED:SCENARIO:scenario-blocked',
+  ]);
+
+  assert.equal(
+    result.futureComparison!.rows[0]!.cells[0]!.evaluation!.rating,
+    'HIGH',
+  );
+
+  assert.equal(
+    result.futureComparison!.scenarios[0]!.state,
+    'BLOCKED_BY_OPTION_EVIDENCE',
+  );
+
+  assert.deepEqual(result.references.decisionIds, []);
+});
+
+test('propagates scenario confirmation and deduplicates existing references', () => {
+  const value = comparisonInput();
+  const comparison = value.futureComparison!;
+
+  value.statements[0]!.relatedRefs = [{
+    kind: 'SCENARIO',
+    id: 'scenario-needs',
+  }];
+
+  value.futureComparison = {
+    ...comparison,
+    scenarioIds: ['scenario-needs'],
+    evaluations: [{
+      ...comparison.evaluations[0]!,
+      scenarioId: 'scenario-needs',
+    }],
+    recommendation: {
+      ...comparison.recommendation!,
+      scenarioId: 'scenario-needs',
+    },
+  };
+
+  const result = buildPaidAssessmentDeliverableProjection(value);
+
+  assert.equal(result.readiness, 'NEEDS_CONFIRMATION');
+  assert.deepEqual(result.references.scenarioIds, ['scenario-needs']);
+  assert.deepEqual(result.reviewReasons, [
+    'UPSTREAM_REVIEW_NEEDED:SCENARIO:scenario-needs',
+  ]);
+});
+
+test('marks an explicitly empty comparison as needing preparation', () => {
+  const value = comparisonInput();
+
+  value.futureComparison = {
+    criteria: [],
+    scenarioIds: [],
+    evaluations: [],
+  };
+
+  const result = buildPaidAssessmentDeliverableProjection(value);
+
+  assert.equal(result.readiness, 'NEEDS_CONFIRMATION');
+  assert.deepEqual(result.reviewReasons, [
+    'FUTURE_COMPARISON_NO_CRITERIA',
+    'FUTURE_COMPARISON_NO_SCENARIOS',
+  ]);
+  assert.equal(result.futureComparison!.recommendation, null);
+});
+
+test('rejects invalid comparison references without bypassing D1 validation', () => {
+  const value = comparisonInput();
+  const comparison = value.futureComparison!;
+
+  value.futureComparison = {
+    ...comparison,
+    criteria: [{
+      ...comparison.criteria[0]!,
+      futureStatementId: 'proposal',
+    }],
+  };
+
+  assert.throws(
+    () => buildPaidAssessmentDeliverableProjection(value),
+    /Unknown FUTURE/,
+  );
+});
+
+test('detaches comparison data and remains deterministic without mutating inputs', () => {
+  const value = comparisonInput();
+  const before = structuredClone(value);
+
+  const first = buildPaidAssessmentDeliverableProjection(value);
+  const second = buildPaidAssessmentDeliverableProjection(value);
+
+  assert.deepEqual(first, second);
+  assert.deepEqual(value, before);
+
+  first.futureComparison!.rows[0]!.criterion.title = 'modified';
+
+  assert.deepEqual(value, before);
+  assert.notDeepEqual(first, second);
+});

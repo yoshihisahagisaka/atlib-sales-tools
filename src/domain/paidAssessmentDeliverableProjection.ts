@@ -1,4 +1,8 @@
 import type { PreparationSourceRef } from './paidAssessmentPreparation';
+import {
+  buildFutureScenarioComparison,
+  type FutureScenarioComparisonInput,
+} from './paidAssessmentFutureFitComparison';
 import type { GapReviewResult, GapReviewState } from './paidAssessmentGapReview';
 import type {
   RootCauseReviewResult,
@@ -80,6 +84,7 @@ export interface DeliverableProjectionInput {
   decisions: DecisionSessionReviewResult;
   initialActions: InitialActionPlanReview;
   roadmap: RoadmapReviewResult;
+  futureComparison?: FutureScenarioComparisonInput;
 }
 
 export type DeliverableReadiness =
@@ -92,6 +97,7 @@ export interface DeliverableProjection {
   customerLabel: string;
   purpose: string;
   sections: Array<DeliverableSectionDraft & { statements: DeliverableStatement[] }>;
+  futureComparison?: ReturnType<typeof buildFutureScenarioComparison>;
   evidenceIndex: Array<{
     statementId: string;
     kind: DeliverableStatementKind;
@@ -435,6 +441,80 @@ export function buildPaidAssessmentDeliverableProjection(
     }
   }
 
+  // Optional comparison data shares the same D1 review boundary.
+  // Existing reports without a comparison retain their exact behavior.
+  const futureComparison = input.futureComparison === undefined
+    ? undefined
+    : buildFutureScenarioComparison(
+        inputStatements,
+        input.scenarios,
+        input.futureComparison,
+      );
+
+  if (futureComparison !== undefined) {
+    if (futureComparison.rows.length === 0) {
+      pushUnique(
+        confirmationReasons,
+        confirmationReasonKeys,
+        'FUTURE_COMPARISON_NO_CRITERIA',
+      );
+    }
+
+    if (futureComparison.scenarios.length === 0) {
+      pushUnique(
+        confirmationReasons,
+        confirmationReasonKeys,
+        'FUTURE_COMPARISON_NO_SCENARIOS',
+      );
+    }
+
+    for (const scenario of futureComparison.scenarios) {
+      const refKey = `SCENARIO\u0000${scenario.id}`;
+
+      if (!referencedKeys.has(refKey)) {
+        referencedKeys.add(refKey);
+        references.scenarioIds.push(scenario.id);
+      }
+
+      if (scenario.state === 'BLOCKED_BY_OPTION_EVIDENCE') {
+        pushUnique(
+          blockedReasons,
+          blockedReasonKeys,
+          `UPSTREAM_BLOCKED:SCENARIO:${scenario.id}`,
+        );
+      } else if (scenario.state === 'NEEDS_CONFIRMATION') {
+        pushUnique(
+          confirmationReasons,
+          confirmationReasonKeys,
+          `UPSTREAM_REVIEW_NEEDED:SCENARIO:${scenario.id}`,
+        );
+      }
+    }
+
+    for (const row of futureComparison.rows) {
+      for (const cell of row.cells) {
+        const pair = JSON.stringify([
+          row.criterion.id,
+          cell.scenarioId,
+        ]);
+
+        if (cell.evaluation === null) {
+          pushUnique(
+            confirmationReasons,
+            confirmationReasonKeys,
+            `FUTURE_FIT_NOT_EVALUATED:${pair}`,
+          );
+        } else if (cell.evaluation.rating === 'NEEDS_CONFIRMATION') {
+          pushUnique(
+            confirmationReasons,
+            confirmationReasonKeys,
+            `FUTURE_FIT_NEEDS_CONFIRMATION:${pair}`,
+          );
+        }
+      }
+    }
+  }
+
   if (inputSections.length === 0) {
     pushUnique(confirmationReasons, confirmationReasonKeys, 'NO_SECTIONS');
   }
@@ -463,6 +543,9 @@ export function buildPaidAssessmentDeliverableProjection(
       sources: statement.sourceRefs.map(copySource),
     })),
     references,
+    ...(futureComparison === undefined
+      ? {}
+      : { futureComparison }),
     readiness,
     reviewReasons,
   };
