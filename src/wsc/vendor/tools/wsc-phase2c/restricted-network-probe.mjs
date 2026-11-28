@@ -94,6 +94,7 @@ const discoverSpf = async (domain, resolveTxt, options, dmarcPromise) => {
   const timeoutMs = options.timeoutMs ?? 5_000;
   const deadline = Date.now() + timeoutMs;
   const checked = [];
+  let directOtherTxt=false;
   const result = (source, records, owner) => {
     const lookupStatus = source.status === 'UNVERIFIED' ? 'UNVERIFIED' : records.length ? 'FOUND' : source.values.some(value => /^\s*v\s*=\s*spf/i.test(value)) ? 'UNVERIFIED' : 'NO_RECORD';
     const error = source.error || (lookupStatus === 'UNVERIFIED' ? 'RECORD_FORMAT_INVALID' : undefined);
@@ -105,6 +106,7 @@ const discoverSpf = async (domain, resolveTxt, options, dmarcPromise) => {
     checked.push(owner);
     const source = await txt(owner, resolveTxt, {...options,timeoutMs:remaining});
     const records = spfRecords(source);
+    if(owner===domain&&!records.length&&source.values.length)directOtherTxt=true;
     const found = result(source,records,owner);
     if (found.lookupStatus === 'UNVERIFIED') return found;
     if (records.length) {
@@ -116,7 +118,7 @@ const discoverSpf = async (domain, resolveTxt, options, dmarcPromise) => {
       return found;
     }
   }
-  return {lookupStatus:'NO_RECORD',records:[],recordCount:0,checkedDomain:domain,queriedDomains:checked};
+  return {lookupStatus:directOtherTxt?'UNVERIFIED':'NO_RECORD',records:[],recordCount:0,checkedDomain:domain,queriedDomains:checked,...(directOtherTxt?{error:'RECORD_FORMAT_INVALID'}:{})};
 };
 export const collectMailDns = async (mailDomain, resolveTxt, options = {}) => {
   if (!mailDomain) return absentDns();
