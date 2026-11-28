@@ -408,6 +408,7 @@ render = (report, company, options) => {
     }
     const key = category(finding.id); const protection = PROTECTION_COPY[key] || []; const impact = IMPACT_DETAIL_COPY[key] || [IMPACT_COPY[finding.id] || finding.knowledge]; const long = protection.length + impact.length >= 6; return `<article class="finding${finding.status === '追加確認推奨' ? ' review' : ''}${long ? ' long' : ''}">${status(finding)}<h3>${html(displayTitle(finding, options))}</h3><h4>今回の診断結果</h4><p>${html(finding.observation)}</p><h4>どのような対策なのか</h4>${paragraphs(protection)}<h4>対策が不十分だと、どうなるのか</h4>${paragraphs(impact)}</article>`; };
   const closing = `<section class="detail report-section" id="next-steps"><h2>診断結果を、これからの対策につなげるために</h2><p>今回の診断では、Webサイトやメールに関する公開設定を確認しました。</p><p>「追加確認推奨」となった項目については、現在の管理状況や他の対策の有無も含め、Webサイトの制作会社、保守会社、メール管理担当者などに確認することをおすすめします。</p><p>セキュリティ対策は、自社だけの問題ではありません。</p><p>自社のWebサイトやメールが悪用されれば、お客様や取引先にも被害が及び、信用問題や取引関係への影響につながりかねません。</p><p>今回の結果を、必要な対策を見直すきっかけとしてお役立てください。</p><div class="final-note"><b>診断の範囲について</b>${report.customerScope?paragraphs(report.customerScope):`<p>本診断はインターネット上に公開されているWebサイトやメールの設定を確認したものであり、企業全体のセキュリティ対策や安全性を評価するものではありません。</p><p>「追加確認推奨」は管理担当者や保守会社への確認をおすすめするものであり、atLIBによる追加調査を約束するものではありません。</p>`}</div></section>`;
+  const printLayout=report.customerScope?'<style>@media print{.overview .ov-item{display:grid!important;grid-template-columns:6mm minmax(0,1fr);gap:0 2mm;align-items:start;break-inside:avoid}.overview .ov-status{grid-column:2;justify-self:start}.overview .ov-item>div{min-width:0}.detail .finding,.detail .finding+.finding{break-inside:avoid!important;page-break-inside:avoid!important}.finding p{overflow-wrap:anywhere}.finding h3{break-after:avoid-page}}</style>':'';
   return customerFacingRender(report, company, options)
     .replace(/<div class="ov-item">([\s\S]*?)<small>[\s\S]*?<\/small>/g, '<div class="ov-item">$1')
     .replace(/<span class="ov-status review">/g, '<span class="ov-status review"><span class="warning-icon" aria-hidden="true">⚠</span>')
@@ -416,6 +417,7 @@ render = (report, company, options) => {
       return finding ? customerFinding(finding) : original;
     })
     .replace(/<section class="detail report-section" id="next-steps">[\s\S]*?<\/section><\/body>/, `${closing}</body>`)
+    .replace('</head>',printLayout+'</head>')
     .replace('</style>', '.technical-heading{display:block;font-size:.85em;color:#1F3556;overflow-wrap:anywhere;margin-bottom:3px}.warning-icon{color:#D39A00;font-size:1.05em;margin-right:3px}body{font-family:"Noto Sans JP","Noto Sans CJK JP","Yu Gothic","Meiryo",sans-serif!important}</style>');
 };
 
