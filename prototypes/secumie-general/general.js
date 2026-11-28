@@ -90,7 +90,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if(parts.length)li.append(node('span','insight-point-detail',parts.join('：')));
    });
    const tools=page.querySelector('.v7-tools');
-   if(tools){const toolLink=tools.querySelector('.v7-tool-label');const action=page.querySelector('.insight-action');if(toolLink&&action){action.append(toolLink);tools.remove();}else{tools.replaceChildren(node('h2','','日常業務に役立つツール'));if(toolLink)tools.append(toolLink);}}
+   if(id==='T06'){
+    const impact=page.querySelector('.v7-impact-cards');
+    const source=page.querySelector('.v7-source');
+    if(impact&&source)impact.before(source);
+    if(tools)tools.remove();
+   }else if(tools){const toolLink=tools.querySelector('.v7-tool-label');const action=page.querySelector('.insight-action');if(toolLink&&action){action.append(toolLink);tools.remove();}else{tools.replaceChildren(node('h2','','日常業務に役立つツール'));if(toolLink)tools.append(toolLink);}}
    if(option.state!=='NOT_APPLICABLE'){
     const card=node('aside','insight-related-service');card.append(node('span','insight-small-label',guidance[option.state]||'関連する支援'),link(entry.name,entry.url),node('p','',entry.detail));
     if(entry.extra)card.append(link(entry.extra.name,entry.extra.url),node('p','',entry.extra.detail));
