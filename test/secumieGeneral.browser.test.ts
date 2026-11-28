@@ -56,11 +56,17 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
  await page.locator('[data-secumie-open-form]').first().click();
  await capture('02-intake');
  await page.locator('#companyName').fill('Synthetic Company');
- await page.locator('#registeredAddress').fill('Tokyo');
+ assert.equal(await page.locator('#registeredAddress').count(),0);
+ assert.equal(await page.locator('#general-form .required-mark').count(),kind==='WEB'?2:1);
  if(kind==='WEB')await page.locator('#targetUrl').fill('https://example.org/');
+ const webStart=Date.now();
  await page.locator('#general-form button[type=submit]').click();
  if(kind==='WEB'){
+  await page.locator('#diagnosis-progress').waitFor({state:'visible'});
+  assert.equal(await page.locator('#web-result').isVisible(),false);
   await page.locator('#web-result').waitFor({state:'visible'});
+  assert.ok(Date.now()-webStart>=2900,'WEB must show preparation for approximately three seconds');
+  assert.equal(await page.locator('#diagnosis-progress').isVisible(),false);
   await page.frameLocator('#report-frame').locator('body').getByText('クリックジャック対策',{exact:false}).first().waitFor();
   await page.locator('#print-result').waitFor({state:'visible'});
   assert.equal(await page.frameLocator('#report-frame').locator('.print-button').count(),0,'inert embedded print button must not be displayed');
@@ -74,16 +80,22 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
     assert.ok(rect&&rect.y>=0&&rect.y+rect.height<=viewport.height&&rect.x>=0&&rect.x+rect.width<=viewport.width,'consult CTA visible without scrolling');
   }
   await page.setViewportSize({width:390,height:844});
-  await page.frameLocator('#report-frame').locator('body').evaluate('() => { window.print = () => { document.body.dataset.printCalled = "yes"; }; }');
+  // Set the spy in the parent world, since scripts inside the sandboxed frame are disabled.
+  await page.evaluate('document.querySelector("#report-frame").contentWindow.print = () => { document.body.dataset.printCalled = "yes"; }; true');
   await page.locator('#print-result').click();
-  assert.equal(await page.frameLocator('#report-frame').locator('body').getAttribute('data-print-called'),'yes','working parent print button calls frame print');
+  assert.equal(await page.locator('body').getAttribute('data-print-called'),'yes','working parent print button calls frame print');
   await page.locator('#web-result-actions-bottom .consult-guide-trigger').click();
   await page.locator('#consultation-guide').waitFor({state:'visible'});
   await page.locator('#consult-back').click();
   assert.equal(await page.locator('#web-result').isVisible(),true);
  }else{
-  for(let i=0;i<8;i++){await page.locator('[data-answer]').first().click();await page.locator('#next').click();}
+  for(let i=0;i<7;i++){await page.locator('[data-answer]').first().click();await page.locator('#next').click();}
+  await page.locator('[data-answer]').first().click();const insightStart=Date.now();await page.locator('#next').click();
+  await page.locator('#diagnosis-progress').waitFor({state:'visible'});
+  assert.equal(await page.locator('#app').isVisible(),false);
   await page.locator('#v7-print').waitFor({state:'visible'});
+  assert.ok(Date.now()-insightStart>=2900,'Insight must show preparation for approximately three seconds');
+  assert.equal(await page.locator('#diagnosis-progress').isVisible(),false);
  }
  if(kind==='INSIGHT')assert.equal(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'),true,'Insight result must fit mobile viewport');
  await capture('03-result');
@@ -103,12 +115,13 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
  await page.locator('.consult-guide-trigger').first().click();
  await page.locator('#consult-apply').click();
  assert.match(await page.locator('#consult-company').innerText(),/Synthetic Company/);
+ assert.equal(await page.locator('#consultation-form .required-mark').count(),4);
  await capture('05-consult-form');
  await page.locator('#consult-name').fill('Synthetic Person');
  await page.locator('#consult-email').fill('synthetic@example.org');
  await page.locator('#consult-phone').fill('000');
  await page.locator('[name=consent]').check();
  await Promise.all([page.waitForURL(SECUMIE_SCHEDULE_URLS[kind]),page.locator('#consultation-form button[type=submit]').click()]);
- assert.equal(notices.length,1);assert.equal(notices[0]?.companyName,'Synthetic Company');assert.equal(notices[0]?.kind,kind);assert.deepEqual(errors,[]);
+ assert.equal(notices.length,1);assert.equal(notices[0]?.companyName,'Synthetic Company');assert.equal(notices[0]?.kind,kind);assert.equal('registeredAddress' in notices[0]!,false);assert.deepEqual(errors,[]);
  }finally{await browser.close();handoff.close();await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });
