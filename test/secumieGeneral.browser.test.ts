@@ -116,8 +116,10 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
   assert.match(await report.locator('tr[data-question-id="T06"] .insight-answer-support').innerText(),/担当者・保守会社/);
   assert.match(await report.locator('tr[data-question-id="T07"] .insight-answer-support').innerText(),/現状を確認/);
   const expected=v6.evaluate({answerContractVersion:content.versions.answer,answers:['T01_A2','T02_A2','T03_A5','T04_A1','T05_A1','T06_A3','T07_A4','T08_A1'].map((answerId:string)=>({questionId:answerId.split('_')[0],answerId}))}).priorityThemeIds;
-  const actual=await report.locator('.theme-page[data-question-id]').evaluateAll('els=>els.map(e=>e.dataset.questionId)');
-  assert.deepEqual((actual as string[]).sort(),[...expected].sort());
+  const themePages=report.locator('.theme-page[data-question-id]');
+  const actual:string[]=[];
+  for(let i=0;i<await themePages.count();i++)actual.push((await themePages.nth(i).getAttribute('data-question-id'))??'');
+  assert.deepEqual(actual.sort(),[...expected].sort());
   assert.equal(await report.locator('.insight-own-answer').count(),expected.length);
   assert.equal(await report.locator('.v7-tools-page article').count(),5);
   assert.equal(await report.locator('#insight-consulting').count(),1);
