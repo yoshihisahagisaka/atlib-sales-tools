@@ -44,15 +44,18 @@ async function main(){
   assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/^application\/pdf/);
   assert.match(response.headers.get('content-disposition'),/attachment; filename\*=UTF-8''/);assert.equal(response.headers.get('cache-control'),'no-store');assert.equal(response.headers.get('x-content-type-options'),'nosniff');
   const bytes=Buffer.from(await response.arrayBuffer());pdfCheck(bytes,'staff HTTP');assert.equal(calls,1);
-  assert.match(html,/検証株式会社 御中/);assert.match(html,/通信の暗号化ができています/);assert.match(html,/2026年11月29日 01:57/);assert.match(html,/確認をおすすめします/);
-  assert.doesNotMatch(html,/内部デザインレビュー用|原値：|data-finding-id/);
+  // Match the approved DMARC_NONE presentation, not obsolete generic wording.
+  const approved=JSON.parse(fs.readFileSync('/app/dist/wsc/vendor/tools/wsc-vs1/explanations.json','utf8')).entries.DMARC_NONE;
+  const checks=[['recipient','検証株式会社 御中'],['TLS','通信の暗号化ができています'],['JST','2026年11月29日 01:57'],['DMARC summary',approved.presentation.summary],['DMARC result',approved.presentation.result],['DMARC status','追加確認推奨'],['DMARC policy','適用される方針：p=none'],['DMARC action heading','確認をおすすめすること'],['DMARC action',approved.nextAction]];
+  for(const [label,value] of checks)assert.ok(typeof value==='string'&&value.length>0&&html.includes(value),'approved staff report missing '+label);
+  assert.ok(!/内部デザインレビュー用|原値：|data-finding-id/.test(html),'staff report contains forbidden internal content');
   console.log('STAFF_AUTH_CSV_REAL_PDF_HTTP=PASS');
  }finally{await new Promise(resolve=>server.close(resolve));}
  const dir=process.argv[2],names=fs.readdirSync(dir).filter(x=>x.endsWith('.html')).sort();assert.equal(names.length,29);
  const haveText=spawnSync('pdftotext',['-v'],{stdio:'ignore'}).status===0;
  for(const name of names){
   const h=fs.readFileSync(path.join(dir,name),'utf8');
-  assert.doesNotMatch(h,/原値：|data-finding-id|内部デザインレビュー用/);
+  assert.ok(!/原値：|data-finding-id|内部デザインレビュー用/.test(h),name+': forbidden internal content');
   const b=await renderWscPdf(h),pages=pdfCheck(b,name);
   if(haveText){
    const printed=execFileSync('pdftotext',['-raw','-','-'],{input:b,encoding:'utf8'}).normalize('NFKC').replace(/\s+/gu,'');
