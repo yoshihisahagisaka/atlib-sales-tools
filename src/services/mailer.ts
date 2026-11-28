@@ -42,7 +42,7 @@ export class Mailer {
       from: this.config.from, to, subject: `【${service}】無料相談申込 ${notice.reference}`,
       text: [
         `受付番号: ${notice.reference}`, `受付日時: ${notice.receivedAt}`,
-        `企業名: ${notice.companyName}`, `本店所在地: ${notice.registeredAddress}`,
+        `企業名: ${notice.companyName}`,
         `担当者名: ${notice.personName}`, `メール: ${notice.email}`, `電話番号: ${notice.phone}`,
         ...(notice.targetUrl ? [`対象URL: ${notice.targetUrl}`] : []),
         `相談内容: ${notice.note ?? ''}`, '', '診断結果（相談対応用）',
