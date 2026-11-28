@@ -33,10 +33,16 @@ const leads=leadPool?new SecumieGeneralLeadRepo(leadPool,required('SECUMIE_GENER
 const consultation=leads?(()=>{
  const mailer=new Mailer({host:required('SMTP_HOST'),port:587,user:required('SMTP_USER'),password:required('SMTP_PASSWORD'),from:required('SMTP_FROM')});
  const recipient=required('SECUMIE_CONSULTATION_NOTIFY_EMAIL');
- const slackWebhook=process.env.SLACK_WEBHOOK_DIAGNOSTIC?.trim()||undefined;
+ let slackWebhook=process.env.SLACK_WEBHOOK_DIAGNOSTIC?.trim()||undefined;
  if(slackWebhook){
-  const url=new URL(slackWebhook);
-  if(url.protocol!=='https:'||url.hostname!=='hooks.slack.com'||url.port||url.username||url.password||url.search||url.hash||!url.pathname.startsWith('/services/'))throw Error('SECUMIE_SLACK_WEBHOOK_INVALID');
+  try{
+   const url=new URL(slackWebhook);
+   if(url.protocol!=='https:'||url.hostname!=='hooks.slack.com'||url.port||url.username||url.password||url.search||url.hash||!url.pathname.startsWith('/services/'))throw Error('INVALID');
+  }catch{
+   // Optional Slack failure must not stop the public diagnosis runtime or leak the webhook.
+   console.error(JSON.stringify({event:'secumie_slack_configuration_invalid'}));
+   slackWebhook=undefined;
+  }
  }
  return new SecumieGeneralConsultation(leads,notice=>dispatchSecumieConsultationNotification(
   notice,
