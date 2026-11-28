@@ -37,22 +37,17 @@ const protectedCompany = {name:'別企業', headOffice:'大阪府大阪市', url
 const protectedHtml = render(evaluate(json('synthetic-protected.json'), opts), protectedCompany);
 const noAddressHtml = render(evaluate(json('synthetic-protected.json'), opts), { name:'所在地なし検証', url:'https://example-protected.test/' });
 assert.ok(!noAddressHtml.includes('本店所在地'), 'head office is not rendered and is not required');
-assert.ok(protectedHtml.includes('認証に失敗したメールへの対応方針が公開されています。'), 'unapproved FV IDs retain fixed observation');
+assert.ok(protectedHtml.includes('偽メールの隔離・拒否を求める設定があります'), 'unapproved FV IDs retain fixed observation');
 assert.ok(!protectedHtml.includes('偽メールの隔離・拒否を求める設定にはなっていません'), 'absent finding is not rendered');
 assert.ok(!protectedHtml.includes('<svg'), 'detail SVG illustrations removed');
 assert.match(protectedHtml, /data:image\/png;base64,/, 'FV icons embedded');
 assert.match(protectedHtml, /data:image\/jpeg;base64,/, 'cover image embedded');
 const atlibReport = evaluate(json('atlib-security-check-v2.json'), opts);
 const atlibHtml = render(atlibReport, json('atlib-company.json'));
-for (const approvedCopy of [
-  'Webサイトのアドレスが「https://」で始まっているのを見たことがあると思います。これは、Webサイトと利用者の間でやり取りする情報を暗号化し、第三者に盗み見られたり、途中で書き換えられたりすることを防ぐための仕組みです。',
-  'HSTSは、ブラウザに対して、次回以降も暗号化されたHTTPS通信を使うよう指示する仕組みです。暗号化されていない通信へ戻ってしまう危険を減らします。',
-  'CSPは、こうしたプログラムをどこから読み込んでよいかなどを制限する仕組みです。万が一、不正なプログラムが入り込んだ場合でも、勝手な動作や情報の持ち出しを抑えるために役立ちます。',
-  '画面埋め込み制御は、自社のWebページが他のサイト内に勝手に組み込まれることを制限する仕組みです。悪意のあるサイトに自社の画面を利用され、利用者が気づかないうちに意図しない操作をさせられる攻撃を防ぐために役立ちます。',
-  'NOSNIFFは、ブラウザがファイルの種類を勝手に判断して、想定外の方法で扱うことを防ぐための仕組みです。',
-  'SPFは、その会社のドメインからメールを送信してよいサーバーをあらかじめ登録しておく仕組みです。受信側が送信元を確認する際の手がかりになり、なりすましメールを見分けるために役立ちます。',
-  'DMARCは、自社を装ったメールが認証に失敗した場合、受信側に対して隔離や拒否などの対応方針を伝える仕組みです。自社の名前を悪用した偽メールが取引先などに届く危険を減らすために役立ちます。'
-]) assert.ok(atlibHtml.includes(approvedCopy), `approved customer copy: ${approvedCopy}`);
+for (const finding of atlibReport.findings) {
+  assert.ok(atlibHtml.includes(finding.presentation.result), 'versioned factual copy');
+  for (const line of [...finding.presentation.protection,...finding.presentation.impact]) assert.ok(atlibHtml.includes(line), 'versioned customer copy');
+}
 assert.match(atlibHtml, /どのような対策なのか/, 'protection explanation heading');
 assert.match(atlibHtml, /対策が不十分だと、どうなるのか/, 'customer impact heading');
 assert.match(atlibHtml, /warning-icon/, 'review findings use the warning triangle');
