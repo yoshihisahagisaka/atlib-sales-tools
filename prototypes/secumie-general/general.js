@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
    T03:{name:'情シスアウトソーシング',url:services+'#it-bpo',detail:'入退社・異動時のアカウント停止、権限変更など、日常のIT運用を支援します。'},
    T04:{name:'IT構築・運用支援',url:services+'#it-projects',detail:'利用中のサービスに合わせ、多要素認証の設定や導入・運用方法を検討します。'},
    T05:{name:'情シスアウトソーシング',url:services+'#it-bpo',detail:'端末の更新状況の把握や、継続的なIT運用の仕組みづくりを支援します。'},
-   T06:{name:'IT構築・運用支援',url:services+'#it-projects',detail:'バックアップの取得・保管・復元確認の仕組みを、業務に合わせて整備します。',extra:{name:'atLIB Secure Guard',url:services+'#secure-guard',detail:'危険な接続先への通信をDNSの段階で防ぐ対策もご相談いただけます。バックアップの代替ではありません。'}},
+   T06:{name:'IT構築・運用支援',url:services+'#it-projects',detail:'業務に合わせたバックアップ・復元確認の仕組みを整備します。',extra:{name:'atLIB Secure Guard',url:services+'#secure-guard',detail:'危険な接続先への通信をDNSで防ぐ補助対策です。バックアップの代替ではありません。'}},
    T07:{name:'セキュリティコンサルティング',url:consulting,detail:'振込先変更の別経路確認など、業務ルールや確認手順を整備します。',extra:{name:'atLIB Secure Guard',url:services+'#secure-guard',detail:'危険なサイトへの接続を防ぐ補助的な対策です。振込先の確認手順を置き換えるものではありません。'}},
    T08:{name:'セキュリティコンサルティング',url:consulting,detail:'事故時の連絡先、初動手順、対応記録といった運用体制を整える支援です。'}
   };
@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(parts.length)li.append(node('span','insight-point-detail',parts.join('：')));
    });
    const tools=page.querySelector('.v7-tools');
-   if(tools){const toolLink=tools.querySelector('.v7-tool-label');tools.replaceChildren(node('h2','','日常業務に役立つツール'),node('p','','定期的な確認には、情報管理・セキュリティ年間確認カレンダーをご活用ください。'));if(toolLink)tools.append(toolLink);}
+   if(tools){const toolLink=tools.querySelector('.v7-tool-label');const action=page.querySelector('.insight-action');if(toolLink&&action){action.append(toolLink);tools.remove();}else{tools.replaceChildren(node('h2','','日常業務に役立つツール'));if(toolLink)tools.append(toolLink);}}
    if(option.state!=='NOT_APPLICABLE'){
     const card=node('aside','insight-related-service');card.append(node('span','insight-small-label',guidance[option.state]||'関連する支援'),link(entry.name,entry.url),node('p','',entry.detail));
     if(entry.extra)card.append(link(entry.extra.name,entry.extra.url),node('p','',entry.extra.detail));
@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const final=node('section','v7-page insight-consulting-page');final.id='insight-consulting';
   const header=node('header','v7-title-card');const title=node('div','v7-title-content');title.append(node('span','','atLIB SECURITY CONSULTING'),node('h1','','知ることから、守る仕組みづくりまで。'),node('p','','企業全体のセキュリティ対策を、一緒に考えます。'));header.append(title);final.append(header);
   final.append(node('p','insight-consulting-lead','個別の対策だけでなく、技術・運用・管理を組み合わせ、御社の事業やIT環境に合った仕組みを整えることが大切です。'));
-  const pillars=node('div','insight-pillars');[['技術','必要な機器・システム対策'],['運用','点検・更新・教育を日常業務に'],['管理','ルール・責任体制と継続改善']].forEach(([a,b])=>{const c=node('div','');c.append(node('strong','',a),node('span','',b));pillars.append(c);});final.append(pillars,node('h2','','atLIBのセキュリティコンサルティング'));
+  const pillars=node('div','insight-pillars');[['技術','必要な機器・システム対策'],['運用','点検・更新・教育を日常業務に'],['管理','ルール・責任体制と継続改善']].forEach(([a,b])=>{const c=node('div','');c.append(node('strong','',a),node('span','',b));pillars.append(c);});const diagram=node('div','insight-consulting-diagram');diagram.append(pillars);const connector=node('div','insight-diagram-connector');connector.setAttribute('aria-hidden','true');diagram.append(connector,node('strong','insight-diagram-center','企業全体のセキュリティ対策'));final.append(diagram,node('h2','','atLIBのセキュリティコンサルティング'));
   final.append(node('p','','認証取得の先に、現場で機能する仕組みを。書類を整えるだけでなく、実際に運用できる情報管理・セキュリティ体制の構築を支援します。'));
   const steps=node('ol','insight-consulting-steps');[['現状把握','業務・IT環境・管理体制を確認'],['課題整理','必要な対策と優先順位を整理'],['体制・ルール整備','企業の実態に合った仕組みづくり'],['運用定着','継続的な運用・改善を支援']].forEach(([a,b],i)=>{const li=node('li','');li.append(node('span','insight-point-number',String(i+1).padStart(2,'0')),node('strong','',a),node('span','',b));steps.append(li);});final.append(steps);
   final.append(node('h2','','認証取得・評価制度への対応もご相談ください'));
