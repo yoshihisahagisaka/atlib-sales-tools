@@ -1,5 +1,5 @@
 {
-  "contentVersion": "WSC-C-1.0.0-draft",
+  "contentVersion": "WSC-C-1.0.1-draft",
   "entries": {
     "TLS_VALID": {
       "title": "Webサイトの通信を守る仕組み",
