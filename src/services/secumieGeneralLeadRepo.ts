@@ -15,6 +15,7 @@ export type GeneralLeadInput=z.input<typeof generalLeadInputSchema>;
 export type GeneralLeadStart= {id:string;receipt:string;created:boolean;status:'RECEIVED'|'COMPLETED'|'FAILED'};
 export const GENERAL_CONSULTATION_CONSENT_VERSION='SECUMIE-GENERAL-CONSULTATION-DRAFT-V1';
 export type GeneralConsultationClaim={status:'CLAIMED'|'PENDING'|'SENT'|'FAILED';id:string;companyName:string;personName:string;email:string;phone:string;note:string;targetUrl?:string;report:unknown;receivedAt:string};
+export const GENERAL_INSIGHT_REVISION_LIMIT=10;
 const receiptPattern=/^[A-Za-z0-9_-]{43}$/;
 const digest=(value:string)=>createHash('sha256').update(value).digest('hex');
 export function normalizeGeneralTarget(kind:GeneralKind,target?:string):string|null{
@@ -54,15 +55,16 @@ export class SecumieGeneralLeadRepo{
    const client=await this.pool.connect();
    try{
     await client.query('BEGIN');
-    const row=(await client.query(`SELECT id,diagnosis_status,consultation_status,diagnosis_result=$3::jsonb AS same,diagnosis_result,completed_at
+    const row=(await client.query(`SELECT id,diagnosis_status,consultation_status,diagnosis_result=$3::jsonb AS same,diagnosis_result,completed_at,insight_revision_count
       FROM secumie_general.lead WHERE kind=$1 AND receipt_hash=$2 AND receipt_expires_at>clock_timestamp() FOR UPDATE`,[kind,digest(receipt),value])).rows[0];
     if(!row){await client.query('ROLLBACK');return false;}
     if(row.diagnosis_status==='COMPLETED'&&row.same){await client.query('COMMIT');return true;}
     if(row.consultation_status!=='NONE'){await client.query('ROLLBACK');return false;}
     if(row.diagnosis_status==='COMPLETED'){
+     if(row.insight_revision_count>=GENERAL_INSIGHT_REVISION_LIMIT)throw Error('REVISION_LIMIT');
      await client.query(`INSERT INTO secumie_general.insight_result_history(lead_id,diagnosis_result,completed_at) VALUES($1,$2::jsonb,$3)`,[row.id,JSON.stringify(row.diagnosis_result),row.completed_at]);
     }
-    await client.query(`UPDATE secumie_general.lead SET diagnosis_status='COMPLETED',diagnosis_result=$2::jsonb,completed_at=clock_timestamp(),updated_at=clock_timestamp() WHERE id=$1`,[row.id,value]);
+    await client.query(`UPDATE secumie_general.lead SET diagnosis_status='COMPLETED',diagnosis_result=$2::jsonb,completed_at=clock_timestamp(),updated_at=clock_timestamp(),insight_revision_count=insight_revision_count+CASE WHEN diagnosis_status='COMPLETED' THEN 1 ELSE 0 END WHERE id=$1`,[row.id,value]);
     await client.query('COMMIT');return true;
    }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
   }

@@ -106,3 +106,22 @@ test('WEB free report is returned despite a failed completion write; retry uses 
   assert.deepEqual(await fixture.repo.getCompleted('WEB',fixture.receipt),{normalizedUrl:'https://example.org/',report:{fact:true}});
  });
 });
+
+test('completion request ceiling is enforced before repository access',async()=>{
+ const fixture=syntheticLeadRepo();
+ const app=createSecumieGeneralRuntime({kind:'INSIGHT',hostname:'service.atlib.jp',enabled:true,verify:async()=>true,leads:fixture.repo,evaluateInsight:answers=>({answers})});
+ const answers=Array.from({length:8},(_,i)=>({questionId:'T'+i,answerId:'A1'}));
+ await exercise(app,'insight',async send=>{
+  for(let i=0;i<30;i++)assert.equal((await send('complete',{leadReceipt:fixture.receipt,answers})).status,200);
+  const limited=await send('complete',{leadReceipt:fixture.receipt,answers});assert.equal(limited.status,429);assert.equal(limited.body.code,'RECEIPT_LIMIT');
+  assert.equal(fixture.calls.filter(x=>x==='complete').length,30);
+ });
+});
+test('revision bound is a distinct non-gating completion response',async()=>{
+ const fixture=syntheticLeadRepo();
+ const app=createSecumieGeneralRuntime({kind:'INSIGHT',hostname:'service.atlib.jp',enabled:true,verify:async()=>true,leads:{...fixture.repo,complete:async()=>{throw Error('REVISION_LIMIT');}},evaluateInsight:answers=>({answers})});
+ await exercise(app,'insight',async send=>{
+  const response=await send('complete',{leadReceipt:fixture.receipt,answers:Array.from({length:8},(_,i)=>({questionId:'T'+i,answerId:'A1'}))});
+  assert.equal(response.status,409);assert.equal(response.body.code,'REVISION_LIMIT');
+ });
+});

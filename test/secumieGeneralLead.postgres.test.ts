@@ -18,7 +18,7 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
  try{
   await runMigrations(owner,path.resolve('design/secumie-general/migrations'));
   const ledger=await owner.query('SELECT filename FROM schema_migrations ORDER BY filename');
-  assert.deepEqual(ledger.rows.map(x=>x.filename),['001_general_lead_staging.sql','002_general_consultation_staging.sql','003_insight_result_history_staging.sql','004_company_group_staging.sql','005_general_role_acl_staging.sql']);
+  assert.deepEqual(ledger.rows.map(x=>x.filename),['001_general_lead_staging.sql','002_general_consultation_staging.sql','003_insight_result_history_staging.sql','004_company_group_staging.sql','005_general_role_acl_staging.sql','006_insight_revision_limit_staging.sql']);
   for(const column of ['receipt_hash','payload_hash','idempotency_key','receipt_expires_at'])await assert.rejects(staff.query('SELECT '+column+' FROM secumie_general.lead'),/permission denied/);
   await assert.rejects(writer.query('CREATE TABLE secumie_general.forbidden(id int)'),/permission denied/);
   await assert.rejects(staff.query('CREATE TABLE secumie_general.forbidden(id int)'),/permission denied/);
@@ -109,6 +109,16 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
   await assert.rejects(staff.query('DELETE FROM secumie_general.lead'),/permission denied/);
   // Browser uses actual DB-backed repository + signed synthetic staff cookie, not a mock API.
   await exerciseGeneralStaffBrowser(admin,first.id,insight.id);
+  const bounded=await repo.begin('INSIGHT',{...input,idempotencyKey:randomUUID()});
+  assert.equal(await repo.complete('INSIGHT',bounded.receipt,{answers:originalAnswers,version:0}),true);
+  for(let i=1;i<=10;i++)assert.equal(await repo.complete('INSIGHT',bounded.receipt,{answers:originalAnswers,version:i}),true);
+  assert.equal(await repo.complete('INSIGHT',bounded.receipt,{answers:originalAnswers,version:10}),true);
+  await assert.rejects(repo.complete('INSIGHT',bounded.receipt,{answers:originalAnswers,version:11}),/REVISION_LIMIT/);
+  const boundedDetail=await admin.detail('INSIGHT',bounded.id);
+  assert.equal(boundedDetail?.result_history.length,10);
+  assert.equal(boundedDetail?.diagnosis_result.version,10);
+  assert.equal((await owner.query('SELECT insight_revision_count FROM secumie_general.lead WHERE id=$1',[bounded.id])).rows[0].insight_revision_count,10);
+  await assert.rejects(staff.query('UPDATE secumie_general.lead SET insight_revision_count=0'),/permission denied/);
   await owner.query("UPDATE secumie_general.lead SET receipt_expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",[insight.id]);
   assert.equal(await repo.complete('INSIGHT',insight.receipt,{answers:['synthetic']}),false);
   await assert.rejects(repo.begin('INSIGHT',{...input,idempotencyKey:(await owner.query('SELECT idempotency_key FROM secumie_general.lead WHERE id=$1',[insight.id])).rows[0].idempotency_key,salesContactAllowed:true}),/RECEIPT_EXPIRED/);

@@ -148,7 +148,7 @@ export function createSecumieGeneralRuntime(options: {
       if(!await options.leads.complete(options.kind,leadReceipt,result)){res.status(409).json({code:'COMPLETION_CONFLICT_OR_EXPIRED'});return;}
       if(options.kind==='WEB')pendingWeb.delete(leadReceipt);
       res.json({ok:true});
-    }catch{res.status(503).json({code:'LEAD_SAVE_FAILED'});}
+    }catch(error){if(error instanceof Error&&error.message==='REVISION_LIMIT'){res.status(409).json({code:'REVISION_LIMIT'});return;}res.status(503).json({code:'LEAD_SAVE_FAILED'});}
   });
   app.post(prefix + '/api/consultation', express.json({limit:'16kb',strict:true}), async (req,res) => {
     if (req.get('origin') !== 'https://' + options.hostname || !req.is('application/json')) { res.sendStatus(403); return; }

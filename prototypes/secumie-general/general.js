@@ -128,7 +128,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const attempt=async()=>{retry.disabled=true;msg.textContent='診断情報を保存しています。';try{
    const response=await fetch((web?'/secumie-web':'/secumie-insight')+'/api/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({leadReceipt:ownReceipt,...(!web?{answers}:{})}),signal:AbortSignal.timeout(10000)});
    if(response.ok){box.remove();return;}
-   if(response.status===409||response.status===410){msg.textContent='診断結果は閲覧・保存できますが、受付への結果保存は完了していません。相談申込済みの診断を変更する場合は、新しく診断してください。';retry.hidden=true;return;}
+   if(response.status===429){msg.textContent='利用上限に達しました。レポートは無料で閲覧・PDF保存できます。時間をおいて保存を再試行してください。';retry.disabled=false;return;}
+   if(response.status===409||response.status===410){const failure=await response.json().catch(()=>({}));if(failure.code==='REVISION_LIMIT'){msg.textContent='この受付の回答修正上限に達しました。レポートは無料で閲覧・PDF保存できます。結果を登録するには新しく診断してください。';retry.hidden=true;return;}msg.textContent='診断結果は閲覧・保存できますが、受付への結果保存は完了していません。相談申込済みの診断を変更する場合は、新しく診断してください。';retry.hidden=true;return;}
    throw Error();
   }catch{msg.textContent='診断情報の保存が完了していません。レポートは無料で閲覧・PDF保存できます。';retry.disabled=false;}};
   const queued=()=>{retry.disabled=true;saveQueue=saveQueue.then(attempt,attempt);return saveQueue;};retry.onclick=queued;await queued();
