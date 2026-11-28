@@ -96,15 +96,43 @@ for(const kind of ['WEB','INSIGHT'] as const) test('general '+kind+' browser dia
   await page.locator('#consult-back').click();
   assert.equal(await page.locator('#web-result').isVisible(),true);
  }else{
-  for(let i=0;i<7;i++){await page.locator('[data-answer]').first().click();await page.locator('#next').click();}
-  await page.locator('[data-answer]').first().click();const insightStart=Date.now();await page.locator('#next').click();
+  const selected=['T01_A2','T02_A2','T03_A5','T04_A1','T05_A1','T06_A3','T07_A4','T08_A1'];
+  for(let i=0;i<7;i++){await page.locator('[data-answer="'+selected[i]+'"]').click();await page.locator('#next').click();}
+  await page.locator('[data-answer="'+selected[7]+'"]').click();const insightStart=Date.now();await page.locator('#next').click();
   await page.locator('#diagnosis-progress').waitFor({state:'visible'});
   assert.equal(await page.locator('#app').isVisible(),false);
   await page.locator('#v7-print').waitFor({state:'visible'});
   assert.ok(Date.now()-insightStart>=2900,'Insight must show preparation for approximately three seconds');
   assert.equal(await page.locator('#diagnosis-progress').isVisible(),false);
  }
- if(kind==='INSIGHT')assert.equal(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'),true,'Insight result must fit mobile viewport');
+ if(kind==='INSIGHT'){
+  const report=page.locator('.general-insight-report');
+  assert.equal(await report.count(),1);
+  assert.equal(await report.locator('.result-page tbody tr[data-question-id]').count(),8);
+  assert.equal(await report.locator('.result-page .insight-answer-support a').count(),7);
+  assert.equal(await report.locator('[data-question-id="T03"][data-answer-state="NOT_APPLICABLE"] a').count(),0);
+  assert.match(await report.locator('tr[data-question-id="T02"] .insight-answer-support').innerText(),/範囲を広げる.*Secure Send/s);
+  assert.match(await report.locator('tr[data-question-id="T04"] .insight-answer-support').innerText(),/継続する/);
+  assert.match(await report.locator('tr[data-question-id="T06"] .insight-answer-support').innerText(),/担当者・保守会社/);
+  assert.match(await report.locator('tr[data-question-id="T07"] .insight-answer-support').innerText(),/現状を確認/);
+  const expected=v6.evaluate({answerContractVersion:content.versions.answer,answers:['T01_A2','T02_A2','T03_A5','T04_A1','T05_A1','T06_A3','T07_A4','T08_A1'].map((answerId:string)=>({questionId:answerId.split('_')[0],answerId}))}).priorityThemeIds;
+  const actual=await report.locator('.theme-page[data-question-id]').evaluateAll('els=>els.map(e=>e.dataset.questionId)');
+  assert.deepEqual((actual as string[]).sort(),[...expected].sort());
+  assert.equal(await report.locator('.insight-own-answer').count(),expected.length);
+  assert.equal(await report.locator('.v7-tools-page article').count(),5);
+  assert.equal(await report.locator('#insight-consulting').count(),1);
+  assert.equal(await report.locator('#insight-consulting .insight-cert-links a').count(),4);
+  assert.equal(await report.locator('#insight-consulting .consult-guide-trigger').count(),1);
+  for(const viewport of [{width:390,height:844},{width:1440,height:1000}]){
+   await page.setViewportSize(viewport);
+   assert.equal(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'),true,'Insight result must fit viewport');
+  }
+  await page.setViewportSize({width:390,height:844});
+  await report.locator('#insight-consulting .consult-guide-trigger').click();
+  await page.locator('#consultation-guide').waitFor({state:'visible'});
+  await page.locator('#consult-back').click();
+  assert.equal(await report.isVisible(),true);
+ }else assert.equal(await page.locator('.general-insight-report').count(),0);
  await capture('03-result');
  if(evidence){
    if(kind==='WEB'){
