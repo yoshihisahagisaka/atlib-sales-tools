@@ -1,0 +1,67 @@
+name: WSC mail DNS regression
+on:
+  pull_request:
+    branches: [feat/secumie-general-lead-intake-20261128, feat/secumie-general-release-20261128, release/secumie-insight-production, main]
+    paths:
+      - 'src/wsc/**'
+      - 'test/wscMailDns.test.mjs'
+      - 'test/wscPresentation.test.mjs'
+      - 'test/wscPresentationPrint.mjs'
+      - 'test/wscDiagnosisAccuracy.test.mjs'
+      - 'test/wscPublicDestination.test.mjs'
+      - '.github/workflows/wsc-mail-dns-regression.yml'
+      - 'release/secumie-web-diagnosis-overlay/**'
+      - 'release/secumie-web-presentation-overlay/**'
+      - 'scripts/readiness/secumie_web_presentation_build.py'
+      - 'scripts/readiness/secumie_web_presentation_release.py'
+      - 'test/secumie_web_presentation_release_test.py'
+      - 'scripts/readiness/secumie_web_diagnosis_build.py'
+      - 'scripts/readiness/secumie_web_diagnosis_release.py'
+      - 'test/secumie_web_diagnosis_release_test.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: python3 -m py_compile scripts/readiness/secumie_web_diagnosis_build.py scripts/readiness/secumie_web_diagnosis_release.py
+      - run: python3 test/secumie_web_diagnosis_release_test.py
+      - run: python3 -m py_compile scripts/readiness/secumie_web_presentation_release.py
+      - run: python3 test/secumie_web_presentation_release_test.py
+      - run: node --check release/secumie-web-diagnosis-overlay/verify.cjs
+      - run: python3 -m py_compile scripts/readiness/secumie_web_presentation_build.py
+      - run: node --check release/secumie-web-presentation-overlay/verify.cjs
+      - run: python3 scripts/readiness/secumie_web_presentation_build.py --check-source
+      - run: python3 scripts/readiness/secumie_web_diagnosis_build.py --check-source
+      - run: node --test test/wscMailDns.test.mjs test/wscDiagnosisAccuracy.test.mjs test/wscPublicDestination.test.mjs
+      - run: WSC_PRESENTATION_OUTPUT=review-reports node --test test/wscPresentation.test.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wsc-presentation-html
+          path: review-reports/
+          retention-days: 7
+      - run: |
+          node src/wsc/vendor/tools/wsc-vs1/test.mjs
+          node src/wsc/vendor/tools/wsc-phase2a/test.mjs
+          node src/wsc/vendor/tools/wsc-phase2b/test.mjs
+          node src/wsc/vendor/tools/wsc-phase2c/test.mjs
+      - name: Install locked browser dependencies and Japanese print fonts
+        run: |
+          npm ci --ignore-scripts
+          npx --no-install playwright install --with-deps chromium
+          sudo apt-get install -y fonts-noto-cjk poppler-utils
+      - name: Print and validate all synthetic reports in Chromium
+        run: node test/wscPresentationPrint.mjs review-reports review-pdf
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wsc-presentation-pdf
+          path: review-pdf/
+          retention-days: 7

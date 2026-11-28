@@ -24,8 +24,8 @@ test('uses the completed WSC evaluator and renderer through a synthetic safe tra
   assert.deepEqual(result.pdf, Buffer.from('synthetic-pdf'));
   assert.match(rendered, /通信の暗号化ができています/);
   assert.match(rendered, /検証株式会社 御中/);
-  assert.match(rendered, /NOSNIFFは、ブラウザがファイルの種類を勝手に判断して、想定外の方法で扱うことを防ぐための仕組みです。/);
-  assert.match(rendered, /Webサイトに置かれた画像や文章などのファイルが、ブラウザに誤ってプログラムとして扱われることがあります。/);
+  assert.match(rendered, /nosniffは、ブラウザがファイルの種類を独自に推測して扱うことを抑える設定です。/);
+  assert.match(rendered, /悪意のあるファイルが本来とは異なる種類として扱われると、不正なプログラムの実行や情報漏えいにつながるおそれがあります。/);
   assert.match(rendered, /<span class="warning-icon" aria-hidden="true">⚠<\/span>追加確認推奨/);
   assert.match(rendered, /診断結果を、これからの対策につなげるために/);
   assert.doesNotMatch(rendered, /原値：|RFC 8446|MDN CSP|data-finding-id/);
