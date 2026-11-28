@@ -3,7 +3,7 @@ import type {Pool} from 'pg';
 import {z} from 'zod';
 import type {GeneralKind} from './secumieGeneralAdminRepo';
 
-export const GENERAL_CONSENT_VERSION='SECUMIE-GENERAL-LEAD-DRAFT-V1';
+export const GENERAL_CONSENT_VERSION='SECUMIE-GENERAL-LEAD-V1';
 export const generalLeadInputSchema=z.object({
  idempotencyKey:z.string().uuid(), companyName:z.string().trim().min(1).max(150),
  personName:z.string().trim().min(1).max(150),email:z.string().trim().email().max(254),
@@ -13,7 +13,7 @@ export const generalLeadInputSchema=z.object({
 }).strict();
 export type GeneralLeadInput=z.input<typeof generalLeadInputSchema>;
 export type GeneralLeadStart= {id:string;receipt:string;created:boolean;status:'RECEIVED'|'COMPLETED'|'FAILED'};
-export const GENERAL_CONSULTATION_CONSENT_VERSION='SECUMIE-GENERAL-CONSULTATION-DRAFT-V1';
+export const GENERAL_CONSULTATION_CONSENT_VERSION='SECUMIE-GENERAL-CONSULTATION-V1';
 export type GeneralConsultationClaim={status:'CLAIMED'|'PENDING'|'SENT'|'FAILED';id:string;companyName:string;personName:string;email:string;phone:string;note:string;targetUrl?:string;report:unknown;receivedAt:string};
 export const GENERAL_INSIGHT_REVISION_LIMIT=10;
 const receiptPattern=/^[A-Za-z0-9_-]{43}$/;
