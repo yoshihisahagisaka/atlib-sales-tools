@@ -1,5 +1,5 @@
 {
-  "ruleVersion": "WSC-R-1.0.0-draft",
+  "ruleVersion": "WSC-R-1.0.1-draft",
   "inputSchemaVersion": "2.0",
   "classification": {
     "confirmed": "設定確認済み",
@@ -99,7 +99,8 @@
       "status": "設定確認済み",
       "evidenceFields": [
         "dns.spf.records",
-        "dns.spf.recordCount"
+        "dns.spf.recordCount",
+        "dns.spf.checkedDomain (when acquired)"
       ]
     },
     {
@@ -107,24 +108,33 @@
       "condition": "dns.spf.lookupStatus == FOUND AND recordCount > 1",
       "status": "追加確認推奨",
       "evidenceFields": [
-        "dns.spf.recordCount"
+        "dns.spf.recordCount",
+        "dns.spf.checkedDomain (when acquired)"
       ]
     },
     {
       "id": "DMARC_NONE",
-      "condition": "dns.dmarc.lookupStatus == FOUND AND recordCount == 1 AND tags.p == none",
+      "condition": "dns.dmarc.lookupStatus == FOUND AND recordCount == 1 AND effectivePolicy (legacy input: tags.p) == none",
       "status": "追加確認推奨",
       "evidenceFields": [
         "dns.dmarc.records",
-        "dns.dmarc.tags.p"
+        "dns.dmarc.tags.p",
+        "dns.dmarc.checkedDomain (when acquired)",
+        "dns.dmarc.policyDomain (when acquired)",
+        "dns.dmarc.policyTag (when acquired)",
+        "dns.dmarc.effectivePolicy (when acquired)"
       ]
     },
     {
       "id": "DMARC_ENFORCING",
-      "condition": "dns.dmarc.lookupStatus == FOUND AND recordCount == 1 AND tags.p in [quarantine,reject]",
+      "condition": "dns.dmarc.lookupStatus == FOUND AND recordCount == 1 AND effectivePolicy (legacy input: tags.p) in [quarantine,reject]",
       "status": "設定確認済み",
       "evidenceFields": [
-        "dns.dmarc.tags.p"
+        "dns.dmarc.tags.p",
+        "dns.dmarc.checkedDomain (when acquired)",
+        "dns.dmarc.policyDomain (when acquired)",
+        "dns.dmarc.policyTag (when acquired)",
+        "dns.dmarc.effectivePolicy (when acquired)"
       ]
     },
     {
@@ -132,7 +142,9 @@
       "condition": "dns.dmarc.lookupStatus == NO_RECORD",
       "status": "追加確認推奨",
       "evidenceFields": [
-        "dns.dmarc.lookupStatus"
+        "dns.dmarc.lookupStatus",
+        "dns.dmarc.checkedDomain (when acquired)",
+        "dns.dmarc.queriedDomains (when acquired)"
       ]
     }
   ],
@@ -145,6 +157,8 @@
     "SPF and DMARC validity are not proven by presence; basic syntax-only findings must say so.",
     "Use checkedAt from input, not current system time, for reproducible output.",
     "Raw HTML and user-supplied fields must be escaped.",
-    "All network operations are prohibited in evaluate and render."
+    "All network operations are prohibited in evaluate and render.",
+    "Live DMARC absence requires completed bounded DNS policy discovery; transient DNS errors and invalid/ambiguous records are INTERNAL_ONLY. Legacy offline inputs are evaluated as originally supplied.",
+    "SPF evidence identifies the actually queried domain and does not imply inheritance or real SMTP sender authentication."
   ]
 }
