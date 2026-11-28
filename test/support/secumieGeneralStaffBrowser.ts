@@ -33,7 +33,7 @@ export async function exerciseGeneralStaffBrowser(repo:SecumieGeneralAdminRepo,w
     const page=await context.newPage();const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
     page.on('dialog',d=>d.accept());
     await page.goto(url);
-    await page.waitForFunction(()=>document.querySelectorAll('#rows tr').length===2);
+    await page.waitForFunction("document.querySelectorAll('#rows tr').length===2");
     const evidence=process.env.SECUMIE_STAFF_REVIEW_DIR;
     if(evidence){mkdirSync(evidence,{recursive:true});await page.screenshot({path:path.join(evidence,'staff-list.png'),fullPage:true});}
     await page.locator('#rows tr').filter({hasText:'https://example.org/'}).getByRole('button',{name:'詳細'}).click();
