@@ -860,3 +860,390 @@ test('supports qualitative or unknown investment without fabricating price', () 
   assert.equal(entry.threeYearYen, null);
   assert.equal(entry.investmentEvidence, null);
 });
+
+function scenarioPlanInput(): DeliverableProjectionInput {
+  const value = investmentInput();
+
+  value.scenarioPlans = {
+    plans: [{
+      scenarioId: 'scenario-ok',
+      years: [
+        '業務・IT基盤の整備',
+        '業務効率化の推進',
+        '継続的な事業成長',
+      ].map((title, index) => ({
+        year: index + 1,
+        title,
+        purpose: '持続的な事業成長を支える',
+        activities: ['改善活動を段階的に進める'],
+        optionIds: ['option-ok'],
+        expectedChange: '本来の業務に集中できる',
+        verificationApproach: '業務負担の変化を確認する',
+        prerequisites: ['関係者の合意'],
+        risks: ['現場の負担増加'],
+        reassessmentTrigger: '期待する変化が確認できない場合',
+        openQuestions: [],
+        annualYen: null,
+        costBasis: null,
+      })),
+    }],
+  };
+
+  return value;
+}
+
+test('derives annual scenario costs from existing comparison without double counting', () => {
+  const result =
+    buildPaidAssessmentDeliverableProjection(scenarioPlanInput());
+
+  const plan = result.scenarioPlans!.plans[0]!.plan!;
+
+  assert.deepEqual(plan.years.map(y => y.annualYen), [
+    { min: 1_960_000, max: 2_400_000 },
+    { min: 960_000, max: 1_200_000 },
+    { min: 960_000, max: 1_200_000 },
+  ]);
+
+  assert.deepEqual(plan.threeYearYen, {
+    min: 3_880_000,
+    max: 4_800_000,
+  });
+
+  assert.deepEqual(plan.planTotalYen, plan.threeYearYen);
+
+  assert.equal(
+    plan.years[0]!.costOrigin,
+    'DERIVED_FROM_COMPARISON',
+  );
+
+  assert.equal(
+    result.scenarioPlans!.scope,
+    result.investmentComparison!.scope,
+  );
+
+  assert.equal(result.readiness, 'REVIEWABLE_DRAFT');
+  assert.deepEqual(result.references.decisionIds, []);
+});
+
+test('supports explicitly estimated annual costs for variable investment', () => {
+  const value = scenarioPlanInput();
+  const investment = value.investmentComparison!;
+
+  investment.entries = [{
+    ...investment.entries[0]!,
+    monthlyPattern: 'VARIABLE_OR_UNCONFIRMED',
+  }];
+
+  const plan = value.scenarioPlans!.plans[0]!;
+
+  plan.years = plan.years.map((year, index) => ({
+    ...year,
+    annualYen: {
+      min: [2_000_000, 1_500_000, 800_000][index]!,
+      max: [2_500_000, 1_700_000, 900_000][index]!,
+    },
+    costBasis: '年度別の参考見積に基づく概算',
+  }));
+
+  const result =
+    buildPaidAssessmentDeliverableProjection(value);
+
+  const projected = result.scenarioPlans!.plans[0]!.plan!;
+
+  assert.equal(
+    result.investmentComparison!.columns[0]!.entry!.threeYearYen,
+    null,
+  );
+
+  assert.deepEqual(projected.threeYearYen, {
+    min: 4_300_000,
+    max: 5_100_000,
+  });
+
+  assert.equal(
+    projected.years[0]!.costOrigin,
+    'EVIDENCE_BACKED_ESTIMATE',
+  );
+});
+
+test('rejects annual overrides of existing constant investment', () => {
+  const value = scenarioPlanInput();
+  const plan = value.scenarioPlans!.plans[0]!;
+
+  plan.years = plan.years.map((year, index) =>
+    index === 0
+      ? {
+          ...year,
+          annualYen: { min: 1, max: 1 },
+          costBasis: '矛盾する別の試算',
+        }
+      : year,
+  );
+
+  assert.throws(
+    () => buildPaidAssessmentDeliverableProjection(value),
+    /Annual cost must use existing constant investment comparison/,
+  );
+});
+
+test('supports longer plans without extending the 36-month assumption', () => {
+  const value = scenarioPlanInput();
+  const plan = value.scenarioPlans!.plans[0]!;
+
+  plan.years = [
+    ...plan.years,
+    {
+      ...plan.years[2]!,
+      year: 4,
+      title: '次の成長段階',
+    },
+  ];
+
+  const projected =
+    buildPaidAssessmentDeliverableProjection(value)
+      .scenarioPlans!.plans[0]!.plan!;
+
+  assert.equal(projected.years.length, 4);
+  assert.equal(projected.years[3]!.annualYen, null);
+  assert.equal(projected.planTotalYen, null);
+
+  assert.deepEqual(projected.threeYearYen, {
+    min: 3_880_000,
+    max: 4_800_000,
+  });
+});
+
+test('preserves unknown annual costs and distinguishes zero', () => {
+  const value = scenarioPlanInput();
+  const investment = value.investmentComparison!;
+
+  investment.entries = [{
+    ...investment.entries[0]!,
+    monthlyPattern: 'VARIABLE_OR_UNCONFIRMED',
+  }];
+
+  const plan = value.scenarioPlans!.plans[0]!;
+
+  plan.years = plan.years.map((year, index) =>
+    index === 1
+      ? {
+          ...year,
+          annualYen: { min: 0, max: 0 },
+          costBasis: '当年度の追加投資なし',
+        }
+      : year,
+  );
+
+  const projected =
+    buildPaidAssessmentDeliverableProjection(value)
+      .scenarioPlans!.plans[0]!.plan!;
+
+  assert.equal(projected.years[0]!.annualYen, null);
+  assert.deepEqual(
+    projected.years[1]!.annualYen,
+    { min: 0, max: 0 },
+  );
+
+  assert.equal(projected.threeYearYen, null);
+  assert.equal(projected.planTotalYen, null);
+});
+
+test('requires investment evidence and annual basis for entered amounts', () => {
+  const value = scenarioPlanInput();
+  const investment = value.investmentComparison!;
+
+  investment.entries = [{
+    ...investment.entries[0]!,
+    initialYen: null,
+    monthlyYen: null,
+    monthlyPattern: 'VARIABLE_OR_UNCONFIRMED',
+  }];
+
+  const plan = value.scenarioPlans!.plans[0]!;
+
+  plan.years = plan.years.map(year => ({
+    ...year,
+    annualYen: { min: 100, max: 200 },
+  }));
+
+  assert.throws(
+    () => buildPaidAssessmentDeliverableProjection(value),
+    /costBasis must be nonblank/,
+  );
+
+  plan.years = plan.years.map(year => ({
+    ...year,
+    costBasis: '年度別試算',
+  }));
+
+  const scenario = value.scenarios.scenarios.find(
+    s => s.id === 'scenario-ok',
+  )!;
+
+  scenario.investmentCharacter = 'QUALITATIVE_ONLY';
+  delete scenario.investmentEvidence;
+
+  assert.throws(
+    () => buildPaidAssessmentDeliverableProjection(value),
+    /Annual investment requires existing investment evidence/,
+  );
+});
+
+test('requires annual total to include the initial investment', () => {
+  const value = scenarioPlanInput();
+
+  value.investmentComparison!.entries = [{
+    ...value.investmentComparison!.entries[0]!,
+    monthlyPattern: 'VARIABLE_OR_UNCONFIRMED',
+  }];
+
+  const plan = value.scenarioPlans!.plans[0]!;
+
+  plan.years = plan.years.map(year => ({
+    ...year,
+    annualYen: { min: 10, max: 20 },
+    costBasis: '初期費用を含まない不適切な試算',
+  }));
+
+  assert.throws(
+    () => buildPaidAssessmentDeliverableProjection(value),
+    /First annual cost must include initial investment/,
+  );
+});
+
+test('rejects invalid years, scenario references and unrelated options', () => {
+  const invalidYear = scenarioPlanInput();
+  const plan = invalidYear.scenarioPlans!.plans[0]!;
+
+  plan.years = [
+    plan.years[0]!,
+    { ...plan.years[1]!, year: 3 },
+  ];
+
+  assert.throws(
+    () => buildPaidAssessmentDeliverableProjection(invalidYear),
+    /Plan years must be consecutive/,
+  );
+
+  const unrelated = scenarioPlanInput();
+
+  unrelated.scenarioPlans!.plans = [{
+    ...unrelated.scenarioPlans!.plans[0]!,
+    scenarioId: 'unknown-scenario',
+  }];
+
+  assert.throws(
+    () => buildPaidAssessmentDeliverableProjection(unrelated),
+    /Unknown plan scenario/,
+  );
+
+  const unrelatedOption = scenarioPlanInput();
+  const optionPlan = unrelatedOption.scenarioPlans!.plans[0]!;
+
+  optionPlan.years = optionPlan.years.map(year => ({
+    ...year,
+    optionIds: ['unrelated-act'],
+  }));
+
+  assert.throws(
+    () => buildPaidAssessmentDeliverableProjection(unrelatedOption),
+    /Plan option does not belong to scenario/,
+  );
+});
+
+test('flags missing plans, uncovered options and open questions', () => {
+  const missing = scenarioPlanInput();
+
+  missing.scenarioPlans!.plans = [];
+
+  const missingResult =
+    buildPaidAssessmentDeliverableProjection(missing);
+
+  assert.equal(missingResult.readiness, 'NEEDS_CONFIRMATION');
+
+  assert.ok(missingResult.reviewReasons.includes(
+    'SCENARIO_PLAN_NOT_ENTERED:scenario-ok',
+  ));
+
+  const incomplete = scenarioPlanInput();
+  const plan = incomplete.scenarioPlans!.plans[0]!;
+
+  plan.years = plan.years.map(year => ({
+    ...year,
+    optionIds: [],
+    openQuestions: ['実施条件を確認する'],
+  }));
+
+  const result =
+    buildPaidAssessmentDeliverableProjection(incomplete);
+
+  assert.equal(result.readiness, 'NEEDS_CONFIRMATION');
+
+  assert.ok(result.reviewReasons.some(reason =>
+    reason.startsWith('SCENARIO_PLAN_OPTION_NOT_COVERED:'),
+  ));
+
+  assert.ok(result.reviewReasons.some(reason =>
+    reason.startsWith('SCENARIO_PLAN_OPEN_QUESTIONS:'),
+  ));
+});
+
+test('retains blocked precedence and does not create decisions or execution plans', () => {
+  const value = scenarioPlanInput();
+
+  value.scenarios.scenarios.find(
+    s => s.id === 'scenario-ok',
+  )!.state = 'BLOCKED_BY_OPTION_EVIDENCE';
+
+  const before = structuredClone(value);
+
+  const baselineInput = structuredClone(value);
+  delete baselineInput.scenarioPlans;
+
+  const baseline =
+    buildPaidAssessmentDeliverableProjection(baselineInput);
+
+  const result =
+    buildPaidAssessmentDeliverableProjection(value);
+
+  assert.equal(baseline.readiness, 'BLOCKED_BY_EVIDENCE');
+  assert.equal(result.readiness, 'BLOCKED_BY_EVIDENCE');
+
+  assert.deepEqual(
+    result.references,
+    baseline.references,
+  );
+
+  assert.deepEqual(result.references.decisionIds, []);
+  assert.deepEqual(result.references.initialActionIds, []);
+  assert.deepEqual(result.references.roadmapIds, ['roadmap-ok']);
+  assert.deepEqual(result.references.optionIds, ['option-ok']);
+
+  assert.deepEqual(value, before);
+});
+
+test('preserves previous reports and detaches projected annual plans', () => {
+  const existing =
+    buildPaidAssessmentDeliverableProjection(investmentInput());
+
+  assert.equal('scenarioPlans' in existing, false);
+
+  const value = scenarioPlanInput();
+  const before = structuredClone(value);
+
+  const result =
+    buildPaidAssessmentDeliverableProjection(value);
+
+  assert.deepEqual(
+    result,
+    buildPaidAssessmentDeliverableProjection(value),
+  );
+
+  result.scenarioPlans!.plans[0]!.plan!
+    .years[0]!.activities.push('変更テスト');
+
+  result.scenarioPlans!.plans[0]!.plan!
+    .years[0]!.annualYen!.min = 999;
+
+  assert.deepEqual(value, before);
+});

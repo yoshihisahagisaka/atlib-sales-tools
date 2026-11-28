@@ -1,5 +1,9 @@
 import type { PreparationSourceRef } from './paidAssessmentPreparation';
 import {
+  buildScenarioPlans,
+  type ScenarioPlansInput,
+} from './paidAssessmentScenarioPlan';
+import {
   buildScenarioInvestmentComparison,
   type ScenarioInvestmentComparisonInput,
 } from './paidAssessmentInvestmentComparison';
@@ -90,6 +94,7 @@ export interface DeliverableProjectionInput {
   roadmap: RoadmapReviewResult;
   futureComparison?: FutureScenarioComparisonInput;
   investmentComparison?: ScenarioInvestmentComparisonInput;
+  scenarioPlans?: ScenarioPlansInput;
 }
 
 export type DeliverableReadiness =
@@ -104,6 +109,7 @@ export interface DeliverableProjection {
   sections: Array<DeliverableSectionDraft & { statements: DeliverableStatement[] }>;
   futureComparison?: ReturnType<typeof buildFutureScenarioComparison>;
   investmentComparison?: ReturnType<typeof buildScenarioInvestmentComparison>;
+  scenarioPlans?: ReturnType<typeof buildScenarioPlans>;
   evidenceIndex: Array<{
     statementId: string;
     kind: DeliverableStatementKind;
@@ -550,6 +556,87 @@ export function buildPaidAssessmentDeliverableProjection(
     }
   }
 
+  if (
+    input.scenarioPlans !== undefined &&
+    (
+      futureComparison === undefined ||
+      investmentComparison === undefined
+    )
+  ) {
+    throw new TypeError(
+      'Scenario plans require future and investment comparisons',
+    );
+  }
+
+  const scenarioPlans =
+    input.scenarioPlans === undefined
+      ? undefined
+      : buildScenarioPlans(
+          futureComparison!.scenarios,
+          investmentComparison!,
+          input.scenarioPlans,
+        );
+
+  if (scenarioPlans !== undefined) {
+    for (const column of scenarioPlans.plans) {
+      if (column.plan === null) {
+        pushUnique(
+          confirmationReasons,
+          confirmationReasonKeys,
+          `SCENARIO_PLAN_NOT_ENTERED:${column.scenarioId}`,
+        );
+        continue;
+      }
+
+      for (const id of column.plan.uncoveredOptionIds) {
+        pushUnique(
+          confirmationReasons,
+          confirmationReasonKeys,
+          `SCENARIO_PLAN_OPTION_NOT_COVERED:${JSON.stringify([column.scenarioId, id])}`,
+        );
+      }
+
+      for (const year of column.plan.years) {
+        if (year.openQuestions.length > 0) {
+          pushUnique(
+            confirmationReasons,
+            confirmationReasonKeys,
+            `SCENARIO_PLAN_OPEN_QUESTIONS:${JSON.stringify([column.scenarioId, year.year])}`,
+          );
+        }
+
+        for (const id of year.optionIds) {
+          const state = upstream.ACT_OPTION.get(id);
+
+          if (state === undefined) {
+            throw new TypeError('Unknown scenario plan ACT option');
+          }
+
+          const refKey = `ACT_OPTION\u0000${id}`;
+
+          if (!referencedKeys.has(refKey)) {
+            referencedKeys.add(refKey);
+            references.optionIds.push(id);
+          }
+
+          if (state === 'BLOCKED_BY_GAP_EVIDENCE') {
+            pushUnique(
+              blockedReasons,
+              blockedReasonKeys,
+              `UPSTREAM_BLOCKED:ACT_OPTION:${id}`,
+            );
+          } else if (state === 'NEEDS_CONFIRMATION') {
+            pushUnique(
+              confirmationReasons,
+              confirmationReasonKeys,
+              `UPSTREAM_REVIEW_NEEDED:ACT_OPTION:${id}`,
+            );
+          }
+        }
+      }
+    }
+  }
+
   if (inputSections.length === 0) {
     pushUnique(confirmationReasons, confirmationReasonKeys, 'NO_SECTIONS');
   }
@@ -584,6 +671,9 @@ export function buildPaidAssessmentDeliverableProjection(
     ...(investmentComparison === undefined
       ? {}
       : { investmentComparison }),
+    ...(scenarioPlans === undefined
+      ? {}
+      : { scenarioPlans }),
     readiness,
     reviewReasons,
   };
