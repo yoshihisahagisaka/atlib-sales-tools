@@ -79,12 +79,12 @@ const SOURCES = Object.freeze({
   CSP_HEADER_ABSENT: [['MDN CSP', 'https://developer.mozilla.org/ja/docs/Web/HTTP/Reference/Headers/Content-Security-Policy']], CSP_HEADER_PRESENT: [['MDN CSP', 'https://developer.mozilla.org/ja/docs/Web/HTTP/Reference/Headers/Content-Security-Policy']],
   FRAME_HEADER_ABSENT: [['MDN X-Frame-Options', 'https://developer.mozilla.org/ja/docs/Web/HTTP/Reference/Headers/X-Frame-Options'], ['MDN CSP frame-ancestors', 'https://developer.mozilla.org/ja/docs/Web/HTTP/Reference/Headers/Content-Security-Policy']],
   NOSNIFF_ENABLED: [['MDN X-Content-Type-Options', 'https://developer.mozilla.org/ja/docs/Web/HTTP/Reference/Headers/X-Content-Type-Options']], SPF_PRESENT: [['RFC 7208', 'https://www.rfc-editor.org/rfc/rfc7208']], SPF_MULTIPLE: [['RFC 7208', 'https://www.rfc-editor.org/rfc/rfc7208']],
-  DMARC_NONE: [['DMARC specification', 'https://www.rfc-editor.org/rfc/rfc7489']], DMARC_ENFORCING: [['DMARC specification', 'https://www.rfc-editor.org/rfc/rfc7489']], DMARC_ABSENT: [['DMARC specification', 'https://www.rfc-editor.org/rfc/rfc7489']]
+  DMARC_NONE: [['DMARC specification', 'https://www.rfc-editor.org/rfc/rfc9989']], DMARC_ENFORCING: [['DMARC specification', 'https://www.rfc-editor.org/rfc/rfc9989']], DMARC_ABSENT: [['DMARC specification', 'https://www.rfc-editor.org/rfc/rfc9989']]
 });
 
 export function evaluate(input, { rulesPath, explanationsPath } = {}) {
   if (!isObject(input)) throw new Error('入力JSONはオブジェクトである必要があります。');
-  const rules = rulesPath ? read(rulesPath) : { ruleVersion: 'WSC-R-1.0.0-draft' };
+  const rules = rulesPath ? read(rulesPath) : { ruleVersion: 'WSC-R-1.0.1-draft' };
   const explanations = explanationsPath ? read(explanationsPath).entries : null;
   if (!explanations) throw new Error('固定解説ファイルが必要です。');
   const findings = [];
@@ -121,19 +121,36 @@ export function evaluate(input, { rulesPath, explanationsPath } = {}) {
     if (text(headers['X-Content-Type-Options'])?.toLowerCase() === 'nosniff') add('NOSNIFF_ENABLED', '設定確認済み', [evidence('X-Content-Type-Options', headers['X-Content-Type-Options'])]);
   } else if (http) internalOnly.push('HTTP: OK応答ではないためヘッダー不在を判定しない');
 
+  const spfScope = text(spf?.checkedDomain) ? [evidence('SPF確認ドメイン', spf.checkedDomain)] : [];
   if (spf && spf.lookupStatus === 'FOUND' && Array.isArray(spf.records) && Number.isInteger(spf.recordCount) && spf.recordCount === spf.records.length) {
-    if (spf.recordCount === 1 && typeof spf.records[0] === 'string' && /^v=spf1(?:\s|$)/i.test(spf.records[0])) add('SPF_PRESENT', '設定確認済み', [evidence('SPFレコード', spf.records[0]), evidence('レコード数', spf.recordCount)]);
-    else if (spf.recordCount > 1) add('SPF_MULTIPLE', '追加確認推奨', [evidence('レコード数', spf.recordCount)]);
+    if (spf.recordCount === 1 && typeof spf.records[0] === 'string' && /^v=spf1(?:\s|$)/i.test(spf.records[0])) add('SPF_PRESENT', '設定確認済み', [evidence('SPFレコード', spf.records[0]), evidence('レコード数', spf.recordCount), ...spfScope]);
+    else if (spf.recordCount > 1) add('SPF_MULTIPLE', '追加確認推奨', [evidence('レコード数', spf.recordCount), ...spfScope]);
     else internalOnly.push('SPF: 形式が未定義');
+    if (text(spf.checkedDomain) && text(input.mailDomain) && spf.checkedDomain !== input.mailDomain.toLowerCase().replace(/\.$/, '') && ['SPF_PRESENT','SPF_MULTIPLE'].includes(findings.at(-1)?.id)) {
+      const finding = findings.at(-1);
+      finding.evidenceExplanation = '確認ドメイン（' + spf.checkedDomain + '）に公開されたSPFレコードの情報です。Webサイトのホスト名への継承や実際のメール送信元は検証していません。' + (finding.id === 'SPF_PRESENT' ? '参照先を含む設定全体の妥当性は検証していません。' : '同じドメインに複数のSPFレコードが見つかりました。');
+    }
   } else if (spf) internalOnly.push('SPF: DNS取得状態またはレコード型が判定不能');
 
-  const p = dmarc && isObject(dmarc.tags) ? text(dmarc.tags.p)?.toLowerCase() : null;
-  if (dmarc && dmarc.lookupStatus === 'FOUND' && Array.isArray(dmarc.records) && dmarc.recordCount === 1) {
-    if (p === 'none') add('DMARC_NONE', '追加確認推奨', [evidence('DMARCレコード', dmarc.records.join(' ')), evidence('p値', p)]);
-    else if (p === 'quarantine' || p === 'reject') add('DMARC_ENFORCING', '設定確認済み', [evidence('p値', p)]);
+  // Legacy offline input remains readable; new acquisitions carry a separately
+  // derived effective policy so a parent's sp is never confused with raw p.
+  const p = dmarc && isObject(dmarc.tags) ? (Object.hasOwn(dmarc, 'effectivePolicy') ? text(dmarc.effectivePolicy) : text(dmarc.tags.p))?.toLowerCase() : null;
+  const policyDomain = text(dmarc?.policyDomain);
+  const checkedDomain = text(dmarc?.checkedDomain);
+  const policyTag = text(dmarc?.policyTag);
+  const dmarcScope = policyDomain && checkedDomain ? [evidence('DMARC確認ドメイン', checkedDomain), evidence('レコード取得ドメイン', policyDomain), evidence('適用ポリシーのタグ', policyTag), ...(dmarc.policySource === 'PSD' ? [evidence('ポリシー取得元', 'PSD', '公開サフィックスドメイン')] : [])] : [];
+  if (dmarc && dmarc.lookupStatus === 'FOUND' && Array.isArray(dmarc.records) && dmarc.recordCount === 1 && dmarc.records.length === 1) {
+    if (p === 'none') add('DMARC_NONE', '追加確認推奨', [evidence('DMARCレコード', dmarc.records.join(' ')), evidence(policyDomain && policyDomain !== checkedDomain ? '適用ポリシー' : 'p値', p), ...dmarcScope]);
+    else if (p === 'quarantine' || p === 'reject') add('DMARC_ENFORCING', '設定確認済み', [evidence(policyDomain && policyDomain !== checkedDomain ? '適用ポリシー' : 'p値', p), ...dmarcScope]);
     else internalOnly.push('DMARC: p値が未定義');
-  } else if (dmarc && dmarc.lookupStatus === 'NO_RECORD') add('DMARC_ABSENT', '追加確認推奨', [evidence('DNS取得状態', dmarc.lookupStatus)]);
-  else if (dmarc) internalOnly.push('DMARC: DNS取得状態またはレコード型が判定不能');
+    if (policyDomain && checkedDomain && policyDomain !== checkedDomain && ['DMARC_NONE','DMARC_ENFORCING'].includes(findings.at(-1)?.id)) {
+      findings.at(-1).evidenceExplanation = '確認ドメイン（' + checkedDomain + '）には上位ドメイン（' + policyDomain + '）のDMARC方針が適用されます。' + policyTag + '=' + p + (p === 'none' ? ' のため、認証に失敗したメールの隔離や拒否を受信側へ要求しない指定です。' : ' により、認証に失敗したメールの隔離または拒否を受信側へ求める指定です。実際の配信・認証状況は検証していません。');
+    }
+  } else if (dmarc && dmarc.lookupStatus === 'NO_RECORD') {
+    const domains = Array.isArray(dmarc.queriedDomains) && dmarc.queriedDomains.every(value => typeof value === 'string') ? dmarc.queriedDomains : [];
+    add('DMARC_ABSENT', '追加確認推奨', [evidence('DNS取得状態', dmarc.lookupStatus), ...(checkedDomain ? [evidence('DMARC確認ドメイン', checkedDomain)] : []), ...(domains.length ? [evidence('探索ドメイン', domains.join(', '))] : [])]);
+    if (checkedDomain && domains.length) findings.at(-1).evidenceExplanation = '確認ドメイン（' + checkedDomain + '）と上位ドメインをDNSで探索し、適用されるDMARCレコードを確認できませんでした。';
+  } else if (dmarc) internalOnly.push('DMARC: DNS取得状態またはレコード型が判定不能');
 
   return { ruleVersion: rules.ruleVersion, contentVersion: read(explanationsPath).contentVersion, checkedAt: text(input.checkedAt), targetUrl: text(input.targetUrl), findings, internalOnly };
 }
