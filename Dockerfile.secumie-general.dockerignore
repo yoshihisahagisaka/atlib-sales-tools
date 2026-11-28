@@ -1,0 +1,15 @@
+**
+!Dockerfile.secumie-general
+!package.json
+!package-lock.json
+!tsconfig.json
+!src/
+!src/**
+!prototypes/
+!prototypes/secumie-general/
+!prototypes/secumie-general/**
+!prototypes/pira-union-diagnosis-v2/
+!prototypes/pira-union-diagnosis-v2/**
+**/.env*
+**/*.pem
+**/*.key

@@ -5,17 +5,20 @@ const privateV4 = (ip) => {
   const [a, b, c] = ipv4(ip);
   return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 0 && c === 0) || (a === 192 && b === 0 && c === 2) || (a === 192 && b === 88 && c === 99) || (a === 192 && b === 168) || (a === 198 && (b === 18 || b === 19)) || (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113) || a >= 224;
 };
-const privateV6 = (ip) => {
-  const value = ip.toLowerCase();
-  return value === '::' || value === '::1' || value.startsWith('::ffff:') || value.startsWith('::') || value.startsWith('fc') || value.startsWith('fd') || value.startsWith('fe80:') || value.startsWith('ff') || value.startsWith('64:ff9b:') || value.startsWith('64:ff9b:1:') || value.startsWith('100:') || value.startsWith('2001:db8:') || value.startsWith('2001:10:');
-};
+// Accept only currently allocated global unicast space; reject special-purpose
+// and transition ranges, including alternate spellings via BlockList parsing.
+const globalV6 = new net.BlockList();
+globalV6.addSubnet('2000::', 3, 'ipv6');
+const specialV6 = new net.BlockList();
+for (const [prefix, bits] of [['2001::',23],['2001:db8::',32],['2002::',16],['3fff::',20]]) specialV6.addSubnet(prefix,bits,'ipv6');
+const privateV6 = (ip) => ip.includes('%') || !globalV6.check(ip,'ipv6') || specialV6.check(ip,'ipv6');
 export const isPublicAddress = (ip) => net.isIP(ip) === 4 ? !privateV4(ip) : net.isIP(ip) === 6 && !privateV6(ip);
 
 export function validatePublicTarget(value, resolve) {
   let url;
   try { url = new URL(value); } catch { throw new Error('URL_INVALID'); }
   if (url.protocol !== 'https:' || url.port && url.port !== '443' || url.username || url.password) throw new Error('URL_NOT_ALLOWED');
-  if (url.hostname === 'localhost' || net.isIP(url.hostname) || url.hostname.endsWith('.local')) throw new Error('URL_HOST_NOT_PUBLIC');
+  if (url.hostname === 'localhost' || net.isIP(url.hostname.replace(/^\[|\]$/g, '')) || url.hostname.endsWith('.local')) throw new Error('URL_HOST_NOT_PUBLIC');
   const addresses = resolve(url.hostname);
   if (!Array.isArray(addresses) || !addresses.length || addresses.some(ip => !isPublicAddress(ip))) throw new Error('DNS_NOT_PUBLIC');
   return { url: url.toString(), host: url.hostname.toLowerCase(), addresses: [...new Set(addresses)].sort() };
