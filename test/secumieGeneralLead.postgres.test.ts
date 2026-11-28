@@ -41,6 +41,8 @@ test('isolated PostgreSQL 16: durable general intake, replay, independent diagno
   assert.equal(await repo.complete('WEB',first.receipt,{synthetic:true}),true);
   assert.equal(await repo.complete('WEB',first.receipt,{synthetic:false}),false);
   assert.equal(await repo.fail('WEB',first.receipt),false);
+  assert.deepEqual(await repo.getCompleted('WEB',first.receipt),{synthetic:true});
+  assert.equal(await repo.getCompleted('INSIGHT',first.receipt),null);
   assert.equal(await repo.complete('INSIGHT',insight.receipt,{answers:['synthetic']}),true);
   const list=await admin.list({limit:50,offset:0});
   assert.equal(list.total,2);assert.equal(list.summary.web_completed,1);assert.equal(list.summary.insight_completed,1);assert.equal(list.summary.consultations,0);
